@@ -1,17 +1,47 @@
+import type { ReactNode } from 'react';
+import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
-import { cardFromIndex, cardValue, fullDeck, isRed, RANKS, SUITS } from '../shared/deck';
+import { cardFromIndex, cardValue, fullDeck, isRed, RANKS, SUIT_ICONS, SUIT_NAMES } from '../shared/deck';
 import { PlayingCard } from '../shared/PlayingCard';
 import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 
-const QUESTIONS = [
-  { q: 'Rot oder Schwarz?', options: [{ id: 'rot', label: '🟥 Rot' }, { id: 'schwarz', label: '⬛️ Schwarz' }] },
-  { q: 'Höher oder tiefer?', options: [{ id: 'hoch', label: '⬆️ Höher' }, { id: 'tief', label: '⬇️ Tiefer' }] },
-  { q: 'Dazwischen oder außerhalb?', options: [{ id: 'innen', label: '↔️ Dazwischen' }, { id: 'außen', label: '↕️ Außerhalb' }] },
-  { q: 'Welche Farbe?', options: SUITS.map((s, i) => ({ id: String(i), label: s })) },
+const QUESTIONS: { q: string; options: { id: string; label: ReactNode }[] }[] = [
+  {
+    q: 'Rot oder Schwarz?',
+    options: [
+      { id: 'rot', label: <><span className="suitdot suitdot--red" /> Rot</> },
+      { id: 'schwarz', label: <><span className="suitdot suitdot--black" /> Schwarz</> },
+    ],
+  },
+  {
+    q: 'Höher oder tiefer?',
+    options: [
+      { id: 'hoch', label: <><Icon name="arrowUp" size={19} /> Höher</> },
+      { id: 'tief', label: <><Icon name="arrowDown" size={19} /> Tiefer</> },
+    ],
+  },
+  {
+    q: 'Dazwischen oder außerhalb?',
+    options: [
+      { id: 'innen', label: <><Icon name="brackets" size={19} /> Dazwischen</> },
+      { id: 'außen', label: <><Icon name="outward" size={19} /> Außerhalb</> },
+    ],
+  },
+  {
+    q: 'Welche Farbe?',
+    options: SUIT_ICONS.map((icon, i) => ({
+      id: String(i),
+      label: (
+        <span className={i === 1 || i === 2 ? 'suit-red' : undefined}>
+          <Icon name={icon} size={22} title={SUIT_NAMES[i]} />
+        </span>
+      ),
+    })),
+  },
 ];
 
 /** Strafschlucke für aufgedeckte Bildkarten auf der Busfahrt. */
@@ -40,7 +70,7 @@ export const busfahrer: GameDefinition<State> = {
   id: 'busfahrer',
   name: 'Busfahrer',
   tagline: 'Vier Fragen. Ein Verlierer. Eine lange Fahrt.',
-  emoji: '🚌',
+  icon: 'bus',
   accent: 'var(--yellow)',
   minPlayers: 3,
   maxPlayers: 12,
@@ -208,8 +238,8 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
         {state.lastResult ? (
           <div className="stack-3">
             <BigCard tone={state.lastResult.correct ? 'default' : 'danger'} kicker={state.lastResult.correct ? 'Richtig' : 'Daneben'}>
-              {RANKS[cardFromIndex(state.lastResult.card).rank]}
-              {SUITS[cardFromIndex(state.lastResult.card).suit]}
+              {RANKS[cardFromIndex(state.lastResult.card).rank]}{' '}
+              {SUIT_NAMES[cardFromIndex(state.lastResult.card).suit]}
               {state.lastResult.correct ? ' – sauber.' : ' – das war nichts.'}
             </BigCard>
             {!state.lastResult.correct && (
@@ -247,7 +277,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
   if (state.phase === 'done') {
     return (
       <GameFrame title={busfahrer.name} accent={busfahrer.accent} subtitle="Angekommen" onQuit={quit}>
-        <BigCard kicker="🚌 Endstation">
+        <BigCard kicker="Endstation">
           {driver?.name} hat es geschafft – nach {state.busAttempts}{' '}
           {state.busAttempts === 1 ? 'Versuch' : 'Versuchen'}.
         </BigCard>

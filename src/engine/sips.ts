@@ -37,11 +37,18 @@ export function personalSips(ctx: SipContext): SipResult {
   const now = ctx.now ?? Date.now();
   const unit = (n: number) => sipUnit(drink, n);
 
-  if (profile.alcoholFree || profile.age < MIN_AGE_ALCOHOL || drink.abvPercent <= 0) {
+  if (
+    profile.alcoholFree ||
+    profile.designatedDriver ||
+    profile.age < MIN_AGE_ALCOHOL ||
+    drink.abvPercent <= 0
+  ) {
     return {
       sips: 0,
       phase: 'blocked',
-      hint: 'Alkoholfrei – du machst stattdessen die Aufgabe.',
+      hint: profile.designatedDriver
+        ? 'Du fährst heute. Für dich gibt es die Aufgabe statt der Schlucke.'
+        : 'Alkoholfrei – du machst stattdessen die Aufgabe.',
       unit: unit(0),
       alcoholGrams: 0,
     };

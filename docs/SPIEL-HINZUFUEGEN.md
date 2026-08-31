@@ -19,7 +19,7 @@ export const kategorien = createCardGame({
   id: 'kategorien',
   name: 'Kategorien',
   tagline: 'Reihum ein Beispiel. Wer hängt, trinkt.',
-  emoji: '🗂️',
+  icon: 'cards',
   accent: 'var(--mint)',
   minPlayers: 3,
   maxPlayers: 16,
@@ -32,7 +32,7 @@ export const kategorien = createCardGame({
   baseSips: 3,          // 3 = normal, 1 = mild, 6 = Strafe
   drink: 'actor',       // 'actor' | 'all' | 'none' | 'self-declare'
   resolveLabel: 'Erledigt',
-  heatSelectable: true, // blendet den 🌶-Regler ein
+  heatSelectable: true, // blendet den Härtegrad-Regler ein
 
   cards: [
     { text: 'Biersorten', heat: 1 },
@@ -47,6 +47,11 @@ Spieleliste, Filter, Detailseite, Lobby-Vorschläge und Trinkansage funktioniere
 
 ### Die Felder im Detail
 
+> `icon` ist ein Name aus `src/components/icons`. Die App benutzt bewusst keine
+> Emojis: die sehen auf iOS, Android und Windows unterschiedlich aus und lassen
+> sich nicht einfärben. Fehlt ein passendes Icon, ergänze es dort – ein Pfad im
+> 24×24-Raster, `currentColor`, Strichstärke 1.7.
+
 | Feld | Bedeutung |
 |:--|:--|
 | `actor` | `'turn'`: eine Person ist am Zug. `'none'`: die Karte gilt der ganzen Runde. |
@@ -54,6 +59,7 @@ Spieleliste, Filter, Detailseite, Lobby-Vorschläge und Trinkansage funktioniere
 | `drink` | Wer nach dem Erledigen trinkt. `'self-declare'` = jede Person entscheidet selbst (Ich hab noch nie). |
 | `refuseLabel` / `refuseSips` | Blendet einen Kneifen-Knopf ein und setzt die Strafe. |
 | `heatSelectable` | Zeigt den Härtegrad-Regler. Karten mit `heat` über der Einstellung werden ausgeblendet. |
+| `allowCustomCards` | Erlaubt eigene Karten im Spieldetail. Sie liegen lokal; in einer Lobby mischt der Host seine mit in den Stapel. |
 | Karte: `target` | `'actor'` oder `'all'` — überschreibt `drink` für diese eine Karte. |
 | Karte: `sips` | Überschreibt `baseSips` für diese eine Karte. `0` = niemand trinkt (z. B. Wasserrunde). |
 
@@ -108,7 +114,9 @@ export const meinSpiel: GameDefinition<State> = {
 1. **`reduce` läuft nur beim Host.** Zufall (`Math.random`, `Date.now`) ist dort erlaubt und
    erwünscht — nur so sehen alle dasselbe gemischte Deck.
 2. **Der Zustand muss durch `JSON.stringify` und zurück überleben.** Keine `Map`, kein `Set`,
-   keine `Date`-Objekte, keine Funktionen. Zeitstempel als Zahl.
+   keine `Date`-Objekte, keine Funktionen. Zeitstempel als Zahl. Aus demselben Grund liegt
+   der Kartenstapel als *Inhalt* im Zustand und nicht als Index: eigene Karten würden die
+   Nummerierung sonst zwischen den Geräten verschieben.
 3. **Nie eigene Schluckzahlen ausrechnen.** Gib `baseSips` an `<DrinkCall>` und lass die
    Engine übersetzen. Nur so bekommt jede Person die Menge, die zu ihrem Körper und ihrem
    Getränk passt.
@@ -129,6 +137,8 @@ export const meinSpiel: GameDefinition<State> = {
 | `Countdown`, `Ring` | Timer-Anzeigen |
 | `PlayerChip`, `WaitingFor` | Spieleranzeige, Warten-auf-Zustand |
 | `PlayingCard`, `fullDeck()`, `cardFromIndex()` | Französisches Blatt |
+| `Icon`, `HeatIcons` | Das Icon-Set – nie Emojis verwenden |
+| `Avatar` | Monogramm-Avatar aus Name und Farbe |
 | `shuffle()`, `pick()` | Zufall aus `src/lib/format.ts` |
 | `haptic()` | Vibrationsfeedback |
 

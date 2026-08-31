@@ -1,3 +1,6 @@
+import type { AvatarColor } from '../components/ui/Avatar';
+import type { IconName } from '../components/icons';
+
 export type Sex = 'male' | 'female' | 'diverse';
 
 /** Wie voll der Magen ist – steuert die Resorptionsgeschwindigkeit. */
@@ -9,7 +12,7 @@ export interface DrinkDefinition {
   id: string;
   name: string;
   category: DrinkCategory;
-  emoji: string;
+  icon: IconName;
   /** Uebliche Gebindegröße in ml (nur für die Anzeige "1 Glas = x Schluck"). */
   defaultVolumeMl: number;
   abvPercent: number;
@@ -22,7 +25,8 @@ export interface DrinkDefinition {
 
 export interface Profile {
   name: string;
-  emoji: string;
+  /** Avatarfarbe – die Initialen kommen aus dem Namen. */
+  color: AvatarColor;
   age: number;
   weightKg: number;
   /** Optional – schaltet die präzisere Watson-Schätzung frei. */
@@ -31,8 +35,11 @@ export interface Profile {
   stomach: StomachState;
   /** Ziel-Blutalkohol in Promille. Default 0.4. */
   targetBac: number;
-  /** Spieler trinkt bewusst keinen Alkohol (Fahrer, U18, Pause). */
+  /** Spieler trinkt bewusst keinen Alkohol (U18, Pause, eigener Wunsch). */
   alcoholFree: boolean;
+  /** Übernimmt heute den Heimweg – impliziert alkoholfrei und ist für die
+   *  Runde sichtbar, damit niemand nachschenkt. */
+  designatedDriver: boolean;
 }
 
 export interface DrinkEvent {

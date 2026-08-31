@@ -18,15 +18,16 @@ const HOUR = 3_600_000;
 
 const max: Profile = {
   name: 'Max',
-  emoji: '🍺',
+  color: 'blue',
   age: 28,
   weightKg: 85,
   sex: 'male',
   stomach: 'light',
   targetBac: 0.4,
   alcoholFree: false,
+  designatedDriver: false,
 };
-const lisa: Profile = { ...max, name: 'Lisa', weightKg: 60, sex: 'female', emoji: '🍹' };
+const lisa: Profile = { ...max, name: 'Lisa', weightKg: 60, sex: 'female', color: 'pink' };
 
 describe('alcoholGrams', () => {
   it('rechnet 500 ml Bier mit 5 % in ~19.7 g reinen Alkohol um', () => {
@@ -206,6 +207,18 @@ describe('personalSips', () => {
     const events = [makeDrinkEvent(shot, 3, 'test', t0 - 60_000)];
     const res = personalSips({ profile: lisa, drink: shot, events, baseSips: 3, now: t0 });
     expect(res.sips).toBe(0);
+  });
+
+  it('gibt einem designierten Fahrer nie Schlucke', () => {
+    const res = personalSips({
+      profile: { ...max, designatedDriver: true },
+      drink: beer,
+      events: [],
+      baseSips: 6,
+    });
+    expect(res.sips).toBe(0);
+    expect(res.phase).toBe('blocked');
+    expect(res.hint).toMatch(/f[äa]hrst/i);
   });
 
   it('blockt bei alkoholfreiem Modus komplett', () => {

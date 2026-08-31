@@ -1,3 +1,4 @@
+import { DriverCard } from '../bac/DriverCard';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ZONE_META, bacZone, soberAt } from '../../engine/bac';
@@ -8,6 +9,8 @@ import { BacGauge } from '../bac/BacGauge';
 import { useLiveBac } from '../bac/useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
 import { NavBar } from '../../components/ui';
+import { Avatar } from '../../components/ui/Avatar';
+import { Icon } from '../../components/icons';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 import { useParty } from '../party/PartyContext';
@@ -35,8 +38,8 @@ export function Home() {
       <NavBar
         title={<span className="t-headline">Pegel</span>}
         right={
-          <Link to="/profil" className="avatar pressable" aria-label="Profil">
-            {profile.emoji}
+          <Link to="/profil" className="pressable" aria-label="Profil">
+            <Avatar name={profile.name} color={profile.color} />
           </Link>
         }
       />
@@ -60,7 +63,8 @@ export function Home() {
           />
           <div className="row-between">
             <button className="chip pressable" onClick={() => setPickerOpen(true)}>
-              {drink.emoji} {drink.name} · wechseln
+              <Icon name={drink.icon} size={15} />
+              {drink.name} · wechseln
             </button>
             <Link to="/pegel" className="btn btn--plain">
               Details
@@ -72,6 +76,8 @@ export function Home() {
             </div>
           )}
         </section>
+
+        <DriverCard />
 
         <section className="stack-3">
           {party.code ? (
@@ -85,10 +91,10 @@ export function Home() {
           )}
           <div className="grid-2">
             <button className="btn btn--glass" onClick={() => nav('/spiele')}>
-              🎲 Alle Spiele
+              <Icon name="games" size={18} /> Alle Spiele
             </button>
             <button className="btn btn--glass" onClick={() => nav('/pegel')}>
-              🚗 Fahr-Check
+              <Icon name="car" size={18} /> Fahr-Check
             </button>
           </div>
         </section>
@@ -100,9 +106,11 @@ export function Home() {
               Alle
             </Link>
           </div>
+          <div className="stack-3 stagger">
           {suggested.map((g) => (
             <GameCard key={g.id} game={g} onClick={() => nav(`/spiele/${g.id}`)} />
           ))}
+          </div>
         </section>
       </div>
 

@@ -66,45 +66,20 @@ a {
   isolation: isolate;
 }
 
-/* Living aurora backdrop -- subtil, damit es nicht vom Inhalt ablenkt */
+/* Ruhiger Farbschimmer am oberen Rand statt wandernder Farbwolken:
+   gibt dem schwarzen Grund Tiefe, ohne vom Inhalt abzulenken. */
 .aurora {
   position: fixed;
-  inset: -20% -20% auto -20%;
-  height: 70vh;
+  inset: 0 0 auto 0;
+  height: 46vh;
   z-index: -1;
   pointer-events: none;
-  filter: blur(70px) saturate(140%);
-  opacity: 0.5;
+  background:
+    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 24%, transparent), transparent 70%);
 }
-.aurora::before,
-.aurora::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-}
-.aurora::before {
-  width: 60vw;
-  height: 60vw;
-  left: 4%;
-  top: 2%;
-  background: radial-gradient(circle, var(--brand-2), transparent 66%);
-  animation: drift 22s var(--ease-out) infinite alternate;
-}
-.aurora::after {
-  width: 55vw;
-  height: 55vw;
-  right: 2%;
-  top: 16%;
-  background: radial-gradient(circle, var(--pink), transparent 66%);
-  animation: drift 18s var(--ease-out) infinite alternate-reverse;
-}
-@keyframes drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(8vw, 6vh, 0) scale(1.18);
-  }
+[data-theme='light'] .aurora {
+  background:
+    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 70%);
 }
 
 .screen {
@@ -342,16 +317,13 @@ a {
   --btn-fg: var(--red);
 }
 .btn--brand {
-  --btn-fg: #fff;
-  background: linear-gradient(135deg, var(--brand-2), var(--brand) 55%, var(--pink));
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--brand) 32%, transparent);
+  --btn-bg: var(--brand);
+  --btn-fg: var(--brand-ink);
 }
 .btn--glass {
   --btn-bg: var(--surface);
   --btn-fg: var(--label);
   border: 1px solid var(--hairline);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 .grid-2 > .btn {
@@ -362,8 +334,6 @@ a {
 /* ---------- Cards & lists ---------- */
 .card {
   background: var(--surface);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   padding: var(--s-4);
@@ -379,8 +349,6 @@ a {
 
 .list {
   background: var(--surface);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   overflow: hidden;
@@ -555,27 +523,71 @@ textarea.input {
   place-items: center;
 }
 
-/* ---------- Avatar ---------- */
+/* ---------- Avatar: Initialen auf Farbverlauf statt Emoji ---------- */
 .avatar {
+  --avatar-color: var(--indigo);
   width: 40px;
   height: 40px;
   border-radius: var(--r-full);
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  font-size: 20px;
-  background: var(--surface-2);
   flex-shrink: 0;
-  border: 1px solid var(--hairline);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #fff;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--avatar-color) 88%, white),
+    var(--avatar-color)
+  );
+  text-transform: uppercase;
+  user-select: none;
 }
 .avatar--lg {
-  width: 64px;
-  height: 64px;
-  font-size: 32px;
+  width: 68px;
+  height: 68px;
+  font-size: 26px;
 }
 .avatar--sm {
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+/* Farbwähler statt Emoji-Auswahl */
+.swatch {
+  --avatar-color: var(--indigo);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--avatar-color) 88%, white),
+    var(--avatar-color)
+  );
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.swatch--on {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--avatar-color);
+}
+
+/* Neutraler Icon-Container in Listen */
+.listicon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--label-2);
 }
 
 /* ---------- Tab bar ---------- */
@@ -614,8 +626,7 @@ textarea.input {
   color: var(--brand);
 }
 .tabbar__icon {
-  font-size: 21px;
-  line-height: 1;
+  display: block;
 }
 
 /* ---------- Sheet / modal ---------- */
@@ -759,9 +770,48 @@ textarea.input {
 .toggle--on .toggle__knob {
   transform: translateX(20px);
 }
-.avatar--selected {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand);
+/* Härtegrad: gefüllte vs. leere Flammen */
+.heat {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.heat--on {
+  color: var(--orange);
+}
+.heat--off {
+  color: var(--label-4);
+}
+
+/* Farbpunkte für Rot/Schwarz im Busfahrer */
+.suitdot {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.suitdot--red {
+  background: #e2384f;
+}
+.suitdot--black {
+  background: var(--label);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.suit-red {
+  color: #e2384f;
+}
+
+/* Icons in Buttons und Chips sauber ausrichten */
+.btn,
+.chip,
+.choice__btn {
+  align-items: center;
+}
+.segmented__opt--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
 }
 
 /* ---------- Pegel-Anzeige ---------- */
@@ -839,11 +889,10 @@ textarea.input {
   padding-bottom: var(--s-2);
 }
 .hero-mark {
-  font-size: 76px;
-  text-align: center;
-  line-height: 1;
-  filter: drop-shadow(0 12px 32px color-mix(in srgb, var(--brand) 45%, transparent));
-  animation: float 4s var(--ease-out) infinite alternate;
+  display: flex;
+  justify-content: center;
+  color: var(--brand);
+  animation: float 5s var(--ease-out) infinite alternate;
 }
 @keyframes float {
   to {
@@ -901,8 +950,11 @@ textarea.input {
   border-color: var(--brand);
   background: color-mix(in srgb, var(--brand) 16%, transparent);
 }
-.drinktile__emoji {
-  font-size: 26px;
+.drinktile__icon {
+  color: var(--label);
+}
+.drinktile--on .drinktile__icon {
+  color: var(--brand);
 }
 .drinktile__name {
   font-size: 12px;
@@ -972,8 +1024,6 @@ textarea.input {
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
   background: var(--surface);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
   text-align: left;
   overflow: hidden;
 }
@@ -982,21 +1032,22 @@ textarea.input {
 }
 .gamecard__glow {
   position: absolute;
-  inset: -40% 40% 40% -40%;
-  background: radial-gradient(circle, var(--accent), transparent 68%);
-  opacity: 0.28;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.9;
   pointer-events: none;
 }
-.gamecard__emoji {
+.gamecard__icon {
   position: relative;
   width: 46px;
   height: 46px;
-  border-radius: var(--r-sm);
+  border-radius: 13px;
   display: grid;
   place-items: center;
-  font-size: 26px;
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   flex-shrink: 0;
 }
 .gamecard .grow {
@@ -1012,10 +1063,15 @@ textarea.input {
   text-align: center;
   padding: var(--s-4) 0;
 }
-.gamehero__emoji {
-  font-size: 66px;
-  line-height: 1;
-  filter: drop-shadow(0 10px 28px color-mix(in srgb, var(--accent) 50%, transparent));
+.gamehero__icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
 }
 .howto {
   margin: 0;
@@ -1168,4 +1224,141 @@ textarea.input {
 .connstate--offline .connstate__dot,
 .connstate--error .connstate__dot {
   background: var(--red);
+}
+
+/* ---------- QR-Code ---------- */
+.qrwrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  animation: pop-in var(--dur) var(--ease-spring) both;
+}
+.qr {
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Gruppen-Pegel (nur Zonen) ---------- */
+.zonebar {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.zonebar__seg {
+  border-radius: var(--r-full);
+  animation: grow-x var(--dur-slow) var(--ease-emph) both;
+}
+@keyframes grow-x {
+  from {
+    flex-grow: 0.001;
+  }
+}
+
+/* ---------- Fahrer-Karte ---------- */
+.drivercard {
+  border-color: color-mix(in srgb, var(--teal) 40%, transparent);
+  background: color-mix(in srgb, var(--teal) 9%, var(--surface));
+}
+.drivercard__badge {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-full);
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 20%, transparent);
+  flex-shrink: 0;
+}
+.drivercard__glass {
+  color: var(--label-4);
+}
+.drivercard__glass--on {
+  color: var(--teal);
+  animation: pop-in var(--dur-fast) var(--ease-spring) both;
+}
+.drivertag {
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--teal) 22%, transparent);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ---------- Abend-Rückblick ---------- */
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-4);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(120% 90% at 50% -20%, color-mix(in srgb, var(--brand) 26%, transparent), transparent 68%),
+    var(--surface);
+}
+.review__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-2);
+}
+.review__tile {
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--label) 6%, transparent);
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.review__value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+/* ---------- Bewegung in der Navigation ---------- */
+.tabbar__item[aria-current='page'] .tabbar__icon {
+  animation: tab-pop 340ms var(--ease-spring) both;
+}
+@keyframes tab-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Listen und Karten laufen gestaffelt ein */
+.stagger > * {
+  animation: rise var(--dur) var(--ease-emph) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 45ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 135ms; }
+.stagger > *:nth-child(5) { animation-delay: 180ms; }
+.stagger > *:nth-child(n + 6) { animation-delay: 220ms; }
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+/* Der Pegelzeiger baut sich beim Erscheinen auf */
+.gauge__value {
+  animation: sweep var(--dur-slow) var(--ease-emph) both;
+}
+@keyframes sweep {
+  from {
+    stroke-dasharray: 0 999;
+  }
 }

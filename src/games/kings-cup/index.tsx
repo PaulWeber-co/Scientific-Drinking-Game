@@ -46,7 +46,7 @@ export const kingsCup: GameDefinition<State> = {
   id: 'kings-cup',
   name: 'Ring of Fire',
   tagline: 'Kings Cup. 52 Karten, 13 Regeln, ein Becher.',
-  emoji: '👑',
+  icon: 'crown',
   accent: 'var(--red)',
   minPlayers: 3,
   maxPlayers: 16,
@@ -120,7 +120,7 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
     <GameFrame
       title={kingsCup.name}
       accent={kingsCup.accent}
-      subtitle={`${state.deck.length} Karten · 👑 ${state.kings}/4`}
+      subtitle={`${state.deck.length} Karten · ${state.kings}/4 Könige`}
       onQuit={quit}
     >
       <div className="row" style={{ justifyContent: 'center' }}>
@@ -132,7 +132,7 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
       </div>
 
       {rule && card ? (
-        <BigCard kicker={state.finalKing ? '👑 Vierter König' : rule.title} animateKey={state.drawn ?? 0}>
+        <BigCard kicker={state.finalKing ? 'Vierter König' : rule.title} animateKey={state.drawn ?? 0}>
           {state.finalKing ? 'Du trinkst den Becher. Alles. Viel Erfolg.' : rule.text}
         </BigCard>
       ) : (

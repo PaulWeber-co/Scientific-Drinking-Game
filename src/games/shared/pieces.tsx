@@ -1,3 +1,5 @@
+import { Icon } from '../../components/icons';
+import { Avatar } from '../../components/ui/Avatar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GamePlayer } from '../types';
 
@@ -27,9 +29,9 @@ export function BigCard({
 export function PlayerChip({ player, note }: { player: GamePlayer; note?: ReactNode }) {
   return (
     <span className={`pchip ${player.online === false ? 'pchip--off' : ''}`}>
-      <span className="pchip__emoji">{player.emoji}</span>
+      <Avatar name={player.name} color={player.color} size="sm" />
       <span className="pchip__name">{player.name}</span>
-      {player.drinkEmoji && <span className="pchip__drink">{player.drinkEmoji}</span>}
+      {player.drinkIcon && <Icon name={player.drinkIcon} size={15} className="pchip__drink" />}
       {note && <span className="t-caption">{note}</span>}
     </span>
   );
@@ -118,4 +120,93 @@ export function Choice({
       ))}
     </div>
   );
+}
+
+/** Gleichzeitige Abstimmung auf einen Mitspieler. */
+export function VoteGrid({
+  players,
+  myVote,
+  onVote,
+  exclude = [],
+  disabled,
+}: {
+  players: GamePlayer[];
+  myVote?: string;
+  onVote: (id: string) => void;
+  exclude?: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <div className="votegrid">
+      {players
+        .filter((p) => !exclude.includes(p.id))
+        .map((p, i) => (
+          <button
+            key={p.id}
+            className={`votecard pressable ${myVote === p.id ? 'votecard--on' : ''}`}
+            style={{ ['--i' as string]: i }}
+            disabled={disabled || Boolean(myVote)}
+            onClick={() => onVote(p.id)}
+          >
+            <Avatar name={p.name} color={p.color} />
+            <span className="votecard__name">{p.name}</span>
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/** Ergebnis einer Abstimmung als animierte Balken. */
+export function VoteResult({
+  players,
+  counts,
+  highlight,
+}: {
+  players: GamePlayer[];
+  counts: Record<string, number>;
+  highlight?: string | null;
+}) {
+  const max = Math.max(1, ...Object.values(counts));
+  const ranked = [...players].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0));
+  return (
+    <div className="stack-2">
+      {ranked.map((p, i) => {
+        const n = counts[p.id] ?? 0;
+        return (
+          <div
+            key={p.id}
+            className={`votebar ${highlight === p.id ? 'votebar--top' : ''}`}
+            style={{ ['--i' as string]: i, ['--pct' as string]: `${(n / max) * 100}%` }}
+          >
+            <span className="votebar__fill" />
+            <Avatar name={p.name} color={p.color} size="sm" />
+            <span className="grow t-headline">{p.name}</span>
+            <span className="t-mono-num t-headline">{n}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Zahl, die beim Erscheinen hochzählt. */
+export function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (value <= 0) {
+      setShown(0);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // Weiches Ausklingen statt linearem Hochzaehlen
+      setShown(Math.round(value * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <>{shown}</>;
 }

@@ -1,3 +1,5 @@
+import { Icon } from '../../components/icons';
+import { DriverCard } from './DriverCard';
 import { useMemo, useState } from 'react';
 import {
   BETA_CONSERVATIVE,
@@ -11,6 +13,7 @@ import { NavBar, Sheet, Stepper } from '../../components/ui';
 import { BacGauge } from './BacGauge';
 import { useLiveBac } from './useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
+import { NightReview } from './NightReview';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 
 const HOUR = 3_600_000;
@@ -27,6 +30,7 @@ export function PegelScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [manualSips, setManualSips] = useState(4);
   const [driveHour, setDriveHour] = useState(8);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const series = useMemo(() => {
     if (!profile || !log.length) return [];
@@ -73,6 +77,8 @@ export function PegelScreen() {
           />
           <p className="t-sub t-center t-balance">{zone.note}</p>
         </section>
+
+        <DriverCard />
 
         <section className="statgrid">
           <Stat label="Reiner Alkohol" value={`${totalG.toFixed(0)} g`} />
@@ -131,12 +137,13 @@ export function PegelScreen() {
           <div className="row-between">
             <h2 className="t-title2">Trink-Log</h2>
             <button className="chip pressable" onClick={() => setPickerOpen(true)}>
-              {drink.emoji} {drink.name}
+              <Icon name={drink.icon} size={15} />
+              {drink.name}
             </button>
           </div>
           <div className="grid-2">
             <button className="btn btn--glass" onClick={() => setAddOpen(true)}>
-              + Selbst getrunken
+              <Icon name="plus" size={17} /> Selbst getrunken
             </button>
             <button className="btn btn--gray" disabled={!log.length} onClick={() => {
               haptic('warn');
@@ -170,31 +177,26 @@ export function PegelScreen() {
             </div>
           )}
           {log.length > 0 && (
-            <button
-              className="btn btn--danger btn--block"
-              onClick={() => {
-                if (confirm('Abend beenden und Trink-Log löschen?')) {
-                  haptic('warn');
-                  endNight();
-                }
-              }}
-            >
-              Abend beenden
+            <button className="btn btn--glass btn--block" onClick={() => setReviewOpen(true)}>
+              <Icon name="trophy" size={18} /> Abend abschliessen
             </button>
           )}
         </section>
       </div>
 
+      <NightReview open={reviewOpen} onClose={() => setReviewOpen(false)} onEnd={endNight} />
       <DrinkPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
       <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Selbst getrunken">
         <div className="stack">
-          <p className="t-sub">
-            {drink.emoji} {drink.name} · {alcoholPerSip(drink).toFixed(1)} g pro{' '}
+          <p className="t-sub row">
+            <Icon name={drink.icon} size={17} />
+            {drink.name} · {alcoholPerSip(drink).toFixed(1).replace('.', ',')} g pro{' '}
             {drink.sipIsUnit ? 'Shot' : 'Schluck'}
           </p>
           <Stepper value={manualSips} onChange={setManualSips} min={1} max={40} unit={drink.sipIsUnit ? ' Shots' : ' Schlucke'} />
           <div className="t-caption t-center">
-            entspricht {(manualSips * alcoholPerSip(drink)).toFixed(1)} g reinem Alkohol
+            entspricht {(manualSips * alcoholPerSip(drink)).toFixed(1).replace('.', ',')} g reinem
+            Alkohol
           </div>
           <button
             className="btn btn--brand btn--block btn--lg"

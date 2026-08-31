@@ -9,7 +9,7 @@ const players = (n: number): GamePlayer[] =>
   Array.from({ length: n }, (_, i) => ({
     id: `p${i}`,
     name: `Spieler ${i}`,
-    emoji: '🦊',
+    color: 'indigo',
     online: true,
   }));
 
@@ -35,6 +35,7 @@ describe('Registry', () => {
       expect(g.maxPlayers).toBeGreaterThan(g.minPlayers);
       expect(g.tags.length).toBeGreaterThan(0);
       expect(g.accent).toMatch(/^var\(--/);
+      expect(g.icon.length).toBeGreaterThan(2);
     }
   });
 
@@ -346,5 +347,207 @@ describe('Wortbombe', () => {
     const roster = players(4);
     const s = game.createState(roster);
     expect(game.reduce(s, act('pass'), roster).holderIndex).toBe(0);
+  });
+});
+
+describe('Wer aus der Runde', () => {
+  const game = getGame('most-likely')!;
+
+  it('deckt erst auf, wenn alle gewählt haben', () => {
+    const roster = players(4);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('vote', 'p0', { target: 'p1' }), roster);
+    s = game.reduce(s, act('vote', 'p1', { target: 'p1' }), roster);
+    expect(s.phase).toBe('vote');
+    s = game.reduce(s, act('vote', 'p2', { target: 'p3' }), roster);
+    s = game.reduce(s, act('vote', 'p3', { target: 'p1' }), roster);
+    expect(s.phase).toBe('result');
+    expect(Object.keys(s.votes)).toHaveLength(4);
+  });
+
+  it('zieht für die nächste Runde eine neue Frage', () => {
+    const roster = players(4);
+    const s = game.createState(roster);
+    const next = game.reduce(s, act('next'), roster);
+    expect(next.votes).toEqual({});
+    expect(next.round).toBe(2);
+  });
+});
+
+describe('Undercover', () => {
+  const game = getGame('undercover')!;
+
+  it('gibt genau einer Person das abweichende Wort', () => {
+    const roster = players(6);
+    const s = game.createState(roster);
+    expect(roster.map((p) => p.id)).toContain(s.undercoverId);
+    expect(s.words[0]).not.toBe(s.words[1]);
+  });
+
+  it('startet die Beschreibungsrunde, wenn alle ihr Wort gesehen haben', () => {
+    const roster = players(4);
+    let s = game.createState(roster);
+    for (const p of roster) s = game.reduce(s, act('seen', p.id), roster);
+    expect(s.phase).toBe('describe');
+  });
+
+  it('beendet das Spiel, sobald Undercover rausgewählt wird', () => {
+    const roster = players(5);
+    let s = game.createState(roster);
+    for (const p of roster) s = game.reduce(s, act('seen', p.id), roster);
+    s = { ...s, phase: 'vote' };
+    for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: s.undercoverId }), roster);
+    expect(s.phase).toBe('over');
+    expect(s.winner).toBe('gruppe');
+    expect(s.eliminated).toContain(s.undercoverId);
+  });
+
+  it('lässt Undercover gewinnen, wenn nur noch zwei übrig sind', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    const innocent = roster.find((p) => p.id !== s.undercoverId)!;
+    for (const p of roster) s = game.reduce(s, act('seen', p.id), roster);
+    s = { ...s, phase: 'vote' };
+    for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: innocent.id }), roster);
+    expect(s.winner).toBe('undercover');
+  });
+});
+
+describe('Schätzfrage', () => {
+  const game = getGame('schaetzfrage')!;
+
+  it('nimmt auch die Null als Schätzung an', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('guess', 'p0', { value: 0 }), roster);
+    expect(s.guesses.p0).toBe(0);
+  });
+
+  it('löst erst auf, wenn alle geschätzt haben', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('guess', 'p0', { value: 10 }), roster);
+    s = game.reduce(s, act('guess', 'p1', { value: 20 }), roster);
+    expect(s.phase).toBe('guess');
+    s = game.reduce(s, act('guess', 'p2', { value: 30 }), roster);
+    expect(s.phase).toBe('result');
+  });
+
+  it('ignoriert unsinnige Eingaben', () => {
+    const roster = players(3);
+    const s = game.createState(roster);
+    expect(game.reduce(s, act('guess', 'p0', { value: 'viele' }), roster).guesses).toEqual({});
+  });
+});
+
+describe('Zwei Wahrheiten, eine Lüge', () => {
+  const game = getGame('zwei-wahrheiten')!;
+
+  it('mischt die Aussagen und merkt sich die Lüge korrekt', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    const author = s.order[0];
+    s = game.reduce(
+      s,
+      act('submit', author, { statements: ['wahr A', 'LUEGE', 'wahr B'], lie: 1 }),
+      roster,
+    );
+    expect(s.phase).toBe('guess');
+    expect(s.statements).toHaveLength(3);
+    expect(s.statements[s.lie]).toBe('LUEGE');
+  });
+
+  it('nimmt keine unvollständigen Aussagen an', () => {
+    const roster = players(3);
+    const s = game.createState(roster);
+    const out = game.reduce(s, act('submit', s.order[0], { statements: ['a', '', 'c'], lie: 0 }), roster);
+    expect(out.phase).toBe('write');
+  });
+
+  it('lässt den Autor nicht mitraten', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    const author = s.order[0];
+    s = game.reduce(s, act('submit', author, { statements: ['a', 'b', 'c'], lie: 0 }), roster);
+    s = game.reduce(s, act('guess', author, { index: 1 }), roster);
+    expect(s.guesses[author]).toBeUndefined();
+  });
+});
+
+describe('Mäxchen', () => {
+  const game = getGame('maexchen')!;
+
+  it('lässt nur höhere Ansagen zu', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('roll'), roster);
+    s = game.reduce(s, act('announce', 'p0', { rank: 5 }), roster);
+    expect(s.announced).toBe(5);
+    s = game.reduce(s, act('believe'), roster);
+    s = game.reduce(s, act('roll'), roster);
+    const tooLow = game.reduce(s, act('announce', 'p1', { rank: 3 }), roster);
+    expect(tooLow.announced).toBeNull();
+    const ok = game.reduce(s, act('announce', 'p1', { rank: 9 }), roster);
+    expect(ok.announced).toBe(9);
+  });
+
+  it('bestraft beim Aufdecken die richtige Person', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    // Gelogen: 1+1 ist der niedrigste Pasch, angesagt wird Mäxchen.
+    s = { ...s, phase: 'announce', dice: [1, 1] };
+    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
+    s = game.reduce(s, act('doubt'), roster);
+    expect(s.reveal?.truthful).toBe(false);
+    expect(s.reveal?.loserId).toBe(s.order[0]);
+  });
+
+  it('bestraft den Zweifler, wenn die Ansage stimmte', () => {
+    const roster = players(3);
+    let s = game.createState(roster);
+    s = { ...s, phase: 'announce', dice: [2, 1] }; // Mäxchen
+    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
+    s = game.reduce(s, act('doubt'), roster);
+    expect(s.reveal?.truthful).toBe(true);
+    expect(s.reveal?.loserId).toBe(s.order[1]);
+  });
+});
+
+describe('Reaktions-Duell', () => {
+  const game = getGame('duell')!;
+
+  it('wertet einen Fehlstart sofort als Niederlage', () => {
+    const roster = players(4);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('arm'), roster);
+    s = game.reduce(s, act('tap', 'p0', { side: 0 }), roster);
+    expect(s.falseStart).toBe(true);
+    expect(s.loser).toBe(s.order[0]);
+  });
+
+  it('kürt beim ersten Tippen nach dem Signal einen Sieger', () => {
+    const roster = players(4);
+    let s = game.createState(roster);
+    s = game.reduce(s, act('arm'), roster);
+    s = game.reduce(s, act('go'), roster);
+    s = game.reduce(s, act('tap', 'p1', { side: 1 }), roster);
+    expect(s.phase).toBe('result');
+    expect(s.winner).toBe(s.order[1]);
+    expect(s.loser).toBe(s.order[0]);
+  });
+});
+
+describe('Kartenspiele mit eigenen Karten', () => {
+  it('legen den Stapel als Inhalt ab, nicht als Index', () => {
+    const game = getGame('truth-or-dare')!;
+    const s = game.createState(players(4));
+    expect(Array.isArray(s.deck)).toBe(true);
+    expect(typeof s.deck[0].text).toBe('string');
+  });
+
+  it('erlauben eigene Karten dort, wo es Sinn ergibt', () => {
+    for (const id of ['truth-or-dare', 'never-have-i-ever', 'chaos-roulette', 'kategorien']) {
+      expect(getGame(id)?.allowCustomCards, id).toBe(true);
+    }
   });
 });

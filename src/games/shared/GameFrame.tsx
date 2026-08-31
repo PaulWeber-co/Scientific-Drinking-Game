@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icons';
 import type { ReactNode } from 'react';
 import { haptic } from '../../lib/haptics';
 
@@ -23,7 +24,7 @@ export function GameFrame({ title, accent, subtitle, onQuit, action, children }:
             onQuit();
           }}
         >
-          ✕
+          <Icon name="close" size={16} strokeWidth={2.1} />
         </button>
         <div className="game__titles">
           <div className="t-headline">{title}</div>

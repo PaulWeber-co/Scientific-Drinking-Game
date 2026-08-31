@@ -61,7 +61,9 @@ src/
     card-engine/     Fabrik für Kartenspiele (Spiel = eine Datenfile)
     shared/          GameFrame, DrinkCall, BigCard, Countdown, Kartendeck
     <spiel>/         Ein Ordner pro Spiel
-  components/ui/   Buttons, Sheets, Stepper, Segmented, Toggle
+  components/
+    icons/         Eigenes SVG-Set – die App benutzt bewusst keine Emojis
+    ui/            Buttons, Sheets, Stepper, Segmented, Toggle, Avatar, QR-Code
   lib/             firebase, id, haptics, format
   styles/          tokens.css (Design-System), global.css, game.css
 ```
@@ -98,3 +100,21 @@ Mitspielerdaten liegen im Arbeitsspeicher dieser Sitzung. Sie werden nicht persi
 | Datenbank nicht erreichbar | Timeout nach 12 s, klare Meldung, Pass-&-Play bleibt nutzbar |
 | Unerwarteter Fehler in einem Spiel | `ErrorBoundary` fängt ab und bietet Neuladen statt weißem Bildschirm |
 | App zwei Tage später geöffnet | Trink-Log älter als 14 Stunden wird automatisch verworfen |
+
+
+## Oberfläche
+
+Das Design orientiert sich an iOS und hält sich bewusst zurück:
+
+- **Eine Akzentfarbe** für die ganze App (Systemblau). Spiele färben nur ihren eigenen
+  Bildschirm ein, nie die Navigation.
+- **Deckende Flächen** statt Milchglas. Unschärfe gibt es genau dort, wo iOS sie auch
+  einsetzt: Navigationsleiste, Tab-Leiste, Sheets.
+- **Keine Farbverläufe auf Knöpfen, keine farbigen Schlagschatten.** Ein Primärknopf ist
+  eine Fläche in einer Farbe.
+- **Icons statt Emojis.** Emojis sehen auf jedem System anders aus und lassen sich nicht
+  einfärben; das eigene Set teilt Raster, Strichstärke und `currentColor`.
+- **Avatare sind Monogramme** auf einer gewählten Farbe – wie in Kontakte-Apps.
+- **Bewegung mit Absicht:** kurze Federkurven, gestaffeltes Einlaufen von Listen,
+  hochzählende Schluckzahlen, eine Explosion für die Wortbombe. Alles respektiert
+  `prefers-reduced-motion`.

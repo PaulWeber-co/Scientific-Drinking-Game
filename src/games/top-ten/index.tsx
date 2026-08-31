@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icons';
 import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
@@ -57,7 +58,7 @@ export const topTen: GameDefinition<State> = {
   id: 'top-ten',
   name: 'Top Ten',
   tagline: 'Geheime Zahl, passende Antwort. Kriegt ihr die Reihenfolge hin?',
-  emoji: '🔟',
+  icon: 'ranking',
   accent: 'var(--blue)',
   minPlayers: 3,
   maxPlayers: 10,
@@ -225,10 +226,10 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
               {isCaptain && (
                 <div className="stack-2" style={{ gap: 4 }}>
                   <button className="btn btn--gray btn--sm" onClick={() => move(i, -1)} aria-label="nach oben">
-                    ▲
+                    <Icon name="chevronUp" size={15} strokeWidth={2.2} />
                   </button>
                   <button className="btn btn--gray btn--sm" onClick={() => move(i, 1)} aria-label="nach unten">
-                    ▼
+                    <Icon name="chevronDown" size={15} strokeWidth={2.2} />
                   </button>
                 </div>
               )}
@@ -262,7 +263,7 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
 
   return (
     <GameFrame title={topTen.name} accent={topTen.accent} subtitle="Auflösung" onQuit={quit}>
-      <BigCard kicker={perfect ? '🎯 Perfekt' : `${wrongPairs} ${wrongPairs === 1 ? 'Fehler' : 'Fehler'}`}>
+      <BigCard kicker={perfect ? 'Perfekt' : `${wrongPairs} ${wrongPairs === 1 ? 'Fehler' : 'Fehler'}`}>
         {perfect
           ? `${captain?.name} hat alles richtig sortiert. Alle anderen trinken.`
           : 'Nicht ganz. Die Runde zahlt drauf.'}
@@ -274,7 +275,7 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
             <div className="grow">
               <div className="t-headline">{state.answers[id]}</div>
               <div className="t-caption">
-                {byId(id)?.emoji} {byId(id)?.name} · dein Platz {local.indexOf(id) + 1}
+                {byId(id)?.name} · dein Platz {local.indexOf(id) + 1}
               </div>
             </div>
           </div>

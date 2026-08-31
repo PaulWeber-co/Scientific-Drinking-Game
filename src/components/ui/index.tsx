@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
+import { Icon } from '../icons';
+import { AVATAR_COLORS, avatarStyle, type AvatarColor } from './Avatar';
 import { createPortal } from 'react-dom';
 import { haptic } from '../../lib/haptics';
 
@@ -121,36 +123,55 @@ export function Stepper({
   return (
     <div className="stepper">
       <button className="stepper__btn" onClick={() => set(value - step)} aria-label="weniger">
-        −
+        <Icon name="minus" size={19} strokeWidth={2.2} />
       </button>
       <div className="stepper__value">
         {value}
         {unit && <span className="stepper__unit">{unit}</span>}
       </div>
       <button className="stepper__btn" onClick={() => set(value + step)} aria-label="mehr">
-        +
+        <Icon name="plus" size={19} strokeWidth={2.2} />
       </button>
     </div>
   );
 }
 
-const EMOJIS = ['🎉', '🦊', '🐙', '🍕', '👽', '🐼', '🌵', '🦄', '🐝', '🍄', '⚡️', '🌊', '🔥', '🦖', '🧊', '🍿', '🪩', '🎧', '🛸', '🐧'];
+const COLOR_LABEL: Record<AvatarColor, string> = {
+  indigo: 'Indigo',
+  purple: 'Violett',
+  pink: 'Pink',
+  red: 'Rot',
+  orange: 'Orange',
+  yellow: 'Gelb',
+  green: 'Grün',
+  mint: 'Mint',
+  teal: 'Türkis',
+  blue: 'Blau',
+};
 
-export function EmojiPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** Ersetzt die Emoji-Auswahl: der Avatar ist ein Monogramm in Wunschfarbe. */
+export function ColorPicker({
+  value,
+  onChange,
+}: {
+  value: AvatarColor;
+  onChange: (v: AvatarColor) => void;
+}) {
   return (
-    <div className="scroll-x">
-      {EMOJIS.map((e) => (
+    <div className="scroll-x" role="group" aria-label="Avatarfarbe">
+      {AVATAR_COLORS.map((c) => (
         <button
-          key={e}
-          className={`avatar pressable ${e === value ? 'avatar--selected' : ''}`}
+          key={c}
+          className={`swatch pressable ${c === value ? 'swatch--on' : ''}`}
+          style={avatarStyle(c)}
           onClick={() => {
             haptic('select');
-            onChange(e);
+            onChange(c);
           }}
-          aria-label={`Avatar ${e}`}
-          aria-pressed={e === value}
+          aria-label={COLOR_LABEL[c]}
+          aria-pressed={c === value}
         >
-          {e}
+          {c === value && <Icon name="check" size={15} strokeWidth={2.4} />}
         </button>
       ))}
     </div>
@@ -174,14 +195,14 @@ export function ListItem({
 }) {
   const inner = (
     <>
-      {icon && <span className="avatar avatar--sm">{icon}</span>}
+      {icon && <span className="listicon">{icon}</span>}
       <span className="grow">
         <span className="t-headline" style={{ display: 'block' }}>
           {title}
         </span>
         {subtitle && <span className="t-caption">{subtitle}</span>}
       </span>
-      {right ?? (onClick && <span className="list__chevron">›</span>)}
+      {right ?? (onClick && <Icon name="chevronRight" size={17} className="list__chevron" />)}
     </>
   );
   if (!onClick) return <div className={`list__item ${active ? 'list__item--active' : ''}`}>{inner}</div>;

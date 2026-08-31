@@ -9,6 +9,7 @@ import {
 } from '../../engine/drinks';
 import type { DrinkDefinition } from '../../engine/types';
 import { Sheet } from '../../components/ui';
+import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
 
@@ -39,7 +40,9 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
               {customDrinks.map((d) => (
                 <div key={d.id} className={`list__item ${d.id === currentId ? 'list__item--active' : ''}`}>
                   <button className="row grow" style={{ textAlign: 'left' }} onClick={() => choose(d)}>
-                    <span className="avatar avatar--sm">{d.emoji}</span>
+                    <span className="listicon">
+                      <Icon name={d.icon} size={19} />
+                    </span>
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
                         {d.name}
@@ -71,7 +74,9 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                     className={`list__item ${d.id === currentId ? 'list__item--active' : ''}`}
                     onClick={() => choose(d)}
                   >
-                    <span className="avatar avatar--sm">{d.emoji}</span>
+                    <span className="listicon">
+                      <Icon name={d.icon} size={19} />
+                    </span>
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
                         {d.name}
@@ -82,7 +87,9 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                         {!d.sipIsUnit && ` · ${sipsPerServing(d)} Schlucke pro Glas`}
                       </span>
                     </span>
-                    {d.id === currentId && <span className="list__chevron">✓</span>}
+                    {d.id === currentId && (
+                      <Icon name="check" size={17} strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
+                    )}
                   </button>
                 ))}
               </div>

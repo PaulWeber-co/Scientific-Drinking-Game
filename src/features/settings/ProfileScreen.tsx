@@ -4,7 +4,9 @@ import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import type { Sex, StomachState } from '../../engine/types';
-import { EmojiPicker, NavBar, Segmented, Stepper, Toggle } from '../../components/ui';
+import { ColorPicker, NavBar, Segmented, Stepper, Toggle } from '../../components/ui';
+import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
+import { Icon } from '../../components/icons';
 import { formatBac } from '../../lib/format';
 import { DATABASE_URL } from '../../lib/firebase';
 import { useCurrentDrink, usePlayer } from '../../store/player';
@@ -30,14 +32,14 @@ export function ProfileScreen() {
       <NavBar title="Profil" left={<button className="btn btn--plain" onClick={() => nav(-1)}>Zurück</button>} />
       <div className="stack-6">
         <section className="stack-3" style={{ alignItems: 'center' }}>
-          <div className="avatar avatar--lg">{profile.emoji}</div>
+          <Avatar name={profile.name} color={profile.color} size="lg" />
           <input
             className="input input--center"
             value={profile.name}
             maxLength={16}
             onChange={(e) => patch({ name: e.target.value })}
           />
-          <EmojiPicker value={profile.emoji} onChange={(emoji) => patch({ emoji })} />
+          <ColorPicker value={profile.color} onChange={(color: AvatarColor) => patch({ color })} />
         </section>
 
         <section className="stack-3">
@@ -92,14 +94,16 @@ export function ProfileScreen() {
           <div className="list-header t-upper">Trinken</div>
           <div className="list">
             <button className="list__item" onClick={() => setPickerOpen(true)}>
-              <span className="avatar avatar--sm">{drink.emoji}</span>
+              <span className="listicon">
+                <Icon name={drink.icon} size={19} />
+              </span>
               <span className="grow">
                 <span className="t-headline" style={{ display: 'block' }}>
                   {drink.name}
                 </span>
                 <span className="t-caption">{drink.abvPercent} Vol.-%</span>
               </span>
-              <span className="list__chevron">›</span>
+              <Icon name="chevronRight" size={17} className="list__chevron" />
             </button>
             <div className="list__item">
               <span className="grow">
@@ -112,6 +116,23 @@ export function ProfileScreen() {
                 checked={profile.alcoholFree}
                 onChange={(alcoholFree) => patch({ alcoholFree })}
                 label="Alkoholfrei"
+              />
+            </div>
+            <div className="list__item">
+              <span className="grow">
+                <span className="t-headline" style={{ display: 'block' }}>
+                  Ich fahre heute
+                </span>
+                <span className="t-caption">
+                  Sichtbar für die Runde, mit Wasserzähler statt Trinkansage
+                </span>
+              </span>
+              <Toggle
+                checked={profile.designatedDriver}
+                onChange={(designatedDriver) =>
+                  patch({ designatedDriver, alcoholFree: designatedDriver || profile.alcoholFree })
+                }
+                label="Designierte Fahrerin oder designierter Fahrer"
               />
             </div>
           </div>
