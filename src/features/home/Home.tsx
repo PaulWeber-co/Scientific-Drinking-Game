@@ -1,3 +1,4 @@
+import { DriverCard } from '../bac/DriverCard';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ZONE_META, bacZone, soberAt } from '../../engine/bac';
@@ -76,6 +77,8 @@ export function Home() {
           )}
         </section>
 
+        <DriverCard />
+
         <section className="stack-3">
           {party.code ? (
             <button className="btn btn--brand btn--block btn--lg" onClick={() => nav('/lobby')}>
@@ -103,9 +106,11 @@ export function Home() {
               Alle
             </Link>
           </div>
+          <div className="stack-3 stagger">
           {suggested.map((g) => (
             <GameCard key={g.id} game={g} onClick={() => nav(`/spiele/${g.id}`)} />
           ))}
+          </div>
         </section>
       </div>
 

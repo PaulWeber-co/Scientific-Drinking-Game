@@ -35,8 +35,11 @@ export interface Profile {
   stomach: StomachState;
   /** Ziel-Blutalkohol in Promille. Default 0.4. */
   targetBac: number;
-  /** Spieler trinkt bewusst keinen Alkohol (Fahrer, U18, Pause). */
+  /** Spieler trinkt bewusst keinen Alkohol (U18, Pause, eigener Wunsch). */
   alcoholFree: boolean;
+  /** Übernimmt heute den Heimweg – impliziert alkoholfrei und ist für die
+   *  Runde sichtbar, damit niemand nachschenkt. */
+  designatedDriver: boolean;
 }
 
 export interface DrinkEvent {

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(130% 55% at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 72%),
     var(--bg);
 }
 .game__bar {
@@ -72,11 +72,7 @@
   padding: var(--s-6) var(--s-5);
   border-radius: var(--r-2xl);
   border: 1px solid var(--hairline);
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%),
-    var(--surface);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: var(--surface);
   box-shadow: var(--shadow-md);
   text-align: center;
   animation: card-in var(--dur) var(--ease-spring) both;
@@ -88,9 +84,8 @@
   }
 }
 .bigcard--danger {
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--red) 26%, transparent), transparent 62%),
-    var(--surface);
+  border-color: color-mix(in srgb, var(--red) 38%, transparent);
+  background: color-mix(in srgb, var(--red) 10%, var(--surface));
 }
 .bigcard__kicker {
   font-size: 11px;
@@ -393,4 +388,360 @@
   font-weight: 800;
   letter-spacing: -3px;
   line-height: 1.05;
+}
+
+/* ---------- Abstimmung ---------- */
+.votegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--s-2);
+}
+.votecard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: var(--s-3) var(--s-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+.votecard__name {
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+.votecard--on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.votecard:disabled:not(.votecard--on) {
+  opacity: 0.45;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+.votebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  overflow: hidden;
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+.votebar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pct, 0%);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  animation: grow var(--dur-slow) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+}
+.votebar--top .votebar__fill {
+  background: color-mix(in srgb, var(--accent) 44%, transparent);
+}
+.votebar > *:not(.votebar__fill) {
+  position: relative;
+}
+@keyframes grow {
+  from {
+    width: 0;
+  }
+}
+
+/* ---------- Geheimes Wort (gedrückt halten) ---------- */
+.peek {
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) linear,
+    border-color var(--dur-fast) linear,
+    transform var(--dur-fast) var(--ease-spring);
+}
+.peek--open {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  transform: scale(1.015);
+}
+.peek__hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--label-3);
+  font-size: var(--t-footnote);
+  font-weight: 600;
+}
+.peek__word {
+  font-size: 34px;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+  animation: pop-in var(--dur-fast) var(--ease-spring) both;
+}
+
+/* ---------- Zwei Wahrheiten ---------- */
+.lierow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.liemark {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--label-3);
+  border: 1px solid transparent;
+  transition:
+    color var(--dur-fast) linear,
+    background var(--dur-fast) linear;
+}
+.liemark--on {
+  background: color-mix(in srgb, var(--red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  color: var(--red);
+}
+.answer-card {
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+.answer-card--lie {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 12%, var(--surface));
+  color: var(--red);
+}
+.answer-card--true {
+  border-color: color-mix(in srgb, var(--green) 35%, transparent);
+  color: var(--green);
+}
+.result-row {
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+/* ---------- Würfel ---------- */
+.die {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  width: 62px;
+  height: 62px;
+  padding: 9px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  animation: roll var(--dur) var(--ease-spring) both;
+}
+.die__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #111;
+  align-self: center;
+  justify-self: center;
+}
+@keyframes roll {
+  from {
+    transform: rotate(-160deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* ---------- Mäxchen-Ansagen ---------- */
+.rankgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--s-2);
+}
+.rankchip {
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rankchip--max {
+  grid-column: 1 / -1;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+.rankchip:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- Reaktions-Duell ---------- */
+.duel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  transition: background var(--dur-fast) linear;
+}
+.duel--wait {
+  background: #2a0d12;
+}
+.duel--go {
+  background: #0a5d2a;
+  animation: flash-go 180ms var(--ease-out);
+}
+@keyframes flash-go {
+  from {
+    background: #23e07a;
+  }
+}
+.duel__half {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+.duel__half--top {
+  transform: rotate(180deg);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.16);
+}
+.duel__half:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+.duel__center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+}
+.duel--go .duel__center {
+  animation: pop-in 180ms var(--ease-spring) both;
+}
+
+/* ---------- Explosion ---------- */
+.boom {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+.boom__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: boom-flash 380ms var(--ease-out) both;
+}
+@keyframes boom-flash {
+  0% {
+    opacity: 0.92;
+  }
+  25% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.boom__ring {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 6px solid var(--orange);
+  animation: boom-ring 720ms var(--ease-out) both;
+}
+.boom__ring--late {
+  border-color: var(--red);
+  animation-delay: 110ms;
+  animation-duration: 820ms;
+}
+@keyframes boom-ring {
+  from {
+    transform: scale(0.2);
+    opacity: 0.95;
+    border-width: 14px;
+  }
+  to {
+    transform: scale(9);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+.boom__shard {
+  position: absolute;
+  width: 7px;
+  height: 22px;
+  border-radius: 4px;
+  background: linear-gradient(var(--yellow), var(--red));
+  transform: rotate(var(--a)) translateY(0) scale(1);
+  animation: boom-shard 780ms var(--ease-out) both;
+  animation-delay: var(--delay);
+}
+@keyframes boom-shard {
+  from {
+    transform: rotate(var(--a)) translateY(0) scale(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Bildschirm wackelt kurz mit */
+.shake {
+  animation: shake 460ms var(--ease-out) both;
+}
+@keyframes shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(-9px, 4px, 0) rotate(-0.7deg); }
+  28% { transform: translate3d(8px, -5px, 0) rotate(0.6deg); }
+  44% { transform: translate3d(-6px, 3px, 0) rotate(-0.4deg); }
+  62% { transform: translate3d(5px, -2px, 0); }
+  80% { transform: translate3d(-3px, 1px, 0); }
+}
+
+/* Bombe: Anspannung steigt, je näher der Knall rückt */
+.bomb-pulse {
+  animation: bomb calc(900ms - var(--tension, 0) * 620ms) var(--ease-out) infinite alternate;
+}
+@keyframes bomb {
+  from {
+    transform: scale(1) rotate(-3deg);
+  }
+  to {
+    transform: scale(calc(1.08 + var(--tension, 0) * 0.16)) rotate(3deg);
+  }
+}
+.bomb-pulse--hot {
+  color: var(--red);
 }

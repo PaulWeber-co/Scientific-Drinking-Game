@@ -66,45 +66,20 @@ a {
   isolation: isolate;
 }
 
-/* Living aurora backdrop -- subtil, damit es nicht vom Inhalt ablenkt */
+/* Ruhiger Farbschimmer am oberen Rand statt wandernder Farbwolken:
+   gibt dem schwarzen Grund Tiefe, ohne vom Inhalt abzulenken. */
 .aurora {
   position: fixed;
-  inset: -20% -20% auto -20%;
-  height: 70vh;
+  inset: 0 0 auto 0;
+  height: 46vh;
   z-index: -1;
   pointer-events: none;
-  filter: blur(70px) saturate(140%);
-  opacity: 0.5;
+  background:
+    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 24%, transparent), transparent 70%);
 }
-.aurora::before,
-.aurora::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-}
-.aurora::before {
-  width: 60vw;
-  height: 60vw;
-  left: 4%;
-  top: 2%;
-  background: radial-gradient(circle, var(--brand-2), transparent 66%);
-  animation: drift 22s var(--ease-out) infinite alternate;
-}
-.aurora::after {
-  width: 55vw;
-  height: 55vw;
-  right: 2%;
-  top: 16%;
-  background: radial-gradient(circle, var(--pink), transparent 66%);
-  animation: drift 18s var(--ease-out) infinite alternate-reverse;
-}
-@keyframes drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(8vw, 6vh, 0) scale(1.18);
-  }
+[data-theme='light'] .aurora {
+  background:
+    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 70%);
 }
 
 .screen {
@@ -342,16 +317,13 @@ a {
   --btn-fg: var(--red);
 }
 .btn--brand {
-  --btn-fg: #fff;
-  background: linear-gradient(135deg, var(--brand-2), var(--brand) 55%, var(--pink));
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--brand) 32%, transparent);
+  --btn-bg: var(--brand);
+  --btn-fg: var(--brand-ink);
 }
 .btn--glass {
   --btn-bg: var(--surface);
   --btn-fg: var(--label);
   border: 1px solid var(--hairline);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 .grid-2 > .btn {
@@ -362,8 +334,6 @@ a {
 /* ---------- Cards & lists ---------- */
 .card {
   background: var(--surface);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   padding: var(--s-4);
@@ -379,8 +349,6 @@ a {
 
 .list {
   background: var(--surface);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   overflow: hidden;
@@ -568,14 +536,11 @@ textarea.input {
   font-weight: 700;
   letter-spacing: 0.2px;
   color: #fff;
-  background:
-    linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--avatar-color) 78%, white),
-      var(--avatar-color) 55%,
-      color-mix(in srgb, var(--avatar-color) 72%, black)
-    );
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--avatar-color) 88%, white),
+    var(--avatar-color)
+  );
   text-transform: uppercase;
   user-select: none;
 }
@@ -601,16 +566,14 @@ textarea.input {
   place-items: center;
   color: #fff;
   background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--avatar-color) 78%, white),
-    var(--avatar-color) 60%
+    180deg,
+    color-mix(in srgb, var(--avatar-color) 88%, white),
+    var(--avatar-color)
   );
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   transition: transform var(--dur-fast) var(--ease-spring);
 }
 .swatch--on {
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.3),
     0 0 0 2px var(--bg),
     0 0 0 4px var(--avatar-color);
 }
@@ -929,8 +892,7 @@ textarea.input {
   display: flex;
   justify-content: center;
   color: var(--brand);
-  filter: drop-shadow(0 12px 32px color-mix(in srgb, var(--brand) 45%, transparent));
-  animation: float 4s var(--ease-out) infinite alternate;
+  animation: float 5s var(--ease-out) infinite alternate;
 }
 @keyframes float {
   to {
@@ -1062,8 +1024,6 @@ textarea.input {
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
   background: var(--surface);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
   text-align: left;
   overflow: hidden;
 }
@@ -1072,9 +1032,10 @@ textarea.input {
 }
 .gamecard__glow {
   position: absolute;
-  inset: -40% 40% 40% -40%;
-  background: radial-gradient(circle, var(--accent), transparent 68%);
-  opacity: 0.28;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.9;
   pointer-events: none;
 }
 .gamecard__icon {
@@ -1105,13 +1066,12 @@ textarea.input {
 .gamehero__icon {
   width: 76px;
   height: 76px;
-  border-radius: 22px;
+  border-radius: 20px;
   display: grid;
   place-items: center;
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
 }
 .howto {
   margin: 0;
@@ -1264,4 +1224,141 @@ textarea.input {
 .connstate--offline .connstate__dot,
 .connstate--error .connstate__dot {
   background: var(--red);
+}
+
+/* ---------- QR-Code ---------- */
+.qrwrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  animation: pop-in var(--dur) var(--ease-spring) both;
+}
+.qr {
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Gruppen-Pegel (nur Zonen) ---------- */
+.zonebar {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.zonebar__seg {
+  border-radius: var(--r-full);
+  animation: grow-x var(--dur-slow) var(--ease-emph) both;
+}
+@keyframes grow-x {
+  from {
+    flex-grow: 0.001;
+  }
+}
+
+/* ---------- Fahrer-Karte ---------- */
+.drivercard {
+  border-color: color-mix(in srgb, var(--teal) 40%, transparent);
+  background: color-mix(in srgb, var(--teal) 9%, var(--surface));
+}
+.drivercard__badge {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-full);
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 20%, transparent);
+  flex-shrink: 0;
+}
+.drivercard__glass {
+  color: var(--label-4);
+}
+.drivercard__glass--on {
+  color: var(--teal);
+  animation: pop-in var(--dur-fast) var(--ease-spring) both;
+}
+.drivertag {
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--teal) 22%, transparent);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ---------- Abend-Rückblick ---------- */
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-4);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(120% 90% at 50% -20%, color-mix(in srgb, var(--brand) 26%, transparent), transparent 68%),
+    var(--surface);
+}
+.review__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-2);
+}
+.review__tile {
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--label) 6%, transparent);
+  animation: rise var(--dur) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.review__value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+/* ---------- Bewegung in der Navigation ---------- */
+.tabbar__item[aria-current='page'] .tabbar__icon {
+  animation: tab-pop 340ms var(--ease-spring) both;
+}
+@keyframes tab-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Listen und Karten laufen gestaffelt ein */
+.stagger > * {
+  animation: rise var(--dur) var(--ease-emph) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 45ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 135ms; }
+.stagger > *:nth-child(5) { animation-delay: 180ms; }
+.stagger > *:nth-child(n + 6) { animation-delay: 220ms; }
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+/* Der Pegelzeiger baut sich beim Erscheinen auf */
+.gauge__value {
+  animation: sweep var(--dur-slow) var(--ease-emph) both;
+}
+@keyframes sweep {
+  from {
+    stroke-dasharray: 0 999;
+  }
 }

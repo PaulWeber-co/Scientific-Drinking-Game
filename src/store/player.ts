@@ -14,6 +14,8 @@ interface PlayerState {
   log: DrinkEvent[];
   /** Beginn des aktuellen Abends – danach wird das Log automatisch geleert. */
   nightStartedAt: number | null;
+  /** Gläser Wasser heute Abend – zählt nur, wer will. */
+  waterCount: number;
 
   setProfile: (p: Profile) => void;
   patchProfile: (p: Partial<Profile>) => void;
@@ -24,6 +26,7 @@ interface PlayerState {
   logSips: (sips: number, source?: string, drink?: DrinkDefinition) => void;
   logEvent: (e: DrinkEvent) => void;
   undoLast: () => void;
+  addWater: () => void;
   endNight: () => void;
   resetAll: () => void;
 }
@@ -40,6 +43,7 @@ export const usePlayer = create<PlayerState>()(
       customDrinks: [],
       log: [],
       nightStartedAt: null,
+      waterCount: 0,
 
       setProfile: (profile) => set({ profile }),
       patchProfile: (patch) =>
@@ -67,20 +71,22 @@ export const usePlayer = create<PlayerState>()(
           nightStartedAt: s.nightStartedAt ?? e.at,
         })),
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
-      endNight: () => set({ log: [], nightStartedAt: null }),
+      addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
+      endNight: () => set({ log: [], nightStartedAt: null, waterCount: 0 }),
       resetAll: () =>
         set({
           profile: null,
           onboarded: false,
           log: [],
           nightStartedAt: null,
+          waterCount: 0,
           customDrinks: [],
           currentDrinkId: 'beer-pils',
         }),
     }),
     {
       name: 'sdg.player',
-      version: 2,
+      version: 3,
       // v1 speicherte ein Emoji als Avatar. Ab v2 sind es Initialen auf einer
       // Farbe – bestehende Profile bekommen eine aus dem Namen abgeleitete.
       migrate: (persisted, version) => {
@@ -88,6 +94,9 @@ export const usePlayer = create<PlayerState>()(
         if (version < 2 && state?.profile) {
           const { emoji: _emoji, ...rest } = state.profile;
           state.profile = { ...rest, color: rest.color ?? colorFor(rest.name || 'x') };
+        }
+        if (version < 3 && state?.profile) {
+          state.profile = { ...state.profile, designatedDriver: false };
         }
         return state;
       },
@@ -118,5 +127,6 @@ export function defaultProfile(): Profile {
     stomach: 'light',
     targetBac: DEFAULT_TARGET_BAC,
     alcoholFree: false,
+    designatedDriver: false,
   };
 }

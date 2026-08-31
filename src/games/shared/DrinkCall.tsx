@@ -1,4 +1,5 @@
 import { Icon } from '../../components/icons';
+import { CountUp } from './pieces';
 import { Avatar } from '../../components/ui/Avatar';
 import { useState } from 'react';
 import { haptic } from '../../lib/haptics';
@@ -54,7 +55,7 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
         {label && <span className="t-caption"> · {label}</span>}
       </div>
       <div className="call__big t-mono-num">
-        {res.sips} <span className="call__unit">{res.unit}</span>
+        <CountUp value={res.sips} /> <span className="call__unit">{res.unit}</span>
       </div>
       <div className="t-caption">{res.hint}</div>
       <button

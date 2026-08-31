@@ -56,5 +56,6 @@ export const neverHaveIEver = createCardGame({
   drink: 'self-declare',
   resolveLabel: 'Alle haben getrunken',
   heatSelectable: true,
+  allowCustomCards: true,
   cards: CARDS,
 });

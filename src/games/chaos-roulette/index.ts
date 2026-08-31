@@ -55,5 +55,6 @@ export const chaosRoulette = createCardGame({
   drink: 'actor',
   resolveLabel: 'Erledigt',
   heatSelectable: true,
+  allowCustomCards: true,
   cards: CARDS,
 });

@@ -3,15 +3,18 @@
 :root {
   color-scheme: dark;
 
-  /* --- Backgrounds --- */
-  --bg: #08080b;
-  --bg-grouped: #0e0e12;
-  --surface: rgba(28, 28, 32, 0.72);
-  --surface-solid: #1c1c20;
-  --surface-2: #2a2a30;
-  --surface-3: #3a3a42;
-  --hairline: rgba(235, 235, 245, 0.14);
-  --hairline-strong: rgba(235, 235, 245, 0.24);
+  /* --- Backgrounds ---
+     Angelehnt an iOS: ein dunkler Grund, darauf klar abgesetzte, deckende
+     Flaechen. Transparenz gibt es nur dort, wo iOS sie auch benutzt:
+     Navigationsleiste, Tab-Leiste und Sheets. */
+  --bg: #000000;
+  --bg-grouped: #16161a;
+  --surface: #1c1c1e;
+  --surface-solid: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+  --hairline: rgba(235, 235, 245, 0.11);
+  --hairline-strong: rgba(235, 235, 245, 0.2);
 
   /* --- Labels --- */
   --label: #ffffff;
@@ -30,16 +33,19 @@
   --teal: #64d2ff;
   --yellow: #ffd60a;
   --mint: #66d4cf;
-  --brand: var(--purple);
-  --brand-2: var(--indigo);
+  /* Eine Akzentfarbe fuer die ganze App. Spiele faerben nur ihren eigenen
+     Bildschirm ein – nicht die Navigation. */
+  --brand: #0a84ff;
+  --brand-2: #409cff;
+  --brand-ink: #ffffff;
 
   /* --- Radii --- */
   --r-xs: 8px;
   --r-sm: 12px;
   --r-md: 16px;
-  --r-lg: 22px;
-  --r-xl: 28px;
-  --r-2xl: 36px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-2xl: 32px;
   --r-full: 999px;
 
   /* --- Spacing (4pt grid) --- */
@@ -73,14 +79,15 @@
   /* --- Motion --- */
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 160ms;
-  --dur: 320ms;
-  --dur-slow: 520ms;
+  --dur-fast: 140ms;
+  --dur: 280ms;
+  --dur-slow: 480ms;
+  --ease-emph: cubic-bezier(0.2, 0.9, 0.25, 1);
 
   /* --- Elevation --- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.48);
 
   /* --- Layout --- */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -93,12 +100,12 @@
   color-scheme: light;
   --bg: #f2f2f7;
   --bg-grouped: #ffffff;
-  --surface: rgba(255, 255, 255, 0.78);
+  --surface: #ffffff;
   --surface-solid: #ffffff;
-  --surface-2: #ececef;
-  --surface-3: #dedee3;
-  --hairline: rgba(60, 60, 67, 0.14);
-  --hairline-strong: rgba(60, 60, 67, 0.24);
+  --surface-2: #e9e9ed;
+  --surface-3: #d1d1d6;
+  --hairline: rgba(60, 60, 67, 0.13);
+  --hairline-strong: rgba(60, 60, 67, 0.22);
   --label: #000000;
   --label-2: rgba(60, 60, 67, 0.62);
   --label-3: rgba(60, 60, 67, 0.38);
@@ -113,6 +120,9 @@
   --teal: #32ade6;
   --yellow: #ffcc00;
   --mint: #00c7be;
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.14);
+  --brand: #007aff;
+  --brand-2: #3395ff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.13);
 }

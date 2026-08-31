@@ -59,6 +59,7 @@ Spieleliste, Filter, Detailseite, Lobby-Vorschläge und Trinkansage funktioniere
 | `drink` | Wer nach dem Erledigen trinkt. `'self-declare'` = jede Person entscheidet selbst (Ich hab noch nie). |
 | `refuseLabel` / `refuseSips` | Blendet einen Kneifen-Knopf ein und setzt die Strafe. |
 | `heatSelectable` | Zeigt den Härtegrad-Regler. Karten mit `heat` über der Einstellung werden ausgeblendet. |
+| `allowCustomCards` | Erlaubt eigene Karten im Spieldetail. Sie liegen lokal; in einer Lobby mischt der Host seine mit in den Stapel. |
 | Karte: `target` | `'actor'` oder `'all'` — überschreibt `drink` für diese eine Karte. |
 | Karte: `sips` | Überschreibt `baseSips` für diese eine Karte. `0` = niemand trinkt (z. B. Wasserrunde). |
 
@@ -113,7 +114,9 @@ export const meinSpiel: GameDefinition<State> = {
 1. **`reduce` läuft nur beim Host.** Zufall (`Math.random`, `Date.now`) ist dort erlaubt und
    erwünscht — nur so sehen alle dasselbe gemischte Deck.
 2. **Der Zustand muss durch `JSON.stringify` und zurück überleben.** Keine `Map`, kein `Set`,
-   keine `Date`-Objekte, keine Funktionen. Zeitstempel als Zahl.
+   keine `Date`-Objekte, keine Funktionen. Zeitstempel als Zahl. Aus demselben Grund liegt
+   der Kartenstapel als *Inhalt* im Zustand und nicht als Index: eigene Karten würden die
+   Nummerierung sonst zwischen den Geräten verschieben.
 3. **Nie eigene Schluckzahlen ausrechnen.** Gib `baseSips` an `<DrinkCall>` und lass die
    Engine übersetzen. Nur so bekommt jede Person die Menge, die zu ihrem Körper und ihrem
    Getränk passt.

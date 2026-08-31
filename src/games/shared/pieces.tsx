@@ -121,3 +121,92 @@ export function Choice({
     </div>
   );
 }
+
+/** Gleichzeitige Abstimmung auf einen Mitspieler. */
+export function VoteGrid({
+  players,
+  myVote,
+  onVote,
+  exclude = [],
+  disabled,
+}: {
+  players: GamePlayer[];
+  myVote?: string;
+  onVote: (id: string) => void;
+  exclude?: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <div className="votegrid">
+      {players
+        .filter((p) => !exclude.includes(p.id))
+        .map((p, i) => (
+          <button
+            key={p.id}
+            className={`votecard pressable ${myVote === p.id ? 'votecard--on' : ''}`}
+            style={{ ['--i' as string]: i }}
+            disabled={disabled || Boolean(myVote)}
+            onClick={() => onVote(p.id)}
+          >
+            <Avatar name={p.name} color={p.color} />
+            <span className="votecard__name">{p.name}</span>
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/** Ergebnis einer Abstimmung als animierte Balken. */
+export function VoteResult({
+  players,
+  counts,
+  highlight,
+}: {
+  players: GamePlayer[];
+  counts: Record<string, number>;
+  highlight?: string | null;
+}) {
+  const max = Math.max(1, ...Object.values(counts));
+  const ranked = [...players].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0));
+  return (
+    <div className="stack-2">
+      {ranked.map((p, i) => {
+        const n = counts[p.id] ?? 0;
+        return (
+          <div
+            key={p.id}
+            className={`votebar ${highlight === p.id ? 'votebar--top' : ''}`}
+            style={{ ['--i' as string]: i, ['--pct' as string]: `${(n / max) * 100}%` }}
+          >
+            <span className="votebar__fill" />
+            <Avatar name={p.name} color={p.color} size="sm" />
+            <span className="grow t-headline">{p.name}</span>
+            <span className="t-mono-num t-headline">{n}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Zahl, die beim Erscheinen hochzählt. */
+export function CountUp({ value, duration = 700 }: { value: number; duration?: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (value <= 0) {
+      setShown(0);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // Weiches Ausklingen statt linearem Hochzaehlen
+      setShown(Math.round(value * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <>{shown}</>;
+}

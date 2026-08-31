@@ -1,0 +1,58 @@
+import { createCardGame } from '../card-engine/createCardGame';
+import type { CardDef } from '../card-engine/types';
+
+/**
+ * Musikquiz ohne Streaming und ohne Lizenzfragen: eine Person singt oder
+ * summt die erste Zeile, die Runde rät.
+ */
+const CARDS: CardDef[] = [
+  { text: 'Ein Song, den auf jeder Hochzeit alle mitsingen', heat: 1 },
+  { text: 'Ein Sommerhit, den du nicht mehr hören kannst', heat: 1 },
+  { text: 'Ein Song aus deiner Kindheit', heat: 1 },
+  { text: 'Eine deutsche Schlagernummer', heat: 1 },
+  { text: 'Der erste Song in deiner Lieblingsplaylist', heat: 1 },
+  { text: 'Ein Song, den deine Eltern hören', heat: 1 },
+  { text: 'Ein Filmsoundtrack', heat: 1 },
+  { text: 'Eine Weihnachtsnummer – egal welcher Monat', heat: 1 },
+  { text: 'Ein Song mit einem Namen im Titel', heat: 1 },
+  { text: 'Ein Song, den man nur grölen kann', heat: 1 },
+  { text: 'Ein Rap-Song – Text zählt, Flow ist optional', heat: 2 },
+  { text: 'Ein Song, den du heimlich liebst', heat: 2 },
+  { text: 'Ein Song aus einer Serie', heat: 2 },
+  { text: 'Ein Song, zu dem du das letzte Mal getanzt hast', heat: 2 },
+  { text: 'Eine Ballade, die dich mal zum Heulen gebracht hat', heat: 2 },
+  { text: 'Ein Song, der auf jeder Studentenparty läuft', heat: 2 },
+  { text: 'Ein Song aus dem Jahr deiner Geburt', heat: 2 },
+  { text: 'Ein Song in einer Sprache, die du nicht sprichst', heat: 2 },
+  { text: 'Dein persönlicher Karaoke-Song', heat: 3 },
+  { text: 'Ein Song, den du mal jemandem gewidmet hast', heat: 3 },
+  { text: 'Der peinlichste Song in deiner Mediathek', heat: 3 },
+  { text: 'Ein Song, der dich an deinen Ex erinnert', heat: 3 },
+];
+
+export const ersteZeile = createCardGame({
+  id: 'erste-zeile',
+  name: 'Erste Zeile',
+  tagline: 'Singen statt streamen. Die Runde rät.',
+  icon: 'activity',
+  accent: 'var(--pink)',
+  minPlayers: 3,
+  maxPlayers: 16,
+  duration: '10-20 Min',
+  intensity: 1,
+  tags: ['handy-weg', 'reden', 'kreativ'],
+  howTo: [
+    'Die Person am Zug sucht sich einen passenden Song aus und singt die erste Zeile.',
+    'Wer ihn zuerst errät, ist raus aus der Trinkrunde.',
+    'Errät ihn niemand, trinkt die singende Person.',
+  ],
+  actor: 'turn',
+  baseSips: 3,
+  drink: 'none',
+  resolveLabel: 'Erraten',
+  refuseLabel: 'Keiner wusste es',
+  refuseSips: 3,
+  heatSelectable: true,
+  allowCustomCards: true,
+  cards: CARDS,
+});

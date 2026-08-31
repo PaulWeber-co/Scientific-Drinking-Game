@@ -4,6 +4,7 @@ import { GAMES, getGame } from '../../games/registry';
 import { TAG_ICON, TAG_LABEL, type GameTag } from '../../games/types';
 import { HeatIcons, Icon } from '../../components/icons';
 import { GameCard } from './GameCard';
+import { CustomCards } from './CustomCards';
 import { NavBar, Sheet } from '../../components/ui';
 import { useParty } from '../party/PartyContext';
 import { useApp } from '../../store/app';
@@ -46,7 +47,7 @@ export function GamesScreen() {
             </button>
           ))}
         </div>
-        <div className="stack-3">
+        <div className="stack-3 stagger">
           {games.map((g) => (
             <GameCard
               key={g.id}
@@ -144,6 +145,8 @@ export function GameDetail() {
             ))}
           </ol>
         </section>
+
+        <CustomCards game={game} />
 
         {game.requiresOwnDevice && (
           <div className="notice notice--orange">

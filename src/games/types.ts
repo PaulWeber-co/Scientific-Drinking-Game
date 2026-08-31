@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import type { IconName } from '../components/icons';
 import type { AvatarColor } from '../components/ui/Avatar';
-import type { DrinkEvent, Profile } from '../engine/types';
+import type { BacZone, DrinkEvent, Profile } from '../engine/types';
 
 export interface GamePlayer {
   id: string;
@@ -10,6 +10,10 @@ export interface GamePlayer {
   drinkIcon?: IconName;
   online?: boolean;
   isHost?: boolean;
+  /** Übernimmt heute den Heimweg. */
+  driver?: boolean;
+  /** Grobe Pegel-Zone – bewusst ohne Zahlenwert. */
+  zone?: BacZone;
   /**
    * Nur im Pass-&-Play-Modus gesetzt: Körperdaten der Mitspieler, die auf
    * diesem einen Gerät mitgeführt werden. Online bleiben diese Daten
@@ -103,6 +107,10 @@ export interface GameDefinition<S = any> {
   tags: GameTag[];
   /** true = jeder braucht sein eigenes Handy (Online-Lobby nötig). */
   requiresOwnDevice: boolean;
+  /** true = im Spieldetail lassen sich eigene Karten anlegen. */
+  allowCustomCards?: boolean;
+  /** Kategorien des Spiels, falls es welche hat (für eigene Karten). */
+  modes?: { id: string; label: string }[];
   howTo: string[];
   createState: (players: GamePlayer[]) => S;
   /** Läuft nur beim Host. Darf Math.random verwenden. */

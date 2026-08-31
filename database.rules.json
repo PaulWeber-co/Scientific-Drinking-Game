@@ -31,6 +31,8 @@
             "lastSeen": { ".validate": "newData.isNumber()" },
             "online": { ".validate": "newData.isBoolean()" },
             "ready": { ".validate": "newData.isBoolean()" },
+            "driver": { ".validate": "newData.isBoolean()" },
+            "zone": { ".validate": "newData.isString() && newData.val().length <= 12" },
             "$other": { ".validate": false }
           }
         },

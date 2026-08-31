@@ -8,6 +8,14 @@ import { wortbombe } from './wortbombe';
 import { tabu } from './tabu';
 import { memeBattle } from './meme-battle';
 import { topTen } from './top-ten';
+import { undercover } from './undercover';
+import { mostLikely } from './most-likely';
+import { schaetzfrage } from './schaetzfrage';
+import { zweiWahrheiten } from './zwei-wahrheiten';
+import { maexchen } from './maexchen';
+import { duell } from './duell';
+import { kategorien } from './kategorien';
+import { ersteZeile } from './erste-zeile';
 
 /**
  * Zentrale Spiele-Registry.
@@ -24,13 +32,21 @@ import { topTen } from './top-ten';
 export const GAMES: GameDefinition[] = [
   truthOrDare,
   neverHaveIEver,
+  mostLikely,
+  undercover,
   kingsCup,
   chaosRoulette,
   wortbombe,
+  duell,
   tabu,
   memeBattle,
+  schaetzfrage,
+  zweiWahrheiten,
   topTen,
+  maexchen,
   busfahrer,
+  kategorien,
+  ersteZeile,
 ];
 
 const INDEX = new Map(GAMES.map((g) => [g.id, g]));

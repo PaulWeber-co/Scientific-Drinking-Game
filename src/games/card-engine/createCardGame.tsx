@@ -1,67 +1,15 @@
-import { HeatIcons, Icon, type IconName } from '../../components/icons';
 import { useMemo } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
+import { customCardsFor } from '../../store/cards';
+import { HeatIcons, Icon } from '../../components/icons';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, Choice, PlayerChip } from '../shared/pieces';
 import { GameFrame } from '../shared/GameFrame';
-import type { GameAction, GameActionInput, GameDefinition, GamePlayer, GameRuntime, GameTag } from '../types';
+import type { GameAction, GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 
-export type Heat = 1 | 2 | 3;
-
-export interface CardDef {
-  text: string;
-  /** Zu welchem Modus die Karte gehört (z. B. "wahrheit" / "pflicht"). */
-  mode?: string;
-  /** 1 = harmlos, 2 = mittel, 3 = eskaliert. */
-  heat?: Heat;
-  /** Wer trinkt: der Spieler am Zug oder alle. Default: aus der Config. */
-  target?: 'actor' | 'all';
-  /** Ueberschreibt die Basis-Härte für diese Karte. */
-  sips?: number;
-  kicker?: string;
-}
-
-export interface CardGameConfig {
-  id: string;
-  name: string;
-  tagline: string;
-  icon: IconName;
-  accent: string;
-  minPlayers: number;
-  maxPlayers: number;
-  duration: string;
-  intensity: 1 | 2 | 3;
-  tags: GameTag[];
-  howTo: string[];
-  /** 'turn' = es gibt einen Spieler am Zug, 'none' = die Karte gilt für die Runde. */
-  actor: 'turn' | 'none';
-  /** Auswahl vor dem Ziehen, z. B. Wahrheit oder Pflicht. */
-  modes?: { id: string; label: string; icon?: IconName; tone?: string }[];
-  /** Standard-Härte der Trinkansage. */
-  baseSips: number;
-  /** Wer trinkt, wenn die Karte einfach erledigt wird. */
-  drink: 'actor' | 'all' | 'none' | 'self-declare';
-  resolveLabel?: string;
-  /** Wenn gesetzt: der Spieler darf kneifen und trinkt stattdessen. */
-  refuseLabel?: string;
-  refuseSips?: number;
-  cards: CardDef[];
-  /** Blendet den Härtegrad-Regler ein. */
-  heatSelectable?: boolean;
-}
-
-export interface CardGameState {
-  order: string[];
-  turnIndex: number;
-  round: number;
-  heat: Heat;
-  deck: number[];
-  drawn: number | null;
-  mode: string | null;
-  phase: 'choose' | 'card' | 'resolved';
-  outcome: 'done' | 'refused' | null;
-}
+export type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 
 /**
  * Baut aus einer Konfiguration ein fertiges Spiel.
@@ -70,12 +18,17 @@ export interface CardGameState {
  * Metadaten und Kartentexten – keine React-Komponente, kein Reducer.
  */
 export function createCardGame(config: CardGameConfig): GameDefinition<CardGameState> {
-  const pool = (heat: Heat, mode: string | null) =>
-    config.cards
-      .map((c, i) => [c, i] as const)
-      .filter(([c]) => (c.heat ?? 1) <= heat)
-      .filter(([c]) => !mode || !c.mode || c.mode === mode)
-      .map(([, i]) => i);
+  /** Alle Karten inklusive der selbst angelegten, gefiltert nach Härte und Modus. */
+  const pool = (heat: Heat, mode: string | null): CardDef[] => {
+    const all = config.allowCustomCards
+      ? [...config.cards, ...customCardsFor(config.id)]
+      : config.cards;
+    return all
+      .filter((c) => (c.heat ?? 1) <= heat)
+      .filter((c) => !mode || !c.mode || c.mode === mode);
+  };
+
+  const startsWithChoice = Boolean(config.modes) && config.actor === 'turn';
 
   const createState = (players: GamePlayer[]): CardGameState => ({
     order: shuffle(players.map((p) => p.id)),
@@ -85,11 +38,15 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     deck: shuffle(pool(config.intensity, null)),
     drawn: null,
     mode: null,
-    phase: config.modes && config.actor === 'turn' ? 'choose' : 'card',
+    phase: startsWithChoice ? 'choose' : 'card',
     outcome: null,
   });
 
-  const reduce = (state: CardGameState, action: GameAction, players: GamePlayer[]): CardGameState => {
+  const reduce = (
+    state: CardGameState,
+    action: GameAction,
+    players: GamePlayer[],
+  ): CardGameState => {
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
@@ -98,14 +55,24 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       case 'pickMode': {
         const mode = String(action.mode);
         const deck = shuffle(pool(state.heat, mode));
-        return { ...state, mode, deck: deck.slice(1), drawn: deck[0] ?? null, phase: 'card' };
+        return {
+          ...state,
+          mode,
+          drawn: deck[0] ?? null,
+          deck: deck.slice(1),
+          phase: 'card',
+        };
       }
       case 'draw': {
         const deck = state.deck.length ? state.deck : shuffle(pool(state.heat, state.mode));
         return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card' };
       }
       case 'resolve':
-        return { ...state, phase: 'resolved', outcome: action.outcome === 'refused' ? 'refused' : 'done' };
+        return {
+          ...state,
+          phase: 'resolved',
+          outcome: action.outcome === 'refused' ? 'refused' : 'done',
+        };
       case 'next': {
         const order = syncOrder(state.order, players);
         const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
@@ -117,9 +84,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           round: turnIndex === 0 ? state.round + 1 : state.round,
           mode: null,
           outcome: null,
-          drawn: config.modes && config.actor === 'turn' ? null : (deck[0] ?? null),
-          deck: config.modes && config.actor === 'turn' ? deck : deck.slice(1),
-          phase: config.modes && config.actor === 'turn' ? 'choose' : 'card',
+          drawn: startsWithChoice ? null : (deck[0] ?? null),
+          deck: startsWithChoice ? deck : deck.slice(1),
+          phase: startsWithChoice ? 'choose' : 'card',
         };
       }
       default:
@@ -134,7 +101,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       return players.find((p) => p.id === id) ?? players[0] ?? null;
     }, [state.order, state.turnIndex, players]);
 
-    const card = state.drawn != null ? config.cards[state.drawn] : null;
+    const card = state.drawn;
     const isMyTurn = !actor || actor.id === me.id;
     // Pass & Play: ein Gerät, also darf es auch für den Spieler am Zug tippen.
     const canAct = !online || isMyTurn;
@@ -202,10 +169,15 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
         {state.phase !== 'choose' && card && (
           <BigCard
-            animateKey={`${state.drawn}-${state.round}-${state.turnIndex}`}
-            kicker={card.kicker ?? config.modes?.find((m) => m.id === state.mode)?.label ?? config.name}
+            animateKey={`${card.text}-${state.round}-${state.turnIndex}`}
+            kicker={
+              card.kicker ?? config.modes?.find((m) => m.id === state.mode)?.label ?? config.name
+            }
             footer={
-              (card.heat ?? 1) > 1 ? <HeatIcons level={card.heat ?? 1} /> : undefined
+              <span className="row" style={{ justifyContent: 'center', gap: 8 }}>
+                {(card.heat ?? 1) > 1 && <HeatIcons level={card.heat ?? 1} />}
+                {card.custom && <span className="chip chip--outline">eigene Karte</span>}
+              </span>
             }
           >
             {card.text}
@@ -219,7 +191,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 player={me}
                 baseSips={sips}
                 source={config.id}
-                label="wenn du das kennst"
+                label="wenn das auf dich zutrifft"
               />
             )}
             <button
@@ -242,7 +214,14 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         {state.phase === 'resolved' && (
           <div className="stack-3">
             {state.outcome === 'refused' ? (
-              actor && <DrinkCall player={actor} baseSips={config.refuseSips ?? sips + 2} source={config.id} label="gekniffen" />
+              actor && (
+                <DrinkCall
+                  player={actor}
+                  baseSips={config.refuseSips ?? sips + 2}
+                  source={config.id}
+                  label="gekniffen"
+                />
+              )
             ) : config.drink === 'none' ? (
               <div className="t-center t-sub">Sauber. Weiter geht's.</div>
             ) : config.drink === 'self-declare' ? (
@@ -276,6 +255,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     intensity: config.intensity,
     tags: config.tags,
     requiresOwnDevice: false,
+    allowCustomCards: config.allowCustomCards,
+    modes: config.modes?.map((m) => ({ id: m.id, label: m.label })),
     howTo: config.howTo,
     createState,
     reduce,

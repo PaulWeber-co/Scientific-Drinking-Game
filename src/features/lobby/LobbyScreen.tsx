@@ -1,3 +1,4 @@
+import { GroupLevel } from './GroupLevel';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
@@ -5,6 +6,7 @@ import type { Profile, Sex } from '../../engine/types';
 import { ColorPicker, NavBar, Segmented, Sheet, Stepper } from '../../components/ui';
 import { AVATAR_COLORS, Avatar, type AvatarColor } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
+import { QrCode } from '../../components/ui/QrCode';
 import { haptic } from '../../lib/haptics';
 import { gamesForGroup } from '../../games/registry';
 import { GameCard } from '../games/GameCard';
@@ -26,8 +28,10 @@ export function LobbyScreen() {
   const players = party.players;
   const suitable = gamesForGroup(players.length, online);
 
+  const inviteUrl = `${location.origin}${location.pathname}#/lobby?code=${party.code}`;
+
   const shareLink = () => {
-    const url = `${location.origin}${location.pathname}#/lobby?code=${party.code}`;
+    const url = inviteUrl;
     const text = `Komm in unsere Runde! Lobby-Code: ${party.code}`;
     haptic('select');
     if (navigator.share) navigator.share({ title: 'Pegel', text, url }).catch(() => {});
@@ -57,6 +61,10 @@ export function LobbyScreen() {
                   {c}
                 </span>
               ))}
+            </div>
+            <div className="qrwrap">
+              <QrCode value={inviteUrl} size={168} />
+              <div className="t-caption t-center">Scannen statt tippen</div>
             </div>
             <div className={`connstate connstate--${party.connection}`}>
               <span className="connstate__dot" />
@@ -121,6 +129,8 @@ export function LobbyScreen() {
 
         {party.error && <div className="notice notice--red">{party.error}</div>}
 
+        <GroupLevel players={players} />
+
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">
@@ -142,7 +152,8 @@ export function LobbyScreen() {
                   </span>
                   <span className="t-caption row" style={{ gap: 5 }}>
                     {p.isHost && <>Host ·</>}
-                    <Icon name={p.drinkIcon ?? 'water'} size={13} />
+                    <Icon name={p.driver ? 'car' : (p.drinkIcon ?? 'water')} size={13} />
+                    {p.driver && <span className="drivertag">fährt</span>}
                     {p.online === false && <>· offline</>}
                   </span>
                 </span>
@@ -273,6 +284,7 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
       weightKg: weight,
       heightCm: undefined,
       alcoholFree: false,
+      designatedDriver: false,
     } as Profile;
     party.addLocalPlayer({ name: profile.name, color, profile, drinkId });
     haptic('success');

@@ -1,5 +1,8 @@
 # Ideen für später
 
+> **Stand:** Die als „umgesetzt" markierten Punkte sind inzwischen gebaut. Der Rest bleibt
+> als Backlog stehen.
+
 Priorisiert nach Verhältnis von Aufwand zu Wirkung. „1 Datei" heißt: geht über
 `createCardGame()` ohne eigenen UI-Code (siehe `docs/SPIEL-HINZUFUEGEN.md`).
 
@@ -11,25 +14,25 @@ Priorisiert nach Verhältnis von Aufwand zu Wirkung. „1 Datei" heißt: geht ü
 
 | Spiel | Idee | Aufwand |
 |:--|:--|:--|
-| **Undercover** | Alle bekommen dasselbe Wort – eine Person ein leicht anderes. Reihum beschreibt jede Person ihr Wort mit einem Satz, dann wird abgestimmt. Wer rausfliegt, trinkt; wird der Undercover nicht gefunden, trinken alle. Braucht eigene Handys und ist genau die Sorte Spiel, bei der man sich anschaut statt aufs Display. | mittel, eigene Komponente |
-| **Wer aus der Runde …** | „Wer würde am ehesten den Flug verpassen?" Alle tippen gleichzeitig auf einen Namen, dann Auflösung. Wer die meisten Stimmen hat, trinkt pro Stimme. Extrem schnell, extrem lustig, funktioniert ab 4 Leuten. | klein, eigene Komponente (Abstimmung gibt es schon in Meme Battle) |
-| **Schätzfrage** | „Wie viele Liter Bier trinkt Deutschland pro Kopf und Jahr?" Alle tippen eine Zahl, die am weitesten daneben liegende Person trinkt. Trainiert nebenbei das Gefühl für Zahlen – passt thematisch. | klein, eigene Komponente |
-| **Zwei Wahrheiten, eine Lüge** | Jede Person schreibt drei Aussagen, die Runde rät die Lüge. Wer falsch rät, trinkt; wird die Lüge von allen erkannt, trinkt der Autor. | klein, Bausteine aus Meme Battle wiederverwendbar |
-| **Kategorien-Kette** | „Automarken", reihum, wer hängt trinkt. Klassiker, funktioniert auf einem Handy. | **1 Datei** |
-| **Mäxchen** | Würfel-Bluffspiel. Zwei Würfel verdeckt, ansagen oder höher lügen, aufdecken lassen. Der Verlierer trinkt. | mittel, eigene Komponente |
-| **Reaktions-Duell** | Handy liegt in der Mitte, zwei Namen erscheinen, nach zufälliger Wartezeit wird der Bildschirm grün. Wer zuletzt tippt, trinkt. Bringt Bewegung in eine müde Runde. | klein, eigene Komponente |
+| **Undercover** ✔ umgesetzt | Alle bekommen dasselbe Wort – eine Person ein leicht anderes. Reihum beschreibt jede Person ihr Wort mit einem Satz, dann wird abgestimmt. Wer rausfliegt, trinkt; wird der Undercover nicht gefunden, trinken alle. Braucht eigene Handys und ist genau die Sorte Spiel, bei der man sich anschaut statt aufs Display. | mittel, eigene Komponente |
+| **Wer aus der Runde …** ✔ umgesetzt | „Wer würde am ehesten den Flug verpassen?" Alle tippen gleichzeitig auf einen Namen, dann Auflösung. Wer die meisten Stimmen hat, trinkt pro Stimme. Extrem schnell, extrem lustig, funktioniert ab 4 Leuten. | klein, eigene Komponente (Abstimmung gibt es schon in Meme Battle) |
+| **Schätzfrage** ✔ umgesetzt | „Wie viele Liter Bier trinkt Deutschland pro Kopf und Jahr?" Alle tippen eine Zahl, die am weitesten daneben liegende Person trinkt. Trainiert nebenbei das Gefühl für Zahlen – passt thematisch. | klein, eigene Komponente |
+| **Zwei Wahrheiten, eine Lüge** ✔ umgesetzt | Jede Person schreibt drei Aussagen, die Runde rät die Lüge. Wer falsch rät, trinkt; wird die Lüge von allen erkannt, trinkt der Autor. | klein, Bausteine aus Meme Battle wiederverwendbar |
+| **Kategorien-Kette** ✔ umgesetzt | „Automarken", reihum, wer hängt trinkt. Klassiker, funktioniert auf einem Handy. | **1 Datei** |
+| **Mäxchen** ✔ umgesetzt | Würfel-Bluffspiel. Zwei Würfel verdeckt, ansagen oder höher lügen, aufdecken lassen. Der Verlierer trinkt. | mittel, eigene Komponente |
+| **Reaktions-Duell** ✔ umgesetzt | Handy liegt in der Mitte, zwei Namen erscheinen, nach zufälliger Wartezeit wird der Bildschirm grün. Wer zuletzt tippt, trinkt. Bringt Bewegung in eine müde Runde. | klein, eigene Komponente |
 
 ### Weitere Kandidaten
 
 | Spiel | Idee | Aufwand |
 |:--|:--|:--|
-| **Silbenbombe** | Wortbombe-Variante: statt Kategorie eine Silbe („STR"), jedes Wort muss sie enthalten. Nutzt den bestehenden Bomben-Reducer. | klein |
+| **Silbenbombe** ✔ umgesetzt | Wortbombe-Variante: statt Kategorie eine Silbe („STR"), jedes Wort muss sie enthalten. Nutzt den bestehenden Bomben-Reducer. | klein |
 | **Ich packe meinen Koffer** | Gedächtniskette, wer patzt trinkt. | **1 Datei** |
 | **Beer-Pong-Schiedsrichter** | Becherzähler für zwei Teams; getroffener Becher = Trinkansage an das Gegenteam, individuell umgerechnet. Die App ergänzt ein physisches Spiel, statt es zu ersetzen. | klein |
 | **Der heiße Stuhl** | 60 Sekunden Schnellfeuerfragen an eine Person, jede nicht beantwortete Frage kostet einen Schluck. Timer und Kartenstapel sind vorhanden. | klein |
 | **Party-Bingo** | Jede Person bekommt eine Karte mit Ereignissen („jemand verschüttet etwas", „jemand redet über die Arbeit"). Läuft den ganzen Abend nebenher. | mittel |
 | **Stille Post zum Zeichnen** | Gartic-Phone-Prinzip: Satz schreiben, zeichnen, raten, abwechselnd. Braucht eine Zeichenfläche und mehr Zustand als alles bisherige – aber es ist der Spieleabend-Selbstläufer schlechthin. | groß |
-| **Musikquiz „Erste Zeile"** | Eine Person singt die erste Zeile eines Songs, die Runde rät. Kein Streaming nötig, keine Lizenzfragen. | **1 Datei** |
+| **Musikquiz „Erste Zeile"** ✔ umgesetzt | Eine Person singt die erste Zeile eines Songs, die Runde rät. Kein Streaming nötig, keine Lizenzfragen. | **1 Datei** |
 
 ---
 
@@ -37,18 +40,18 @@ Priorisiert nach Verhältnis von Aufwand zu Wirkung. „1 Datei" heißt: geht ü
 
 ### Hoher Nutzen, kleiner Aufwand
 
-- **QR-Code für die Lobby.** Statt vier Zeichen abzutippen: Code scannen. Der Einladungslink
+- ✔ **QR-Code für die Lobby.** Statt vier Zeichen abzutippen: Code scannen. Der Einladungslink
   existiert schon (`#/lobby?code=…`), es fehlt nur die Darstellung. Ein kleiner
   QR-Encoder ist dafür ausreichend, keine externe Abhängigkeit nötig.
-- **Abend-Rückblick.** Beim „Abend beenden" eine Zusammenfassung: Gesamtmenge, höchster
+- ✔ **Abend-Rückblick.** Beim „Abend beenden" eine Zusammenfassung: Gesamtmenge, höchster
   Pegel, meistgespieltes Spiel, längste Aussetz-Serie. Als teilbare Bildkarte am nächsten
   Morgen deutlich unterhaltsamer als eine Zahl.
-- **Rolle „Designierte:r Fahrer:in".** Ein Schalter, der die Person sichtbar in der Lobby
+- ✔ **Rolle „Designierte:r Fahrer:in".** Ein Schalter, der die Person sichtbar in der Lobby
   markiert, alle Ansagen in Aufgaben verwandelt und ihr eine eigene Kachel mit Wasserzähler
   und Heimweg-Countdown gibt. Der alkoholfreie Modus ist da – ihm fehlt nur die Bühne.
-- **Eigene Karten.** Fragen und Aufgaben selbst hinzufügen, lokal gespeichert und optional
+- ✔ **Eigene Karten.** Fragen und Aufgaben selbst hinzufügen, lokal gespeichert und optional
   in die Lobby geteilt. Verlängert die Lebensdauer jedes Kartenspiels erheblich.
-- **Gruppen-Pegelanzeige.** In der Lobby eine anonyme Verteilung („3 im Sweet Spot, 1 noch
+- ✔ **Gruppen-Pegelanzeige.** In der Lobby eine anonyme Verteilung („3 im Sweet Spot, 1 noch
   im Aufbau"). Zeigt nur Zonen, keine Werte – dann bleiben die Gesundheitsdaten lokal.
 
 ### Mittelfristig

@@ -90,5 +90,6 @@ export const truthOrDare = createCardGame({
   refuseLabel: 'Kneifen und trinken',
   refuseSips: 4,
   heatSelectable: true,
+  allowCustomCards: true,
   cards: [...WAHRHEIT, ...PFLICHT],
 });

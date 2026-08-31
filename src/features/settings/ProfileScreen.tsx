@@ -118,6 +118,23 @@ export function ProfileScreen() {
                 label="Alkoholfrei"
               />
             </div>
+            <div className="list__item">
+              <span className="grow">
+                <span className="t-headline" style={{ display: 'block' }}>
+                  Ich fahre heute
+                </span>
+                <span className="t-caption">
+                  Sichtbar für die Runde, mit Wasserzähler statt Trinkansage
+                </span>
+              </span>
+              <Toggle
+                checked={profile.designatedDriver}
+                onChange={(designatedDriver) =>
+                  patch({ designatedDriver, alcoholFree: designatedDriver || profile.alcoholFree })
+                }
+                label="Designierte Fahrerin oder designierter Fahrer"
+              />
+            </div>
           </div>
           <div className="targetpick">
             <div className="t-upper">Zielpegel</div>

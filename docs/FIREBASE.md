@@ -13,13 +13,18 @@ einen Ort, an dem dieser Zustand liegt. Genau das — und nur das — macht Fire
 lobbies/
   A7K2/
     meta/     { code, host, status, gameId, createdAt, updatedAt, expiresAt }
-    players/  { <geräteId>: { id, name, emoji, drinkEmoji, joinedAt, lastSeen, online } }
+    players/  { <geräteId>: { id, name, color, drinkIcon, driver, zone,
+                              joinedAt, lastSeen, online } }
     game/     { id, startedAt, state: "<JSON-String>" }
     inbox/    { <pushId>: { by, at, action: "<JSON-String>" } }
 ```
 
+`zone` ist bewusst grob: `sober`, `warmup`, `sweet`, `edge` oder `over` – fünf Stufen, kein
+Zahlenwert. Daraus baut die Lobby die anonyme Gruppenanzeige. `driver` markiert die Person,
+die den Heimweg übernimmt, damit ihr niemand nachschenkt.
+
 **Nicht** in der Datenbank: Alter, Gewicht, Größe, Geschlecht, Zielpegel, Trink-Log,
-geschätzter Blutalkohol. Diese Daten liegen ausschließlich im `localStorage` des jeweiligen
+Promillewerte. Diese Daten liegen ausschließlich im `localStorage` des jeweiligen
 Geräts. Deshalb berechnet auch jedes Gerät seine eigene Schluckzahl selbst — auf dem
 Bildschirm der anderen steht nur „sieht seine Menge auf dem eigenen Handy".
 

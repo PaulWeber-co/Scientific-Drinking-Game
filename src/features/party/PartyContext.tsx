@@ -30,9 +30,10 @@ import {
 import { deviceId, lobbyCode, uid } from '../../lib/id';
 import type { IconName } from '../../components/icons';
 import { colorFor, isAvatarColor, type AvatarColor } from '../../components/ui/Avatar';
+import { bacZone, estimateBac } from '../../engine/bac';
 import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
-import type { DrinkEvent, Profile } from '../../engine/types';
+import type { BacZone, DrinkEvent, Profile } from '../../engine/types';
 import type { GameAction, GameActionInput, GamePlayer } from '../../games/types';
 import { getGame } from '../../games/registry';
 import { usePlayer } from '../../store/player';
@@ -51,6 +52,10 @@ interface RemotePlayer {
   lastSeen: number;
   online?: boolean;
   ready?: boolean;
+  /** Übernimmt heute den Heimweg. */
+  driver?: boolean;
+  /** Nur die grobe Pegel-Zone – nie ein Zahlenwert. */
+  zone?: BacZone;
 }
 
 interface LobbySnapshot {
@@ -106,6 +111,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const currentDrinkId = usePlayer((s) => s.currentDrinkId);
   const customDrinks = usePlayer((s) => s.customDrinks);
   const logEvent = usePlayer((s) => s.logEvent);
+  const log = usePlayer((s) => s.log);
   const setLastLobbyCode = useApp((s) => s.setLastLobbyCode);
 
   const myId = useMemo(() => deviceId(), []);
@@ -116,12 +122,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<LobbySnapshot | null>(null);
 
   // --- Lokaler Modus (Pass & Play auf einem Gerät) ---
-  const [localPlayers, setLocalPlayers] = useState<GamePlayer[]>([]);
+  // Die Runde überlebt ein Neuladen, aber nicht das Schliessen des Tabs:
+  // Gastdaten gehören niemandem dauerhaft auf dieses Gerät.
+  const [localPlayers, setLocalPlayers] = useState<GamePlayer[]>(loadLocalPlayers);
   const [localGameId, setLocalGameId] = useState<string | null>(null);
   const [localGameState, setLocalGameState] = useState<unknown>(null);
   const [localStatus, setLocalStatus] = useState<PartyStatus>('lobby');
 
   const myDrink = findDrink(currentDrinkId, customDrinks);
+
+  // Für den Heartbeat: aktuelle Werte ohne das Abo neu aufzubauen.
+  const liveRef = useRef({ profile, log, drink: myDrink });
+  liveRef.current = { profile, log, drink: myDrink };
 
   const me: GamePlayer = useMemo(
     () => ({
@@ -129,6 +141,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       name: profile?.name || 'Du',
       color: profile?.color ?? 'indigo',
       drinkIcon: myDrink.icon,
+      driver: profile?.designatedDriver ?? false,
       online: true,
       isHost: mode === 'local' ? true : snapshot?.meta?.host === myId,
     }),
@@ -147,6 +160,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         name: p.name,
         color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
         drinkIcon: p.drinkIcon,
+        driver: p.driver === true,
+        zone: p.zone,
         online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
         isHost: snapshot?.meta?.host === p.id,
       }));
@@ -169,6 +184,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         name: (profile?.name || 'Spieler').slice(0, 24),
         color: profile?.color ?? 'indigo',
         drinkIcon: myDrink.icon,
+        driver: profile?.designatedDriver ?? false,
         lastSeen: Date.now(),
         online: true,
         ...extra,
@@ -203,6 +219,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             name: (profile?.name || 'Spieler').slice(0, 24),
             color: profile?.color ?? 'indigo',
             drinkIcon: myDrink.icon,
+            driver: profile?.designatedDriver ?? false,
             joinedAt: now,
             lastSeen: now,
             online: true,
@@ -283,7 +300,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (mode !== 'online' || !code) return;
     const meRef = lobbyRef(code, `/players/${myId}`);
     onDisconnect(meRef).update({ online: false }).catch(() => {});
-    const beat = () => update(meRef, { lastSeen: Date.now(), online: true }).catch(() => {});
+    const beat = () => {
+      const { profile: p, log: l, drink } = liveRef.current;
+      // Es geht nur die grobe Zone raus – kein Promillewert, kein Gewicht.
+      const zone = p ? bacZone(estimateBac(l, p).bac) : 'sober';
+      update(meRef, {
+        lastSeen: Date.now(),
+        online: true,
+        zone,
+        driver: p?.designatedDriver ?? false,
+        drinkIcon: drink.icon,
+      }).catch(() => {});
+    };
     beat();
     const t = setInterval(beat, HEARTBEAT_MS);
     const onVis = () => document.visibilityState === 'visible' && beat();
@@ -509,6 +537,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const localGameIdRef = useRef<string | null>(null);
   localGameIdRef.current = localGameId;
 
+  useEffect(() => {
+    saveLocalPlayers(localPlayers);
+  }, [localPlayers]);
+
   const logSipsFor = useCallback(
     (playerId: string, sips: number, source?: string) => {
       if (sips <= 0) return;
@@ -553,6 +585,27 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   };
 
   return <PartyCtx.Provider value={value}>{children}</PartyCtx.Provider>;
+}
+
+const LOCAL_PLAYERS_KEY = 'sdg.local-players';
+
+function loadLocalPlayers(): GamePlayer[] {
+  try {
+    const raw = sessionStorage.getItem(LOCAL_PLAYERS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as GamePlayer[]) : [];
+    return Array.isArray(parsed) ? parsed.filter((p) => p?.id && p?.local) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPlayers(players: GamePlayer[]) {
+  try {
+    if (players.length) sessionStorage.setItem(LOCAL_PLAYERS_KEY, JSON.stringify(players));
+    else sessionStorage.removeItem(LOCAL_PLAYERS_KEY);
+  } catch {
+    /* Privater Modus ohne Speicher – dann eben nur im Arbeitsspeicher. */
+  }
 }
 
 /**

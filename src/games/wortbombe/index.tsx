@@ -1,10 +1,11 @@
 import { Icon } from '../../components/icons';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
+import { Explosion } from '../shared/Explosion';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 
 const CATEGORIES = [
@@ -123,6 +124,21 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
   const holder = players.find((p) => p.id === state.order[state.holderIndex]) ?? players[0];
   const isHolder = holder?.id === me.id;
   const send = (a: GameActionInput) => dispatch(a);
+  // 0 = gerade scharf gemacht, 1 = gleich knallt es. Treibt Puls und Vibration.
+  const [tension, setTension] = useState(0);
+
+  useEffect(() => {
+    if (state.phase !== 'running') {
+      setTension(0);
+      return;
+    }
+    const total = Math.max(1, state.explodesAt - Date.now());
+    const t = setInterval(() => {
+      const left = Math.max(0, state.explodesAt - Date.now());
+      setTension(1 - left / total);
+    }, 120);
+    return () => clearInterval(t);
+  }, [state.phase, state.explodesAt]);
 
   // Die Bombe zündet auf dem Gerät des Halters (und beim Host als Rückfall).
   useEffect(() => {
@@ -138,12 +154,13 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     return () => clearInterval(t);
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
-  // Leises Ticken über Vibration, damit die Spannung spürbar ist.
+  // Ticken über Vibration – wird schneller, je näher der Knall kommt.
   useEffect(() => {
     if (state.phase !== 'running' || (online && !isHolder)) return;
-    const t = setInterval(() => haptic('tap'), 900);
+    const interval = Math.max(160, 900 - tension * 700);
+    const t = setInterval(() => haptic('tap'), interval);
     return () => clearInterval(t);
-  }, [state.phase, isHolder, online]);
+  }, [state.phase, isHolder, online, tension]);
 
   return (
     <GameFrame
@@ -175,7 +192,10 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
 
       {state.phase === 'running' && (
         <>
-          <div className="bomb-pulse">
+          <div
+            className={`bomb-pulse ${tension > 0.7 ? 'bomb-pulse--hot' : ''}`}
+            style={{ ['--tension' as string]: tension.toFixed(2) }}
+          >
             <Icon name="bomb" size={84} strokeWidth={1.2} />
           </div>
           <button
@@ -192,7 +212,8 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
       )}
 
       {state.phase === 'boom' && (
-        <div className="stack-3">
+        <div className="stack-3 shake">
+          <Explosion />
           <BigCard tone="danger" kicker="Boom">
             {holder?.name} hatte die Bombe.
           </BigCard>

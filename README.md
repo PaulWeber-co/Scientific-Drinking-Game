@@ -22,11 +22,14 @@ in der jede Person ihr eigenes Gerät benutzt.
 | Verlaufs- und Prognosegrafik des Pegels | fertig |
 | Lobby über 4-stelligen Code (Firebase Realtime Database) | fertig |
 | Pass-&-Play auf einem Handy, inkl. Körperdaten der Mitspieler | fertig |
-| 9 Spiele, davon 4 mit „Handy weglegen" | fertig |
+| 17 Spiele, davon 8 mit „Handy weglegen" | fertig |
 | Plugin-System für neue Spiele | fertig |
 | Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
 | Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
 | Eigenes SVG-Icon-Set statt Emojis, Monogramm-Avatare | fertig |
+| QR-Code zum Beitreten, Abend-Rückblick als teilbares Bild | fertig |
+| Rolle „Ich fahre heute" mit Wasserzähler | fertig |
+| Eigene Karten pro Spiel, anonyme Gruppen-Pegelanzeige | fertig |
 
 ### Die Spiele
 
@@ -34,13 +37,21 @@ in der jede Person ihr eigenes Gerät benutzt.
 |:--|:--|:--|
 | Wahrheit oder Pflicht | Klassiker mit drei Härtegraden und Notausgang | 1 reicht |
 | Ich hab noch nie | Handy in die Mitte, alle anderen weg | 1 reicht |
+| Wer aus der Runde | Alle zeigen gleichzeitig, meiste Stimmen trinkt | eigene nötig |
+| Undercover | Alle kennen dasselbe Wort – eine Person nicht | eigene nötig |
 | Ring of Fire | Kings Cup mit virtuellem Kartendeck | 1 reicht |
 | Chaos-Roulette | Gruppenaufgaben, Duelle, Bewegung | 1 reicht |
 | Wortbombe | Kategorie nennen und weitergeben, bevor es knallt | 1 reicht |
+| Reaktions-Duell | Handy in die Mitte, wer langsamer tippt, trinkt | 1 reicht |
 | Tabu Rush | Zwei Teams, 60 Sekunden, verbotene Wörter | 1 reicht |
 | Meme Battle | Prompt, Pointe tippen, anonym abstimmen | eigene nötig |
+| Schätzfrage | Alle tippen eine Zahl, am weitesten daneben trinkt | eigene nötig |
+| Zwei Wahrheiten, eine Lüge | Drei Aussagen, eine stimmt nicht | eigene nötig |
 | Top Ten | Geheime Zahl 1–10, Antworten sortieren | eigene nötig |
+| Mäxchen | Würfeln, ansagen, lügen – oder aufdecken | 1 reicht |
 | Busfahrer | Vier Fragen, dann die lange Fahrt | 1 reicht |
+| Kategorien | Reihum ein Beispiel, wer hängt trinkt | 1 reicht |
+| Erste Zeile | Singen statt streamen, die Runde rät | 1 reicht |
 
 ---
 
@@ -49,7 +60,7 @@ in der jede Person ihr eigenes Gerät benutzt.
 ```bash
 npm install
 npm run dev        # Dev-Server
-npm test           # 66 Tests (Engine + alle Spiel-Reducer)
+npm test           # 86 Tests (Engine + alle Spiel-Reducer)
 npm run typecheck
 npm run build      # Produktions-Build nach dist/
 ```
@@ -137,9 +148,10 @@ Für Spiele mit eigener Mechanik siehe [`docs/SPIEL-HINZUFUEGEN.md`](docs/SPIEL-
 ## Datenschutz in einem Satz
 
 Name, Alter, Gewicht, Größe und das komplette Trink-Log liegen ausschließlich im
-`localStorage` des Geräts. In eine Lobby gehen nur Spitzname, Avatar-Emoji und das Symbol
-des Getränks. Gesundheitsdaten verlassen das Gerät nie — deshalb rechnet auch jedes Gerät
-seine eigene Schluckzahl selbst aus.
+`localStorage` des Geräts. In eine Lobby gehen nur Spitzname, Avatarfarbe, das Symbol des
+Getränks, die Rolle „fährt heute" und die grobe Pegel-**Zone** — nie ein Promillewert.
+Gesundheitsdaten verlassen das Gerät nie; deshalb rechnet jedes Gerät seine eigene
+Schluckzahl selbst aus.
 
 ## Disclaimer
 
