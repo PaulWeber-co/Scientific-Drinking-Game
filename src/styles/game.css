@@ -1,0 +1,380 @@
+/* ---------- Spiel-Rahmen ---------- */
+.game {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    var(--bg);
+}
+.game__bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: calc(var(--safe-top) + var(--s-2)) var(--s-3) var(--s-2);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.game__titles {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+.game__titles .t-headline {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game__action {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.game__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--label-2);
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.game__close:active {
+  transform: scale(0.88);
+}
+.game__body {
+  flex: 1;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--s-3) var(--s-4) calc(var(--safe-bottom) + var(--s-6));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* ---------- Grosse Karte ---------- */
+.bigcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s-4);
+  min-height: 240px;
+  padding: var(--s-6) var(--s-5);
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%),
+    var(--surface);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  animation: card-in var(--dur) var(--ease-spring) both;
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.96) rotate(-1deg);
+  }
+}
+.bigcard--danger {
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--red) 26%, transparent), transparent 62%),
+    var(--surface);
+}
+.bigcard__kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.bigcard__text {
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1.28;
+  letter-spacing: -0.5px;
+}
+.bigcard__text--sm {
+  font-size: 19px;
+  font-weight: 550;
+}
+.bigcard__footer {
+  color: var(--label-2);
+  font-size: var(--t-footnote);
+}
+
+/* ---------- Trinkansage ---------- */
+.call {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--green)) 34%, transparent);
+  background: color-mix(in srgb, var(--accent, var(--green)) 12%, transparent);
+  text-align: center;
+  animation: pop-in var(--dur) var(--ease-spring) both;
+}
+.call--compact {
+  padding: var(--s-3);
+}
+.call--skip,
+.call--muted {
+  border-color: var(--hairline);
+  background: var(--surface);
+}
+.call--done {
+  opacity: 0.55;
+}
+.call__who {
+  font-size: var(--t-footnote);
+  font-weight: 650;
+  color: var(--label-2);
+}
+.call__big {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  line-height: 1;
+}
+.call__unit {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--label-2);
+}
+
+/* ---------- Spieler-Chips ---------- */
+.pchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.pchip--off {
+  opacity: 0.42;
+}
+.pchip__emoji {
+  font-size: 16px;
+}
+.pchip__drink {
+  opacity: 0.6;
+}
+
+/* ---------- Warten / Countdown / Ring ---------- */
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+}
+.countdown {
+  font-weight: 800;
+  letter-spacing: -2px;
+  text-align: center;
+  color: var(--accent);
+  transition: color var(--dur-fast) linear;
+}
+.countdown--lg {
+  font-size: 72px;
+  line-height: 1;
+}
+.countdown--sm {
+  font-size: 28px;
+}
+.countdown--hot {
+  color: var(--red);
+  animation: pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+  to {
+    transform: scale(1.09);
+  }
+}
+.ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--accent) var(--pct), var(--surface-2) 0);
+  transition: background var(--dur-fast) linear;
+}
+.ring__inner {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+/* ---------- Auswahlknoepfe ---------- */
+.choice {
+  display: grid;
+  gap: var(--s-3);
+}
+.choice__btn {
+  min-height: 62px;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint, var(--accent)) 34%, transparent);
+  font-size: var(--t-title3);
+  font-weight: 650;
+  letter-spacing: -0.3px;
+}
+.choice__btn:disabled {
+  opacity: 0.4;
+}
+.choice--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ---------- Spielkarten (Kartendeck) ---------- */
+.playcard {
+  width: 108px;
+  height: 152px;
+  border-radius: 14px;
+  background: #fff;
+  color: #111;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+  animation: card-flip var(--dur) var(--ease-spring) both;
+}
+@keyframes card-flip {
+  from {
+    transform: rotateY(80deg) scale(0.9);
+    opacity: 0;
+  }
+}
+.playcard--red {
+  color: #d8264a;
+}
+.playcard--back {
+  background: linear-gradient(135deg, var(--brand-2), var(--brand));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+}
+.playcard__rank {
+  font-size: 26px;
+  line-height: 1;
+}
+.playcard__suit {
+  font-size: 30px;
+  text-align: right;
+  line-height: 1;
+}
+.playcard__mid {
+  text-align: center;
+  font-size: 34px;
+}
+.cardrow {
+  display: flex;
+  gap: var(--s-2);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---------- Ergebnisliste ---------- */
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.result-row__rank {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.answer-card {
+  padding: var(--s-4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  font-size: var(--t-title3);
+  font-weight: 600;
+  text-align: center;
+  width: 100%;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.answer-card:active {
+  transform: scale(0.97);
+}
+.answer-card--picked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* ---------- Wortbombe ---------- */
+.bomb-pulse {
+  font-size: 84px;
+  text-align: center;
+  line-height: 1;
+  animation: bomb 0.9s var(--ease-out) infinite alternate;
+  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--red) 45%, transparent));
+}
+@keyframes bomb {
+  from {
+    transform: scale(1) rotate(-4deg);
+  }
+  to {
+    transform: scale(1.16) rotate(4deg);
+  }
+}
+
+/* ---------- Top Ten: geheime Zahl ---------- */
+.secret {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s-4);
+  border-radius: var(--r-lg);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 24%, transparent), var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.secret__num {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  line-height: 1.05;
+}

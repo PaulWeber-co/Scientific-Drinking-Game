@@ -1,0 +1,118 @@
+/* Design tokens -- an iOS/Apple-inspired system.
+   Dark is the default (partys sind dunkel), Light wird ueber [data-theme] gesetzt. */
+:root {
+  color-scheme: dark;
+
+  /* --- Backgrounds --- */
+  --bg: #08080b;
+  --bg-grouped: #0e0e12;
+  --surface: rgba(28, 28, 32, 0.72);
+  --surface-solid: #1c1c20;
+  --surface-2: #2a2a30;
+  --surface-3: #3a3a42;
+  --hairline: rgba(235, 235, 245, 0.14);
+  --hairline-strong: rgba(235, 235, 245, 0.24);
+
+  /* --- Labels --- */
+  --label: #ffffff;
+  --label-2: rgba(235, 235, 245, 0.62);
+  --label-3: rgba(235, 235, 245, 0.38);
+  --label-4: rgba(235, 235, 245, 0.22);
+
+  /* --- Accents (iOS system colors, dark variants) --- */
+  --blue: #0a84ff;
+  --green: #30d158;
+  --indigo: #5e5ce6;
+  --orange: #ff9f0a;
+  --pink: #ff375f;
+  --purple: #bf5af2;
+  --red: #ff453a;
+  --teal: #64d2ff;
+  --yellow: #ffd60a;
+  --mint: #66d4cf;
+  --brand: var(--purple);
+  --brand-2: var(--indigo);
+
+  /* --- Radii --- */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-2xl: 36px;
+  --r-full: 999px;
+
+  /* --- Spacing (4pt grid) --- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* --- Type --- */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI Variable',
+    'Segoe UI', system-ui, 'Helvetica Neue', sans-serif;
+  --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI',
+    system-ui, sans-serif;
+  --t-large: 34px;
+  --t-title1: 28px;
+  --t-title2: 22px;
+  --t-title3: 20px;
+  --t-headline: 17px;
+  --t-body: 17px;
+  --t-callout: 16px;
+  --t-subhead: 15px;
+  --t-footnote: 13px;
+  --t-caption: 12px;
+
+  /* --- Motion --- */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur: 320ms;
+  --dur-slow: 520ms;
+
+  /* --- Elevation --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* --- Layout --- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tabbar-h: 56px;
+  --content-max: 520px;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --bg-grouped: #ffffff;
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-solid: #ffffff;
+  --surface-2: #ececef;
+  --surface-3: #dedee3;
+  --hairline: rgba(60, 60, 67, 0.14);
+  --hairline-strong: rgba(60, 60, 67, 0.24);
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.62);
+  --label-3: rgba(60, 60, 67, 0.38);
+  --label-4: rgba(60, 60, 67, 0.2);
+  --blue: #007aff;
+  --green: #34c759;
+  --indigo: #5856d6;
+  --orange: #ff9500;
+  --pink: #ff2d55;
+  --purple: #af52de;
+  --red: #ff3b30;
+  --teal: #32ade6;
+  --yellow: #ffcc00;
+  --mint: #00c7be;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.14);
+}

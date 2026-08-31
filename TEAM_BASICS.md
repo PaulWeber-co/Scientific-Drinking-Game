@@ -102,8 +102,17 @@ public/
 
 
 
-## Offene Punkte (bitte abstimmen)
+## Offene Punkte -- so entschieden
 
-2. **Hosting**: GitHub Pages oder Vercel?
-3. **Design**: Farbpalette, Font -- definieren wir in Phase 1 zusammen
-4. **Erstes Spiel**: Wahrheit oder Pflicht ok?
+| Frage | Entscheidung | Wo dokumentiert |
+|:---|:---|:---|
+| **Hosting** | GitHub Pages, per Actions-Workflow. Der Build ist host-unabhängig (`VITE_BASE`), ein Wechsel zu Vercel ist eine Zeile. | `docs/ARCHITEKTUR.md` |
+| **Routing** | `HashRouter` -- GitHub Pages kann keine Deep-Links umschreiben. | `src/app/App.tsx` |
+| **Design** | Eigenes Token-System an Apples Designsprache orientiert: dunkel als Standard, iOS-Systemfarben, Blur-Flächen, große Radien, System-Font-Stack. | `src/styles/tokens.css` |
+| **Erstes Spiel** | Wahrheit oder Pflicht -- plus acht weitere. | `src/games/registry.ts` |
+| **Firebase** | Nur Lobby und Spielstand. Keine Körperdaten. Security Rules liegen im Repo und müssen einmalig deployt werden. | `docs/FIREBASE.md` |
+| **Sprache** | Deutsch, kein i18n. | -- |
+
+Der ursprüngliche Implementation Plan ist weiterhin gültig; abweichend umgesetzt wurden vor
+allem das Resorptionsmodell in der BAC-Engine, die zwei Abbauraten und der Pass-&-Play-Modus.
+Die Begründungen stehen in `docs/WISSENSCHAFT.md` und `docs/ARCHITEKTUR.md`.
