@@ -12,6 +12,8 @@ interface AppState {
   lastLobbyCode: string | null;
   /** Zuletzt gespielte Spiele-IDs, neueste zuerst. */
   recentGames: string[];
+  /** Spicy-Inhalte je Spiel. Standardmäßig aus. */
+  spicy: Record<string, boolean>;
 
   setTheme: (t: Theme) => void;
   toggleHaptics: () => void;
@@ -19,6 +21,7 @@ interface AppState {
   acceptDisclaimer: () => void;
   setLastLobbyCode: (c: string | null) => void;
   markGamePlayed: (id: string) => void;
+  toggleSpicy: (id: string) => void;
 }
 
 export const useApp = create<AppState>()(
@@ -30,6 +33,7 @@ export const useApp = create<AppState>()(
       disclaimerAccepted: false,
       lastLobbyCode: null,
       recentGames: [],
+      spicy: {},
 
       setTheme: (theme) => set({ theme }),
       toggleHaptics: () =>
@@ -42,13 +46,22 @@ export const useApp = create<AppState>()(
       setLastLobbyCode: (lastLobbyCode) => set({ lastLobbyCode }),
       markGamePlayed: (id) =>
         set((s) => ({ recentGames: [id, ...s.recentGames.filter((g) => g !== id)].slice(0, 8) })),
+      toggleSpicy: (id) => set((s) => ({ spicy: { ...s.spicy, [id]: !s.spicy[id] } })),
     }),
     {
       name: 'sdg.app',
-      version: 1,
+      version: 2,
       onRehydrateStorage: () => (state) => {
         if (state) setHapticsEnabled(state.haptics);
       },
     },
   ),
 );
+
+/**
+ * Ob die Spicy-Karten eines Spiels im Stapel liegen. Auch ausserhalb von React
+ * nutzbar – der Reducer läuft beim Host und braucht denselben Wert.
+ */
+export function isSpicyOn(gameId: string): boolean {
+  return useApp.getState().spicy[gameId] === true;
+}

@@ -1,43 +1,60 @@
 import { haptic } from '../../lib/haptics';
-import { shuffle } from '../../lib/format';
+import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 
-const PROMPTS = [
-  'Wer aus der Runde verpasst am ehesten den Flug?',
-  'Wer würde am ehesten seinen eigenen Geburtstag vergessen?',
-  'Wer redet im Schlaf?',
-  'Wer würde am ehesten eine Sekte gründen?',
-  'Wer schreibt die längsten Sprachnachrichten?',
-  'Wer würde bei einer Zombie-Apokalypse zuerst draufgehen?',
-  'Wer hat den chaotischsten Kleiderschrank?',
-  'Wer würde am ehesten aus Versehen die Polizei rufen?',
-  'Wer wird als Erstes heiraten?',
-  'Wer könnte am längsten ohne Handy überleben?',
-  'Wer würde am ehesten für Geld im Fernsehen auftreten?',
-  'Wer hat die peinlichste Musik auf dem Handy?',
-  'Wer weint am ehesten bei einem Film?',
-  'Wer würde am ehesten einen Marathon spontan mitlaufen?',
-  'Wer kommt immer zu spät?',
-  'Wer würde am ehesten ein Haustier nach sich selbst benennen?',
-  'Wer könnte am besten lügen, ohne rot zu werden?',
-  'Wer würde am ehesten in eine Touristenfalle tappen?',
-  'Wer gibt am meisten Geld für Unnötiges aus?',
-  'Wer wäre der beste Tatort-Kommissar?',
-  'Wer hat den schlechtesten Orientierungssinn?',
-  'Wer würde am ehesten seinen Chef versehentlich duzen?',
-  'Wer wird heute Abend als Erstes müde?',
-  'Wer würde am ehesten mit Fremden auf einer Hochzeit landen?',
-  'Wer hat die meisten ungelesenen Mails?',
-  'Wer würde am ehesten eine Wette verlieren und trotzdem behaupten zu gewinnen?',
-  'Wer wäre am ehesten in einer Reality-Show?',
-  'Wer räumt nach der Party auf?',
-  'Wer erzählt dieselbe Geschichte am häufigsten?',
-  'Wer würde am ehesten seinen Schlüssel im Kühlschrank finden?',
-  'Wer ist heimlich am ehrgeizigsten?',
-  'Wer würde am ehesten ohne Plan auswandern?',
+interface Prompt {
+  text: string;
+  spicy?: boolean;
+}
+
+const PROMPTS: Prompt[] = [
+  { text: 'Wer aus der Runde verpasst am ehesten den Flug?' },
+  { text: 'Wer würde am ehesten seinen eigenen Geburtstag vergessen?' },
+  { text: 'Wer redet im Schlaf?' },
+  { text: 'Wer würde am ehesten eine Sekte gründen?' },
+  { text: 'Wer schreibt die längsten Sprachnachrichten?' },
+  { text: 'Wer würde bei einer Zombie-Apokalypse zuerst draufgehen?' },
+  { text: 'Wer hat den chaotischsten Kleiderschrank?' },
+  { text: 'Wer würde am ehesten aus Versehen die Polizei rufen?' },
+  { text: 'Wer wird als Erstes heiraten?' },
+  { text: 'Wer könnte am längsten ohne Handy überleben?' },
+  { text: 'Wer würde am ehesten für Geld im Fernsehen auftreten?' },
+  { text: 'Wer hat die peinlichste Musik auf dem Handy?' },
+  { text: 'Wer weint am ehesten bei einem Film?' },
+  { text: 'Wer würde am ehesten einen Marathon spontan mitlaufen?' },
+  { text: 'Wer kommt immer zu spät?' },
+  { text: 'Wer würde am ehesten ein Haustier nach sich selbst benennen?' },
+  { text: 'Wer könnte am besten lügen, ohne rot zu werden?' },
+  { text: 'Wer würde am ehesten in eine Touristenfalle tappen?' },
+  { text: 'Wer gibt am meisten Geld für Unnötiges aus?' },
+  { text: 'Wer wäre der beste Tatort-Kommissar?' },
+  { text: 'Wer hat den schlechtesten Orientierungssinn?' },
+  { text: 'Wer würde am ehesten seinen Chef versehentlich duzen?' },
+  { text: 'Wer wird heute Abend als Erstes müde?' },
+  { text: 'Wer würde am ehesten mit Fremden auf einer Hochzeit landen?' },
+  { text: 'Wer hat die meisten ungelesenen Mails?' },
+  { text: 'Wer würde am ehesten eine Wette verlieren und trotzdem behaupten zu gewinnen?' },
+  { text: 'Wer wäre am ehesten in einer Reality-Show?' },
+  { text: 'Wer räumt nach der Party auf?' },
+  { text: 'Wer erzählt dieselbe Geschichte am häufigsten?' },
+  { text: 'Wer würde am ehesten seinen Schlüssel im Kühlschrank finden?' },
+  { text: 'Wer ist heimlich am ehrgeizigsten?' },
+  { text: 'Wer würde am ehesten ohne Plan auswandern?' },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { text: 'Wer flirtet am ehesten mit der Bedienung?', spicy: true },
+  { text: 'Wer hat den mutigsten Anmachspruch drauf?', spicy: true },
+  { text: 'Wer würde am ehesten den Ex zurücknehmen?', spicy: true },
+  { text: 'Wer verliebt sich am schnellsten?', spicy: true },
+  { text: 'Wer hat die meisten ungelesenen Dating-Nachrichten?', spicy: true },
+  { text: 'Wer würde am ehesten eine Fernbeziehung wirklich durchziehen?', spicy: true },
+  { text: 'Wer hat den peinlichsten Flirt-Move?', spicy: true },
+  { text: 'Wer würde auf einer fremden Hochzeit als Erstes tanzen?', spicy: true },
+  { text: 'Wer ist heimlich in jemanden aus dem Freundeskreis verliebt?', spicy: true },
+  { text: 'Wer würde am ehesten eine Nummer auf einen Bierdeckel schreiben?', spicy: true },
 ];
 
 interface State {
@@ -60,6 +77,7 @@ export const mostLikely: GameDefinition<State> = {
   intensity: 2,
   tags: ['geheim', 'schnell', 'reden'],
   requiresOwnDevice: true,
+  allowSpicy: true,
   howTo: [
     'Jede Person braucht ihr eigenes Handy – niemand soll sehen, wer wen wählt.',
     'Frage lesen, tippen. Erst wenn alle gewählt haben, wird aufgedeckt.',
@@ -67,7 +85,7 @@ export const mostLikely: GameDefinition<State> = {
   ],
 
   createState: () => {
-    const deck = shuffle(PROMPTS.map((_, i) => i));
+    const deck = spicyDeck(PROMPTS, 'most-likely');
     return { phase: 'vote', prompt: deck[0], deck: deck.slice(1), votes: {}, round: 1 };
   },
 
@@ -81,7 +99,7 @@ export const mostLikely: GameDefinition<State> = {
         return { ...state, votes, phase: done ? 'result' : 'vote' };
       }
       case 'next': {
-        const deck = state.deck.length ? state.deck : shuffle(PROMPTS.map((_, i) => i));
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely');
         return {
           phase: 'vote',
           prompt: deck[0],
@@ -100,7 +118,7 @@ export const mostLikely: GameDefinition<State> = {
 
 function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
   const send = (a: GameActionInput) => dispatch(a);
-  const prompt = PROMPTS[state.prompt];
+  const prompt = PROMPTS[state.prompt]?.text ?? '';
 
   if (!online) {
     return (

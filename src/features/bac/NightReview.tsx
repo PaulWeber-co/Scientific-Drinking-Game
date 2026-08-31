@@ -87,7 +87,7 @@ export function NightReview({
 
         <div className="notice notice--neutral">
           Alle Werte sind Schätzungen. Der Rückblick liegt nur auf diesem Gerät – geteilt wird
-          ausschliesslich das Bild, das du selbst versendest.
+          ausschließlich das Bild, das du selbst versendest.
         </div>
 
         <button

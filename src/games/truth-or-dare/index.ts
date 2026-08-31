@@ -33,6 +33,24 @@ const WAHRHEIT: CardDef[] = [
   { text: 'Welche Meinung hast du, die hier alle gegen dich aufbringen würde?', heat: 3 },
 ].map((c) => ({ ...c, mode: 'wahrheit' }) as CardDef);
 
+/** Nur im Stapel, wenn der Spicy-Modus an ist. */
+const WAHRHEIT_SPICY: CardDef[] = [
+  { text: 'Was war dein bester Kuss – und was hat ihn so gut gemacht?' },
+  { text: 'Wen aus dieser Runde hättest du beinahe mal geküsst?' },
+  { text: 'Was ist dein größter Turn-off beim Flirten?' },
+  { text: 'Was war deine peinlichste Situation beim Anbaggern?' },
+  { text: 'Wo war der ungewöhnlichste Ort, an dem du geknutscht hast?' },
+  { text: 'Was findest du an einer Person zuerst attraktiv – ehrlich?' },
+  { text: 'Welcher Mensch ist dein absoluter Freifahrtschein?' },
+  { text: 'Was ist die kühnste Nachricht, die du je verschickt hast? Zusammenfassung reicht.' },
+  { text: 'Welchen Ex würdest du heute noch mal treffen – und warum genau?' },
+  { text: 'Was war das Verrückteste, das du aus Verliebtheit gemacht hast?' },
+  { text: 'Hast du dich schon mal in eine Freundin oder einen Freund verliebt?' },
+  { text: 'Welche Eigenschaft an dir hat schon mal jemanden verjagt?' },
+  { text: 'Was ist dein Dealbreaker, über den niemand hinwegkommt?' },
+  { text: 'Wen aus deinem Umfeld hast du schon mal heimlich vermisst?' },
+].map((c) => ({ ...c, mode: 'wahrheit', heat: 3, spicy: true }) as CardDef);
+
 const PFLICHT: CardDef[] = [
   { text: 'Sprich die nächsten drei Runden nur im Flüsterton.', heat: 1 },
   { text: 'Mach eine überzeugende Wettervorhersage für morgen – live und mit Gesten.', heat: 1 },
@@ -63,6 +81,21 @@ const PFLICHT: CardDef[] = [
   { text: 'Mach ein Kompliment an jede Person in der Runde. Keine Wiederholungen.', heat: 3 },
 ].map((c) => ({ ...c, mode: 'pflicht' }) as CardDef);
 
+const PFLICHT_SPICY: CardDef[] = [
+  { text: 'Mach der Person rechts von dir ein Kompliment, das du sonst nie aussprechen würdest.' },
+  { text: 'Beschreib deinen Typ so genau, dass die Runde rät, wen aus dem Raum du meinst.' },
+  { text: 'Flüstere einer Person deiner Wahl etwas ins Ohr, das sonst niemand hören darf.' },
+  { text: 'Nenne drei Dinge, die dich an einem Menschen sofort anziehen.' },
+  { text: 'Such dir eine Person aus: 30 Sekunden Blickkontakt, kein Wort. Wer wegschaut, trinkt.' },
+  { text: 'Zeig dein letztes Match – oder erzähl, warum es keines gibt.' },
+  { text: 'Tanze 20 Sekunden so, als wolltest du genau eine Person beeindrucken.' },
+  { text: 'Die Runde bestimmt, wem du ein ehrliches Kompliment machst. Du bestimmst welches.' },
+  { text: 'Schreib jemandem aus deinen Kontakten eine ehrliche Nachricht. Die Runde liest nicht mit.' },
+  { text: 'Verrate, wer hier den besten Flirt-Move hätte – und führ ihn vor.' },
+  { text: 'Erzähl von deinem ersten Kuss. Alles, woran du dich erinnerst.' },
+  { text: 'Sag der Person gegenüber einen Satz, der als Anmachspruch durchgehen würde.' },
+].map((c) => ({ ...c, mode: 'pflicht', heat: 3, spicy: true }) as CardDef);
+
 export const truthOrDare = createCardGame({
   id: 'truth-or-dare',
   name: 'Wahrheit oder Pflicht',
@@ -91,5 +124,6 @@ export const truthOrDare = createCardGame({
   refuseSips: 4,
   heatSelectable: true,
   allowCustomCards: true,
-  cards: [...WAHRHEIT, ...PFLICHT],
+  allowSpicy: true,
+  cards: [...WAHRHEIT, ...PFLICHT, ...WAHRHEIT_SPICY, ...PFLICHT_SPICY],
 });

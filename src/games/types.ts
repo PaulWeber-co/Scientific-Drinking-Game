@@ -109,6 +109,8 @@ export interface GameDefinition<S = any> {
   requiresOwnDevice: boolean;
   /** true = im Spieldetail lassen sich eigene Karten anlegen. */
   allowCustomCards?: boolean;
+  /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */
+  allowSpicy?: boolean;
   /** Kategorien des Spiels, falls es welche hat (für eigene Karten). */
   modes?: { id: string; label: string }[];
   howTo: string[];

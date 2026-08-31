@@ -14,6 +14,8 @@
           "host": { ".validate": "newData.isString() && newData.val().length <= 64" },
           "status": { ".validate": "newData.val() === 'lobby' || newData.val() === 'playing'" },
           "gameId": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "startedBy": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "startedAt": { ".validate": "newData.isNumber()" },
           "createdAt": { ".validate": "newData.isNumber()" },
           "updatedAt": { ".validate": "newData.isNumber()" },
           "expiresAt": { ".validate": "newData.isNumber() && newData.val() <= now + 43200000" },

@@ -51,7 +51,9 @@
 }
 .game__body {
   flex: 1;
-  justify-content: center;
+  /* "safe" verhindert, dass langer Inhalt oben aus dem Bild geschoben wird
+     und dann nicht mehr erreichbar ist. */
+  justify-content: safe center;
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
@@ -744,4 +746,73 @@
 }
 .bomb-pulse--hot {
   color: var(--red);
+}
+
+/* ---------- Mäxchen: Pasch hervorheben ---------- */
+.rankchip--pair {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+/* ---------- Tabu: Punktestand ---------- */
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+}
+.scoreboard__team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  transition:
+    border-color var(--dur-fast) linear,
+    background var(--dur-fast) linear;
+}
+.scoreboard__team--on {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.scoreboard__num {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+/* ---------- Kompakte Trinkansage (Listen) ---------- */
+.callrow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--green)) 28%, transparent);
+  background: color-mix(in srgb, var(--accent, var(--green)) 9%, transparent);
+  animation: rise var(--dur) var(--ease-emph) both;
+}
+.callrow__name {
+  font-size: var(--t-subhead);
+  font-weight: 650;
+}
+.callrow__num {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+.callrow__unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-2);
+  letter-spacing: 0;
+}
+.callrow .btn--sm {
+  min-width: 40px;
+  padding: 0 var(--s-2);
 }

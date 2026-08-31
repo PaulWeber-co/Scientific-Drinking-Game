@@ -38,7 +38,7 @@ export const duell: GameDefinition<State> = {
   howTo: [
     'Ein Handy liegt zwischen zwei Personen – jede bekommt eine Bildschirmhälfte.',
     'Sobald der Bildschirm grün wird, so schnell wie möglich auf die eigene Seite tippen.',
-    'Zu früh getippt heisst sofort verloren. Die langsamere Person trinkt.',
+    'Zu früh getippt heißt sofort verloren. Die langsamere Person trinkt.',
   ],
 
   createState: (players) => ({
@@ -157,7 +157,7 @@ function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State
             {right && <PlayerChip player={right} note="unten" />}
           </div>
           <BigCard kicker="Legt das Handy zwischen euch">
-            Sobald es grün wird: tippen. Vorher tippen heisst verloren.
+            Sobald es grün wird: tippen. Vorher tippen heißt verloren.
           </BigCard>
           <button
             className="btn btn--brand btn--block btn--lg"

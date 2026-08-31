@@ -21,6 +21,15 @@ const CARDS: CardDef[] = [
   { text: 'Deutsche Städte', heat: 1 },
   { text: 'Filme mit einem Wort im Titel', heat: 1 },
   { text: 'Dinge, die man auf ein Brot legt', heat: 1 },
+  { text: 'Dinge im Badezimmer', heat: 1 },
+  { text: 'Eissorten', heat: 1 },
+  { text: 'Dinge, die fliegen können', heat: 1 },
+  { text: 'Superhelden', heat: 1 },
+  { text: 'Dinge auf einem Schreibtisch', heat: 1 },
+  { text: 'Brettspiele', heat: 1 },
+  { text: 'Länder in Europa', heat: 1 },
+  { text: 'Dinge, die man mit Strom betreibt', heat: 1 },
+  { text: 'Gemüsesorten', heat: 1 },
   { text: 'Instrumente', heat: 1 },
   { text: 'Cocktails', heat: 2 },
   { text: 'Ausreden fürs Zuspätkommen', heat: 2 },
@@ -36,6 +45,14 @@ const CARDS: CardDef[] = [
   { text: 'Sätze, die eine Beziehung beenden', heat: 3 },
   { text: 'Dinge, die man nur betrunken sagt', heat: 3 },
   { text: 'Was in deinem Suchverlauf steht', heat: 3 },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { text: 'Anmachsprüche', heat: 3, spicy: true },
+  { text: 'Rote Flaggen beim Dating', heat: 3, spicy: true },
+  { text: 'Ausreden nach einem schlechten Date', heat: 3, spicy: true },
+  { text: 'Orte zum Knutschen', heat: 3, spicy: true },
+  { text: 'Dinge, die man beim ersten Date besser nicht sagt', heat: 3, spicy: true },
+  { text: 'Was in einer ehrlichen Dating-Bio stehen würde', heat: 3, spicy: true },
 ];
 
 export const kategorien = createCardGame({
@@ -55,10 +72,12 @@ export const kategorien = createCardGame({
     'Wer hängt, sich wiederholt oder patzt, trinkt.',
   ],
   actor: 'none',
+  cardKicker: 'Kategorie',
   baseSips: 3,
   drink: 'self-declare',
   resolveLabel: 'Runde vorbei',
   heatSelectable: true,
   allowCustomCards: true,
+  allowSpicy: true,
   cards: CARDS,
 });

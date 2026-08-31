@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { customCardsFor } from '../../store/cards';
+import { isSpicyOn } from '../../store/app';
 import { HeatIcons, Icon } from '../../components/icons';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, Choice, PlayerChip } from '../shared/pieces';
@@ -18,29 +19,37 @@ export type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
  * Metadaten und Kartentexten – keine React-Komponente, kein Reducer.
  */
 export function createCardGame(config: CardGameConfig): GameDefinition<CardGameState> {
-  /** Alle Karten inklusive der selbst angelegten, gefiltert nach Härte und Modus. */
+  /** Alle Karten inklusive der selbst angelegten, gefiltert nach Härte, Modus
+   *  und Spicy-Einstellung. */
   const pool = (heat: Heat, mode: string | null): CardDef[] => {
     const all = config.allowCustomCards
       ? [...config.cards, ...customCardsFor(config.id)]
       : config.cards;
+    const spicyOn = config.allowSpicy && isSpicyOn(config.id);
     return all
+      .filter((c) => spicyOn || !c.spicy)
       .filter((c) => (c.heat ?? 1) <= heat)
       .filter((c) => !mode || !c.mode || c.mode === mode);
   };
 
   const startsWithChoice = Boolean(config.modes) && config.actor === 'turn';
 
-  const createState = (players: GamePlayer[]): CardGameState => ({
-    order: shuffle(players.map((p) => p.id)),
-    turnIndex: 0,
-    round: 1,
-    heat: config.intensity,
-    deck: shuffle(pool(config.intensity, null)),
-    drawn: null,
-    mode: null,
-    phase: startsWithChoice ? 'choose' : 'card',
-    outcome: null,
-  });
+  const createState = (players: GamePlayer[]): CardGameState => {
+    const deck = shuffle(pool(config.intensity, null));
+    return {
+      order: shuffle(players.map((p) => p.id)),
+      turnIndex: 0,
+      round: 1,
+      heat: config.intensity,
+      // Ohne Moduswahl liegt die erste Karte sofort auf dem Tisch – sonst
+      // startet das Spiel mit einer leeren Flaeche.
+      deck: startsWithChoice ? deck : deck.slice(1),
+      drawn: startsWithChoice ? null : (deck[0] ?? null),
+      mode: null,
+      phase: startsWithChoice ? 'choose' : 'card',
+      outcome: null,
+    };
+  };
 
   const reduce = (
     state: CardGameState,
@@ -50,7 +59,11 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
-        return { ...state, heat, deck: shuffle(pool(heat, state.mode)) };
+        const deck = shuffle(pool(heat, state.mode));
+        // Liegt schon eine Karte, bleibt sie liegen – sonst springt der
+        // Bildschirm beim Verstellen des Reglers.
+        if (state.drawn) return { ...state, heat, deck };
+        return { ...state, heat, deck: deck.slice(1), drawn: deck[0] ?? null };
       }
       case 'pickMode': {
         const mode = String(action.mode);
@@ -95,6 +108,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
   };
 
   function Component({ state, players, me, dispatch, quit, online }: GameRuntime<CardGameState>) {
+    // Bei "Ich hab noch nie" entscheidet jede Person für sich – das bleibt
+    // lokal, es muss niemand erfahren, wer was angetippt hat.
+    const [declared, setDeclared] = useState<'yes' | 'no' | null>(null);
     const actor = useMemo(() => {
       if (config.actor === 'none') return null;
       const id = state.order[state.turnIndex % Math.max(1, state.order.length)];
@@ -117,7 +133,16 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       <GameFrame
         title={config.name}
         accent={config.accent}
-        subtitle={`Runde ${state.round}`}
+        subtitle={
+          <span className="row" style={{ justifyContent: 'center', gap: 6 }}>
+            Runde {state.round}
+            {config.allowSpicy && isSpicyOn(config.id) && (
+              <span className="chip chip--sm" style={{ ['--tint' as string]: 'var(--pink)' }}>
+                Spicy
+              </span>
+            )}
+          </span>
+        }
         onQuit={quit}
         action={
           config.heatSelectable ? (
@@ -171,12 +196,20 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           <BigCard
             animateKey={`${card.text}-${state.round}-${state.turnIndex}`}
             kicker={
-              card.kicker ?? config.modes?.find((m) => m.id === state.mode)?.label ?? config.name
+              card.kicker ??
+              config.modes?.find((m) => m.id === state.mode)?.label ??
+              config.cardKicker ??
+              config.name
             }
             footer={
               <span className="row" style={{ justifyContent: 'center', gap: 8 }}>
                 {(card.heat ?? 1) > 1 && <HeatIcons level={card.heat ?? 1} />}
                 {card.custom && <span className="chip chip--outline">eigene Karte</span>}
+            {card.spicy && (
+              <span className="chip" style={{ ['--tint' as string]: 'var(--pink)' }}>
+                Spicy
+              </span>
+            )}
               </span>
             }
           >
@@ -184,15 +217,60 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           </BigCard>
         )}
 
-        {state.phase === 'card' && (
+        {state.phase === 'card' && config.drink === 'self-declare' && online && (
+          <div className="stack-3">
+            {declared === null ? (
+              <Choice
+                options={[
+                  {
+                    id: 'yes',
+                    tone: 'var(--red)',
+                    label: (
+                      <>
+                        <Icon name="check" size={20} /> Hab ich
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'no',
+                    tone: 'var(--green)',
+                    label: (
+                      <>
+                        <Icon name="close" size={20} /> Nie gemacht
+                      </>
+                    ),
+                  },
+                ]}
+                onPick={(id) => {
+                  haptic(id === 'yes' ? 'warn' : 'success');
+                  setDeclared(id as 'yes' | 'no');
+                }}
+              />
+            ) : declared === 'yes' ? (
+              <DrinkCall player={me} baseSips={sips} source={config.id} label="ertappt" />
+            ) : (
+              <div className="t-center t-sub">Sauber geblieben. Diese Runde kostet dich nichts.</div>
+            )}
+            <button
+              className="btn btn--brand btn--block btn--lg"
+              disabled={declared === null}
+              onClick={() => {
+                setDeclared(null);
+                send({ type: 'next' });
+              }}
+            >
+              Nächste Karte
+            </button>
+          </div>
+        )}
+
+        {state.phase === 'card' && !(config.drink === 'self-declare' && online) && (
           <div className="stack-3">
             {config.drink === 'self-declare' && (
-              <DrinkCall
-                player={me}
-                baseSips={sips}
-                source={config.id}
-                label="wenn das auf dich zutrifft"
-              />
+              <>
+                <div className="t-upper t-center">Wen es trifft, trinkt</div>
+                <DrinkCallList players={players} baseSips={sips} source={config.id} />
+              </>
             )}
             <button
               className="btn btn--brand btn--block btn--lg"
@@ -233,7 +311,10 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             )}
             <button
               className="btn btn--brand btn--block btn--lg"
-              onClick={() => send({ type: 'next' })}
+              onClick={() => {
+                setDeclared(null);
+                send({ type: 'next' });
+              }}
             >
               Nächster
             </button>
@@ -256,6 +337,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     tags: config.tags,
     requiresOwnDevice: false,
     allowCustomCards: config.allowCustomCards,
+    allowSpicy: config.allowSpicy,
     modes: config.modes?.map((m) => ({ id: m.id, label: m.label })),
     howTo: config.howTo,
     createState,

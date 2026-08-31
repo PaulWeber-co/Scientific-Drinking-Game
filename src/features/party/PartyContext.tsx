@@ -64,6 +64,9 @@ interface LobbySnapshot {
     host: string;
     status?: PartyStatus;
     gameId?: string;
+    /** Wer die aktuelle Runde gestartet hat – für die Einladung an die anderen. */
+    startedBy?: string;
+    startedAt?: number;
     createdAt: number;
     updatedAt?: number;
     expiresAt: number;
@@ -84,6 +87,9 @@ export interface PartyValue {
   isHost: boolean;
   gameId: string | null;
   gameState: unknown;
+  /** Wer die laufende Runde gestartet hat (nur im Online-Modus gesetzt). */
+  startedBy: string | null;
+  startedAt: number;
 
   createOnline: () => Promise<string>;
   joinOnline: (code: string) => Promise<void>;
@@ -98,7 +104,8 @@ export interface PartyValue {
   logSipsFor: (playerId: string, sips: number, source?: string) => void;
 }
 
-const PartyCtx = createContext<PartyValue | null>(null);
+/** Exportiert, damit Tests eine Runde ohne Firebase nachstellen können. */
+export const PartyCtx = createContext<PartyValue | null>(null);
 
 export function useParty(): PartyValue {
   const ctx = useContext(PartyCtx);
@@ -122,7 +129,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<LobbySnapshot | null>(null);
 
   // --- Lokaler Modus (Pass & Play auf einem Gerät) ---
-  // Die Runde überlebt ein Neuladen, aber nicht das Schliessen des Tabs:
+  // Die Runde überlebt ein Neuladen, aber nicht das Schließen des Tabs:
   // Gastdaten gehören niemandem dauerhaft auf dieses Gerät.
   const [localPlayers, setLocalPlayers] = useState<GamePlayer[]>(loadLocalPlayers);
   const [localGameId, setLocalGameId] = useState<string | null>(null);
@@ -170,6 +177,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const status: PartyStatus =
     mode === 'local' ? localStatus : (snapshot?.meta?.status ?? 'lobby');
   const gameId = mode === 'local' ? localGameId : (snapshot?.meta?.gameId ?? null);
+  const startedBy = mode === 'local' ? null : (snapshot?.meta?.startedBy ?? null);
+  const startedAt = mode === 'local' ? 0 : (snapshot?.meta?.startedAt ?? 0);
   const remoteStateRaw = snapshot?.game?.state ?? null;
   const remoteState = useMemo(() => decodeState(remoteStateRaw), [remoteStateRaw]);
   const gameState = mode === 'local' ? localGameState : remoteState;
@@ -467,15 +476,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (!code) return;
+      const now = Date.now();
       update(lobbyRef(code), {
         'meta/status': 'playing',
         'meta/gameId': id,
-        'meta/updatedAt': Date.now(),
-        game: { id, startedAt: Date.now(), state: encodeState(state) },
+        'meta/startedBy': myId,
+        'meta/startedAt': now,
+        'meta/updatedAt': now,
+        game: { id, startedAt: now, state: encodeState(state) },
         inbox: null,
       }).catch((e) => setError(describe(e)));
     },
-    [mode, code, lobbyRef],
+    [mode, code, lobbyRef, myId],
   );
 
   const endGame = useCallback(() => {
@@ -489,6 +501,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     update(lobbyRef(code), {
       'meta/status': 'lobby',
       'meta/gameId': null,
+      'meta/startedBy': null,
+      'meta/startedAt': null,
       'meta/updatedAt': Date.now(),
       game: null,
       inbox: null,
@@ -571,6 +585,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     isHost,
     gameId,
     gameState,
+    startedBy,
+    startedAt,
     createOnline,
     joinOnline,
     startLocal,

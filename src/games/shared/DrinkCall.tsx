@@ -48,8 +48,37 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
     );
   }
 
+  if (compact) {
+    return (
+      <div className={`callrow ${done ? 'call--done' : ''}`}>
+        <Avatar name={player.name} color={player.color} size="sm" />
+        <span className="grow">
+          <span className="callrow__name">{mine ? 'Du' : player.name}</span>
+          {label && <span className="t-caption"> · {label}</span>}
+        </span>
+        <span className="callrow__num t-mono-num">
+          <CountUp value={res.sips} />
+          <span className="callrow__unit">{res.unit}</span>
+        </span>
+        <button
+          className={`btn btn--sm ${done ? 'btn--gray' : 'btn--tinted'}`}
+          style={{ ['--tint' as string]: 'var(--accent, var(--green))' }}
+          disabled={done}
+          aria-label={`${player.name} hat getrunken`}
+          onClick={() => {
+            haptic('success');
+            logSipsFor(player.id, res.sips, source);
+            setDone(true);
+          }}
+        >
+          <Icon name="check" size={16} strokeWidth={2.2} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className={`call ${done ? 'call--done' : ''} ${compact ? 'call--compact' : ''}`}>
+    <div className={`call ${done ? 'call--done' : ''}`}>
       <div className="call__who">
         <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
         {label && <span className="t-caption"> · {label}</span>}

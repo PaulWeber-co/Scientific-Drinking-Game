@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GAMES, gamesForGroup, getGame } from './registry';
+import { useApp } from '../store/app';
 import { encodeState, decodeState } from '../features/party/PartyContext';
 import type { GameAction, GamePlayer } from './types';
 import type { CardGameState } from './card-engine/createCardGame';
@@ -548,6 +549,72 @@ describe('Kartenspiele mit eigenen Karten', () => {
   it('erlauben eigene Karten dort, wo es Sinn ergibt', () => {
     for (const id of ['truth-or-dare', 'never-have-i-ever', 'chaos-roulette', 'kategorien']) {
       expect(getGame(id)?.allowCustomCards, id).toBe(true);
+    }
+  });
+});
+
+
+describe('Kartenspiele ohne Zugreihenfolge', () => {
+  it('legen die erste Karte sofort auf den Tisch', () => {
+    for (const id of ['never-have-i-ever', 'kategorien']) {
+      const s = getGame(id)!.createState(players(4));
+      expect(s.phase, id).toBe('card');
+      expect(s.drawn, id).not.toBeNull();
+      expect(typeof s.drawn.text, id).toBe('string');
+    }
+  });
+
+  it('behalten die liegende Karte, wenn der Härtegrad wechselt', () => {
+    const game = getGame('never-have-i-ever')!;
+    const s = game.createState(players(4));
+    const next = game.reduce(s, act('setHeat', 'p0', { heat: 1 }), players(4));
+    expect(next.drawn).toEqual(s.drawn);
+  });
+});
+
+describe('Spicy-Modus', () => {
+  const SPICY_GAMES = ['truth-or-dare', 'never-have-i-ever', 'chaos-roulette', 'kategorien'];
+
+  afterEach(() => {
+    useApp.setState({ spicy: {} });
+  });
+
+  it('ist genau bei den Spielen verfügbar, die dafür Inhalte haben', () => {
+    for (const id of SPICY_GAMES) expect(getGame(id)?.allowSpicy, id).toBe(true);
+    for (const id of ['kings-cup', 'busfahrer', 'duell', 'maexchen', 'tabu']) {
+      expect(getGame(id)?.allowSpicy, id).toBeFalsy();
+    }
+  });
+
+  it('lässt Spicy-Karten standardmäßig aus dem Stapel', () => {
+    for (const id of SPICY_GAMES) {
+      const game = getGame(id)!;
+      const s = game.createState(players(4));
+      const deck = [...s.deck, s.drawn].filter(Boolean);
+      expect(deck.some((c: { spicy?: boolean }) => c.spicy), id).toBe(false);
+    }
+  });
+
+  it('mischt sie ein, sobald der Schalter an ist', () => {
+    for (const id of SPICY_GAMES) {
+      const game = getGame(id)!;
+      const plain = game.createState(players(4));
+      useApp.setState({ spicy: { [id]: true } });
+      const spicy = game.reduce(plain, act('setHeat', 'p0', { heat: 3 }), players(4));
+      expect(spicy.deck.some((c: { spicy?: boolean }) => c.spicy), id).toBe(true);
+    }
+  });
+
+  it('gilt auch für Spiele mit eigenen Prompt-Listen', () => {
+    for (const id of ['most-likely', 'meme-battle', 'top-ten']) {
+      expect(getGame(id)?.allowSpicy, id).toBe(true);
+      const game = getGame(id)!;
+      const plain = game.createState(players(4));
+      useApp.setState({ spicy: { [id]: true } });
+      const withSpicy = game.createState(players(4));
+      // Mit Spicy stehen mehr Karten im Stapel als ohne.
+      expect(withSpicy.deck.length, id).toBeGreaterThan(plain.deck.length);
+      useApp.setState({ spicy: {} });
     }
   });
 });

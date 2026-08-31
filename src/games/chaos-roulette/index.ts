@@ -32,6 +32,15 @@ const CARDS: CardDef[] = [
   { text: 'Zeig auf die Person, die am schnellsten betrunken wird. Diese Person darf 6 Schlucke verteilen.', target: 'all', kicker: 'Abstimmung', heat: 3 },
   { text: 'Alle die heute noch fahren müssen: Hand hoch und Wasser holen. Alle anderen: trinkt.', target: 'all', kicker: 'Vernunft', heat: 1 },
   { text: 'Wasserrunde. Alle trinken ein Glas Wasser. Keine Ausreden.', target: 'all', kicker: 'Vernunft', heat: 1, sips: 0 },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { text: 'Alle, die schon mal jemanden aus dieser Runde attraktiv fanden: trinkt. Namen bleiben geheim.', target: 'all', kicker: 'Gruppe', heat: 3, spicy: true },
+  { text: 'Komplimente-Runde: Jede Person sagt der Person links etwas, das sie an ihr anziehend findet.', target: 'all', kicker: 'Reihum', heat: 3, spicy: true, sips: 0 },
+  { text: 'Alle, die schon mal jemanden geküsst haben, den sie am nächsten Tag nicht mehr sehen wollten: trinkt.', target: 'all', kicker: 'Gruppe', heat: 3, spicy: true },
+  { text: 'Zeigt gleichzeitig auf die Person mit dem besten Flirtblick. Meiste Finger: verteilt vier Schlucke.', target: 'all', kicker: 'Abstimmung', heat: 3, spicy: true },
+  { text: 'Blickduell mit der Person gegenüber. 30 Sekunden, kein Lachen, kein Wegschauen. Wer zuerst blinzelt, trinkt.', kicker: 'Duell', heat: 3, spicy: true },
+  { text: 'Alle, die aktuell für jemanden Gefühle haben: trinkt. Der Name ist freiwillig.', target: 'all', kicker: 'Gruppe', heat: 3, spicy: true },
+  { text: 'Nenne die drei Eigenschaften, die dich an einem Menschen sofort umhauen.', kicker: 'Mut', heat: 3, spicy: true, sips: 0 },
 ];
 
 export const chaosRoulette = createCardGame({
@@ -56,5 +65,6 @@ export const chaosRoulette = createCardGame({
   resolveLabel: 'Erledigt',
   heatSelectable: true,
   allowCustomCards: true,
+  allowSpicy: true,
   cards: CARDS,
 });

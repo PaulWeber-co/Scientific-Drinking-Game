@@ -17,8 +17,19 @@ const RANKS: string[] = [
   '21',
 ];
 
-const LABEL: Record<string, string> = { '21': 'Mäxchen' };
-const rankLabel = (i: number) => LABEL[RANKS[i]] ?? RANKS[i];
+const rankLabel = (i: number) => {
+  const r = RANKS[i];
+  if (r === '21') return 'Mäxchen';
+  return r[0] === r[1] ? `${r[0]}er Pasch` : `${r[0]}-${r[1]}`;
+};
+
+/** Kurzform für die Ansage-Knöpfe – "6-5" statt "6-5" plus Beiwerk. */
+const rankShort = (i: number) => {
+  const r = RANKS[i];
+  if (r === '21') return 'Mäxchen';
+  return `${r[0]}-${r[1]}`;
+};
+const isPair = (i: number) => RANKS[i][0] === RANKS[i][1] && RANKS[i] !== '21';
 
 function rankOf(dice: [number, number]): number {
   const [hi, lo] = [...dice].sort((a, b) => b - a);
@@ -235,18 +246,23 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
           <p className="t-sub t-center t-balance">
             Sag jetzt an – die Wahrheit oder etwas Höheres. Niemand sieht deinen Wurf.
           </p>
+          <p className="t-caption t-center">
+            Reihenfolge: gemischte Würfe, dann Pasch, dann Mäxchen.
+          </p>
           <div className="rankgrid">
             {options.map((i) => (
               <button
                 key={i}
-                className={`rankchip pressable ${RANKS[i] === '21' ? 'rankchip--max' : ''}`}
+                className={`rankchip pressable ${RANKS[i] === '21' ? 'rankchip--max' : ''} ${
+                  isPair(i) ? 'rankchip--pair' : ''
+                }`}
                 disabled={!canAnnounce}
                 onClick={() => {
                   haptic('select');
                   send({ type: 'announce', rank: i });
                 }}
               >
-                {rankLabel(i)}
+                {rankShort(i)}
               </button>
             ))}
           </div>
@@ -278,7 +294,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
             </button>
           </div>
           <p className="t-caption t-center t-balance">
-            Glauben heisst: du würfelst als Nächstes und musst höher ansagen.
+            Glauben heißt: du würfelst als Nächstes und musst höher ansagen.
           </p>
         </>
       )}

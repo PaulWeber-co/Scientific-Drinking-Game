@@ -5,6 +5,7 @@ import { TAG_ICON, TAG_LABEL, type GameTag } from '../../games/types';
 import { HeatIcons, Icon } from '../../components/icons';
 import { GameCard } from './GameCard';
 import { CustomCards } from './CustomCards';
+import { SpicyToggle } from './SpicyToggle';
 import { NavBar, Sheet } from '../../components/ui';
 import { useParty } from '../party/PartyContext';
 import { useApp } from '../../store/app';
@@ -146,6 +147,8 @@ export function GameDetail() {
           </ol>
         </section>
 
+        <SpicyToggle game={game} />
+
         <CustomCards game={game} />
 
         {game.requiresOwnDevice && (
@@ -165,7 +168,7 @@ export function GameDetail() {
               </div>
             </div>
             <button className="btn btn--sm btn--gray" onClick={() => nav('/lobby')}>
-              Aendern
+              Ändern
             </button>
           </div>
           <button className="btn btn--brand btn--block btn--lg" onClick={start}>
