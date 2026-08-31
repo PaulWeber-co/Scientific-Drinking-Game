@@ -30,16 +30,6 @@ Eine mobile-first Webapp fuer Trinkspiele auf Partys. Die App berechnet basieren
 | Tests | Vitest + Testing Library | In Vite integriert |
 | Linting | ESLint + Prettier | Konsistenter Code-Stil |
 
-### Warum kein eigener Server?
-
-- Onboarding + Berechnung = rein clientseitig
-- Lobby braucht Echtzeit-Sync -> Firebase Realtime DB uebernimmt das direkt aus dem Browser (kein Backend noetig)
-- Firebase Free Tier: 100 gleichzeitige Connections, 1 GB Speicher -> voellig ausreichend
-- Kein Server = kein Deployment, kein Monitoring, kein Ops-Aufwand
-
----
-
-
 
 
 src/
@@ -97,9 +87,9 @@ public/
 
 ### Vor Phase 2 noetig
 
-- [ ] **Firebase Account** (Google-Account reicht)
+
 - [ ] **Firebase CLI**: `npm install -g firebase-tools`
-- [ ] Firebase-Projekt anlegen (wer macht das? -> klaren)
+
   - Realtime Database aktivieren (Free Spark Plan)
   - Security Rules konfigurieren (nur Lobby-Pfade beschreibbar)
 
@@ -109,17 +99,8 @@ public/
 
 ---
 
-## Phasenplan (Kurzfassung)
 
-| Phase | Zeitraum | Inhalt |
-|:---|:---|:---|
-| **Phase 1** | Wochen 1-3 | Projekt-Setup, Onboarding, Getraenke-Auswahl, BAC-Engine, Restalkohol-Rechner |
-| **Phase 2** | Wochen 4-6 | Firebase, Lobby-System, erstes Spiel (Wahrheit/Pflicht) mit individuellen Schluecken |
-| **Phase 3** | Wochen 7-10 | Kings Cup, Busfahrer, BAC-Dashboard, UI-Polish |
 
-Details: Siehe `implementation_plan.md`
-
----
 
 ## Offene Punkte (bitte abstimmen)
 
