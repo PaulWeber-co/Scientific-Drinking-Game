@@ -1,0 +1,50 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "lobbies": {
+      "$code": {
+        ".read": "$code.matches(/^[A-Z0-9]{4,6}$/)",
+        ".write": "$code.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || !data.child('meta/expiresAt').exists() || data.child('meta/expiresAt').val() > now)",
+
+        "meta": {
+          ".validate": "newData.hasChildren(['code', 'host', 'createdAt', 'expiresAt'])",
+          "code": { ".validate": "newData.isString() && newData.val() === $code" },
+          "host": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "status": { ".validate": "newData.val() === 'lobby' || newData.val() === 'playing'" },
+          "gameId": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "expiresAt": { ".validate": "newData.isNumber() && newData.val() <= now + 43200000" },
+          "$other": { ".validate": false }
+        },
+
+        "players": {
+          "$playerId": {
+            ".validate": "newData.hasChildren(['id', 'name']) && newData.child('id').val() === $playerId",
+            "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "name": { ".validate": "newData.isString() && newData.val().length <= 24" },
+            "emoji": { ".validate": "newData.isString() && newData.val().length <= 8" },
+            "drinkEmoji": { ".validate": "newData.isString() && newData.val().length <= 8" },
+            "joinedAt": { ".validate": "newData.isNumber()" },
+            "lastSeen": { ".validate": "newData.isNumber()" },
+            "online": { ".validate": "newData.isBoolean()" },
+            "ready": { ".validate": "newData.isBoolean()" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "game": { ".validate": true },
+
+        "inbox": {
+          "$msgId": {
+            ".validate": "newData.hasChildren(['by', 'at']) && newData.child('by').isString() && newData.child('at').isNumber()"
+          }
+        },
+
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
