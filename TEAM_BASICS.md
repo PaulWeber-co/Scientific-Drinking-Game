@@ -39,39 +39,9 @@ Eine mobile-first Webapp fuer Trinkspiele auf Partys. Die App berechnet basieren
 
 ---
 
-## Konventionen
 
-### Branch-Strategie
 
-```
-main              <- Produktiv (deployed via GitHub Actions)
-  |
-  +-- develop     <- Integrationsbranch
-       |
-       +-- feature/xyz   <- Feature-Branches
-       +-- fix/xyz        <- Bugfix-Branches
-```
 
-- Feature-Branches immer von `develop` abzweigen
-- Pull Request gegen `develop`, mindestens 1 Review
-- `develop` -> `main` nur wenn stabil (am Ende eines Sprints/einer Phase)
-- Keine direkten Pushes auf `main`
-
-### Commit-Konventionen (Conventional Commits)
-
-```
-feat: Onboarding-Formular mit Alterscheck
-fix: BAC-Berechnung korrigiert fuer niedrige Gewichtswerte
-docs: README aktualisiert
-refactor: Widmark-Formel in eigenes Modul extrahiert
-test: Unit-Tests fuer Drink Catalog
-chore: ESLint-Konfiguration angepasst
-style: CSS Custom Properties fuer Farben definiert
-```
-
-### Ordnerstruktur (Vorschlag)
-
-```
 src/
   app/                    # App Shell, Routing, Layout
     App.tsx
@@ -123,15 +93,7 @@ public/
 
 ---
 
-## Setup (Was du brauchst)
 
-### Sofort noetig
-
-- [ ] **Node.js** >= 20 (LTS)
-- [ ] **npm** >= 10
-- [ ] **Git** (offensichtlich)
-- [ ] **VS Code** oder Editor deiner Wahl
-  - Empfohlene Extensions: ESLint, Prettier, TypeScript, CSS Modules (optional)
 
 ### Vor Phase 2 noetig
 
@@ -161,8 +123,6 @@ Details: Siehe `implementation_plan.md`
 
 ## Offene Punkte (bitte abstimmen)
 
-1. **Firebase-Projekt**: Wer legt es an? Unter welchem Account?
 2. **Hosting**: GitHub Pages oder Vercel?
 3. **Design**: Farbpalette, Font -- definieren wir in Phase 1 zusammen
-4. **Erstes Spiel**: Wahrheit oder Pflicht ok? Oder anderes bevorzugt?
-5. **Sprache der App**: Erstmal nur Deutsch, oder i18n von Anfang an?
+4. **Erstes Spiel**: Wahrheit oder Pflicht ok?
