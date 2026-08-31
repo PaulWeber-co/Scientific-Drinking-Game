@@ -1,0 +1,524 @@
+Implementation Plan OPus 4.6
+
+# Scientific Drinking Game -- Implementation Plan & Roadmap
+
+## Projektuebersicht
+
+Eine mobile-first Webapp fuer Trinkspiele auf Partys. Kernbereiche: lokales Onboarding (Name, Koerperdaten), wissenschaftlich fundierte Alkohol-Berechnung (Widmark-Formel), und eine Lobby fuer Multiplayer-Trinkspiele ueber mehrere Geraete hinweg.
+
+---
+
+## Architekturentscheidung: Frontend-only vs. Hybrid
+
+### Die drei Optionen im Vergleich
+
+| Kriterium | A) GitHub Pages pur | B) Full-Stack (eigener Server) | C) Hybrid: Statisches Hosting + BaaS |
+|:---|:---|:---|:---|
+| Onboarding/Berechnung | Funktioniert (Client-only) | Funktioniert | Funktioniert (Client-only) |
+| Lobby/Echtzeit-Sync | **Nicht moeglich** | Funktioniert (WebSockets) | Funktioniert (Firebase SDK) |
+| Hosting-Kosten | 0 EUR | 5-20 EUR/Monat | 0 EUR (Free Tier) |
+| Betriebsaufwand | Null | Hoch (Server, Deployment, Monitoring) | Minimal (BaaS managed) |
+| Komplexitaet | Niedrig | Hoch | Niedrig-Mittel |
+| Skalierung | Irrelevant (statisch) | Manuell | Automatisch (Firebase) |
+
+### Limitierungen von GitHub Pages (konkret und explizit)
+
+GitHub Pages ist ein **rein statischer File-Server**. Das bedeutet:
+
+1. **Kein serverseitiger Code** -- Kein Node.js, kein Python, keine Serverless Functions. Nur HTML/CSS/JS werden ausgeliefert.
+2. **Keine WebSocket-Unterstuetzung** -- GitHub Pages kann keine persistenten bidirektionalen Verbindungen halten. WebSocket-Endpunkte benoetigen einen laufenden Server-Prozess.
+3. **Keine Datenbank** -- Kein serverseitiger Zustand. Ohne Backend gibt es keinen Ort, an dem der geteilte Lobby-State zwischen Geraeten gespeichert wird.
+4. **Kein Server-Sent Events (SSE)** -- Auch Push-Nachrichten vom Server zum Client sind nicht moeglich.
+
+**Fazit**: Fuer Onboarding + Berechnung reicht GitHub Pages voellig aus. Fuer die Lobby mit Echtzeit-Sync zwischen mehreren Geraeten ist es allein **nicht ausreichend** -- es fehlt die Infrastruktur fuer geteilten, synchronisierten Zustand.
+
+### Klare Empfehlung: Option C -- Hybrid
+
+**Statisches Frontend (GitHub Pages oder Vercel) + Firebase Realtime Database fuer Lobby-Sync.**
+
+Begruendung:
+
+1. **Kein eigener Server noetig** -- Firebase Realtime DB wird direkt aus dem Browser-Client angesprochen (JavaScript SDK). Kein Backend-Code, kein Deployment, kein Server-Monitoring.
+2. **Kostenlos im relevanten Rahmen** -- Firebase Spark (Free Tier): 100 gleichzeitige Verbindungen, 1 GB Speicher, 10 GB Download/Monat. Fuer eine Party-App unter Freunden mehr als ausreichend. Auf einer Party sind selten mehr als 20 Geraete gleichzeitig verbunden.
+3. **Echtzeit out-of-the-box** -- Firebase Realtime DB pusht Aenderungen sofort an alle verbundenen Clients. Kein Polling, kein eigenes WebSocket-Handling.
+4. **Minimal-Aufwand fuer ein 2-Personen-Team** -- Firebase-Projekt anlegen dauert 5 Minuten. Keine Infrastruktur zu pflegen.
+5. **Supabase als Alternative** -- Bietet 200 gleichzeitige Connections und ist open-source, wird aber nach 7 Tagen Inaktivitaet pausiert (Free Tier). Fuer eine Party-App, die nicht taeglich genutzt wird, ist das ein Problem. **Firebase hat diese Einschraenkung nicht** und ist deshalb hier besser geeignet.
+
+> [!IMPORTANT]
+> Firebase Realtime DB wird **nur** fuer den Lobby-/Spiel-Sync verwendet. Alle persoenlichen Daten (Name, Gewicht, etc.) bleiben lokal im Browser (localStorage). Es werden keine personenbezogenen Daten an Firebase gesendet.
+
+---
+
+## Empfohlener Tech-Stack
+
+| Bereich | Technologie | Begruendung |
+|:---|:---|:---|
+| **Frontend-Framework** | **React 19 + Vite** | Groesstes Oekosystem, beide Entwickler kennen es wahrscheinlich, exzellentes Tooling. Vite fuer schnellen Dev-Server und optimierten Build. |
+| **Sprache** | **TypeScript** | Typsicherheit reduziert Bugs, besonders bei der Alkohol-Berechnung und dem Plugin-System. Selbstdokumentierend. |
+| **Styling** | **Vanilla CSS (Custom Properties)** | Volle Kontrolle, keine Build-Dependency. CSS Custom Properties fuer konsistentes Theming. Mobile-first Media Queries. |
+| **Lokaler State** | **Zustand** | Leichtgewichtig (~1 KB), simples API, perfekt fuer localStorage-Persistenz (built-in middleware). |
+| **Echtzeit/Lobby** | **Firebase Realtime Database** | Echtzeit-Sync ohne eigenen Server. Nur fuer Lobby-State. Free Tier reicht voellig. |
+| **Routing** | **React Router v7** | Standard fuer React-SPAs. Unterstuetzt Lazy Loading fuer Spiele-Module. |
+| **Hosting** | **GitHub Pages** (oder Vercel) | Kostenlos, automatisches Deployment via GitHub Actions. Vercel als Alternative wegen Preview-Deployments. |
+| **Testing** | **Vitest + Testing Library** | Natuerlich in Vite integriert. Unit-Tests fuer Berechnungslogik, Component-Tests fuer UI. |
+| **Linting/Format** | **ESLint + Prettier** | Konsistenter Code-Stil im Team. |
+
+---
+
+## Alkohol-Berechnung: Wissenschaftliche Grundlage
+
+### Onboarding-Daten (Eingabe)
+
+| Feld | Pflicht | Begruendung |
+|:---|:---|:---|
+| Name / Spitzname | Ja | Identifikation in der Lobby |
+| Alter | Ja | Alterscheck (< 18 = Sperre) |
+| Gewicht (kg) | Ja | Kernvariable der Widmark-Formel |
+| Geschlecht (m/w/divers) | Ja | Bestimmt den Widmark-Faktor r (Verteilungsvolumen). Bei "divers" wird der Durchschnitt von m/w verwendet (r = 0.615). |
+| Koerpergroesse (cm) | Optional | Ermoeglicht die praezisere **Watson-Formel** (errechnet Total Body Water statt pauschaler r-Werte). Empfehlung: anbieten, aber nicht erzwingen. |
+
+### Getraenke-Auswahl (Drink Catalog)
+
+Jeder Spieler waehlt vor dem Spiel (oder in der Lobby) aus, **was er trinkt**. Darauf basiert die gesamte Berechnung:
+
+| Getraenk | Typisches Volumen | ABV (%) | Reiner Alkohol pro Einheit | Schluckgroesse (ca.) | Alkohol pro Schluck |
+|:---|:---|:---|:---|:---|:---|
+| Bier (Pils) | 330 ml | 5.0 | 13.0 g | 40 ml | 1.58 g |
+| Bier (Helles) | 500 ml | 5.2 | 20.5 g | 40 ml | 1.64 g |
+| Weissbier | 500 ml | 5.4 | 21.3 g | 40 ml | 1.70 g |
+| Wein (Weiss) | 200 ml | 11.5 | 18.1 g | 20 ml | 1.81 g |
+| Wein (Rot) | 200 ml | 13.5 | 21.3 g | 20 ml | 2.13 g |
+| Sekt / Prosecco | 100 ml | 11.0 | 8.7 g | 20 ml | 1.74 g |
+| Cocktail (Standard) | 250 ml | 12.0 | 23.7 g | 30 ml | 2.84 g |
+| Cocktail (stark) | 200 ml | 20.0 | 31.6 g | 30 ml | 4.74 g |
+| Longdrink | 300 ml | 8.0 | 18.9 g | 35 ml | 2.21 g |
+| Shot (Schnaps) | 20 ml | 40.0 | 6.3 g | 20 ml (= 1 Shot) | 6.31 g |
+
+> [!NOTE]
+> Die Tabelle enthaelt Durchschnittswerte. In der App sollten Nutzer zusaetzlich die Moeglichkeit haben, **eigene Getraenke** hinzuzufuegen (Volumen + ABV eingeben). Die App berechnet dann automatisch den Alkoholgehalt pro Schluck.
+
+**Berechnung Alkohol pro Schluck:**
+```
+Alkohol_pro_Schluck (g) = Schluckgroesse (ml) * ABV (%) / 100 * 0.789
+```
+
+### Umgang mit Minderjaehrigen (Alter < 18)
+
+Empfohlene Vorgehensweise:
+
+1. **Alter < 16**: Kein Zugang zur App. Freundliche Meldung: "Diese App ist nur fuer Personen ab 16 Jahren." Keine Umgehungsmoeglichkeit.
+2. **Alter 16-17**: Zugang zur App, **aber**: Alkohol-Berechnung ist **gesperrt** (kein BAC-Rechner, keine Trinkempfehlungen). Nur alkoholfreie Spielvarianten verfuegbar. Hinweis: "Alkoholfunktionen sind erst ab 18 verfuegbar."
+3. **Alter >= 18**: Voller Funktionsumfang.
+
+> [!NOTE]
+> Die Altersangabe ist rein auf Vertrauensbasis (keine ID-Verifikation). Das ist fuer eine nicht-kommerzielle Party-App vertretbar und gaengige Praxis.
+
+### Widmark-Formel (Kern-Berechnung)
+
+```
+BAC (Promille) = (A / (r * W)) - (beta * t)
+
+A     = Masse des konsumierten reinen Alkohols in Gramm
+        = Volumen (ml) * ABV (%) / 100 * 0.789 (Dichte Ethanol)
+r     = Widmark-Faktor (Verteilungsvolumen)
+        Maenner:  0.68
+        Frauen:   0.55
+        Divers:   0.615 (Mittelwert)
+W     = Koerpergewicht in kg
+beta  = Abbaurate, ca. 0.15 Promille/Stunde (Durchschnitt)
+t     = Zeit seit dem ersten Drink in Stunden
+```
+
+### Zielbereich: "Angetrunken, aber nicht betrunken"
+
+Basierend auf der Forschung zum **biphasischen Effekt** von Alkohol:
+
+| BAC (Promille) | Zustand | Bewertung |
+|:---|:---|:---|
+| 0.0 - 0.3 | Leichte Enthemmung, Waerme | Unterhalb der "Buzz-Zone" |
+| **0.3 - 0.5** | **Euphorie, Geselligkeit, leichte Entspannung** | **Zielbereich ("Sweet Spot")** |
+| 0.5 - 0.8 | Spuerbare Beeintraechtigung, reduzierte Koordination | Grenzbereich |
+| > 0.8 | Deutlich betrunken, erhoehtes Katerrisiko | Zu vermeiden |
+
+**Empfohlener Ziel-BAC in der App: 0.4 Promille** (Mitte des Sweet Spots).
+
+### Individuelle Schluck-Berechnung in Trinkspielen
+
+Das Herzstuck der App: Trinkspiele geben **keine pauschalen "3 Schluecke"** aus, sondern **individuell berechnete Schluckanzahlen** pro Spieler, basierend auf:
+
+1. **Koerperdaten** des Spielers (Gewicht, Geschlecht -> Widmark-Faktor)
+2. **Gewaaehltes Getraenk** (Alkoholgehalt pro Schluck)
+3. **Aktueller geschaetzter BAC** (bisheriger Konsum + verstrichene Zeit)
+4. **Ziel-BAC** (0.4 Promille als Default, Spieler kann anpassen)
+
+**Zwei Phasen waehrend eines Spiels:**
+
+**Phase 1 -- "Pegel erreichen"** (aktueller BAC < Ziel-BAC):
+```
+Benoetigte_Alkoholmenge (g)  = (Ziel_BAC - Aktueller_BAC) * r * W
+Anzahl_Schluecke             = Benoetigte_Alkoholmenge / Alkohol_pro_Schluck
+```
+Die Schluecke werden auf mehrere Spielrunden verteilt (nicht alles auf einmal), damit der Pegel kontrolliert ansteigt.
+
+**Phase 2 -- "Pegel halten"** (aktueller BAC >= Ziel-BAC):
+```
+Abgebauter_Alkohol_seit_letztem_Drink (g) = beta * t_seit_letztem_Drink * r * W
+Ersatz_Schluecke                          = Abgebauter_Alkohol / Alkohol_pro_Schluck
+```
+Die App gibt nur so viele Schluecke aus, wie noetig sind, um den abgebauten Alkohol zu ersetzen. Typischerweise 1-2 Schluecke pro Runde statt 3-5.
+
+**Beispiel:**
+
+| Spieler | Gewicht | Getraenk | Aktueller BAC | Spielzug: "3 Schluecke" |
+|:---|:---|:---|:---|:---|
+| Max (m, 85 kg) | 85 kg | Bier (1.58 g/Schluck) | 0.15 Promille | -> **4 Schluecke** (muss noch aufholen) |
+| Lisa (w, 60 kg) | 60 kg | Cocktail (2.84 g/Schluck) | 0.38 Promille | -> **1 Schluck** (fast am Ziel, Cocktail ist staerker) |
+| Tom (m, 75 kg) | 75 kg | Wein (2.13 g/Schluck) | 0.42 Promille | -> **1 Schluck** (Pegel halten) |
+
+> [!IMPORTANT]
+> Die Spieler sehen auf ihrem eigenen Geraet ihre **persoenliche Schluckzahl**. Das Spiel zeigt z.B. "Trinke!" an, aber jeder sieht seine eigene Menge. So bleibt das Spielerlebnis gleich, aber die Alkoholmenge ist individuell.
+
+### Restalkohol-Rechner (Naechster-Morgen-Check)
+
+Kernfeature fuer verantwortungsvolles Trinken und **Sicherheit im Strassenverkehr**:
+
+**Berechnung:**
+```
+Restalkohol_BAC = Aktueller_BAC - (beta * Stunden_bis_Zielzeit)
+Zeit_bis_nuechtern (h) = Aktueller_BAC / beta
+Nuechtern_um = Aktuelle_Uhrzeit + Zeit_bis_nuechtern
+```
+
+**Features des Restalkohol-Rechners:**
+
+| Feature | Beschreibung |
+|:---|:---|
+| **"Nuechtern um" Anzeige** | Zeigt die geschaetzte Uhrzeit, zu der BAC = 0.0 erreicht wird |
+| **Fahrtuechtigkeits-Check** | Eingabe: "Ich muss morgen um X Uhr fahren" -> App zeigt an, ob der geschaetzte BAC dann unter 0.0 Promille liegt |
+| **Ampel-System** | Gruen (BAC = 0.0, sicher), Gelb (BAC 0.0-0.3, technisch unter Grenze, aber Vorsicht), Rot (BAC > 0.3, nicht fahren) |
+| **Push-Reminder** | Optional: "Weck mich, wenn ich nuechtern bin" (PWA-Notification, spaeteres Feature) |
+
+> [!CAUTION]
+> **Wichtig**: Die deutsche 0.5-Promille-Grenze ist die absolute Ordnungswidrigkeit. Ab 0.3 Promille gilt bereits "relative Fahruntuechigkeit" bei Auffaelligkeiten. Die App sollte konservativ sein und erst bei **0.0 Promille** "Gruen" zeigen. Alles andere waere fahrlassig.
+
+**Beispiel-Anzeige (morgens):**
+```
+--- Restalkohol-Check ---
+Letzter Drink:        01:30 Uhr
+Geschaetzter BAC jetzt: 0.28 Promille (08:00 Uhr)
+Nuechtern um:          ca. 09:52 Uhr
+Autofahren:            NOCH NICHT (fruehestens ab ca. 10:00 Uhr)
+```
+
+### Kater-Praevention
+
+- Empfehlung: Nach jeder alkoholischen Einheit ein Glas Wasser trinken (in der App als Reminder)
+- Trinkgeschwindigkeit: maximal 1 Standarddrink pro Stunde (entspricht der Abbaurate)
+- Die App kann eine "Tempo-Warnung" anzeigen, wenn zu schnell getrunken wird
+- **Pegel-Halten-Modus** der Trinkspiele verhindert automatisch uebertriebenen Konsum
+
+> [!WARNING]
+> **Disclaimer (muss prominent in der App stehen):**
+> "Diese Berechnung basiert auf der Widmark-Formel und ist eine grobe Orientierung. Sie ersetzt keinen medizinischen Rat. Individuelle Faktoren (Medikamente, Ernaehrung, Gesundheitszustand, Muedigkeit) beeinflussen die Wirkung von Alkohol erheblich. Fahre niemals unter Alkoholeinfluss. Im Zweifel: weniger trinken."
+
+---
+
+## Architekturskizze
+
+### Komponentenuebersicht
+
+```mermaid
+graph TB
+    subgraph "Client - Browser"
+        UI["React App"]
+        LS["localStorage<br/>(Profil + Drink-Log)"]
+        ZS["Zustand Store<br/>(App State)"]
+        BAC["BAC Engine<br/>(Widmark + Schluck-Rechner)"]
+        DC["Drink Catalog<br/>(Getraenke-DB)"]
+        GM["Game Module Registry"]
+
+        UI --> ZS
+        ZS --> LS
+        UI --> BAC
+        BAC --> DC
+        UI --> GM
+        GM --> BAC
+
+        subgraph "Game Modules"
+            G1["Spiel: Wahrheit/Pflicht"]
+            G2["Spiel: Kings Cup"]
+            G3["Spiel: Busfahrer"]
+            GN["... weitere Spiele"]
+        end
+
+        GM --> G1
+        GM --> G2
+        GM --> G3
+        GM --> GN
+    end
+
+    subgraph "Firebase - BaaS"
+        RTDB["Realtime Database<br/>(Lobby + Spielstand)"]
+    end
+
+    UI <-->|"Firebase JS SDK<br/>(Echtzeit-Sync)"| RTDB
+
+    style UI fill:#4A90D9,color:#fff
+    style RTDB fill:#FFA726,color:#fff
+    style GM fill:#66BB6A,color:#fff
+    style BAC fill:#AB47BC,color:#fff
+    style DC fill:#EF5350,color:#fff
+    style LS fill:#78909C,color:#fff
+```
+
+Neue zentrale Komponenten gegenueber v1:
+- **BAC Engine**: Zentrale Berechnungslogik (Widmark-Formel, Schluck-Umrechnung, Restalkohol). Wird von der UI UND von den Game-Modulen aufgerufen.
+- **Drink Catalog**: Statische Getraenke-Datenbank mit vorkonfigurierten Getraenken + Moeglichkeit fuer Custom-Eintraege. Liefert Alkoholgehalt pro Schluck.
+
+### Datenfluss
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant App as React App
+    participant BAC as BAC Engine
+    participant LS as localStorage
+    participant FB as Firebase RTDB
+
+    Note over U,FB: Onboarding (einmalig, rein lokal)
+    U->>App: Name, Alter, Gewicht, Geschlecht
+    U->>App: Getraenk waehlen (z.B. Bier 0.5l)
+    App->>LS: Profil + Getraenk speichern
+    App->>BAC: Profildaten + Getraenk
+    BAC-->>App: Ziel-Schluecke, empfohlene Alkoholmenge
+
+    Note over U,FB: Lobby erstellen
+    U->>App: Neues Spiel erstellen
+    App->>FB: Lobby anlegen (Code generieren)
+    FB-->>App: Lobby-Code (z.B. PARTY42)
+
+    Note over U,FB: Spiel laeuft
+    FB-->>App: Spielzug: Spieler X muss trinken
+    App->>BAC: Aktueller BAC von Spieler X?
+    BAC-->>App: BAC = 0.25, Ziel = 0.4, Getraenk = Bier
+    App-->>U: "Trinke 3 Schluecke Bier"
+    App->>LS: Drink-Log aktualisieren
+
+    Note over U,FB: Pegel erreicht
+    FB-->>App: Spielzug: Spieler X muss trinken
+    App->>BAC: Aktueller BAC von Spieler X?
+    BAC-->>App: BAC = 0.41, Ziel = 0.4, Pegel halten
+    App-->>U: "Trinke 1 Schluck Bier" (nur Abbau ersetzen)
+
+    Note over U,BAC: Naechster Morgen
+    U->>App: Restalkohol-Check
+    App->>BAC: Letzter Drink 01:30, jetzt 08:00
+    BAC-->>App: Rest-BAC 0.28, nuechtern um ca. 09:52
+    App-->>U: "Noch nicht fahren! Nuechtern ab ca. 10:00 Uhr"
+```
+
+### Spiele-Plugin-System (Detail)
+
+Jedes Spiel ist ein eigenstaendiges Modul, das sich in eine zentrale Registry einhaengt:
+
+```
+src/
+  games/
+    registry.ts          # Zentrale Registry: Map<string, GameDefinition>
+    types.ts             # Shared Interfaces
+    truth-or-dare/
+      index.ts           # Exportiert GameDefinition
+      TruthOrDareGame.tsx # React-Komponente
+      state.ts           # Spielspezifischer State/Reducer
+      rules.ts           # Regeln & Karten-Decks
+      config.ts          # Metadaten (Name, Min/Max Spieler, etc.)
+    kings-cup/
+      index.ts
+      KingsCupGame.tsx
+      state.ts
+      rules.ts
+      config.ts
+    busfahrer/
+      ...
+```
+
+**Zentrales Interface:**
+
+```typescript
+// types.ts -- Spiel-Plugin-Interface
+interface GameDefinition {
+  id: string;                        // Eindeutige ID (z.B. "truth-or-dare")
+  name: string;                      // Anzeigename
+  description: string;               // Kurzbeschreibung
+  minPlayers: number;
+  maxPlayers: number;
+  estimatedDuration: string;         // z.B. "15-30 Min"
+  alcoholRequired: boolean;          // Kann auch ohne Alkohol gespielt werden?
+  component: React.LazyComponent;    // Lazy-loaded React-Komponente
+  createInitialState: (players: Player[]) => GameState;
+  reducer: (state: GameState, action: GameAction) => GameState;
+}
+
+// types.ts -- Getraenke & Schluck-Berechnung
+interface DrinkDefinition {
+  id: string;                        // z.B. "beer-pils"
+  name: string;                      // z.B. "Bier (Pils)"
+  category: "beer" | "wine" | "cocktail" | "spirit" | "other";
+  defaultVolumeMl: number;           // z.B. 330
+  abvPercent: number;                // z.B. 5.0
+  sipSizeMl: number;                 // z.B. 40
+  alcoholPerSipGrams: number;        // berechnet: sipSize * abv/100 * 0.789
+  icon: string;                      // Emoji oder Icon-Key
+}
+
+interface PlayerDrinkState {
+  playerId: string;
+  selectedDrink: DrinkDefinition;
+  drinkLog: DrinkLogEntry[];         // Zeitstempel + Menge jedes Schlucks
+  currentBac: number;                // Laufend berechnet
+  targetBac: number;                 // Default 0.4, anpassbar
+  phase: "reaching" | "maintaining"; // Pegel aufbauen vs. halten
+}
+
+// Zentrale Funktion, die von allen Spielen aufgerufen wird:
+function calculateSipsForPlayer(player: PlayerDrinkState): number;
+```
+
+**Neues Spiel hinzufuegen = 1 Ordner + 1 Zeile in der Registry.** Kein Refactoring am bestehenden UI oder Routing noetig.
+
+---
+
+## Phasenplan
+
+### Phase 1: Foundation, Onboarding & BAC-Engine (Wochen 1-3)
+
+**Ziel**: Projekt-Setup, Onboarding-Flow, Getraenke-Auswahl, BAC-Rechner mit Schluck-Berechnung, Restalkohol-Check -- alles rein lokal, kein Firebase.
+
+- Vite + React + TypeScript Projekt aufsetzen
+- ESLint, Prettier, Vitest konfigurieren
+- CI/CD Pipeline (GitHub Actions -> GitHub Pages)
+- Onboarding-UI (Name, Alter, Gewicht, Geschlecht)
+- Alterscheck (< 16 Sperre, 16-17 eingeschraenkt)
+- localStorage-Persistenz via Zustand
+- **Drink Catalog**: Vorkonfigurierte Getraenke-Liste (Bier, Wein, Cocktails, Shots, etc.) + Custom-Getraenk-Eingabe
+- **Getraenke-Auswahl-UI**: Spieler waehlt sein aktuelles Getraenk (aenderbar waehrend des Abends)
+- **BAC Engine**: Widmark-Formel + Schluck-Berechnung + Unit-Tests
+  - Vorwaerts: "Du hast X getrunken -> dein BAC ist Y"
+  - Rueckwaerts: "Um BAC 0.4 zu erreichen, trinke Z Schluecke [Getraenk]"
+- **Restalkohol-Rechner**: Geschaetzte Nuechternzeit, Ampel-System, Fahrtuechtigkeits-Check ("Kann ich morgen um X Uhr fahren?")
+- BAC-Anzeige / Trinkempfehlung (individuell basierend auf Getraenk)
+- Disclaimer-Komponente
+- Mobile-first Basis-Layout + Design-System (CSS Custom Properties)
+
+**Ergebnis**: Funktionierender Prototyp, gehostet auf GitHub Pages. Benutzer kann Onboarding durchlaufen, sein Getraenk waehlen, sieht individuelle Trinkempfehlung in Schluecken, und kann morgens seinen Restalkohol checken.
+
+---
+
+### Phase 2: Lobby + erstes Spiel mit individuellen Schluecken (Wochen 4-6)
+
+**Ziel**: Firebase-Integration, Lobby-System, ein spielbares Trinkspiel mit individueller Schluck-Berechnung.
+
+- Firebase-Projekt anlegen + SDK integrieren
+- Lobby-System: Erstellen, Beitreten via Code, Spielerliste
+- **Getraenke-Auswahl in der Lobby**: Jeder Spieler setzt sein Getraenk beim Beitreten (lokal gespeichert, nicht an Firebase gesendet)
+- Game Registry + Plugin-Interface definieren
+- **Individuelle Schluck-Ausgabe**: Jedes Spiel ruft `calculateSipsForPlayer()` auf. Jeder Spieler sieht seine eigene Schluckzahl auf seinem Geraet.
+- Erstes Spiel implementieren: **Wahrheit oder Pflicht** (einfachste Spielmechanik, ideal als Proof-of-Concept)
+- Echtzeit-Sync des Spielstands ueber Firebase (nur Spielzuege, NICHT die BAC-Daten der Spieler)
+- **Pegel-Tracking waehrend des Spiels**: Drink-Log wird lokal gefuehrt, BAC wird laufend geschaetzt
+- Lobby-Verwaltung (Host kann Spiel starten, Spieler koennen austreten)
+- Automatische Lobby-Bereinigung (TTL fuer inaktive Lobbies)
+
+**Ergebnis**: Spieler spielen "Wahrheit oder Pflicht" zusammen. Max (Bier, 85 kg) sieht "4 Schluecke", Lisa (Cocktail, 60 kg) sieht "1 Schluck" -- fuer denselben Spielzug.
+
+---
+
+### Phase 3: Weitere Spiele + Polish (Wochen 7-10)
+
+**Ziel**: Mindestens 2 weitere Spiele, UI-Polish, Qualitaetssicherung.
+
+- Zweites Spiel: **Kings Cup** (Kartenbasiert, komplexerer State)
+- Drittes Spiel: **Busfahrer** (Mehrrundig, erhoehte Komplexitaet)
+- UI-Verfeinerung: Animationen, Uebergaenge, Haptik
+- **BAC-Dashboard**: Live-Anzeige des geschaetzten Pegels waehrend des Spiels (dezent, nicht aufdringlich)
+- **Getraenk-Wechsel waehrend des Spiels**: Spieler wechselt z.B. von Bier zu Wein -> Schluck-Berechnung passt sich sofort an
+- Wasser-Reminder (Timer-basiert)
+- Fehlerbehandlung (Verbindungsabbruch, Reconnect)
+- Disclaimer & Impressum
+- Cross-Browser-Testing (Safari iOS, Chrome Android)
+
+**Ergebnis**: Drei spielbare Trinkspiele mit individueller Schluck-Berechnung, Restalkohol-Rechner, und poliertem UI -- bereit fuer den ersten "Feldtest" auf einer echten Party.
+
+---
+
+## Vorschlaege fuer zusaetzliche Features
+
+### Sinnvoll fuer spaeter (optionale Erweiterungen)
+
+| Feature | Beschreibung | Prioritaet |
+|:---|:---|:---|
+| **BAC-Timeline-Graph** | BAC-Verlauf als interaktiven Graph anzeigen (Zeitachse des Abends) | Hoch |
+| **Wasser-Reminder** | Push-Notification oder In-App-Timer: "Trink ein Glas Wasser!" nach jedem alkoholischen Getraenk | Hoch |
+| **Spielvorschlaege nach Gruppengroesse** | Automatisch passende Spiele vorschlagen basierend auf Spieleranzahl | Mittel |
+| **Custom-Fragen** | Spieler koennen eigene Wahrheit/Pflicht-Fragen hinzufuegen (lokal oder in der Lobby geteilt) | Mittel |
+| **Alkoholfreier Modus** | Alle Spiele auch komplett ohne Alkohol spielbar (z.B. mit "Aufgaben" statt Trinken) | Mittel |
+| **Dark Mode** | Party = dunkel. Dark Mode als Standard, Light Mode als Option. | Mittel |
+| **Gruppen-Statistik** | Anonymisierte Gruppen-Stats am Ende des Abends: "Durchschnittlicher Pegel", "Wenigster Trinker", etc. | Mittel |
+| **Sound-Effekte** | Kurze Sounds bei Spielaktionen (Karte ziehen, Timer abgelaufen). Lautstaerke steuerbar. | Niedrig |
+| **PWA / Offline** | App als Progressive Web App installierbar. Onboarding + Berechnung funktionieren offline, Lobby braucht Internet. | Niedrig |
+| **Push-Reminder: Nuechtern-Alarm** | "Weck mich, wenn mein BAC bei 0.0 ist" -- als PWA-Notification. | Niedrig |
+| **QR-Code fuer Lobby** | Lobby-Code als QR-Code anzeigen, damit andere Spieler die Kamera statt Tippen nutzen koennen | Niedrig |
+| **Taxi-Button** | Schnellzugriff auf lokale Taxi-Nummern oder Uber/Bolt Deep-Link. Verantwortungsvolles Feature. | Niedrig |
+| **Trinkspiel-Regel-Wiki** | Kurze Erklaerung aller Regeln in-app, damit man sich nicht extern informieren muss | Niedrig |
+
+### Klar abgegrenzt als NICHT Kernfunktion
+
+Diese Features sind Ideen fuer nach dem MVP. Keine davon blockiert den Launch der ersten spielbaren Version.
+
+---
+
+## Offene Fragen / Getroffene Annahmen
+
+### Annahmen
+
+1. **Kein Account-System** -- bewusst entschieden. Profildaten rein lokal. Falls ein Geraet wechselt, geht das Profil verloren (akzeptabel fuer den Use Case).
+2. **Firebase Free Tier reicht** -- Bei typischen Partys (5-20 Spieler) werden die 100 gleichzeitigen Connections nie erreicht.
+3. **Keine personenbezogenen Daten an Firebase** -- In der Lobby wird nur der Spielername (Spitzname) geteilt, keine Gesundheitsdaten.
+4. **Deutsch als primaere Sprache** -- Die App wird zunaechst auf Deutsch entwickelt. Internationalisierung ist kein Phase-1-Ziel.
+5. **Alter wird auf Vertrauensbasis eingegeben** -- Keine ID-Verifikation noetig.
+6. **Watson-Formel als optionale Praezisierung** -- Falls Koerpergroesse angegeben wird, kann statt dem pauschalen Widmark-Faktor das individuelle Total Body Water berechnet werden. Dies ist ein Enhancement, nicht MVP.
+
+### Offene Fragen an das Team
+
+1. **Hosting-Praeferenz**: GitHub Pages (einfacher, kostenlos) oder Vercel (Preview-Deployments, etwas bessere DX)? Empfehlung: Vercel, aber beides funktioniert.
+2. **Firebase-Projekt**: Wer legt das Firebase-Projekt an? Soll es unter einem Team-Account laufen?
+3. **Designsprache**: Soll ein bestehendes Design-System (z.B. bestimmte Farbpalette, Font-Wahl) verwendet werden, oder wird das im Laufe von Phase 1 entwickelt?
+4. **Erstes Spiel**: Ist "Wahrheit oder Pflicht" als erstes Spiel akzeptabel, oder gibt es ein bevorzugtes anderes Spiel?
+5. **Sprache der App**: Deutsch-only fuer den Start, oder soll i18n von Anfang an eingeplant werden?
+6. **Datenschutz / Impressum**: Wird die App oeffentlich zugaenglich sein? Falls ja, braucht es je nach Hosting ein Impressum (deutsche Impressumspflicht) und eine Datenschutzerklaerung.
+
+---
+
+## Verifikationsplan
+
+### Automatisierte Tests
+- `npm run test` -- Vitest Unit-Tests fuer:
+  - Widmark-Formel (BAC-Berechnung vorwaerts + rueckwaerts)
+  - Schluck-Berechnung pro Getraenk (verschiedene Getraenke, Koerperdaten)
+  - Restalkohol-Rechner (Nuechternzeit, Ampel-Logik)
+  - Pegel-erreichen vs. Pegel-halten Logik
+  - Alterscheck-Logik
+  - Drink Catalog Berechnungen
+- `npm run test:components` -- Component-Tests mit Testing Library fuer Onboarding-Flow, Getraenke-Auswahl
+- `npm run lint` -- ESLint + TypeScript Checks
+- CI/CD: Alle Tests laufen in GitHub Actions bei jedem Push/PR
+
+### Manuelle Verifikation
+- Cross-Device-Test: App auf iOS Safari + Android Chrome testen
+- Lobby-Test: Zwei Geraete verbinden und Spiel durchspielen, dabei pruefen:
+  - Verschiedene Getraenke pro Spieler -> unterschiedliche Schluckzahlen
+  - Getraenkwechsel waehrend des Spiels
+  - Pegel-Erreichen-Phase -> Pegel-Halten-Phase Uebergang
+- Restalkohol-Rechner: Plausibilitaetscheck mit bekannten Werten
+- Onboarding-Flow: Edge Cases testen (Alter < 16, Alter 16-17, sehr niedriges/hohes Gewicht)
+- Disclaimer-Sichtbarkeit pruefen
