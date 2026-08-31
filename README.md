@@ -15,31 +15,32 @@ in der jede Person ihr eigenes Gerät benutzt.
 
 | Bereich | Status |
 |:--|:--|
-| Onboarding (Name, Alter, Gewicht, Größe, Magen, Getränk, Zielpegel) | ✅ |
-| BAC-Engine: Widmark + Watson-Körperwasser + Resorptionsmodell | ✅ |
-| Individuelle Schluckberechnung pro Spielzug (Pegel erreichen / halten) | ✅ |
-| Restalkohol-Rechner mit Ampel und „Nüchtern um" | ✅ |
-| Verlaufs- und Prognosegrafik des Pegels | ✅ |
-| Lobby über 4-stelligen Code (Firebase Realtime Database) | ✅ |
-| Pass-&-Play auf einem Handy, inkl. Körperdaten der Mitspieler | ✅ |
-| 9 Spiele, davon 4 mit „Handy weglegen" | ✅ |
-| Plugin-System für neue Spiele | ✅ |
-| Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | ✅ |
-| Dark & Light Mode, installierbar als PWA-Shortcut | ✅ |
+| Onboarding (Name, Alter, Gewicht, Größe, Magen, Getränk, Zielpegel) | fertig |
+| BAC-Engine: Widmark + Watson-Körperwasser + Resorptionsmodell | fertig |
+| Individuelle Schluckberechnung pro Spielzug (Pegel erreichen / halten) | fertig |
+| Restalkohol-Rechner mit Ampel und „Nüchtern um" | fertig |
+| Verlaufs- und Prognosegrafik des Pegels | fertig |
+| Lobby über 4-stelligen Code (Firebase Realtime Database) | fertig |
+| Pass-&-Play auf einem Handy, inkl. Körperdaten der Mitspieler | fertig |
+| 9 Spiele, davon 4 mit „Handy weglegen" | fertig |
+| Plugin-System für neue Spiele | fertig |
+| Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
+| Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
+| Eigenes SVG-Icon-Set statt Emojis, Monogramm-Avatare | fertig |
 
 ### Die Spiele
 
 | Spiel | Kurz | Handys |
 |:--|:--|:--|
-| 🎭 Wahrheit oder Pflicht | Klassiker mit drei Härtegraden und Notausgang | 1 reicht |
-| 🙈 Ich hab noch nie | Handy in die Mitte, alle anderen weg | 1 reicht |
-| 👑 Ring of Fire | Kings Cup mit virtuellem Kartendeck | 1 reicht |
-| 🎰 Chaos-Roulette | Gruppenaufgaben, Duelle, Bewegung | 1 reicht |
-| 💣 Wortbombe | Kategorie nennen und weitergeben, bevor es knallt | 1 reicht |
-| 🚫 Tabu Rush | Zwei Teams, 60 Sekunden, verbotene Wörter | 1 reicht |
-| 😂 Meme Battle | Prompt, Pointe tippen, anonym abstimmen | eigene nötig |
-| 🔟 Top Ten | Geheime Zahl 1–10, Antworten sortieren | eigene nötig |
-| 🚌 Busfahrer | Vier Fragen, dann die lange Fahrt | 1 reicht |
+| Wahrheit oder Pflicht | Klassiker mit drei Härtegraden und Notausgang | 1 reicht |
+| Ich hab noch nie | Handy in die Mitte, alle anderen weg | 1 reicht |
+| Ring of Fire | Kings Cup mit virtuellem Kartendeck | 1 reicht |
+| Chaos-Roulette | Gruppenaufgaben, Duelle, Bewegung | 1 reicht |
+| Wortbombe | Kategorie nennen und weitergeben, bevor es knallt | 1 reicht |
+| Tabu Rush | Zwei Teams, 60 Sekunden, verbotene Wörter | 1 reicht |
+| Meme Battle | Prompt, Pointe tippen, anonym abstimmen | eigene nötig |
+| Top Ten | Geheime Zahl 1–10, Antworten sortieren | eigene nötig |
+| Busfahrer | Vier Fragen, dann die lange Fahrt | 1 reicht |
 
 ---
 
@@ -112,7 +113,7 @@ export const meinSpiel = createCardGame({
   id: 'mein-spiel',
   name: 'Mein Spiel',
   tagline: 'Kurzbeschreibung',
-  emoji: '🎯',
+  icon: 'target',
   accent: 'var(--teal)',
   minPlayers: 3,
   maxPlayers: 16,

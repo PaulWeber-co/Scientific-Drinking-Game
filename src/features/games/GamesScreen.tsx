@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { GAMES, getGame } from '../../games/registry';
-import { TAG_LABEL, type GameTag } from '../../games/types';
+import { TAG_ICON, TAG_LABEL, type GameTag } from '../../games/types';
+import { HeatIcons, Icon } from '../../components/icons';
 import { GameCard } from './GameCard';
 import { NavBar, Sheet } from '../../components/ui';
 import { useParty } from '../party/PartyContext';
@@ -36,7 +37,12 @@ export function GamesScreen() {
               style={filter === f ? { ['--tint' as string]: 'var(--brand)' } : undefined}
               onClick={() => setFilter(f)}
             >
-              {f === 'alle' ? 'Alle' : TAG_LABEL[f]}
+              {f === 'alle' ? 'Alle' : (
+                <>
+                  <Icon name={TAG_ICON[f]} size={14} />
+                  {TAG_LABEL[f]}
+                </>
+              )}
             </button>
           ))}
         </div>
@@ -104,17 +110,26 @@ export function GameDetail() {
       />
       <div className="stack-6">
         <div className="gamehero">
-          <div className="gamehero__emoji">{game.emoji}</div>
+          <div className="gamehero__icon">
+            <Icon name={game.icon} size={38} strokeWidth={1.5} />
+          </div>
           <h1 className="t-title t-balance">{game.name}</h1>
           <p className="t-sub t-balance">{game.tagline}</p>
           <div className="row wrap" style={{ justifyContent: 'center', gap: 6 }}>
             <span className="chip chip--outline">
-              {game.minPlayers}-{game.maxPlayers} Spieler
+              <Icon name="people" size={13} />
+              {game.minPlayers}–{game.maxPlayers} Spieler
             </span>
-            <span className="chip chip--outline">{game.duration}</span>
-            <span className="chip chip--outline">{'🌶'.repeat(game.intensity)}</span>
+            <span className="chip chip--outline">
+              <Icon name="clock" size={13} />
+              {game.duration}
+            </span>
+            <span className="chip chip--outline">
+              <HeatIcons level={game.intensity} size={13} />
+            </span>
             {game.tags.map((t) => (
               <span key={t} className="chip chip--outline">
+                <Icon name={TAG_ICON[t]} size={13} />
                 {TAG_LABEL[t]}
               </span>
             ))}

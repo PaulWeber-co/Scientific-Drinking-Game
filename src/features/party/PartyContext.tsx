@@ -28,6 +28,8 @@ import {
   withTimeout,
 } from '../../lib/firebase';
 import { deviceId, lobbyCode, uid } from '../../lib/id';
+import type { IconName } from '../../components/icons';
+import { colorFor, isAvatarColor, type AvatarColor } from '../../components/ui/Avatar';
 import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
 import type { DrinkEvent, Profile } from '../../engine/types';
@@ -43,8 +45,8 @@ export type Connection = 'idle' | 'connecting' | 'online' | 'offline' | 'error';
 interface RemotePlayer {
   id: string;
   name: string;
-  emoji: string;
-  drinkEmoji?: string;
+  color: AvatarColor;
+  drinkIcon?: IconName;
   joinedAt: number;
   lastSeen: number;
   online?: boolean;
@@ -82,8 +84,8 @@ export interface PartyValue {
   joinOnline: (code: string) => Promise<void>;
   startLocal: () => void;
   leave: () => void;
-  addLocalPlayer: (input: { name: string; emoji: string; profile: Profile; drinkId: string }) => void;
-  updateLocalPlayer: (id: string, patch: Partial<GamePlayer['local']> & { name?: string; emoji?: string }) => void;
+  addLocalPlayer: (input: { name: string; color: AvatarColor; profile: Profile; drinkId: string }) => void;
+  updateLocalPlayer: (id: string, patch: Partial<GamePlayer['local']> & { name?: string; color?: AvatarColor }) => void;
   removeLocalPlayer: (id: string) => void;
   startGame: (gameId: string) => void;
   endGame: () => void;
@@ -125,12 +127,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     () => ({
       id: myId,
       name: profile?.name || 'Du',
-      emoji: profile?.emoji || '🎉',
-      drinkEmoji: myDrink.emoji,
+      color: profile?.color ?? 'indigo',
+      drinkIcon: myDrink.icon,
       online: true,
       isHost: mode === 'local' ? true : snapshot?.meta?.host === myId,
     }),
-    [myId, profile?.name, profile?.emoji, myDrink.emoji, mode, snapshot?.meta?.host],
+    [myId, profile?.name, profile?.color, myDrink.icon, mode, snapshot?.meta?.host],
   );
 
   const isHost = mode === 'local' ? true : snapshot?.meta?.host === myId;
@@ -143,8 +145,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       .map((p) => ({
         id: p.id,
         name: p.name,
-        emoji: p.emoji || '🎉',
-        drinkEmoji: p.drinkEmoji,
+        color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
+        drinkIcon: p.drinkIcon,
         online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
         isHost: snapshot?.meta?.host === p.id,
       }));
@@ -165,14 +167,14 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       await update(lobbyRef(c, `/players/${myId}`), {
         id: myId,
         name: (profile?.name || 'Spieler').slice(0, 24),
-        emoji: profile?.emoji || '🎉',
-        drinkEmoji: myDrink.emoji,
+        color: profile?.color ?? 'indigo',
+        drinkIcon: myDrink.icon,
         lastSeen: Date.now(),
         online: true,
         ...extra,
       });
     },
-    [lobbyRef, myId, profile?.name, profile?.emoji, myDrink.emoji],
+    [lobbyRef, myId, profile?.name, profile?.color, myDrink.icon],
   );
 
   const createOnline = useCallback(async (): Promise<string> => {
@@ -199,8 +201,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           [myId]: {
             id: myId,
             name: (profile?.name || 'Spieler').slice(0, 24),
-            emoji: profile?.emoji || '🎉',
-            drinkEmoji: myDrink.emoji,
+            color: profile?.color ?? 'indigo',
+            drinkIcon: myDrink.icon,
             joinedAt: now,
             lastSeen: now,
             online: true,
@@ -216,7 +218,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setError(describe(e));
       throw e;
     }
-  }, [lobbyRef, myId, profile?.name, profile?.emoji, myDrink.emoji, setLastLobbyCode]);
+  }, [lobbyRef, myId, profile?.name, profile?.color, myDrink.icon, setLastLobbyCode]);
 
   const joinOnline = useCallback(
     async (raw: string) => {
@@ -395,8 +397,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       {
         id: uid('l_'),
         name: input.name,
-        emoji: input.emoji,
-        drinkEmoji: findDrink(input.drinkId).emoji,
+        color: input.color,
+        drinkIcon: findDrink(input.drinkId).icon,
         online: true,
         local: { profile: input.profile, drinkId: input.drinkId, log: [] },
       },
@@ -407,13 +409,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setLocalPlayers((prev) =>
       prev.map((p) => {
         if (p.id !== id || !p.local) return p;
-        const { name, emoji, ...localPatch } = patch as Record<string, unknown>;
+        const { name, color, ...localPatch } = patch as Record<string, unknown>;
         const local = { ...p.local, ...(localPatch as Partial<NonNullable<GamePlayer['local']>>) };
         return {
           ...p,
           name: (name as string) ?? p.name,
-          emoji: (emoji as string) ?? p.emoji,
-          drinkEmoji: findDrink(local.drinkId).emoji,
+          color: (color as AvatarColor) ?? p.color,
+          drinkIcon: findDrink(local.drinkId).icon,
           local,
         };
       }),

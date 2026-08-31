@@ -55,7 +55,7 @@ export const memeBattle: GameDefinition<State> = {
   id: 'meme-battle',
   name: 'Meme Battle',
   tagline: 'Prompt lesen, Pointe tippen, anonym abstimmen.',
-  emoji: '😂',
+  icon: 'quotes',
   accent: 'var(--mint)',
   minPlayers: 3,
   maxPlayers: 12,
@@ -236,7 +236,7 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
             <div className="grow">
               <div className="t-headline">{state.answers[r.id]}</div>
               <div className="t-caption">
-                {byId(r.id)?.emoji} {byId(r.id)?.name} · {r.votes}{' '}
+                {byId(r.id)?.name} · {r.votes}{' '}
                 {r.votes === 1 ? 'Stimme' : 'Stimmen'}
               </div>
             </div>

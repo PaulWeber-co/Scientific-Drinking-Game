@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { DEFAULT_TARGET_BAC } from '../engine/constants';
 import { findDrink } from '../engine/drinks';
 import { makeDrinkEvent } from '../engine/sips';
+import { colorFor } from '../components/ui/Avatar';
 import type { DrinkDefinition, DrinkEvent, Profile } from '../engine/types';
 
 interface PlayerState {
@@ -79,7 +80,17 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'sdg.player',
-      version: 1,
+      version: 2,
+      // v1 speicherte ein Emoji als Avatar. Ab v2 sind es Initialen auf einer
+      // Farbe – bestehende Profile bekommen eine aus dem Namen abgeleitete.
+      migrate: (persisted, version) => {
+        const state = persisted as { profile?: (Profile & { emoji?: string }) | null };
+        if (version < 2 && state?.profile) {
+          const { emoji: _emoji, ...rest } = state.profile;
+          state.profile = { ...rest, color: rest.color ?? colorFor(rest.name || 'x') };
+        }
+        return state;
+      },
       onRehydrateStorage: () => (state) => {
         // Abgelaufene Nächte automatisch schließen, damit der Restalkohol-
         // Rechner nicht mit Daten von vorletzter Woche rechnet.
@@ -100,7 +111,7 @@ export function useCurrentDrink(): DrinkDefinition {
 export function defaultProfile(): Profile {
   return {
     name: '',
-    emoji: '🎉',
+    color: 'indigo',
     age: 25,
     weightKg: 75,
     sex: 'male',

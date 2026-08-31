@@ -5,7 +5,9 @@ import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import { DRINK_CATALOG, alcoholPerSip } from '../../engine/drinks';
 import type { Profile, Sex, StomachState } from '../../engine/types';
-import { EmojiPicker, Segmented, Stepper } from '../../components/ui';
+import { ColorPicker, Segmented, Stepper } from '../../components/ui';
+import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
+import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { formatBac } from '../../lib/format';
 import { defaultProfile, usePlayer } from '../../store/player';
@@ -64,7 +66,10 @@ export function Onboarding() {
               value={p.name}
               onChange={(e) => patch({ name: e.target.value })}
             />
-            <EmojiPicker value={p.emoji} onChange={(emoji) => patch({ emoji })} />
+            <div className="row" style={{ justifyContent: 'center' }}>
+              <Avatar name={p.name} color={p.color} size="lg" />
+            </div>
+            <ColorPicker value={p.color} onChange={(color: AvatarColor) => patch({ color })} />
           </StepShell>
         )}
         {current === 'alter' && (
@@ -154,7 +159,7 @@ export function Onboarding() {
                       setDrinkId(d.id);
                     }}
                   >
-                    <span className="drinktile__emoji">{d.emoji}</span>
+                    <Icon name={d.icon} size={26} className="drinktile__icon" />
                     <span className="drinktile__name">{d.name}</span>
                     <span className="t-caption">{d.abvPercent} %</span>
                   </button>
@@ -218,7 +223,9 @@ function StepShell({ title, sub, children }: { title: string; sub?: string; chil
 function StepStart() {
   return (
     <div className="stack-6">
-      <div className="hero-mark">🍸</div>
+      <div className="hero-mark">
+        <Icon name="logo" size={72} strokeWidth={1.15} />
+      </div>
       <div className="stack-3">
         <h1 className="t-large t-balance">
           Trinkspiele,

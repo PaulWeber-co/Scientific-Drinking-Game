@@ -1,11 +1,13 @@
 import type { ComponentType } from 'react';
+import type { IconName } from '../components/icons';
+import type { AvatarColor } from '../components/ui/Avatar';
 import type { DrinkEvent, Profile } from '../engine/types';
 
 export interface GamePlayer {
   id: string;
   name: string;
-  emoji: string;
-  drinkEmoji?: string;
+  color: AvatarColor;
+  drinkIcon?: IconName;
   online?: boolean;
   isHost?: boolean;
   /**
@@ -58,14 +60,25 @@ export type GameTag =
   | 'geheim';
 
 export const TAG_LABEL: Record<GameTag, string> = {
-  'handy-weg': '📵 Handy weg',
-  karten: '🃏 Karten',
-  reden: '💬 Reden',
-  kreativ: '🎨 Kreativ',
-  schnell: '⚡️ Schnell',
-  team: '🤝 Teams',
-  bewegung: '🕺 Bewegung',
-  geheim: '🤫 Geheim',
+  'handy-weg': 'Handy weg',
+  karten: 'Karten',
+  reden: 'Reden',
+  kreativ: 'Kreativ',
+  schnell: 'Schnell',
+  team: 'Teams',
+  bewegung: 'Bewegung',
+  geheim: 'Geheim',
+};
+
+export const TAG_ICON: Record<GameTag, IconName> = {
+  'handy-weg': 'phoneOff',
+  karten: 'cards',
+  reden: 'chat',
+  kreativ: 'brush',
+  schnell: 'bolt',
+  team: 'team',
+  bewegung: 'activity',
+  geheim: 'eyeOff',
 };
 
 /**
@@ -79,7 +92,7 @@ export interface GameDefinition<S = any> {
   id: string;
   name: string;
   tagline: string;
-  emoji: string;
+  icon: IconName;
   /** CSS-Custom-Property, färbt Karte und Spielbildschirm. */
   accent: string;
   minPlayers: number;

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
 import type { Profile, Sex } from '../../engine/types';
-import { NavBar, Segmented, Sheet, Stepper, EmojiPicker } from '../../components/ui';
+import { ColorPicker, NavBar, Segmented, Sheet, Stepper } from '../../components/ui';
+import { AVATAR_COLORS, Avatar, type AvatarColor } from '../../components/ui/Avatar';
+import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { gamesForGroup } from '../../games/registry';
 import { GameCard } from '../games/GameCard';
@@ -65,7 +67,7 @@ export function LobbyScreen() {
                   : 'Offline – die App holt auf, sobald das Netz zurück ist'}
             </div>
             <button className="btn btn--glass btn--block" onClick={shareLink}>
-              Einladung teilen
+              <Icon name="share" size={18} /> Einladung teilen
             </button>
           </section>
         ) : (
@@ -86,14 +88,20 @@ export function LobbyScreen() {
                 }
               }}
             >
-              {busy ? 'Lobby wird erstellt …' : '📱 Jeder mit eigenem Handy'}
+              {busy ? (
+                'Lobby wird erstellt …'
+              ) : (
+                <>
+                  <Icon name="phone" size={19} /> Jeder mit eigenem Handy
+                </>
+              )}
             </button>
             <div className="grid-2">
               <button className="btn btn--glass" onClick={() => setJoinOpen(true)}>
-                Code eingeben
+                <Icon name="qr" size={17} /> Code eingeben
               </button>
               <button className="btn btn--glass" onClick={() => setAddOpen(true)}>
-                + Mitspieler
+                <Icon name="plus" size={17} /> Mitspieler
               </button>
             </div>
             <p className="t-caption t-center t-balance">
@@ -127,15 +135,15 @@ export function LobbyScreen() {
           <div className="list">
             {players.map((p) => (
               <div key={p.id} className="list__item">
-                <span className="avatar avatar--sm">{p.emoji}</span>
+                <Avatar name={p.name} color={p.color} size="sm" />
                 <span className="grow">
                   <span className="t-headline" style={{ display: 'block' }}>
                     {p.name} {p.id === party.me.id && <span className="t-caption">(du)</span>}
                   </span>
-                  <span className="t-caption">
-                    {p.isHost ? 'Host · ' : ''}
-                    {p.drinkEmoji ?? '🥤'}
-                    {p.online === false ? ' · offline' : ''}
+                  <span className="t-caption row" style={{ gap: 5 }}>
+                    {p.isHost && <>Host ·</>}
+                    <Icon name={p.drinkIcon ?? 'water'} size={13} />
+                    {p.online === false && <>· offline</>}
                   </span>
                 </span>
                 {p.local && (
@@ -237,15 +245,15 @@ function JoinSheet({
   );
 }
 
-const GUEST_EMOJIS = ['🦊', '🐙', '🐼', '🦄', '🐝', '🍄', '🦖', '🐧', '👽', '🌵'];
-
 function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const party = useParty();
   const myProfile = usePlayer((s) => s.profile);
   const [name, setName] = useState('');
-  // Jeder neue Gast bekommt automatisch einen freien Avatar.
-  const taken = party.players.map((p) => p.emoji);
-  const [emoji, setEmoji] = useState(() => GUEST_EMOJIS.find((e) => !taken.includes(e)) ?? '🦊');
+  // Jeder neue Gast bekommt automatisch eine noch freie Avatarfarbe.
+  const taken = party.players.map((p) => p.color);
+  const [color, setColor] = useState<AvatarColor>(
+    () => AVATAR_COLORS.find((c) => !taken.includes(c)) ?? 'purple',
+  );
   const [sex, setSex] = useState<Sex>('female');
   const [weight, setWeight] = useState(65);
   const [drinkId, setDrinkId] = useState('beer-pils');
@@ -260,17 +268,17 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
         heightCm: undefined,
       }),
       name: name.trim() || 'Gast',
-      emoji,
+      color,
       sex,
       weightKg: weight,
       heightCm: undefined,
       alcoholFree: false,
     } as Profile;
-    party.addLocalPlayer({ name: profile.name, emoji, profile, drinkId });
+    party.addLocalPlayer({ name: profile.name, color, profile, drinkId });
     haptic('success');
     setName('');
-    const used = [...party.players.map((p) => p.emoji), emoji];
-    setEmoji(GUEST_EMOJIS.find((e) => !used.includes(e)) ?? '🎉');
+    const used = [...party.players.map((p) => p.color), color];
+    setColor(AVATAR_COLORS.find((c) => !used.includes(c)) ?? 'purple');
     onClose();
   };
 
@@ -283,7 +291,10 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
           nicht gespeichert.
         </p>
         <input className="input" placeholder="Name" maxLength={16} value={name} onChange={(e) => setName(e.target.value)} />
-        <EmojiPicker value={emoji} onChange={setEmoji} />
+        <div className="row" style={{ justifyContent: 'center' }}>
+          <Avatar name={name || 'Gast'} color={color} size="lg" />
+        </div>
+        <ColorPicker value={color} onChange={setColor} />
         <Segmented<Sex>
           value={sex}
           onChange={setSex}
@@ -308,7 +319,7 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
                   className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
                   onClick={() => setDrinkId(d.id)}
                 >
-                  <span className="drinktile__emoji">{d.emoji}</span>
+                  <Icon name={d.icon} size={24} className="drinktile__icon" />
                   <span className="drinktile__name">{d.name}</span>
                 </button>
               ))}

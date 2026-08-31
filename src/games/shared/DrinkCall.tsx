@@ -1,3 +1,5 @@
+import { Icon } from '../../components/icons';
+import { Avatar } from '../../components/ui/Avatar';
 import { useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { useParty } from '../../features/party/PartyContext';
@@ -26,7 +28,7 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
     return (
       <div className={`call call--muted ${compact ? 'call--compact' : ''}`}>
         <div className="call__who">
-          {player.emoji} {player.name}
+          <Avatar name={player.name} color={player.color} size="sm" /> {player.name}
         </div>
         <div className="t-sub">sieht seine Menge auf dem eigenen Handy</div>
       </div>
@@ -37,7 +39,7 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
     return (
       <div className={`call call--skip ${compact ? 'call--compact' : ''}`}>
         <div className="call__who">
-          {player.emoji} {mine ? 'Du' : player.name}
+          <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
         </div>
         <div className="call__big">{res.phase === 'blocked' ? 'Aufgabe' : 'Aussetzen'}</div>
         <div className="t-sub t-balance">{res.hint}</div>
@@ -48,7 +50,7 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
   return (
     <div className={`call ${done ? 'call--done' : ''} ${compact ? 'call--compact' : ''}`}>
       <div className="call__who">
-        {player.emoji} {mine ? 'Du' : player.name}
+        <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
         {label && <span className="t-caption"> · {label}</span>}
       </div>
       <div className="call__big t-mono-num">
@@ -65,7 +67,13 @@ export function DrinkCall({ player, baseSips, label, source, compact }: Props) {
           setDone(true);
         }}
       >
-        {done ? '✓ Eingetragen' : 'Getrunken'}
+        {done ? (
+          <>
+            <Icon name="check" size={16} strokeWidth={2.2} /> Eingetragen
+          </>
+        ) : (
+          'Getrunken'
+        )}
       </button>
     </div>
   );

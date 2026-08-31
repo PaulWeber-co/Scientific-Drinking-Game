@@ -1,4 +1,9 @@
-export const SUITS = ['♠', '♥', '♦', '♣'] as const;
+import type { IconName } from '../../components/icons';
+
+/** Kartenfarben als Icons statt als Textsymbole – die rendern sonst je nach
+ *  System als buntes Emoji. */
+export const SUIT_ICONS: readonly IconName[] = ['spade', 'heart', 'diamond', 'club'];
+export const SUIT_NAMES = ['Pik', 'Herz', 'Karo', 'Kreuz'] as const;
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'B', 'D', 'K'] as const;
 
 export interface Card {
@@ -17,7 +22,7 @@ export function isRed(card: Card): boolean {
 }
 
 export function cardLabel(card: Card): string {
-  return `${RANKS[card.rank]}${SUITS[card.suit]}`;
+  return `${RANKS[card.rank]} ${SUIT_NAMES[card.suit]}`;
 }
 
 /** Kartenwert für Höher/Tiefer: Ass zählt hoch (14). */

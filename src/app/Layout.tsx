@@ -1,14 +1,15 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { haptic } from '../lib/haptics';
+import { Icon, type IconName } from '../components/icons';
 import { useApp } from '../store/app';
 import { WaterReminder } from '../features/bac/WaterReminder';
 
-const TABS = [
-  { to: '/', icon: '🏠', label: 'Start' },
-  { to: '/spiele', icon: '🎲', label: 'Spiele' },
-  { to: '/lobby', icon: '👥', label: 'Runde' },
-  { to: '/pegel', icon: '📈', label: 'Pegel' },
+const TABS: { to: string; icon: IconName; label: string }[] = [
+  { to: '/', icon: 'home', label: 'Start' },
+  { to: '/spiele', icon: 'games', label: 'Spiele' },
+  { to: '/lobby', icon: 'people', label: 'Runde' },
+  { to: '/pegel', icon: 'chart', label: 'Pegel' },
 ];
 
 export function Layout() {
@@ -35,7 +36,7 @@ export function Layout() {
         <div className="tabbar__inner">
           {TABS.map((t) => (
             <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tabbar__item" onClick={() => haptic('tap')}>
-              <span className="tabbar__icon">{t.icon}</span>
+              <Icon name={t.icon} size={23} className="tabbar__icon" />
               {t.label}
             </NavLink>
           ))}

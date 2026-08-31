@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icons';
 import { useMemo, useState } from 'react';
 import {
   BETA_CONSERVATIVE,
@@ -131,12 +132,13 @@ export function PegelScreen() {
           <div className="row-between">
             <h2 className="t-title2">Trink-Log</h2>
             <button className="chip pressable" onClick={() => setPickerOpen(true)}>
-              {drink.emoji} {drink.name}
+              <Icon name={drink.icon} size={15} />
+              {drink.name}
             </button>
           </div>
           <div className="grid-2">
             <button className="btn btn--glass" onClick={() => setAddOpen(true)}>
-              + Selbst getrunken
+              <Icon name="plus" size={17} /> Selbst getrunken
             </button>
             <button className="btn btn--gray" disabled={!log.length} onClick={() => {
               haptic('warn');
@@ -188,13 +190,15 @@ export function PegelScreen() {
       <DrinkPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
       <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Selbst getrunken">
         <div className="stack">
-          <p className="t-sub">
-            {drink.emoji} {drink.name} · {alcoholPerSip(drink).toFixed(1)} g pro{' '}
+          <p className="t-sub row">
+            <Icon name={drink.icon} size={17} />
+            {drink.name} · {alcoholPerSip(drink).toFixed(1).replace('.', ',')} g pro{' '}
             {drink.sipIsUnit ? 'Shot' : 'Schluck'}
           </p>
           <Stepper value={manualSips} onChange={setManualSips} min={1} max={40} unit={drink.sipIsUnit ? ' Shots' : ' Schlucke'} />
           <div className="t-caption t-center">
-            entspricht {(manualSips * alcoholPerSip(drink)).toFixed(1)} g reinem Alkohol
+            entspricht {(manualSips * alcoholPerSip(drink)).toFixed(1).replace('.', ',')} g reinem
+            Alkohol
           </div>
           <button
             className="btn btn--brand btn--block btn--lg"

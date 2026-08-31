@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { Icon } from '../components/icons';
 
 interface Props {
   children: ReactNode;
@@ -24,7 +25,9 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="screen screen--full center" style={{ minHeight: '100dvh' }}>
         <div className="stack-3 t-center">
-          <div className="hero-mark">🫠</div>
+          <div className="hero-mark">
+            <Icon name="alert" size={64} strokeWidth={1.2} />
+          </div>
           <h1 className="t-title">Da ist was schiefgelaufen.</h1>
           <p className="t-sub">{this.state.error.message}</p>
           <button className="btn btn--brand" onClick={() => location.reload()}>

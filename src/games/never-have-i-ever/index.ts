@@ -39,7 +39,7 @@ export const neverHaveIEver = createCardGame({
   id: 'never-have-i-ever',
   name: 'Ich hab noch nie',
   tagline: 'Handy weg. Karte lesen. Ehrlich sein.',
-  emoji: '🙈',
+  icon: 'eyeOff',
   accent: 'var(--teal)',
   minPlayers: 4,
   maxPlayers: 16,

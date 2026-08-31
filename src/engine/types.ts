@@ -1,3 +1,6 @@
+import type { AvatarColor } from '../components/ui/Avatar';
+import type { IconName } from '../components/icons';
+
 export type Sex = 'male' | 'female' | 'diverse';
 
 /** Wie voll der Magen ist – steuert die Resorptionsgeschwindigkeit. */
@@ -9,7 +12,7 @@ export interface DrinkDefinition {
   id: string;
   name: string;
   category: DrinkCategory;
-  emoji: string;
+  icon: IconName;
   /** Uebliche Gebindegröße in ml (nur für die Anzeige "1 Glas = x Schluck"). */
   defaultVolumeMl: number;
   abvPercent: number;
@@ -22,7 +25,8 @@ export interface DrinkDefinition {
 
 export interface Profile {
   name: string;
-  emoji: string;
+  /** Avatarfarbe – die Initialen kommen aus dem Namen. */
+  color: AvatarColor;
   age: number;
   weightKg: number;
   /** Optional – schaltet die präzisere Watson-Schätzung frei. */

@@ -18,7 +18,7 @@ const HOUR = 3_600_000;
 
 const max: Profile = {
   name: 'Max',
-  emoji: '🍺',
+  color: 'blue',
   age: 28,
   weightKg: 85,
   sex: 'male',
@@ -26,7 +26,7 @@ const max: Profile = {
   targetBac: 0.4,
   alcoholFree: false,
 };
-const lisa: Profile = { ...max, name: 'Lisa', weightKg: 60, sex: 'female', emoji: '🍹' };
+const lisa: Profile = { ...max, name: 'Lisa', weightKg: 60, sex: 'female', color: 'pink' };
 
 describe('alcoholGrams', () => {
   it('rechnet 500 ml Bier mit 5 % in ~19.7 g reinen Alkohol um', () => {

@@ -1,3 +1,4 @@
+import { HeatIcons, Icon, type IconName } from '../../components/icons';
 import { useMemo } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
@@ -25,7 +26,7 @@ export interface CardGameConfig {
   id: string;
   name: string;
   tagline: string;
-  emoji: string;
+  icon: IconName;
   accent: string;
   minPlayers: number;
   maxPlayers: number;
@@ -36,7 +37,7 @@ export interface CardGameConfig {
   /** 'turn' = es gibt einen Spieler am Zug, 'none' = die Karte gilt für die Runde. */
   actor: 'turn' | 'none';
   /** Auswahl vor dem Ziehen, z. B. Wahrheit oder Pflicht. */
-  modes?: { id: string; label: string; tone?: string }[];
+  modes?: { id: string; label: string; icon?: IconName; tone?: string }[];
   /** Standard-Härte der Trinkansage. */
   baseSips: number;
   /** Wer trinkt, wenn die Karte einfach erledigt wird. */
@@ -153,15 +154,18 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         onQuit={quit}
         action={
           config.heatSelectable ? (
-            <div className="segmented segmented--tight">
+            <div className="segmented segmented--tight" role="group" aria-label="Härtegrad">
               {([1, 2, 3] as Heat[]).map((h) => (
                 <button
                   key={h}
-                  className="segmented__opt"
+                  className="segmented__opt segmented__opt--icon"
                   aria-pressed={state.heat === h}
+                  aria-label={`Härtegrad ${h}`}
                   onClick={() => send({ type: 'setHeat', heat: h })}
                 >
-                  {'🌶'.repeat(h)}
+                  {Array.from({ length: h }, (_, i) => (
+                    <Icon key={i} name="flame" size={13} />
+                  ))}
                 </button>
               ))}
             </div>
@@ -181,7 +185,16 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             </BigCard>
             <Choice
               disabled={!canAct}
-              options={config.modes.map((m) => ({ id: m.id, label: m.label, tone: m.tone }))}
+              options={config.modes.map((m) => ({
+                id: m.id,
+                tone: m.tone,
+                label: (
+                  <>
+                    {m.icon && <Icon name={m.icon} size={20} />}
+                    {m.label}
+                  </>
+                ),
+              }))}
               onPick={(mode) => send({ type: 'pickMode', mode })}
             />
           </>
@@ -192,7 +205,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             animateKey={`${state.drawn}-${state.round}-${state.turnIndex}`}
             kicker={card.kicker ?? config.modes?.find((m) => m.id === state.mode)?.label ?? config.name}
             footer={
-              (card.heat ?? 1) > 1 ? `${'🌶'.repeat(card.heat ?? 1)} Härtegrad` : undefined
+              (card.heat ?? 1) > 1 ? <HeatIcons level={card.heat ?? 1} /> : undefined
             }
           >
             {card.text}
@@ -255,7 +268,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     id: config.id,
     name: config.name,
     tagline: config.tagline,
-    emoji: config.emoji,
+    icon: config.icon,
     accent: config.accent,
     minPlayers: config.minPlayers,
     maxPlayers: config.maxPlayers,

@@ -9,7 +9,7 @@ const players = (n: number): GamePlayer[] =>
   Array.from({ length: n }, (_, i) => ({
     id: `p${i}`,
     name: `Spieler ${i}`,
-    emoji: '🦊',
+    color: 'indigo',
     online: true,
   }));
 
@@ -35,6 +35,7 @@ describe('Registry', () => {
       expect(g.maxPlayers).toBeGreaterThan(g.minPlayers);
       expect(g.tags.length).toBeGreaterThan(0);
       expect(g.accent).toMatch(/^var\(--/);
+      expect(g.icon.length).toBeGreaterThan(2);
     }
   });
 

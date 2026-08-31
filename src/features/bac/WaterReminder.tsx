@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
+import { Icon } from '../../components/icons';
 import { usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 
@@ -29,7 +30,7 @@ export function WaterReminder() {
 
   return (
     <div className="watertip pop-in" role="status">
-      <span style={{ fontSize: 22 }}>💧</span>
+      <Icon name="droplet" size={21} style={{ color: 'var(--teal)' }} />
       <span className="grow t-foot">
         Ein Glas Wasser jetzt spart dir morgen die halbe Kopfschmerztablette.
       </span>

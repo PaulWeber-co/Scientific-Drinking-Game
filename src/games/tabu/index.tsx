@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icons';
 import { useEffect } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
@@ -30,7 +31,7 @@ export const tabu: GameDefinition<State> = {
   id: 'tabu',
   name: 'Tabu Rush',
   tagline: 'Erklären ohne die verbotenen Wörter. Zwei Teams, 60 Sekunden.',
-  emoji: '🚫',
+  icon: 'ban',
   accent: 'var(--indigo)',
   minPlayers: 4,
   maxPlayers: 16,
@@ -239,7 +240,7 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
                     send({ type: 'hit' });
                   }}
                 >
-                  Erraten ✓
+                  <Icon name="check" size={19} strokeWidth={2.1} /> Erraten
                 </button>
                 <div className="grid-2">
                   <button className="btn btn--gray" onClick={() => send({ type: 'skip' })}>

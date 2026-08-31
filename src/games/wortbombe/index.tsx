@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icons';
 import { useEffect } from 'react';
 import { haptic } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
@@ -51,7 +52,7 @@ export const wortbombe: GameDefinition<State> = {
   id: 'wortbombe',
   name: 'Wortbombe',
   tagline: 'Ein Wort sagen, weitergeben, nicht explodieren.',
-  emoji: '💣',
+  icon: 'bomb',
   accent: 'var(--pink)',
   minPlayers: 3,
   maxPlayers: 16,
@@ -167,14 +168,16 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
               : 'Legt das Handy in die Mitte. Es wird reihum weitergereicht.'}
           </div>
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'start' })}>
-            Bombe scharf machen 💣
+            <Icon name="bomb" size={20} /> Bombe scharf machen
           </button>
         </>
       )}
 
       {state.phase === 'running' && (
         <>
-          <div className="bomb-pulse">💣</div>
+          <div className="bomb-pulse">
+            <Icon name="bomb" size={84} strokeWidth={1.2} />
+          </div>
           <button
             className="btn btn--brand btn--block btn--lg"
             disabled={online && !isHolder}
@@ -183,14 +186,14 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
               send({ type: 'pass' });
             }}
           >
-            {online && !isHolder ? `${holder?.name} ist dran` : 'Wort gesagt → weitergeben'}
+            {online && !isHolder ? `${holder?.name} ist dran` : 'Wort gesagt – weitergeben'}
           </button>
         </>
       )}
 
       {state.phase === 'boom' && (
         <div className="stack-3">
-          <BigCard tone="danger" kicker="💥 Boom">
+          <BigCard tone="danger" kicker="Boom">
             {holder?.name} hatte die Bombe.
           </BigCard>
           <DrinkCall player={holder} baseSips={5} source="wortbombe" />

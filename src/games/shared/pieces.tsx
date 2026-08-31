@@ -1,3 +1,5 @@
+import { Icon } from '../../components/icons';
+import { Avatar } from '../../components/ui/Avatar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GamePlayer } from '../types';
 
@@ -27,9 +29,9 @@ export function BigCard({
 export function PlayerChip({ player, note }: { player: GamePlayer; note?: ReactNode }) {
   return (
     <span className={`pchip ${player.online === false ? 'pchip--off' : ''}`}>
-      <span className="pchip__emoji">{player.emoji}</span>
+      <Avatar name={player.name} color={player.color} size="sm" />
       <span className="pchip__name">{player.name}</span>
-      {player.drinkEmoji && <span className="pchip__drink">{player.drinkEmoji}</span>}
+      {player.drinkIcon && <Icon name={player.drinkIcon} size={15} className="pchip__drink" />}
       {note && <span className="t-caption">{note}</span>}
     </span>
   );
