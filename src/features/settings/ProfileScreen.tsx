@@ -83,8 +83,8 @@ export function ProfileScreen() {
             />
           </div>
           <div className="notice notice--neutral">
-            Verteilungsfaktor r = <strong>{r.toFixed(2)}</strong>{' '}
-            {source === 'watson' ? `· aus ${tbw?.toFixed(1)} l Körperwasser (Watson)` : '· Standardwert'}
+            Verteilungsfaktor r = <strong>{r.toFixed(2).replace('.', ',')}</strong>{' '}
+            {source === 'watson' ? `· aus ${tbw?.toFixed(1).replace('.', ',')} l Körperwasser (Watson)` : '· Standardwert'}
           </div>
         </section>
 

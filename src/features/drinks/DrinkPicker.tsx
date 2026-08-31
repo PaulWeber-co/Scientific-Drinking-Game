@@ -45,7 +45,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                         {d.name}
                       </span>
                       <span className="t-caption">
-                        {d.abvPercent} % · {alcoholPerSip(d).toFixed(1)} g pro Schluck
+                        {d.abvPercent} % · {alcoholPerSip(d).toFixed(1).replace('.', ',')} g pro Schluck
                       </span>
                     </span>
                   </button>
@@ -78,7 +78,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                       </span>
                       <span className="t-caption">
                         {d.abvPercent} % · {d.sipIsUnit ? '1 Shot' : `${d.sipSizeMl} ml`} ={' '}
-                        {alcoholPerSip(d).toFixed(1)} g Alkohol
+                        {alcoholPerSip(d).toFixed(1).replace('.', ',')} g Alkohol
                         {!d.sipIsUnit && ` · ${sipsPerServing(d)} Schlucke pro Glas`}
                       </span>
                     </span>
@@ -109,7 +109,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                 </div>
               </div>
               <div className="t-caption">
-                Ergibt {((volume * abv) / 100 * 0.789).toFixed(1)} g reinen Alkohol pro Glas.
+                Ergibt {((volume * abv) / 100 * 0.789).toFixed(1).replace('.', ',')} g reinen Alkohol pro Glas.
               </div>
               <button
                 className="btn btn--brand btn--block"

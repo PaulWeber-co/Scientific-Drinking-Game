@@ -245,9 +245,9 @@ function ScienceNote({ profile }: { profile: Profile }) {
   return (
     <div className="notice notice--neutral">
       <div className="t-upper">So rechnet die App</div>
-      Verteilungsfaktor r = <strong>{r.toFixed(2)}</strong>{' '}
+      Verteilungsfaktor r = <strong>{r.toFixed(2).replace('.', ',')}</strong>{' '}
       {source === 'watson'
-        ? `(aus ca. ${tbw?.toFixed(1)} l Körperwasser nach Watson)`
+        ? `(aus ca. ${tbw?.toFixed(1).replace('.', ',')} l Körperwasser nach Watson)`
         : '(Standardwert – mit Körpergröße wird es genauer)'}
       .
     </div>

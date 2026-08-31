@@ -76,11 +76,11 @@ export function PegelScreen() {
 
         <section className="statgrid">
           <Stat label="Reiner Alkohol" value={`${totalG.toFixed(0)} g`} />
-          <Stat label="Standardgläser" value={standardDrinks.toFixed(1)} />
+          <Stat label="Standardgläser" value={de(standardDrinks, 1)} />
           <Stat label="Ansagen" value={String(log.length)} />
           <Stat
             label="Verteilungsfaktor"
-            value={estimate ? estimate.r.toFixed(2) : '–'}
+            value={estimate ? de(estimate.r, 2) : '–'}
             hint={estimate?.rSource === 'watson' ? 'Watson' : 'Standard'}
           />
         </section>
@@ -110,8 +110,8 @@ export function PegelScreen() {
                     : 'Auf keinen Fall fahren'}
               </div>
               <div className="t-caption">
-                Geschätzt {formatBac(driveBac)} Promille um {String(driveHour).padStart(2, '0')}:00
-                Uhr · konservativ mit {BETA_CONSERVATIVE.toFixed(2)} Promille/h gerechnet
+                Geschätzt {formatBac(driveBac)} ‰ um {String(driveHour).padStart(2, '0')}:00
+                Uhr · konservativ mit {de(BETA_CONSERVATIVE, 2)} ‰/h gerechnet
               </div>
             </div>
           </div>
@@ -119,7 +119,7 @@ export function PegelScreen() {
             <div className="t-caption">
               Voraussichtlich nüchtern gegen <strong>{formatTime(sober)}</strong> (in{' '}
               {formatDuration(sober - now)}). Der Durchschnittswert liegt bei{' '}
-              {BETA_TYPICAL.toFixed(2)} Promille/h – wir rechnen absichtlich langsamer.
+              {de(BETA_TYPICAL, 2)} ‰/h – wir rechnen absichtlich langsamer.
             </div>
           )}
           <div className="notice notice--red">
@@ -142,7 +142,7 @@ export function PegelScreen() {
               haptic('warn');
               undoLast();
             }}>
-              Letztes rücknehmen
+              Rückgängig
             </button>
           </div>
           {log.length ? (
@@ -210,6 +210,11 @@ export function PegelScreen() {
       </Sheet>
     </div>
   );
+}
+
+/** Deutsche Zahlenschreibweise mit Komma. */
+function de(value: number, digits: number): string {
+  return value.toFixed(digits).replace('.', ',');
 }
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
