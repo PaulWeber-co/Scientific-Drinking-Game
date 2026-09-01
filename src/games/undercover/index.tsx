@@ -144,7 +144,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
       >
         {mine ? (
           <>
-            <BigCard kicker="Merk es dir">Wort gesehen. Jetzt heisst es beschreiben.</BigCard>
+            <BigCard kicker="Merk es dir">Wort gesehen. Jetzt heißt es beschreiben.</BigCard>
             <WaitingFor names={waiting} what="Warten auf" />
           </>
         ) : (

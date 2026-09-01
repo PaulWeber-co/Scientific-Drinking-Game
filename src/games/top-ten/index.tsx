@@ -2,6 +2,7 @@ import { Icon } from '../../components/icons';
 import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
+import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
@@ -11,6 +12,7 @@ interface Category {
   title: string;
   low: string;
   high: string;
+  spicy?: boolean;
 }
 
 const CATEGORIES: Category[] = [
@@ -40,6 +42,13 @@ const CATEGORIES: Category[] = [
   { title: 'Eine Superkraft', low: '1 = völlig nutzlos', high: '10 = Weltherrschaft' },
   { title: 'Ein Gegenstand auf einer einsamen Insel', low: '1 = sinnlos', high: '10 = überlebenswichtig' },
   { title: 'Eine Nachricht um 2 Uhr nachts', low: '1 = sofort blockieren', high: '10 = sofort antworten' },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { title: 'Ein Anmachspruch', low: '1 = sofort weglaufen', high: '10 = funktioniert immer', spicy: true },
+  { title: 'Eine rote Flagge beim Dating', low: '1 = geschenkt', high: '10 = sofort Schluss', spicy: true },
+  { title: 'Ein Geständnis an den Schwarm', low: '1 = peinlich', high: '10 = mutig', spicy: true },
+  { title: 'Ein Ort für den ersten Kuss', low: '1 = Katastrophe', high: '10 = filmreif', spicy: true },
+  { title: 'Eine Ausrede nach einem schlechten Date', low: '1 = durchschaubar', high: '10 = wasserdicht', spicy: true },
 ];
 
 interface State {
@@ -66,6 +75,7 @@ export const topTen: GameDefinition<State> = {
   intensity: 1,
   tags: ['geheim', 'kreativ', 'reden'],
   requiresOwnDevice: true,
+  allowSpicy: true,
   howTo: [
     'Jede Person bekommt heimlich eine Zahl von 1 bis 10.',
     'Zur Kategorie gibt jede Person eine Antwort, die genau zu ihrer Zahl passt.',
@@ -73,7 +83,7 @@ export const topTen: GameDefinition<State> = {
   ],
 
   createState: (players) => {
-    const deck = shuffle(CATEGORIES.map((_, i) => i));
+    const deck = spicyDeck(CATEGORIES, 'top-ten');
     const ids = players.map((p) => p.id);
     return {
       phase: 'writing',
@@ -109,7 +119,7 @@ export const topTen: GameDefinition<State> = {
       case 'lockOrder':
         return { ...state, phase: 'results' };
       case 'next': {
-        const deck = state.deck.length ? state.deck : shuffle(CATEGORIES.map((_, i) => i));
+        const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten');
         const ids = players.map((p) => p.id);
         return {
           ...state,

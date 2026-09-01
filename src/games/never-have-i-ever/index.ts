@@ -33,6 +33,20 @@ const CARDS: CardDef[] = [
   { text: 'Ich hab noch nie etwas mitgehen lassen, das mir nicht gehörte.', heat: 3 },
   { text: 'Ich hab noch nie jemanden geküsst, den ich am nächsten Tag nicht mehr treffen wollte.', heat: 3 },
   { text: 'Ich hab noch nie meine eigenen Regeln für ein Trinkspiel erfunden, um zu gewinnen.', heat: 1 },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { text: 'Ich hab noch nie jemanden geküsst, dessen Namen ich nicht wusste.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie mit jemandem aus dieser Runde geflirtet.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie in der Öffentlichkeit geknutscht.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie zwei Menschen gleichzeitig gedatet.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie ein Date wegen eines Fotos abgesagt.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie beim ersten Date geküsst.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie ein Foto verschickt, das ich Sekunden später bereut habe.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie jemanden im Urlaub kennengelernt und danach nie wieder gesprochen.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie eine Beziehung wegen jemand anderem beendet.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie jemanden geküsst, der vergeben war.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie gesagt, ich sei verliebt, ohne es zu meinen.', heat: 3, spicy: true },
+  { text: 'Ich hab noch nie jemanden aus dieser Runde attraktiv gefunden.', heat: 3, spicy: true },
 ];
 
 export const neverHaveIEver = createCardGame({
@@ -52,10 +66,12 @@ export const neverHaveIEver = createCardGame({
     'Deine persönliche Menge steht auf deinem Handy – oder du fragst den Vorleser.',
   ],
   actor: 'none',
+  cardKicker: 'Ehrlich jetzt',
   baseSips: 3,
   drink: 'self-declare',
   resolveLabel: 'Alle haben getrunken',
   heatSelectable: true,
   allowCustomCards: true,
+  allowSpicy: true,
   cards: CARDS,
 });

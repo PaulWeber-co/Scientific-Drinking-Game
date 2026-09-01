@@ -30,6 +30,8 @@ in der jede Person ihr eigenes Gerät benutzt.
 | QR-Code zum Beitreten, Abend-Rückblick als teilbares Bild | fertig |
 | Rolle „Ich fahre heute" mit Wasserzähler | fertig |
 | Eigene Karten pro Spiel, anonyme Gruppen-Pegelanzeige | fertig |
+| Spieleinladung: startet jemand, fragt die App „mitspielen?" | fertig |
+| Spicy-Modus je Spiel (ab 18, zuschaltbar) | fertig |
 
 ### Die Spiele
 
@@ -60,7 +62,7 @@ in der jede Person ihr eigenes Gerät benutzt.
 ```bash
 npm install
 npm run dev        # Dev-Server
-npm test           # 86 Tests (Engine + alle Spiel-Reducer)
+npm test           # 99 Tests (Engine, alle Spiel-Reducer, Spieleinladung)
 npm run typecheck
 npm run build      # Produktions-Build nach dist/
 ```
@@ -109,6 +111,15 @@ Nina  (55 kg, Shots)    1 → 0 → 1 → 0 → 0 → 0 Shots        25 g Alkoho
 ```
 
 Alle drei landen bei etwa 0,3 ‰ und bleiben dort — mit sehr unterschiedlichen Mengen.
+
+---
+
+## Spicy-Modus
+
+Sieben Spiele haben zusätzliche, deutlich freizügigere Inhalte. Sie liegen bewusst
+hinter einem eigenen Schalter im Spieldetail und nicht hinter einem vierten Härtegrad:
+das ist eine Frage des Inhalts, nicht der Menge. Der Schalter ist erst ab 18 sichtbar,
+gilt pro Spiel und bleibt aus, bis ihn jemand umlegt. Kneifen bleibt in jedem Fall möglich.
 
 ---
 

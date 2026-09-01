@@ -16,6 +16,8 @@ export interface CardDef {
   kicker?: string;
   /** Vom Nutzer selbst angelegt. */
   custom?: boolean;
+  /** Liegt nur im Stapel, wenn der Spicy-Modus an ist. */
+  spicy?: boolean;
 }
 
 export interface CardGameConfig {
@@ -39,6 +41,8 @@ export interface CardGameConfig {
   /** Wer trinkt, wenn die Karte einfach erledigt wird. */
   drink: 'actor' | 'all' | 'none' | 'self-declare';
   resolveLabel?: string;
+  /** Überschrift über der Karte, wenn die Karte selbst keine mitbringt. */
+  cardKicker?: string;
   /** Wenn gesetzt: der Spieler darf kneifen und trinkt stattdessen. */
   refuseLabel?: string;
   refuseSips?: number;
@@ -47,6 +51,8 @@ export interface CardGameConfig {
   heatSelectable?: boolean;
   /** Erlaubt eigene Karten über das Spieldetail. */
   allowCustomCards?: boolean;
+  /** Blendet den Spicy-Schalter ein (nur sinnvoll mit spicy-Karten). */
+  allowSpicy?: boolean;
 }
 
 export interface CardGameState {

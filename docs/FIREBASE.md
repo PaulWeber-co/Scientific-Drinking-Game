@@ -12,12 +12,16 @@ einen Ort, an dem dieser Zustand liegt. Genau das — und nur das — macht Fire
 ```
 lobbies/
   A7K2/
-    meta/     { code, host, status, gameId, createdAt, updatedAt, expiresAt }
+    meta/     { code, host, status, gameId, startedBy, startedAt,
+                createdAt, updatedAt, expiresAt }
     players/  { <geräteId>: { id, name, color, drinkIcon, driver, zone,
                               joinedAt, lastSeen, online } }
     game/     { id, startedAt, state: "<JSON-String>" }
     inbox/    { <pushId>: { by, at, action: "<JSON-String>" } }
 ```
+
+`startedBy` trägt die Spieleinladung: wechselt `status` auf `playing`, bekommen alle
+anderen Geräte ein „X hat gestartet – mitspielen?" statt selbst suchen zu müssen.
 
 `zone` ist bewusst grob: `sober`, `warmup`, `sweet`, `edge` oder `over` – fünf Stufen, kein
 Zahlenwert. Daraus baut die Lobby die anonyme Gruppenanzeige. `driver` markiert die Person,

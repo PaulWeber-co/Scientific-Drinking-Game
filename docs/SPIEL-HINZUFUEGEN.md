@@ -60,6 +60,8 @@ Spieleliste, Filter, Detailseite, Lobby-Vorschläge und Trinkansage funktioniere
 | `refuseLabel` / `refuseSips` | Blendet einen Kneifen-Knopf ein und setzt die Strafe. |
 | `heatSelectable` | Zeigt den Härtegrad-Regler. Karten mit `heat` über der Einstellung werden ausgeblendet. |
 | `allowCustomCards` | Erlaubt eigene Karten im Spieldetail. Sie liegen lokal; in einer Lobby mischt der Host seine mit in den Stapel. |
+| `allowSpicy` | Blendet den Spicy-Schalter ein. Karten mit `spicy: true` liegen nur dann im Stapel. |
+| `cardKicker` | Überschrift über der Karte, wenn die Karte selbst keine mitbringt. Spart die Wiederholung des Spielnamens. |
 | Karte: `target` | `'actor'` oder `'all'` — überschreibt `drink` für diese eine Karte. |
 | Karte: `sips` | Überschreibt `baseSips` für diese eine Karte. `0` = niemand trinkt (z. B. Wasserrunde). |
 

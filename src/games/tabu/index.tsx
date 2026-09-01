@@ -148,13 +148,25 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
     return () => clearInterval(t);
   }, [state.phase, state.endsAt, canExplain, isHost]);
 
-  const scoreLine = `Team A ${state.score.A} : ${state.score.B} Team B`;
+  const scoreLine = `${state.score.A} : ${state.score.B}`;
+
+  const scoreboard = (
+    <div className="scoreboard">
+      {(['A', 'B'] as Team[]).map((t) => (
+        <div key={t} className={`scoreboard__team ${state.turn === t ? 'scoreboard__team--on' : ''}`}>
+          <span className="t-caption">Team {t}</span>
+          <span className="scoreboard__num t-mono-num">{state.score[t]}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   if (state.phase === 'final') {
     const diff = Math.abs(state.score.A - state.score.B);
     const loser: Team | null = state.score.A === state.score.B ? null : state.score.A < state.score.B ? 'A' : 'B';
     return (
       <GameFrame title={tabu.name} accent={tabu.accent} subtitle={scoreLine} onQuit={quit}>
+        {scoreboard}
         <BigCard kicker="Endstand">
           {loser ? `Team ${loser} verliert mit ${diff} Punkten Rückstand.` : 'Unentschieden. Alle trinken.'}
         </BigCard>
@@ -177,10 +189,8 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
       subtitle={`${scoreLine} · Runde ${Math.min(state.round, ROUNDS_PER_TEAM * 2)}/${ROUNDS_PER_TEAM * 2}`}
       onQuit={quit}
     >
+      {scoreboard}
       <div className="row wrap" style={{ justifyContent: 'center' }}>
-        <span className="chip" style={{ ['--tint' as string]: 'var(--indigo)' }}>
-          Team {state.turn} ist dran
-        </span>
         {explainer && <PlayerChip player={explainer} note={isExplainer ? 'du erklärst' : 'erklärt'} />}
       </div>
 

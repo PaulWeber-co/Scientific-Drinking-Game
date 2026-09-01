@@ -1,42 +1,58 @@
 import { useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
+import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 
-const PROMPTS = [
-  'Der Titel des Films über diese Party wäre …',
-  'Die schlechteste Antwort auf „Wir müssen reden" ist …',
-  'Was steht auf dem Grabstein von diesem Abend?',
-  'Eine App, die niemand braucht, aber alle installieren würden: …',
-  'Die ehrlichste Bewertung dieser Wohnung wäre …',
-  'Der Werbeslogan für Montagmorgen: …',
-  'Was denkt der Kühlschrank um 3 Uhr nachts?',
-  'Ein Satz, den man nie zu seinem Chef sagen sollte: …',
-  'Die peinlichste Art, eine Party zu verlassen: …',
-  'Was flüstert dein Handy, wenn es auf 1 % fällt?',
-  'Der neue Pflichtkurs an jeder Schule sollte heißen: …',
-  'Eine Sportart, die es geben sollte: …',
-  'Der schlechteste Name für eine Bar: …',
-  'Was wäre die Superkraft, die niemand will?',
-  'Die Autokorrektur macht aus „Ich liebe dich" …',
-  'Die letzte Nachricht der Menschheit lautet: …',
-  'Was ruft man beim Bungee-Sprung statt „Aaaah"?',
-  'Ein Feiertag, den Deutschland dringend braucht: …',
-  'Der ehrlichste Untertitel für dein LinkedIn-Profil: …',
-  'Ein Getränk, das es nie geben sollte: …',
-  'Die schlimmste Belohnung für gute Arbeit ist …',
-  'Was steht in der Bedienungsanleitung für diese Runde?',
-  'Ein Podcast, den nur eine Person hören würde, heißt: …',
-  'Der Grund, warum Aliens uns bisher meiden: …',
-  'Was sagt dein Wecker wirklich, wenn er klingelt?',
-  'Die neue Geschmacksrichtung, die scheitern wird: …',
-  'Ein Warnschild, das an jeder Haustür hängen sollte: …',
-  'Die schlechteste Ausrede für Verspätung ist …',
-  'Ein Buchtitel, der sich nie verkauft: …',
-  'Was würde dein Haustier über dich posten?',
+interface Prompt {
+  text: string;
+  spicy?: boolean;
+}
+
+const PROMPTS: Prompt[] = [
+  { text: 'Der Titel des Films über diese Party wäre …' },
+  { text: 'Die schlechteste Antwort auf „Wir müssen reden" ist …' },
+  { text: 'Was steht auf dem Grabstein von diesem Abend?' },
+  { text: 'Eine App, die niemand braucht, aber alle installieren würden: …' },
+  { text: 'Die ehrlichste Bewertung dieser Wohnung wäre …' },
+  { text: 'Der Werbeslogan für Montagmorgen: …' },
+  { text: 'Was denkt der Kühlschrank um 3 Uhr nachts?' },
+  { text: 'Ein Satz, den man nie zu seinem Chef sagen sollte: …' },
+  { text: 'Die peinlichste Art, eine Party zu verlassen: …' },
+  { text: 'Was flüstert dein Handy, wenn es auf 1 % fällt?' },
+  { text: 'Der neue Pflichtkurs an jeder Schule sollte heißen: …' },
+  { text: 'Eine Sportart, die es geben sollte: …' },
+  { text: 'Der schlechteste Name für eine Bar: …' },
+  { text: 'Was wäre die Superkraft, die niemand will?' },
+  { text: 'Die Autokorrektur macht aus „Ich liebe dich" …' },
+  { text: 'Die letzte Nachricht der Menschheit lautet: …' },
+  { text: 'Was ruft man beim Bungee-Sprung statt „Aaaah"?' },
+  { text: 'Ein Feiertag, den Deutschland dringend braucht: …' },
+  { text: 'Der ehrlichste Untertitel für dein LinkedIn-Profil: …' },
+  { text: 'Ein Getränk, das es nie geben sollte: …' },
+  { text: 'Die schlimmste Belohnung für gute Arbeit ist …' },
+  { text: 'Was steht in der Bedienungsanleitung für diese Runde?' },
+  { text: 'Ein Podcast, den nur eine Person hören würde, heißt: …' },
+  { text: 'Der Grund, warum Aliens uns bisher meiden: …' },
+  { text: 'Was sagt dein Wecker wirklich, wenn er klingelt?' },
+  { text: 'Die neue Geschmacksrichtung, die scheitern wird: …' },
+  { text: 'Ein Warnschild, das an jeder Haustür hängen sollte: …' },
+  { text: 'Die schlechteste Ausrede für Verspätung ist …' },
+  { text: 'Ein Buchtitel, der sich nie verkauft: …' },
+  { text: 'Was würde dein Haustier über dich posten?' },
+
+  // Spicy – nur im Stapel, wenn der Schalter an ist.
+  { text: 'Die schlimmste Nachricht nach einem ersten Date: …', spicy: true },
+  { text: 'Ein Anmachspruch, der garantiert nach hinten losgeht: …', spicy: true },
+  { text: 'Die rote Flagge, über die du trotzdem hinwegsiehst: …', spicy: true },
+  { text: 'Was in deiner Dating-Bio stünde, wenn du komplett ehrlich wärst: …', spicy: true },
+  { text: 'Der schlechteste Ort für ein erstes Date: …', spicy: true },
+  { text: 'Was denkt dein Ex gerade über dich?', spicy: true },
+  { text: 'Der Satz, nach dem jedes Date sofort vorbei ist: …', spicy: true },
+  { text: 'Die ehrlichste Antwort auf „Wie war ich?": …', spicy: true },
 ];
 
 interface State {
@@ -63,6 +79,7 @@ export const memeBattle: GameDefinition<State> = {
   intensity: 2,
   tags: ['kreativ', 'schnell', 'geheim'],
   requiresOwnDevice: true,
+  allowSpicy: true,
   howTo: [
     'Jede Person braucht ein eigenes Handy – die Antworten bleiben bis zur Abstimmung geheim.',
     'Alle schreiben zum selben Prompt die beste Pointe.',
@@ -70,7 +87,7 @@ export const memeBattle: GameDefinition<State> = {
   ],
 
   createState: (players) => {
-    const deck = shuffle(PROMPTS.map((_, i) => i));
+    const deck = spicyDeck(PROMPTS, 'meme-battle');
     return {
       phase: 'writing',
       prompt: deck[0],
@@ -112,7 +129,7 @@ export const memeBattle: GameDefinition<State> = {
         return { ...state, votes, scores, phase: 'results' };
       }
       case 'next': {
-        const deck = state.deck.length ? state.deck : shuffle(PROMPTS.map((_, i) => i));
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle');
         return {
           ...state,
           phase: 'writing',
@@ -136,7 +153,7 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
   const [draft, setDraft] = useState('');
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string) => players.find((p) => p.id === id);
-  const prompt = PROMPTS[state.prompt];
+  const prompt = PROMPTS[state.prompt]?.text ?? '';
 
   if (!online) {
     return (

@@ -153,16 +153,17 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
             <DrinkCallList players={players} baseSips={rule.sips} source="kings-cup" />
           ) : rule?.drink === 'actor' ? (
             <DrinkCall player={actor} baseSips={rule.sips} source="kings-cup" />
+          ) : rule && rule.sips > 0 ? (
+            <DrinkCall
+              player={me}
+              baseSips={rule.sips}
+              source="kings-cup"
+              label="wenn die Regel dich trifft"
+            />
           ) : (
-            <div className="card">
-              <div className="t-sub t-center t-balance">
-                Wer laut Regel trinken muss, tippt unten auf „Ich trinke" – die Menge wird
-                persönlich berechnet.
-              </div>
+            <div className="t-center t-sub t-balance">
+              Diese Karte kostet gerade niemanden einen Schluck.
             </div>
-          )}
-          {rule && rule.drink === 'none' && rule.sips > 0 && (
-            <DrinkCall player={me} baseSips={rule.sips} source="kings-cup" label="ich trinke" />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
             Nächster

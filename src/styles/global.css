@@ -1362,3 +1362,122 @@ textarea.input {
     stroke-dasharray: 0 999;
   }
 }
+
+/* ---------- Spieleinladung ---------- */
+.invite-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in var(--dur-fast) linear both;
+}
+.invite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  max-width: 380px;
+  padding: var(--s-6) var(--s-5) var(--s-5);
+  text-align: center;
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    var(--bg-grouped);
+  box-shadow: var(--shadow-lg);
+  animation: invite-in var(--dur) var(--ease-spring) both;
+}
+@keyframes invite-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.94);
+  }
+}
+.invite__icon {
+  width: 66px;
+  height: 66px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.invite__who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-footnote);
+  font-weight: 650;
+  color: var(--label-2);
+}
+
+/* Schmale Leiste, wenn die Einladung weggetippt wurde */
+.joinbar {
+  position: fixed;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-3));
+  z-index: 46;
+  max-width: calc(var(--content-max) - 16px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md);
+  font-size: var(--t-subhead);
+  font-weight: 650;
+  text-align: left;
+  animation: rise var(--dur) var(--ease-emph) both;
+}
+.joinbar__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+  animation: pulse 1.1s ease-in-out infinite alternate;
+}
+.joinbar__cta {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--brand);
+}
+
+/* ---------- Spicy-Schalter ---------- */
+.spicycard--on {
+  border-color: color-mix(in srgb, var(--pink) 42%, transparent);
+  background: color-mix(in srgb, var(--pink) 9%, var(--surface));
+}
+.spicycard__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--label-3);
+  transition:
+    background var(--dur-fast) linear,
+    color var(--dur-fast) linear;
+}
+.spicycard--on .spicycard__icon {
+  background: color-mix(in srgb, var(--pink) 20%, transparent);
+  color: var(--pink);
+}
+.chip--sm {
+  padding: 2px 8px;
+  font-size: 11px;
+}

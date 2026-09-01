@@ -178,7 +178,7 @@ export function PegelScreen() {
           )}
           {log.length > 0 && (
             <button className="btn btn--glass btn--block" onClick={() => setReviewOpen(true)}>
-              <Icon name="trophy" size={18} /> Abend abschliessen
+              <Icon name="trophy" size={18} /> Abend abschließen
             </button>
           )}
         </section>

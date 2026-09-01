@@ -4,6 +4,7 @@ import { haptic } from '../lib/haptics';
 import { Icon, type IconName } from '../components/icons';
 import { useApp } from '../store/app';
 import { WaterReminder } from '../features/bac/WaterReminder';
+import { GameInvite } from '../features/party/GameInvite';
 
 const TABS: { to: string; icon: IconName; label: string }[] = [
   { to: '/', icon: 'home', label: 'Start' },
@@ -32,6 +33,7 @@ export function Layout() {
       <div className="aurora" aria-hidden />
       <Outlet />
       <WaterReminder />
+      <GameInvite />
       <nav className="tabbar" aria-label="Hauptnavigation">
         <div className="tabbar__inner">
           {TABS.map((t) => (
