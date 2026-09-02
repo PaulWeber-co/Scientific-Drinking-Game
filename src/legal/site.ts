@@ -160,8 +160,8 @@ export const LEGAL: LegalConfig = {
    * eigene Bundesland anpassen.
    */
   supervisoryAuthority: {
-    name: 'TODO: Landesdatenschutzbehörde deines Bundeslandes',
-    url: 'https://www.bfdi.bund.de/DE/Service/Anschriften/anschriften_node.html',
+    name: 'Unabhängige Landeszentrum für Datenschutz Schleswig-Holstein',
+    url: 'https://www.datenschutzzentrum.de',
   },
 };
 
