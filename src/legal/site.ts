@@ -86,12 +86,12 @@ export const LEGAL: LegalConfig = {
   commercial: false,
 
   operator: {
-    name: 'TODO: Vor- und Nachname',
-    street: 'TODO: Straße und Hausnummer',
-    zip: 'TODO: PLZ',
-    city: 'TODO: Ort',
+    name: 'Paul Weber',
+    street: 'Jäckbornsweg',
+    zip: '22927',
+    city: 'Großhansdorf',
     country: 'Deutschland',
-    email: 'TODO: kontakt@deine-domain.de',
+    email: 'PaulWeber@protonmail.ch',
     phone: undefined,
   },
 
