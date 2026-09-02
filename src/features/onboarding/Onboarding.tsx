@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
@@ -240,6 +240,13 @@ function StepStart() {
         <strong>Kurz vorab:</strong> Alle Berechnungen sind Schätzungen nach der Widmark-Formel und
         ersetzen keine medizinische Beratung. Medikamente, Müdigkeit und Tagesform verändern die
         Wirkung erheblich. Fahre nie unter Alkoholeinfluss. Im Zweifel: weniger trinken.
+      </div>
+      {/* Impressum und Datenschutz muessen erreichbar sein, bevor irgendetwas
+          ausgefuellt wurde – hier unauffaellig, aber ohne Umweg. */}
+      <div className="legal-links t-caption">
+        <Link to="/impressum">Impressum</Link>
+        <span aria-hidden>·</span>
+        <Link to="/datenschutz">Datenschutz</Link>
       </div>
     </div>
   );

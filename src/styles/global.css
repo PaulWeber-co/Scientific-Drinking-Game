@@ -1481,3 +1481,52 @@ textarea.input {
   padding: 2px 8px;
   font-size: 11px;
 }
+
+/* ---------- Rechtstexte ---------- */
+
+.legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+.legal-links a {
+  color: var(--label-2);
+  text-decoration: none;
+}
+.legal-links a:active {
+  color: var(--brand);
+}
+
+.legal {
+  padding-bottom: 40px;
+}
+.legal a {
+  color: var(--brand);
+  overflow-wrap: anywhere;
+}
+.legal code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--label-2);
+}
+.legal__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.legal__label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.legal__block {
+  border-top: 1px solid var(--hairline);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.legal__block:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
