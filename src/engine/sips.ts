@@ -1,5 +1,6 @@
 import { estimateBac, widmarkFactor } from './bac';
 import {
+  BETA_TYPICAL,
   DOSING_ABSORPTION,
   HARD_CAP_BAC,
   MAX_HARSHNESS,
@@ -7,9 +8,20 @@ import {
   MAX_SIPS_PER_TURN,
   MIN_AGE_ALCOHOL,
   NEUTRAL_BASE_SIPS,
+  OVER_DANGER_BAC,
+  OVER_PAUSE_BAC,
+  OVER_STOP_BAC,
+  OVER_TOLERANCE_BAC,
 } from './constants';
 import { alcoholPerSip, sipUnit } from './drinks';
-import type { DrinkDefinition, DrinkEvent, Profile, SipResult } from './types';
+import type {
+  BacEstimate,
+  DrinkDefinition,
+  DrinkEvent,
+  OverSeverity,
+  Profile,
+  SipResult,
+} from './types';
 
 export interface SipContext {
   profile: Profile;
@@ -73,14 +85,21 @@ export function personalSips(ctx: SipContext): SipResult {
   const perSip = alcoholPerSip(drink);
 
   if (headroom <= 0 || perSip <= 0 || volume <= 0) {
-    const over = est.effective - target;
+    if (est.effective - target > OVER_TOLERANCE_BAC) {
+      const call = overTargetCall(est, target);
+      return {
+        sips: 0,
+        phase: 'over',
+        severity: call.severity,
+        hint: call.hint,
+        unit: unit(0),
+        alcoholGrams: 0,
+      };
+    }
     return {
       sips: 0,
-      phase: over > 0.15 ? 'over' : 'maintaining',
-      hint:
-        over > 0.15
-          ? 'Du bist über deinem Pegel. Diese Runde: Wasser.'
-          : 'Pegel sitzt. Du darfst diese Runde aussetzen.',
+      phase: 'maintaining',
+      hint: 'Pegel sitzt. Du darfst diese Runde aussetzen.',
       unit: unit(0),
       alcoholGrams: 0,
     };
@@ -101,8 +120,10 @@ export function personalSips(ctx: SipContext): SipResult {
   // Grobe Einheiten: ein ganzer Shot ist größer als das Tempo-Limit einer
   // Ansage. Ohne diese Ausnahme bekäme ein Shot-Trinker nie etwas ab. Das
   // Tempo-Limit ist eine Bremse, keine Sicherheitsgrenze – die ist der harte
-  // Deckel, und der wird hier weiterhin eingehalten.
-  if (sips === 0 && needed >= perSip / 2 && emergency >= perSip) sips = 1;
+  // Deckel, und der wird hier weiterhin eingehalten. Härte 0 heißt „keine
+  // Ansage" und bekommt auch hier keinen Schluck.
+  if (sips === 0 && baseSips > 0 && drink.sipIsUnit && needed >= perSip / 2 && emergency >= perSip)
+    sips = 1;
 
   sips = Math.min(sips, MAX_SIPS_PER_TURN);
   sips = Math.max(0, sips);
@@ -119,6 +140,57 @@ export function personalSips(ctx: SipContext): SipResult {
           : 'Nur so viel, wie du seit eben abgebaut hast.',
     unit: unit(sips),
     alcoholGrams: round2(sips * perSip),
+  };
+}
+
+/**
+ * Ansage oberhalb des Ziels: vier Stufen nach absolutem Pegel, in den
+ * ersten beiden mit der Zeit, bis der Pegel wieder am Ziel ist (Abstand
+ * durch Abbaurate – das „ZeroLine"-Muster der Promille-Apps). Liegt noch
+ * Alkohol im Magen, steht das dabei, damit niemand nachlegt. Sachlich,
+ * kurz, ohne Tadel; die letzte Stufe nennt die Erste-Hilfe-Regel.
+ */
+/** „35 Minuten", „1 Stunde 50 Minuten", „2 Stunden" – für die Ansage. */
+function formatWait(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} Minuten`;
+  const hours = h === 1 ? '1 Stunde' : `${h} Stunden`;
+  return m ? `${hours} ${m} Minuten` : hours;
+}
+
+export function overTargetCall(
+  est: BacEstimate,
+  target: number,
+): { severity: OverSeverity; hint: string } {
+  // Erst ab einem spürbaren Rest im Magen (etwa ein Drittel Bier), sonst
+  // hieße es noch 90 Minuten nach dem letzten Schluck „es kommt was nach".
+  const rising = est.pending >= 0.05;
+  // Auf 5 Minuten gerundet: die Schätzung ist keine Uhr.
+  const wait = formatWait(
+    Math.max(5, Math.ceil(((est.effective - target) / BETA_TYPICAL) * 12) * 5),
+  );
+  if (est.effective >= OVER_DANGER_BAC) {
+    return {
+      severity: 'danger',
+      hint: 'Das ist gefährlich. Nichts mehr trinken, nicht allein lassen. Wird jemand nicht wach oder atmet unregelmäßig: 112 und stabile Seitenlage.',
+    };
+  }
+  if (est.effective >= OVER_STOP_BAC) {
+    return {
+      severity: 'stop',
+      hint: 'Für heute ist Schluss. Wasser, etwas essen, und bleib bei den anderen.',
+    };
+  }
+  if (est.effective >= OVER_PAUSE_BAC) {
+    return {
+      severity: 'pause',
+      hint: `Deutlich drüber${rising ? ', und es kommt noch was nach' : ''}. Mach eine Pause: Wasser, etwas essen, frische Luft. Frühestens in ${wait} wieder dabei.`,
+    };
+  }
+  return {
+    severity: 'water',
+    hint: `Über dem Ziel${rising ? ', und es kommt noch was nach' : ''}. Diese Runde Wasser – in etwa ${wait} passt es wieder.`,
   };
 }
 

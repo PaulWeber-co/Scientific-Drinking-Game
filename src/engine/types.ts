@@ -74,10 +74,15 @@ export type BacZone = 'sober' | 'warmup' | 'sweet' | 'edge' | 'over';
 
 export type SipPhase = 'reaching' | 'maintaining' | 'over' | 'blocked';
 
+/** Wie weit jemand über dem Ziel liegt – bestimmt Wortwahl und Farbe. */
+export type OverSeverity = 'water' | 'pause' | 'stop' | 'danger';
+
 export interface SipResult {
   /** Wie viele Schlucke dieser Spieler jetzt wirklich trinken soll. */
   sips: number;
   phase: SipPhase;
+  /** Nur bei phase 'over': Stufe der Ansage. */
+  severity?: OverSeverity;
   /** Kurzer Erklärtext für die UI. */
   hint: string;
   /** "Schluck"/"Schlucke" oder "Shot"/"Shots". */

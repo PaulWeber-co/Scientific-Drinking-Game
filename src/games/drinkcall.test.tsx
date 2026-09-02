@@ -222,3 +222,30 @@ describe('Trinkansage: resetKey', () => {
     }
   });
 });
+
+describe('Trinkansage über dem Ziel', () => {
+  it('zeigt die Stufe statt immer nur „Aussetzen“', () => {
+    // 80 g vor 90 Minuten: rund 1,0 Promille, klar über dem harten Deckel.
+    usePlayer.setState({
+      log: [
+        {
+          id: 'e1',
+          at: Date.now() - 90 * 60_000,
+          drinkId: 'beer-pils',
+          drinkName: 'Bier',
+          sips: 20,
+          alcoholGrams: 80,
+        },
+      ],
+    });
+    const { container } = render(
+      <PartyCtx.Provider value={party([me])}>
+        <DrinkCall player={me} baseSips={3} />
+      </PartyCtx.Provider>,
+    );
+    expect(screen.getByText('Pause')).toBeInTheDocument();
+    expect(screen.queryByText('Aussetzen')).toBeNull();
+    expect(screen.getByText(/Mach eine Pause/)).toBeInTheDocument();
+    expect(container.querySelector('.call--pause')).not.toBeNull();
+  });
+});
