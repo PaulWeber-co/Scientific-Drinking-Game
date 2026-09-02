@@ -38,7 +38,7 @@ export function Home() {
       <NavBar
         title={<span className="t-headline">Pegel</span>}
         right={
-          <Link to="/profil" className="pressable" aria-label="Profil">
+          <Link to="/profil" className="pressable hit" aria-label="Profil">
             <Avatar name={profile.name} color={profile.color} />
           </Link>
         }
@@ -62,9 +62,9 @@ export function Home() {
             }
           />
           <div className="row-between">
-            <button className="chip pressable" onClick={() => setPickerOpen(true)}>
+            <button className="chip chip--shrink pressable" onClick={() => setPickerOpen(true)}>
               <Icon name={drink.icon} size={15} />
-              {drink.name} · wechseln
+              <span className="chip__text">{drink.name} · wechseln</span>
             </button>
             <Link to="/pegel" className="btn btn--plain">
               Details

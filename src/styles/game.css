@@ -40,8 +40,11 @@
   flex-shrink: 0;
 }
 .game__close {
-  width: 34px;
-  height: 34px;
+  /* Sichtbar 34 px, Zielfläche 44 px: transparenter Rand. */
+  width: 44px;
+  height: 44px;
+  border: 5px solid transparent;
+  background-clip: padding-box;
   border-radius: 50%;
   background: var(--surface-2);
   color: var(--label-2);
@@ -818,6 +821,6 @@
   letter-spacing: 0;
 }
 .callrow .btn--sm {
-  min-width: 40px;
+  min-width: 44px;
   padding: 0 var(--s-2);
 }

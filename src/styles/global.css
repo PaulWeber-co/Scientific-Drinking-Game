@@ -50,6 +50,24 @@ a {
   color: var(--blue);
   text-decoration: none;
 }
+/* Doppeltipp-Zoom aus, Pinch-Zoom bleibt – ersetzt user-scalable=no. */
+a,
+input,
+select,
+[role='button'],
+.pressable {
+  touch-action: manipulation;
+}
+/* Mindest-Trefferfläche 44×44 (Apple HIG) ohne sichtbare Änderung –
+   für Icon-Links, die kleiner gezeichnet sind als sie treffen sollen. */
+.hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--r-full);
+}
 :focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
@@ -292,7 +310,8 @@ a {
   border-radius: var(--r-lg);
 }
 .btn--sm {
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 var(--s-3);
   font-size: var(--t-subhead);
   border-radius: var(--r-sm);
@@ -308,7 +327,7 @@ a {
 .btn--plain {
   --btn-bg: transparent;
   --btn-fg: var(--blue);
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--s-2);
   font-weight: 550;
 }
@@ -392,7 +411,8 @@ button.list__item:active {
 }
 .segmented__opt {
   flex: 1;
-  min-height: 34px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 var(--s-2);
   border-radius: 10px;
   font-size: var(--t-subhead);
@@ -407,8 +427,9 @@ button.list__item:active {
   padding: 2px;
 }
 .segmented--tight .segmented__opt {
-  min-height: 30px;
-  padding: 0 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 8px;
   font-size: 12px;
 }
 .segmented__opt[aria-pressed='true'] {
@@ -510,6 +531,27 @@ textarea.input {
   background: transparent;
   border: 1px solid var(--hairline-strong);
 }
+/* Chips als Knöpfe: sichtbar 30 px hoch, Zielfläche 44 px (Material-
+   Modell: transparenter Rand, Hintergrund nur auf der Padding-Box). */
+button.chip {
+  min-height: 44px;
+  border: 7px solid transparent;
+  background-clip: padding-box;
+}
+button.chip--outline {
+  /* Der Rahmen liegt auf der sichtbaren Pille, nicht auf der Zielfläche. */
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+/* Chip neben einem festen Nachbarn: darf schrumpfen, Text wird gekürzt,
+   statt aus der Zeile zu laufen (langer Getränkname auf 375 px). */
+.chip--shrink {
+  min-width: 0;
+}
+.chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .badge {
   min-width: 22px;
   height: 22px;
@@ -558,8 +600,8 @@ textarea.input {
 /* Farbwähler statt Emoji-Auswahl */
 .swatch {
   --avatar-color: var(--indigo);
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-full);
   flex-shrink: 0;
   display: grid;
@@ -748,7 +790,10 @@ textarea.input {
 /* ---------- Toggle ---------- */
 .toggle {
   width: 51px;
-  height: 31px;
+  height: 45px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  background-clip: padding-box;
   border-radius: var(--r-full);
   background: var(--surface-3);
   padding: 2px;
@@ -965,7 +1010,7 @@ textarea.input {
 /* ---------- Slider ---------- */
 .slider {
   width: 100%;
-  height: 32px;
+  height: 44px;
   appearance: none;
   background: transparent;
 }
@@ -1486,11 +1531,16 @@ textarea.input {
 
 .legal-links {
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 10px;
   padding-top: 4px;
 }
 .legal-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
   color: var(--label-2);
   text-decoration: none;
 }
@@ -1504,6 +1554,11 @@ textarea.input {
 .legal a {
   color: var(--brand);
   overflow-wrap: anywhere;
+  /* Links im Fließtext: Zielfläche 44 px hoch, ohne den Zeilenabstand zu
+     ändern (Padding und negativer Rand heben sich auf). */
+  display: inline-block;
+  padding: 13px 0;
+  margin: -13px 0;
 }
 .legal code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
