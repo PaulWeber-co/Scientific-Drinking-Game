@@ -235,6 +235,23 @@ describe('personalSips', () => {
   it('blockt unter 18', () => {
     const res = personalSips({ profile: { ...max, age: 17 }, drink: beer, events: [], baseSips: 3 });
     expect(res.phase).toBe('blocked');
+    // Der Hinweis muss den echten Grund nennen – "alkoholfrei" waere gelogen.
+    expect(res.hint).toMatch(/18/);
+  });
+
+  it('nennt beim Blocken den richtigen Grund', () => {
+    const call = (patch: Partial<typeof max>, drinkId = 'beer-pils') =>
+      personalSips({
+        profile: { ...max, ...patch },
+        drink: findDrink(drinkId),
+        events: [],
+        baseSips: 3,
+      }).hint;
+    // Fahrer schlaegt Alter schlaegt alkoholfrei schlaegt Getraenk.
+    expect(call({ designatedDriver: true, age: 17, alcoholFree: true })).toMatch(/f[äa]hrst/i);
+    expect(call({ age: 17, alcoholFree: true })).toMatch(/18/);
+    expect(call({ alcoholFree: true })).toMatch(/[Aa]lkoholfrei/);
+    expect(call({}, 'soft')).toMatch(/Getr[äa]nk/i);
   });
 
   it('reißt nie den harten Deckel', () => {

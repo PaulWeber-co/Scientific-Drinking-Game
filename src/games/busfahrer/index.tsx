@@ -243,7 +243,12 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
               {state.lastResult.correct ? ' – sauber.' : ' – das war nichts.'}
             </BigCard>
             {!state.lastResult.correct && (
-              <DrinkCall player={actor} baseSips={state.lastResult.sips} source="busfahrer" />
+              <DrinkCall
+                player={actor}
+                baseSips={state.lastResult.sips}
+                source="busfahrer"
+                resetKey={`${state.playerIndex}-${state.qIndex}`}
+              />
             )}
             <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'continue' })}>
               Weiter
@@ -316,7 +321,12 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
           <BigCard tone="danger" kicker="Bildkarte">
             Zurück an den Anfang. Und trinken.
           </BigCard>
-          <DrinkCall player={driver} baseSips={state.busPenalty} source="busfahrer" />
+          <DrinkCall
+            player={driver}
+            baseSips={state.busPenalty}
+            source="busfahrer"
+            resetKey={`bus-${state.busAttempts}-${state.busPos}`}
+          />
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'restartBus' })}>
             Nochmal von vorn
           </button>

@@ -193,7 +193,13 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
           </div>
         ))}
       </div>
-      <DrinkCallList players={losers} baseSips={4} source="schaetzfrage" label="am weitesten weg" />
+      <DrinkCallList
+        players={losers}
+        baseSips={4}
+        source="schaetzfrage"
+        label="am weitesten weg"
+        resetKey={state.round}
+      />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
         Nächste Frage
       </button>

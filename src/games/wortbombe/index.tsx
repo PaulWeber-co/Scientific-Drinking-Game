@@ -217,7 +217,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
           <BigCard tone="danger" kicker="Boom">
             {holder?.name} hatte die Bombe.
           </BigCard>
-          <DrinkCall player={holder} baseSips={5} source="wortbombe" />
+          <DrinkCall player={holder} baseSips={5} source="wortbombe" resetKey={state.round} />
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
             Nächste Runde
           </button>

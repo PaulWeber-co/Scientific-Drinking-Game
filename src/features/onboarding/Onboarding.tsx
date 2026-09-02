@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
-import { DRINK_CATALOG, alcoholPerSip } from '../../engine/drinks';
+import { DRINK_CATALOG, alcoholPerSip, sipUnit } from '../../engine/drinks';
+import { sipsToTarget } from '../../engine/sips';
 import type { Profile, Sex, StomachState } from '../../engine/types';
 import { ColorPicker, Segmented, Stepper } from '../../components/ui';
 import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
@@ -148,22 +149,20 @@ export function Onboarding() {
         {current === 'drink' && (
           <StepShell title="Was trinkst du heute?" sub="Kannst du jederzeit wechseln.">
             <div className="drinkgrid">
-              {DRINK_CATALOG.filter((d) => d.abvPercent > 0)
-                .slice(0, 12)
-                .map((d) => (
-                  <button
-                    key={d.id}
-                    className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
-                    onClick={() => {
-                      haptic('select');
-                      setDrinkId(d.id);
-                    }}
-                  >
-                    <Icon name={d.icon} size={26} className="drinktile__icon" />
-                    <span className="drinktile__name">{d.name}</span>
-                    <span className="t-caption">{d.abvPercent} %</span>
-                  </button>
-                ))}
+              {DRINK_CATALOG.filter((d) => d.abvPercent > 0).map((d) => (
+                <button
+                  key={d.id}
+                  className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
+                  onClick={() => {
+                    haptic('select');
+                    setDrinkId(d.id);
+                  }}
+                >
+                  <Icon name={d.icon} size={26} className="drinktile__icon" />
+                  <span className="drinktile__name">{d.name}</span>
+                  <span className="t-caption">{d.abvPercent} %</span>
+                </button>
+              ))}
             </div>
           </StepShell>
         )}
@@ -263,16 +262,17 @@ function ScienceNote({ profile }: { profile: Profile }) {
 
 function Preview({ profile, drinkId }: { profile: Profile; drinkId: string }) {
   const drink = useMemo(() => DRINK_CATALOG.find((d) => d.id === drinkId)!, [drinkId]);
-  const { r } = widmarkFactor(profile);
-  const grams = profile.targetBac * r * profile.weightKg;
-  const sips = Math.max(1, Math.round(grams / alcoholPerSip(drink)));
+  // Dieselbe Rechnung wie später im Spiel – inklusive Resorptionsdefizit.
+  // Sonst verspricht das Onboarding rund 10 % weniger, als der Abend kostet.
+  const sips = Math.max(1, sipsToTarget({ profile, drink, events: [] }));
+  const grams = sips * alcoholPerSip(drink);
   return (
     <div className="card">
       <div className="t-upper">Was das heißt</div>
       <p className="t-body" style={{ marginTop: 6 }}>
         Bis zu deinem Pegel sind es etwa <strong>{sips}</strong>{' '}
-        {drink.sipIsUnit ? 'Shots' : 'Schlucke'} {drink.name} ({grams.toFixed(0)} g reiner Alkohol) –
-        verteilt über den Abend, nicht auf einmal.
+        {drink.sipIsUnit ? drink.name : `${sipUnit(drink, sips)} ${drink.name}`} (
+        {grams.toFixed(0)} g reiner Alkohol) – verteilt über den Abend, nicht auf einmal.
       </p>
     </div>
   );

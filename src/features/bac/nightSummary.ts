@@ -14,8 +14,6 @@ export interface NightSummary {
   soberAt: number;
   topGame: string | null;
   topDrink: string | null;
-  /** Wie oft die App "aussetzen" gesagt hat, statt nachzuschenken. */
-  pacedRounds: number;
 }
 
 /** Ein Standardglas entspricht etwa 12 g reinem Alkohol. */
@@ -31,9 +29,13 @@ export function buildNightSummary(
   const from = Math.min(...log.map((e) => e.at));
   const totalGrams = log.reduce((s, e) => s + e.alcoholGrams, 0);
 
+  // Bis drei Stunden über das Abendende hinaus suchen: wer kurz vor Schluss
+  // noch einen Shot kippt, hat seinen Höchststand erst danach. Ohne das würde
+  // der Rückblick den Abend systematisch harmloser darstellen, als er war.
   let peakBac = 0;
   let peakAt = from;
-  for (let t = from; t <= now; t += 10 * 60_000) {
+  const until = now + 180 * 60_000;
+  for (let t = from; t <= until; t += 5 * 60_000) {
     const { bac } = estimateBac(log, profile, t);
     if (bac > peakBac) {
       peakBac = bac;
@@ -64,6 +66,5 @@ export function buildNightSummary(
     soberAt: soberAt(log, profile, now),
     topGame: GAMES.find((g) => g.id === topSource)?.name ?? null,
     topDrink: count((e) => e.drinkName),
-    pacedRounds: 0,
   };
 }

@@ -175,6 +175,7 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
         baseSips={Math.min(6, 1 + max)}
         source="most-likely"
         label="pro Stimme"
+        resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
         Nächste Frage

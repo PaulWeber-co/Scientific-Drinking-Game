@@ -295,6 +295,7 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
         players={perfect ? others : players}
         baseSips={perfect ? 3 : Math.min(6, wrongPairs + 1)}
         source="top-ten"
+        resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
         Nächste Runde

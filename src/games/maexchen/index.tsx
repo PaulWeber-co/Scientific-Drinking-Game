@@ -314,6 +314,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
               baseSips={4}
               source="maexchen"
               label={state.reveal.truthful ? 'zu Unrecht gezweifelt' : 'beim Lügen erwischt'}
+              resetKey={state.round}
             />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'nextRound' })}>

@@ -94,21 +94,36 @@ export function estimateBac(
 
   // Schrittweise Simulation: pro Minute resorbierten Alkohol addieren und
   // gleichzeitig linear abbauen. Abbau greift nur, solange Alkohol im Blut ist.
+  //
+  // Statt in jedem Schritt über alle Drinks zu summieren (das wird über einen
+  // langen Abend quadratisch und blockiert auf dem Handy den Hauptthread),
+  // führen wir mit `stomach` den noch nicht resorbierten Rest mit. Er zerfällt
+  // pro Schritt um denselben Faktor, egal aus wie vielen Drinks er stammt:
+  //   stomach(t+dt) = stomach(t)·e^(-dt/τ) + neue Drinks
+  // Resorbiert wurde in diesem Schritt genau die Differenz. Das ist dieselbe
+  // Rechnung wie zuvor, nur in O(Minuten + Drinks) statt O(Minuten · Drinks).
   const start = relevant[0].at;
   const stepMs = MS_PER_MIN;
+  const stepDecay = Math.exp(-stepMs / MS_PER_MIN / tau);
   let bac = 0;
+  let stomach = 0;
+  let idx = 0;
   for (let t = start; t < at; t += stepMs) {
     const next = Math.min(t + stepMs, at);
-    let absorbedG = 0;
-    for (const e of relevant) {
-      if (e.at >= next) break;
+    const span = next - t;
+    const before = stomach;
+    stomach *= span === stepMs ? stepDecay : Math.exp(-span / MS_PER_MIN / tau);
+    let added = 0;
+    while (idx < relevant.length && relevant[idx].at < next) {
+      const e = relevant[idx];
       const groß = e.alcoholGrams * (1 - deficit);
-      const f0 = absorbedFraction((t - e.at) / MS_PER_MIN, tau);
-      const f1 = absorbedFraction((next - e.at) / MS_PER_MIN, tau);
-      absorbedG += groß * (f1 - f0);
+      // Was von diesem frischen Drink am Ende des Schritts noch im Magen liegt.
+      stomach += groß * Math.exp(-(next - e.at) / MS_PER_MIN / tau);
+      added += groß;
+      idx++;
     }
-    bac += absorbedG / volume;
-    bac = Math.max(0, bac - (beta * (next - t)) / MS_PER_HOUR);
+    bac += (before + added - stomach) / volume;
+    bac = Math.max(0, bac - (beta * span) / MS_PER_HOUR);
   }
 
   // Was noch im Magen liegt, kommt garantiert noch – das rechnen wir mit ein,
