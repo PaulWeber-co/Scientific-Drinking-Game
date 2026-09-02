@@ -6,7 +6,7 @@ import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import { DRINK_CATALOG, alcoholPerSip, sipUnit } from '../../engine/drinks';
 import { sipsToTarget } from '../../engine/sips';
 import type { Profile, Sex, StomachState } from '../../engine/types';
-import { ColorPicker, Segmented, Stepper } from '../../components/ui';
+import { ColorPicker, OptionalStepper, Segmented, Stepper } from '../../components/ui';
 import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
@@ -24,7 +24,6 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [p, setP] = useState<Profile>(defaultProfile);
   const [drinkId, setDrinkId] = useState('beer-pils');
-  const [useHeight, setUseHeight] = useState(false);
 
   const gate = ageGate(p.age);
   const current: Step = STEPS[step];
@@ -101,28 +100,19 @@ export function Onboarding() {
               <span className="field__label">Gewicht</span>
               <Stepper value={p.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
             </div>
-            {useHeight ? (
-              <div className="field">
-                <span className="field__label">Körpergröße (präzisere Rechnung)</span>
-                <Stepper
-                  value={p.heightCm ?? 175}
-                  onChange={(heightCm) => patch({ heightCm })}
-                  min={140}
-                  max={215}
-                  unit="cm"
-                />
-              </div>
-            ) : (
-              <button
-                className="btn btn--plain"
-                onClick={() => {
-                  setUseHeight(true);
-                  patch({ heightCm: 175 });
-                }}
-              >
-                + Körpergröße angeben (genauer)
-              </button>
-            )}
+            <div className="field">
+              <span className="field__label">Körpergröße (optional)</span>
+              <OptionalStepper
+                value={p.heightCm}
+                onChange={(heightCm) => patch({ heightCm })}
+                defaultValue={175}
+                addLabel="+ Körpergröße angeben (genauer)"
+                removeLabel="Ohne Körpergröße rechnen"
+                min={140}
+                max={215}
+                unit="cm"
+              />
+            </div>
             <ScienceNote profile={p} />
           </StepShell>
         )}
@@ -132,9 +122,9 @@ export function Onboarding() {
               value={p.stomach}
               onChange={(stomach) => patch({ stomach })}
               options={[
-                { value: 'empty', label: 'Nichts' },
+                { value: 'empty', label: 'Leer' },
                 { value: 'light', label: 'Snack' },
-                { value: 'full', label: 'Richtig' },
+                { value: 'full', label: 'Satt' },
               ]}
             />
             <p className="t-sub t-center t-balance">

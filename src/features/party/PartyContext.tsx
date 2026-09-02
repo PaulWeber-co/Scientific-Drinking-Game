@@ -436,6 +436,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         name: input.name,
         color: input.color,
         drinkIcon: findDrink(input.drinkId).icon,
+        driver: input.profile.designatedDriver,
         online: true,
         local: { profile: input.profile, drinkId: input.drinkId, log: [] },
       },
