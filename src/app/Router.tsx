@@ -8,14 +8,22 @@ import { LobbyScreen } from '../features/lobby/LobbyScreen';
 import { PegelScreen } from '../features/bac/PegelScreen';
 import { ProfileScreen } from '../features/settings/ProfileScreen';
 import { PartyScreen } from '../features/party/PartyScreen';
+import { Impressum } from '../legal/Impressum';
+import { Datenschutz } from '../legal/Datenschutz';
 import { usePlayer } from '../store/player';
 import { useParty } from '../features/party/PartyContext';
+
+/**
+ * Rechtstexte muessen ohne Umweg erreichbar sein – auch fuer jemanden, der die
+ * App noch nie geoeffnet hat. Deshalb umgehen sie den Onboarding-Redirect.
+ */
+const PUBLIC_PATHS = ['/onboarding', '/impressum', '/datenschutz'];
 
 export function Router() {
   const onboarded = usePlayer((s) => s.onboarded);
   const location = useLocation();
 
-  if (!onboarded && location.pathname !== '/onboarding') {
+  if (!onboarded && !PUBLIC_PATHS.includes(location.pathname)) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -24,6 +32,8 @@ export function Router() {
       <Route element={<FullLayout />}>
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/spiel" element={<PartyScreen />} />
+        <Route path="/impressum" element={<Impressum />} />
+        <Route path="/datenschutz" element={<Datenschutz />} />
       </Route>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />

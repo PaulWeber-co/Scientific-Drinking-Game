@@ -4,7 +4,7 @@ import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import type { Sex, StomachState } from '../../engine/types';
-import { ColorPicker, NavBar, Segmented, Stepper, Toggle } from '../../components/ui';
+import { ColorPicker, ListItem, NavBar, Segmented, Stepper, Toggle } from '../../components/ui';
 import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
 import { formatBac } from '../../lib/format';
@@ -192,6 +192,14 @@ export function ProfileScreen() {
             Resorptionsmodell. Individuelle Faktoren (Medikamente, Krankheit, Müdigkeit,
             Ernährung, Tagesform) verändern die Wirkung erheblich. Diese App ersetzt keine
             medizinische Beratung und ist kein Messgerät. Fahre niemals unter Alkoholeinfluss.
+          </div>
+          <div className="list">
+            <ListItem title="Impressum" onClick={() => nav('/impressum')} />
+            <ListItem
+              title="Datenschutz"
+              subtitle="Was auf dem Gerät bleibt und was nicht"
+              onClick={() => nav('/datenschutz')}
+            />
           </div>
           <button
             className="btn btn--danger btn--block"
