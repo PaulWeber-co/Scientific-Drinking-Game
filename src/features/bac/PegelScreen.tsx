@@ -14,6 +14,7 @@ import { BacGauge } from './BacGauge';
 import { useLiveBac } from './useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
 import { NightReview } from './NightReview';
+import { GAMES } from '../../games/registry';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 
 const HOUR = 3_600_000;
@@ -32,32 +33,43 @@ export function PegelScreen() {
   const [driveHour, setDriveHour] = useState(8);
   const [reviewOpen, setReviewOpen] = useState(false);
 
+  const sober = useMemo(
+    () => (profile && log.length ? soberAt(log, profile, now) : null),
+    [log, profile, now],
+  );
+
   const series = useMemo(() => {
     if (!profile || !log.length) return [];
     const start = Math.min(...log.map((e) => e.at)) - 15 * 60_000;
-    const end = now + 5 * HOUR;
+    // Bis kurz hinter die Nüchternzeit – sonst wäre der halbe Chart eine
+    // flache Null-Linie und die eigentliche Kurve zusammengedrückt.
+    const horizon = sober ? sober + 20 * 60_000 : now + HOUR;
+    const end = Math.min(Math.max(horizon, now + 45 * 60_000), now + 5 * HOUR);
     const points: { t: number; bac: number }[] = [];
     for (let i = 0; i <= 36; i++) {
       const t = start + ((end - start) * i) / 36;
       points.push({ t, bac: estimateBac(log, profile, t).bac });
     }
     return points;
-  }, [log, profile, now]);
+  }, [log, profile, now, sober]);
+
+  const driveTarget = useMemo(() => {
+    const d = new Date(now);
+    d.setHours(driveHour, 0, 0, 0);
+    if (d.getTime() <= now) d.setDate(d.getDate() + 1);
+    return d.getTime();
+  }, [now, driveHour]);
+
+  const driveBac = useMemo(
+    () => (profile && log.length ? residualBac(log, profile, driveTarget) : 0),
+    [log, profile, driveTarget],
+  );
 
   if (!profile) return null;
 
   const zone = ZONE_META[bacZone(estimate?.bac ?? 0)];
   const totalG = log.reduce((s, e) => s + e.alcoholGrams, 0);
   const standardDrinks = totalG / 12; // 1 Standardglas = 12 g reiner Alkohol
-  const sober = log.length ? soberAt(log, profile, now) : null;
-
-  const driveTarget = (() => {
-    const d = new Date(now);
-    d.setHours(driveHour, 0, 0, 0);
-    if (d.getTime() <= now) d.setDate(d.getDate() + 1);
-    return d.getTime();
-  })();
-  const driveBac = log.length ? residualBac(log, profile, driveTarget) : 0;
   const light = drivingLight(driveBac);
 
   return (
@@ -165,7 +177,7 @@ export function PegelScreen() {
                       </span>
                       <span className="t-caption">
                         {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
-                        {e.source ? ` · ${e.source}` : ''}
+                        {sourceLabel(e.source) ? ` · ${sourceLabel(e.source)}` : ''}
                       </span>
                     </span>
                   </div>
@@ -229,6 +241,13 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+/** Aus der Spiel-ID den lesbaren Namen machen – "kings-cup" sagt niemandem etwas. */
+function sourceLabel(source?: string): string | null {
+  if (!source) return null;
+  if (source === 'manuell') return 'Selbst eingetragen';
+  return GAMES.find((g) => g.id === source)?.name ?? null;
+}
+
 function BacChart({
   points,
   now,
@@ -240,7 +259,9 @@ function BacChart({
 }) {
   const W = 320;
   const H = 110;
-  const maxBac = Math.max(target * 1.6, ...points.map((p) => p.bac)) || 0.5;
+  // Die Ziellinie bleibt immer im Bild, drückt die Kurve aber nicht mehr platt.
+  const peak = Math.max(0, ...points.map((p) => p.bac));
+  const maxBac = Math.max(target * 1.25, peak * 1.15) || 0.5;
   const t0 = points[0].t;
   const t1 = points[points.length - 1].t;
   const x = (t: number) => ((t - t0) / (t1 - t0)) * W;

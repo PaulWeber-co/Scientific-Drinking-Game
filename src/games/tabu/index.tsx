@@ -174,6 +174,7 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
           players={loser ? teamPlayers(loser) : players}
           baseSips={Math.min(6, Math.max(2, diff))}
           source="tabu"
+          resetKey="final"
         />
         <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
           Fertig
@@ -279,7 +280,13 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
             {state.hits} {state.hits === 1 ? 'Treffer' : 'Treffer'} · {state.fouls} mal Tabu
           </BigCard>
           {state.fouls > 0 && explainer && (
-            <DrinkCallList players={[explainer]} baseSips={Math.min(6, state.fouls * 2)} source="tabu" label="Tabu-Wörter" />
+            <DrinkCallList
+            players={[explainer]}
+            baseSips={Math.min(6, state.fouls * 2)}
+            source="tabu"
+            label="Tabu-Wörter"
+            resetKey={state.round}
+          />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
             Team wechseln

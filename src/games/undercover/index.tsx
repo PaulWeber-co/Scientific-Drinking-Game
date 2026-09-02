@@ -260,7 +260,13 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
       <VoteResult players={players} counts={counts} highlight={state.lastOut} />
 
       {state.winner === 'gruppe' && out && (
-        <DrinkCall player={out} baseSips={5} source="undercover" label="aufgeflogen" />
+        <DrinkCall
+          player={out}
+          baseSips={5}
+          source="undercover"
+          label="aufgeflogen"
+          resetKey={`${state.round}-${state.lastOut}`}
+        />
       )}
       {state.winner === 'undercover' && (
         <DrinkCallList
@@ -268,10 +274,17 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
           baseSips={4}
           source="undercover"
           label="durchgerutscht"
+          resetKey={`${state.round}-${state.lastOut}`}
         />
       )}
       {!state.winner && out && (
-        <DrinkCall player={out} baseSips={3} source="undercover" label="rausgewählt" />
+        <DrinkCall
+          player={out}
+          baseSips={3}
+          source="undercover"
+          label="rausgewählt"
+          resetKey={`${state.round}-${state.lastOut}`}
+        />
       )}
 
       <button

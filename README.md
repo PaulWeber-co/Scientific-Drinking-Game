@@ -93,7 +93,7 @@ Kurzfassung — ausführlich in [`docs/WISSENSCHAFT.md`](docs/WISSENSCHAFT.md).
    Körperwasser nach **Watson** (`r = TBW / kg / 0,806`). Das ist deutlich individueller als
    die pauschalen Tabellenwerte.
 2. **Resorption**: Alkohol wirkt nicht sofort. Jeder Drink steigt exponentiell ins Blut
-   (τ = 9/16/26 Minuten je nach Magenfüllung). Ohne das würde die App direkt nach einem Shot
+   (τ = 14/22/32 Minuten je nach Magenfüllung). Ohne das würde die App direkt nach einem Shot
    viel zu viel anzeigen — und eine Minute später viel zu wenig.
 3. **Abbau** mit 0,15 ‰/h für die Live-Anzeige, mit **0,10 ‰/h** für alle Sicherheitsaussagen
    („nüchtern um", Fahr-Check). Im Zweifel lieber zu spät grün als zu früh.
@@ -105,12 +105,14 @@ Kurzfassung — ausführlich in [`docs/WISSENSCHAFT.md`](docs/WISSENSCHAFT.md).
 Ergebnis einer simulierten 3-Stunden-Runde (alle 12 Minuten eine Ansage, Ziel 0,4 ‰):
 
 ```
-Max   (85 kg, Bier)     5 → 4 → 3 → 2 → 2 → 1 Schlucke     49 g Alkohol
-Lisa  (60 kg, Cocktail) 2 → 1 → 1 → 0 → 1 → 0 Schlucke     28 g Alkohol
-Nina  (55 kg, Shots)    1 → 0 → 1 → 0 → 0 → 0 Shots        25 g Alkohol
+Max   (85 kg, Bier)     4 → 4 → 4 → 4 → 4 → 2 → 2 → 1 Schlucke   55 g   0,33 ‰
+Lisa  (60 kg, Cocktail) 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 Schlucke   31 g   0,34 ‰
+Nina  (55 kg, Shots)    1 → 1 → 0 → 1 → 0 → 0 → 0 → 0 Shots      32 g   0,29 ‰
 ```
 
-Alle drei landen bei etwa 0,3 ‰ und bleiben dort — mit sehr unterschiedlichen Mengen.
+Alle drei landen bei rund 0,3 ‰ und bleiben dort — mit sehr unterschiedlichen Mengen.
+Dass der Wert leicht unter dem Ziel von 0,4 ‰ liegt, ist Absicht: dosiert wird gegen den
+Pegel *inklusive* dessen, was noch im Magen liegt.
 
 ---
 

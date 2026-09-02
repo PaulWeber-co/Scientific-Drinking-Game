@@ -1,6 +1,7 @@
 import { GroupLevel } from './GroupLevel';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MIN_AGE_ALCOHOL, MIN_AGE_APP } from '../../engine/constants';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
 import type { Profile, Sex } from '../../engine/types';
 import { ColorPicker, NavBar, Segmented, Sheet, Stepper } from '../../components/ui';
@@ -267,6 +268,7 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
   );
   const [sex, setSex] = useState<Sex>('female');
   const [weight, setWeight] = useState(65);
+  const [age, setAge] = useState(myProfile?.age ?? 25);
   const [drinkId, setDrinkId] = useState('beer-pils');
 
   const submit = () => {
@@ -281,6 +283,7 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
       name: name.trim() || 'Gast',
       color,
       sex,
+      age,
       weightKg: weight,
       heightCm: undefined,
       alcoholFree: false,
@@ -317,24 +320,31 @@ function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void 
           ]}
         />
         <div className="field">
+          <span className="field__label">Alter</span>
+          <Stepper value={age} onChange={setAge} min={MIN_AGE_APP} max={99} unit="Jahre" />
+        </div>
+        {age < MIN_AGE_ALCOHOL && (
+          <div className="notice notice--neutral">
+            Unter {MIN_AGE_ALCOHOL}: {name.trim() || 'Der Gast'} bekommt Aufgaben statt Schlucke.
+          </div>
+        )}
+        <div className="field">
           <span className="field__label">Gewicht</span>
           <Stepper value={weight} onChange={setWeight} min={35} max={200} unit="kg" />
         </div>
         <div className="field">
           <span className="field__label">Getränk: {findDrink(drinkId).name}</span>
           <div className="drinkgrid">
-            {DRINK_CATALOG.filter((d) => d.abvPercent > 0)
-              .slice(0, 9)
-              .map((d) => (
-                <button
-                  key={d.id}
-                  className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
-                  onClick={() => setDrinkId(d.id)}
-                >
-                  <Icon name={d.icon} size={24} className="drinktile__icon" />
-                  <span className="drinktile__name">{d.name}</span>
-                </button>
-              ))}
+            {DRINK_CATALOG.filter((d) => d.abvPercent > 0).map((d) => (
+              <button
+                key={d.id}
+                className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
+                onClick={() => setDrinkId(d.id)}
+              >
+                <Icon name={d.icon} size={24} className="drinktile__icon" />
+                <span className="drinktile__name">{d.name}</span>
+              </button>
+            ))}
           </div>
         </div>
         <button className="btn btn--brand btn--block btn--lg" onClick={submit}>

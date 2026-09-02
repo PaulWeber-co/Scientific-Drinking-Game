@@ -123,6 +123,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     const canAct = !online || isMyTurn;
     const target = card?.target ?? (config.drink === 'all' ? 'all' : 'actor');
     const sips = card?.sips ?? config.baseSips;
+    // Eindeutig pro Karte: sonst bliebe der "Getrunken"-Button der letzten
+    // Karte auch auf der naechsten noch gesperrt.
+    const callKey = `${state.round}-${state.turnIndex}-${card?.text ?? ''}`;
 
     const send = (action: GameActionInput) => {
       haptic('select');
@@ -247,7 +250,13 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 }}
               />
             ) : declared === 'yes' ? (
-              <DrinkCall player={me} baseSips={sips} source={config.id} label="ertappt" />
+              <DrinkCall
+                player={me}
+                baseSips={sips}
+                source={config.id}
+                label="ertappt"
+                resetKey={callKey}
+              />
             ) : (
               <div className="t-center t-sub">Sauber geblieben. Diese Runde kostet dich nichts.</div>
             )}
@@ -269,7 +278,12 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             {config.drink === 'self-declare' && (
               <>
                 <div className="t-upper t-center">Wen es trifft, trinkt</div>
-                <DrinkCallList players={players} baseSips={sips} source={config.id} />
+                <DrinkCallList
+                  players={players}
+                  baseSips={sips}
+                  source={config.id}
+                  resetKey={callKey}
+                />
               </>
             )}
             <button
@@ -298,6 +312,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                   baseSips={config.refuseSips ?? sips + 2}
                   source={config.id}
                   label="gekniffen"
+                  resetKey={callKey}
                 />
               )
             ) : config.drink === 'none' ? (
@@ -305,9 +320,21 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             ) : config.drink === 'self-declare' ? (
               <div className="t-center t-sub">Alle ehrlich? Weiter.</div>
             ) : target === 'all' ? (
-              <DrinkCallList players={players} baseSips={sips} source={config.id} />
+              <DrinkCallList
+                players={players}
+                baseSips={sips}
+                source={config.id}
+                resetKey={callKey}
+              />
             ) : (
-              actor && <DrinkCall player={actor} baseSips={sips} source={config.id} />
+              actor && (
+                <DrinkCall
+                  player={actor}
+                  baseSips={sips}
+                  source={config.id}
+                  resetKey={callKey}
+                />
+              )
             )}
             <button
               className="btn btn--brand btn--block btn--lg"

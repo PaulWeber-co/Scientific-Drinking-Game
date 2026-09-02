@@ -183,6 +183,7 @@ function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State
               player={byId(state.loser) as GamePlayer}
               baseSips={state.falseStart ? 4 : 3}
               source="duell"
+              resetKey={state.round}
             />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>

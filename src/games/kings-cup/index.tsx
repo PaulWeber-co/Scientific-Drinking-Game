@@ -110,6 +110,8 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
   const isMyTurn = actor?.id === me.id;
   const card = state.drawn != null ? cardFromIndex(state.drawn) : null;
   const rule = card ? RULES[card.rank] : null;
+  // Jede gezogene Karte ist eine eigene Ansage – der Stapelstand macht sie eindeutig.
+  const key = `${state.deck.length}-${state.drawn}`;
 
   const send = (a: GameActionInput) => {
     haptic(a.type === 'draw' ? 'heavy' : 'select');
@@ -148,17 +150,18 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
       ) : (
         <div className="stack-3">
           {state.finalKing ? (
-            <DrinkCall player={actor} baseSips={8} source="kings-cup" label="der Becher" />
+            <DrinkCall player={actor} baseSips={8} source="kings-cup" label="der Becher" resetKey={key} />
           ) : rule?.drink === 'all' ? (
-            <DrinkCallList players={players} baseSips={rule.sips} source="kings-cup" />
+            <DrinkCallList players={players} baseSips={rule.sips} source="kings-cup" resetKey={key} />
           ) : rule?.drink === 'actor' ? (
-            <DrinkCall player={actor} baseSips={rule.sips} source="kings-cup" />
+            <DrinkCall player={actor} baseSips={rule.sips} source="kings-cup" resetKey={key} />
           ) : rule && rule.sips > 0 ? (
             <DrinkCall
               player={me}
               baseSips={rule.sips}
               source="kings-cup"
               label="wenn die Regel dich trifft"
+              resetKey={key}
             />
           ) : (
             <div className="t-center t-sub t-balance">

@@ -1,11 +1,12 @@
 import { estimateBac, widmarkFactor } from './bac';
 import {
+  DOSING_ABSORPTION,
   HARD_CAP_BAC,
+  MAX_HARSHNESS,
+  MAX_RISE_PER_TURN,
   MAX_SIPS_PER_TURN,
   MIN_AGE_ALCOHOL,
   NEUTRAL_BASE_SIPS,
-  PACE_ROUNDS,
-  SIP_ROUND_FLOOR,
 } from './constants';
 import { alcoholPerSip, sipUnit } from './drinks';
 import type { DrinkDefinition, DrinkEvent, Profile, SipResult } from './types';
@@ -25,30 +26,40 @@ export interface SipContext {
  *
  * Prinzip:
  *  1. Wie weit ist der Spieler noch vom Zielpegel entfernt?  -> Kopfraum
- *  2. Wie viel Gramm Alkohol fehlen dafür?                  -> Kopfraum * r * kg
+ *  2. Wie viel Alkohol muss er dafür *trinken*?              -> Kopfraum · r · kg / Resorption
  *  3. Wie viele Schlucke seines Getränks sind das?
- *  4. Das Ganze auf mehrere Ansagen strecken und mit der Spielhärte gewichten.
+ *  4. Pro Ansage höchstens so viel, dass der Pegel um MAX_RISE_PER_TURN steigt.
  *
- * Alkohol, der noch im Magen liegt, zählt bereits als "getrunken" – sonst
- * würde die App direkt nach einem Shot noch einmal nachlegen lassen.
+ * Wichtig ist der Unterschied zwischen Schritt 2 und einer reinen
+ * Bruchteil-Regel: Wer immer nur ein Drittel der Lücke ausgibt, kommt nie am
+ * Ziel an, weil zwischen zwei Ansagen weiter abgebaut wird. Deshalb schließt
+ * die Rechnung die Lücke vollständig und begrenzt stattdessen das Tempo.
+ *
+ * Alkohol, der noch im Magen liegt, zählt bereits als getrunken – sonst
+ * würde die App direkt nach einem Shot noch einmal nachlegen lassen. Dadurch
+ * pendelt sich der tatsächliche Pegel leicht *unter* dem Ziel ein; diese
+ * Abweichung geht bewusst in die sichere Richtung.
  */
 export function personalSips(ctx: SipContext): SipResult {
   const { profile, drink, events, baseSips } = ctx;
   const now = ctx.now ?? Date.now();
   const unit = (n: number) => sipUnit(drink, n);
 
-  if (
-    profile.alcoholFree ||
-    profile.designatedDriver ||
-    profile.age < MIN_AGE_ALCOHOL ||
-    drink.abvPercent <= 0
-  ) {
+  const blockedReason = profile.designatedDriver
+    ? 'Du fährst heute. Für dich gibt es die Aufgabe statt der Schlucke.'
+    : profile.age < MIN_AGE_ALCOHOL
+      ? `Unter ${MIN_AGE_ALCOHOL}: für dich gibt es die Aufgabe statt der Schlucke.`
+      : profile.alcoholFree
+        ? 'Alkoholfrei – du machst stattdessen die Aufgabe.'
+        : drink.abvPercent <= 0
+          ? 'Alkoholfreies Getränk – für dich zählt die Aufgabe.'
+          : null;
+
+  if (blockedReason) {
     return {
       sips: 0,
       phase: 'blocked',
-      hint: profile.designatedDriver
-        ? 'Du fährst heute. Für dich gibt es die Aufgabe statt der Schlucke.'
-        : 'Alkoholfrei – du machst stattdessen die Aufgabe.',
+      hint: blockedReason,
       unit: unit(0),
       alcoholGrams: 0,
     };
@@ -61,7 +72,7 @@ export function personalSips(ctx: SipContext): SipResult {
   const headroom = target - est.effective;
   const perSip = alcoholPerSip(drink);
 
-  if (headroom <= 0 || perSip <= 0) {
+  if (headroom <= 0 || perSip <= 0 || volume <= 0) {
     const over = est.effective - target;
     return {
       sips: 0,
@@ -75,18 +86,25 @@ export function personalSips(ctx: SipContext): SipResult {
     };
   }
 
-  const neededGrams = headroom * volume;
-  const rawSips = neededGrams / perSip;
-  const weight = Math.max(0, baseSips) / NEUTRAL_BASE_SIPS;
-  const scaled = (rawSips / PACE_ROUNDS) * weight;
+  /** Promille -> zu trinkende Gramm. */
+  const gramsFor = (bac: number) => (bac * volume) / DOSING_ABSORPTION;
 
-  let sips: number;
-  if (scaled < SIP_ROUND_FLOOR) sips = 0;
-  else sips = Math.max(1, Math.round(scaled));
+  const needed = gramsFor(headroom);
+  const harshness = Math.min(MAX_HARSHNESS, Math.max(0, baseSips) / NEUTRAL_BASE_SIPS);
+  const ceiling = gramsFor(MAX_RISE_PER_TURN) * harshness;
+  // Notbremse: nie so viel, dass der harte Deckel gerissen wird.
+  const emergency = gramsFor(Math.max(0, HARD_CAP_BAC - est.effective));
 
-  // Notbremse: nie so viel ausgeben, dass der harte Deckel gerissen wird.
-  const capGrams = Math.max(0, (HARD_CAP_BAC - est.effective) * volume);
-  sips = Math.min(sips, Math.floor(capGrams / perSip), MAX_SIPS_PER_TURN);
+  const grams = Math.min(needed, ceiling, emergency);
+  let sips = Math.round(grams / perSip);
+
+  // Grobe Einheiten: ein ganzer Shot ist größer als das Tempo-Limit einer
+  // Ansage. Ohne diese Ausnahme bekäme ein Shot-Trinker nie etwas ab. Das
+  // Tempo-Limit ist eine Bremse, keine Sicherheitsgrenze – die ist der harte
+  // Deckel, und der wird hier weiterhin eingehalten.
+  if (sips === 0 && needed >= perSip / 2 && emergency >= perSip) sips = 1;
+
+  sips = Math.min(sips, MAX_SIPS_PER_TURN);
   sips = Math.max(0, sips);
 
   const phase = est.effective >= target * 0.9 ? 'maintaining' : 'reaching';
@@ -109,10 +127,11 @@ export function sipsToTarget(ctx: Omit<SipContext, 'baseSips'>): number {
   const now = ctx.now ?? Date.now();
   const est = estimateBac(ctx.events, ctx.profile, now);
   const { r } = widmarkFactor(ctx.profile);
+  const volume = r * ctx.profile.weightKg;
   const headroom = ctx.profile.targetBac - est.effective;
   const perSip = alcoholPerSip(ctx.drink);
-  if (headroom <= 0 || perSip <= 0) return 0;
-  return Math.max(0, Math.round((headroom * r * ctx.profile.weightKg) / perSip));
+  if (headroom <= 0 || perSip <= 0 || volume <= 0) return 0;
+  return Math.max(0, Math.round((headroom * volume) / DOSING_ABSORPTION / perSip));
 }
 
 /** Erzeugt das Log-Event für getrunkene Schlucke. */

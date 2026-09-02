@@ -260,7 +260,13 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
           </div>
         ))}
       </div>
-      <DrinkCallList players={losers} baseSips={3} source="meme-battle" label="wenig Stimmen" />
+      <DrinkCallList
+        players={losers}
+        baseSips={3}
+        source="meme-battle"
+        label="wenig Stimmen"
+        resetKey={state.round}
+      />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
         Nächster Prompt
       </button>

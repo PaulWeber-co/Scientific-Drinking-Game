@@ -247,13 +247,20 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         ))}
       </div>
       {allRight && author ? (
-        <DrinkCall player={author} baseSips={4} source="zwei-wahrheiten" label="alle durchschaut" />
+        <DrinkCall
+          player={author}
+          baseSips={4}
+          source="zwei-wahrheiten"
+          label="alle durchschaut"
+          resetKey={state.round}
+        />
       ) : (
         <DrinkCallList
           players={wrong as GamePlayer[]}
           baseSips={3}
           source="zwei-wahrheiten"
           label="danebengetippt"
+          resetKey={state.round}
         />
       )}
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
