@@ -1,5 +1,6 @@
 import { createCardGame } from '../card-engine/createCardGame';
 import type { CardDef } from '../card-engine/types';
+import { meta } from './meta';
 
 /**
  * Musikquiz ohne Streaming und ohne Lizenzfragen: eine Person singt oder
@@ -41,21 +42,7 @@ const CARDS: CardDef[] = [
 ];
 
 export const ersteZeile = createCardGame({
-  id: 'erste-zeile',
-  name: 'Erste Zeile',
-  tagline: 'Singen statt streamen. Die Runde rät.',
-  icon: 'activity',
-  accent: 'var(--pink)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '10-20 Min',
-  intensity: 1,
-  tags: ['handy-weg', 'reden', 'kreativ'],
-  howTo: [
-    'Die Person am Zug sucht sich einen passenden Song aus und singt die erste Zeile.',
-    'Wer ihn zuerst errät, ist raus aus der Trinkrunde.',
-    'Errät ihn niemand, trinkt die singende Person.',
-  ],
+  ...meta,
   actor: 'turn',
   cardKicker: 'Sing die erste Zeile',
   baseSips: 3,
@@ -64,6 +51,5 @@ export const ersteZeile = createCardGame({
   refuseLabel: 'Keiner wusste es',
   refuseSips: 3,
   heatSelectable: true,
-  allowCustomCards: true,
   cards: CARDS,
 });

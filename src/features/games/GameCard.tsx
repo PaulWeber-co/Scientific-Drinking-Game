@@ -1,4 +1,4 @@
-import { TAG_ICON, TAG_LABEL, type GameDefinition } from '../../games/types';
+import { TAG_ICON, TAG_LABEL, type GameMeta } from '../../games/types';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 
@@ -7,7 +7,7 @@ export function GameCard({
   onClick,
   disabledReason,
 }: {
-  game: GameDefinition;
+  game: GameMeta;
   onClick: () => void;
   disabledReason?: string;
 }) {

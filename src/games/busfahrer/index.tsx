@@ -8,6 +8,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { meta } from './meta';
 
 const QUESTIONS: { q: string; options: { id: string; label: ReactNode }[] }[] = [
   {
@@ -67,22 +68,7 @@ interface State {
 const BUS_LENGTH = 5;
 
 export const busfahrer: GameDefinition<State> = {
-  id: 'busfahrer',
-  name: 'Busfahrer',
-  tagline: 'Vier Fragen. Ein Verlierer. Eine lange Fahrt.',
-  icon: 'bus',
-  accent: 'var(--yellow)',
-  minPlayers: 3,
-  maxPlayers: 12,
-  duration: '15-30 Min',
-  intensity: 3,
-  tags: ['karten', 'schnell'],
-  requiresOwnDevice: false,
-  howTo: [
-    'Jede Person beantwortet vier Fragen zu ihren Karten. Falsch = trinken.',
-    'Wer am meisten falsch lag, wird Busfahrer.',
-    'Der Busfahrer deckt fünf Karten auf. Jede Bildkarte schickt ihn zurück an den Anfang.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     order: shuffle(players.map((p) => p.id)),

@@ -6,6 +6,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { meta } from './meta';
 
 /**
  * Rangfolge von niedrig nach hoch: gemischte Würfe, dann Pasch, dann Mäxchen.
@@ -48,22 +49,7 @@ interface State {
 }
 
 export const maexchen: GameDefinition<State> = {
-  id: 'maexchen',
-  name: 'Mäxchen',
-  tagline: 'Würfeln, ansagen, lügen. Oder aufdecken.',
-  icon: 'games',
-  accent: 'var(--yellow)',
-  minPlayers: 3,
-  maxPlayers: 12,
-  duration: '15-30 Min',
-  intensity: 3,
-  tags: ['handy-weg', 'geheim', 'reden'],
-  requiresOwnDevice: false,
-  howTo: [
-    'Ein Handy wandert reihum. Wer dran ist, würfelt verdeckt und schaut allein hin.',
-    'Dann wird angesagt – höher als die Ansage davor. Lügen ist ausdrücklich erlaubt.',
-    'Die nächste Person glaubt oder deckt auf. Wer falsch liegt, trinkt.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     phase: 'roll',

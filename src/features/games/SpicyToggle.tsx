@@ -2,7 +2,7 @@ import { Icon } from '../../components/icons';
 import { Toggle } from '../../components/ui';
 import { MIN_AGE_ALCOHOL } from '../../engine/constants';
 import { haptic } from '../../lib/haptics';
-import type { GameDefinition } from '../../games/types';
+import type { GameMeta } from '../../games/types';
 import { useApp } from '../../store/app';
 import { usePlayer } from '../../store/player';
 
@@ -10,7 +10,7 @@ import { usePlayer } from '../../store/player';
  * Zusätzliche, deutlich freizügigere Karten – bewusst als eigener Schalter und
  * nicht als vierter Härtegrad: das ist eine Frage des Inhalts, nicht der Menge.
  */
-export function SpicyToggle({ game }: { game: GameDefinition }) {
+export function SpicyToggle({ game }: { game: GameMeta }) {
   const on = useApp((s) => s.spicy[game.id] === true);
   const toggle = useApp((s) => s.toggleSpicy);
   const age = usePlayer((s) => s.profile?.age ?? 0);

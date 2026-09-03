@@ -5,17 +5,17 @@ React-Kenntnisse.
 
 ---
 
-## Weg 1: Kartenspiel (eine Datei, kein UI-Code)
+## Weg 1: Kartenspiel (Kartenliste + meta.ts, kein UI-Code)
 
 Alles, was auf „Karte zeigen → jemand macht etwas → jemand trinkt" hinausläuft, baut
 `createCardGame()` fertig zusammen: Kartenstapel, Zugreihenfolge, Härtegrad-Regler,
 Trinkansage und Rundenzähler.
 
 ```ts
-// src/games/kategorien/index.ts
-import { createCardGame } from '../card-engine/createCardGame';
+// src/games/kategorien/meta.ts – Stammdaten, bleiben im Haupt-Bundle
+import type { GameMeta } from '../types';
 
-export const kategorien = createCardGame({
+export const meta: GameMeta = {
   id: 'kategorien',
   name: 'Kategorien',
   tagline: 'Reihum ein Beispiel. Wer hängt, trinkt.',
@@ -26,8 +26,18 @@ export const kategorien = createCardGame({
   duration: '10-20 Min',
   intensity: 1,
   tags: ['handy-weg', 'schnell'],
+  requiresOwnDevice: false,
   howTo: ['Ein Handy reicht.', 'Kategorie vorlesen, reihum nennen.', 'Wer hängt, trinkt.'],
+};
+```
 
+```ts
+// src/games/kategorien/index.ts – das Spiel selbst, lädt die App erst beim Start
+import { createCardGame } from '../card-engine/createCardGame';
+import { meta } from './meta';
+
+export const kategorien = createCardGame({
+  ...meta,
   actor: 'turn',        // 'turn' = eine Person am Zug, 'none' = Karte gilt für alle
   baseSips: 3,          // 3 = normal, 1 = mild, 6 = Strafe
   drink: 'actor',       // 'actor' | 'all' | 'none' | 'self-declare'
@@ -42,8 +52,20 @@ export const kategorien = createCardGame({
 });
 ```
 
-Danach in `src/games/registry.ts` importieren und in das `GAMES`-Array eintragen. Fertig —
-Spieleliste, Filter, Detailseite, Lobby-Vorschläge und Trinkansage funktionieren sofort.
+Kartenspiele laufen immer auf einem Handy — `createCardGame()` setzt `requiresOwnDevice`
+fest auf `false`, ein anderer Wert in `meta.ts` wird ignoriert. Nur die Stammdaten aus
+`meta.ts` landen im Haupt-Bundle; das Spiel selbst wird erst beim Start als
+eigener Chunk nachgeladen. Danach in `src/games/registry.ts` die `meta`
+importieren, in `GAMES` eintragen und den Lader in `LOADERS` ergänzen:
+
+```ts
+import { meta as kategorien } from './kategorien/meta';
+// … in GAMES: kategorien,
+// … in LOADERS: 'kategorien': () => import('./kategorien').then((m) => m.kategorien),
+```
+
+Fertig — Spieleliste, Filter, Detailseite, Lobby-Vorschläge und
+Trinkansage funktionieren sofort.
 
 ### Die Felder im Detail
 
@@ -151,7 +173,7 @@ export const meinSpiel: GameDefinition<State> = {
 - [ ] `id` ist eindeutig und identisch mit dem Ordnernamen
 - [ ] `minPlayers` ≥ 3, `maxPlayers` ≤ 16
 - [ ] `howTo` erklärt das Spiel in zwei bis drei Sätzen
-- [ ] In `src/games/registry.ts` eingetragen
+- [ ] `meta.ts` neben dem Spiel, in `src/games/registry.ts` in `GAMES` und `LOADERS` eingetragen
 - [ ] `npm test` läuft durch — die Registry-Tests prüfen jedes Spiel automatisch auf
       vollständige Metadaten, JSON-Fähigkeit des Zustands und Robustheit gegen unbekannte
       Aktionen

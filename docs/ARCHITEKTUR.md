@@ -56,11 +56,11 @@ src/
       sips.ts        Hooks für die persönliche Schluckzahl
     onboarding/ home/ lobby/ bac/ drinks/ games/ settings/
   games/
-    types.ts         GameDefinition — das Plugin-Interface
-    registry.ts      Eine Zeile pro Spiel
-    card-engine/     Fabrik für Kartenspiele (Spiel = eine Datenfile)
+    types.ts         GameMeta (Stammdaten) + GameDefinition — das Plugin-Interface
+    registry.ts      Stammdaten statisch, Spielmodule per import() als eigene Chunks
+    card-engine/     Fabrik für Kartenspiele (Spiel = Kartenliste + meta.ts)
     shared/          GameFrame, DrinkCall, BigCard, Countdown, Kartendeck
-    <spiel>/         Ein Ordner pro Spiel
+    <spiel>/         Ein Ordner pro Spiel: meta.ts + index.ts(x)
   components/
     icons/         Eigenes SVG-Set – die App benutzt bewusst keine Emojis
     ui/            Buttons, Sheets, Stepper, Segmented, Toggle, Avatar, QR-Code

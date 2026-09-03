@@ -1,4 +1,5 @@
 import { createCardGame, type CardDef } from '../card-engine/createCardGame';
+import { meta } from './meta';
 
 const WAHRHEIT: CardDef[] = [
   { text: 'Was war dein peinlichster Moment in der Schule?', heat: 1 },
@@ -97,33 +98,13 @@ const PFLICHT_SPICY: CardDef[] = [
 ].map((c) => ({ ...c, mode: 'pflicht', heat: 3, spicy: true }) as CardDef);
 
 export const truthOrDare = createCardGame({
-  id: 'truth-or-dare',
-  name: 'Wahrheit oder Pflicht',
-  tagline: 'Der Klassiker. Mit Notausgang.',
-  icon: 'fork',
-  accent: 'var(--purple)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '15-40 Min',
-  intensity: 2,
-  tags: ['reden', 'handy-weg'],
-  howTo: [
-    'Reihum entscheidet sich eine Person für Wahrheit oder Pflicht.',
-    'Karte lesen, machen – oder kneifen und dafür trinken.',
-    'Der Härtegrad oben rechts gilt für die ganze Runde.',
-  ],
+  ...meta,
   actor: 'turn',
-  modes: [
-    { id: 'wahrheit', label: 'Wahrheit', icon: 'chat', tone: 'var(--blue)' },
-    { id: 'pflicht', label: 'Pflicht', icon: 'flame', tone: 'var(--pink)' },
-  ],
   baseSips: 2,
   drink: 'none',
   resolveLabel: 'Gemacht',
   refuseLabel: 'Kneifen und trinken',
   refuseSips: 4,
   heatSelectable: true,
-  allowCustomCards: true,
-  allowSpicy: true,
   cards: [...WAHRHEIT, ...PFLICHT, ...WAHRHEIT_SPICY, ...PFLICHT_SPICY],
 });

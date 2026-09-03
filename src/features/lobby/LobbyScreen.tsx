@@ -191,9 +191,9 @@ export function LobbyScreen() {
               <GameCard
                 key={g.id}
                 game={g}
-                onClick={() => {
+                onClick={async () => {
                   markGamePlayed(g.id);
-                  party.startGame(g.id);
+                  await party.startGame(g.id);
                   nav('/spiel');
                 }}
               />

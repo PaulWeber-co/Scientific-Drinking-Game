@@ -7,6 +7,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface Category {
   title: string;
@@ -64,23 +65,7 @@ interface State {
 }
 
 export const topTen: GameDefinition<State> = {
-  id: 'top-ten',
-  name: 'Top Ten',
-  tagline: 'Geheime Zahl, passende Antwort. Kriegt ihr die Reihenfolge hin?',
-  icon: 'ranking',
-  accent: 'var(--blue)',
-  minPlayers: 3,
-  maxPlayers: 10,
-  duration: '20-40 Min',
-  intensity: 1,
-  tags: ['geheim', 'kreativ', 'reden'],
-  requiresOwnDevice: true,
-  allowSpicy: true,
-  howTo: [
-    'Jede Person bekommt heimlich eine Zahl von 1 bis 10.',
-    'Zur Kategorie gibt jede Person eine Antwort, die genau zu ihrer Zahl passt.',
-    'Der Kapitän sortiert alle Antworten von 1 nach 10. Jeder Fehler kostet die Runde Schlucke.',
-  ],
+  ...meta,
 
   createState: (players) => {
     const deck = spicyDeck(CATEGORIES, 'top-ten');

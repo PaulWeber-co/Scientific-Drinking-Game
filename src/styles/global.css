@@ -1527,6 +1527,25 @@ button.chip--outline {
   font-size: 11px;
 }
 
+/* ---------- Update-Hinweis (Service Worker) ---------- */
+.updatebar {
+  position: fixed;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-3));
+  max-width: calc(var(--content-max) - 16px);
+  margin: 0 auto;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-solid);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: var(--shadow-md);
+}
+
 /* ---------- Rechtstexte ---------- */
 
 .legal-links {

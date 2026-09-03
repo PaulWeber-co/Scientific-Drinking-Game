@@ -35,7 +35,8 @@ import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
 import type { BacZone, DrinkEvent, Profile } from '../../engine/types';
 import type { GameAction, GameActionInput, GamePlayer } from '../../games/types';
-import { getGame } from '../../games/registry';
+import { getLoadedGame, loadGame } from '../../games/registry';
+import { createQueue } from './hostQueue';
 import { usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 
@@ -76,6 +77,17 @@ interface LobbySnapshot {
   game?: { id: string; startedAt: number; state: string };
 }
 
+/** Kennung einer laufenden Runde – Spiel plus Startzeit. */
+type RoundKey = { id: string; startedAt: number } | null;
+const sameRound = (a: RoundKey, b: RoundKey) =>
+  !!a && !!b && a.id === b.id && a.startedAt === b.startedAt;
+
+interface InboxMsg {
+  by: string;
+  at: number;
+  action: string;
+}
+
 export interface PartyValue {
   mode: PartyMode;
   code: string | null;
@@ -98,7 +110,8 @@ export interface PartyValue {
   addLocalPlayer: (input: { name: string; color: AvatarColor; profile: Profile; drinkId: string }) => void;
   updateLocalPlayer: (id: string, patch: Partial<GamePlayer['local']> & { name?: string; color?: AvatarColor }) => void;
   removeLocalPlayer: (id: string) => void;
-  startGame: (gameId: string) => void;
+  /** Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'. */
+  startGame: (gameId: string) => Promise<void>;
   endGame: () => void;
   dispatch: (action: GameActionInput) => void;
   logSipsFor: (playerId: string, sips: number, source?: string) => void;
@@ -177,6 +190,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const status: PartyStatus =
     mode === 'local' ? localStatus : (snapshot?.meta?.status ?? 'lobby');
   const gameId = mode === 'local' ? localGameId : (snapshot?.meta?.gameId ?? null);
+  // Sobald eine Runde ein Spiel zeigt, das Modul holen – auch auf Geräten,
+  // die nicht gestartet haben, und nach einer Host-Übernahme.
+  useEffect(() => {
+    if (gameId) loadGame(gameId).catch(() => {});
+  }, [gameId]);
   const startedBy = mode === 'local' ? null : (snapshot?.meta?.startedBy ?? null);
   const startedAt = mode === 'local' ? 0 : (snapshot?.meta?.startedAt ?? 0);
   const remoteStateRaw = snapshot?.game?.state ?? null;
@@ -376,34 +394,90 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const playersRef = useRef<GamePlayer[]>(players);
   playersRef.current = players;
 
-  // Host verarbeitet die Aktionen aller Spieler (autoritativer Reducer)
-  useEffect(() => {
-    if (mode !== 'online' || !code || !isHost) return;
-    const inbox = lobbyRef(code, '/inbox');
-    const unsub = onValue(inbox, async (snap) => {
-      const val = snap.val() as Record<string, { by: string; at: number; action: string }> | null;
-      if (!val) return;
-      const cur = snapshotRef.current;
-      const def = cur?.meta?.gameId ? getGame(cur.meta.gameId) : null;
-      const entries = Object.entries(val).sort((a, b) => a[1].at - b[1].at);
-      if (!def || !cur?.game) {
-        await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
-        return;
+  // Der Host schreibt den Spielstand exklusiv – und nacheinander (Queue).
+  // Zwischen Einreihen und Ausführen kann eine neue Runde starten; deshalb
+  // trägt jeder Job die Runde, für die er gedacht war, und verfällt sonst.
+  const hostQueue = useRef(createQueue());
+  const roundKey = (): RoundKey => {
+    const g = snapshotRef.current?.game;
+    return g ? { id: g.id, startedAt: g.startedAt } : null;
+  };
+
+  /** Wendet Aktionen auf den aktuellen Stand an und schreibt ihn. false = nichts geschrieben. */
+  const applyOnHost = useCallback(
+    async (actions: GameAction[], round: RoundKey): Promise<boolean> => {
+      const before = snapshotRef.current;
+      if (!code || !before?.meta?.gameId || !before.game || !sameRound(round, roundKey())) {
+        return false;
       }
+      // Nach Host-Übernahme oder Reload kann das Modul noch fehlen – nachladen.
+      const def =
+        getLoadedGame(before.meta.gameId) ??
+        (await loadGame(before.meta.gameId).catch(() => null));
+      if (!def) return false;
+      // Während des Ladens kann die Runde gewechselt haben: Snapshot und
+      // Runde nach dem await erneut prüfen, sonst landet ein alter Zustand
+      // in der neuen Runde.
+      const cur = snapshotRef.current;
+      if (!cur?.game || !sameRound(round, roundKey())) return false;
+      // Immer frisch aus dem Snapshot: die Queue garantiert, dass der vorige
+      // Lauf fertig geschrieben hat, und Firebase meldet eigene Schreibungen
+      // sofort lokal – so überschreibt ein zurückgekehrter Host nie, was ein
+      // anderer inzwischen geschrieben hat.
       let next = decodeState(cur.game.state);
-      for (const [, msg] of entries) {
+      for (const action of actions) {
         try {
-          const action = decodeState(msg.action) as GameAction | null;
-          if (action) next = def.reduce(next, { ...action, by: msg.by }, playersRef.current);
+          next = def.reduce(next, action, playersRef.current);
         } catch (e) {
           console.error('Spielaktion fehlgeschlagen', e);
         }
       }
       await set(lobbyRef(code, '/game/state'), encodeState(next));
-      await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
+      return true;
+    },
+    [code, lobbyRef],
+  );
+
+  // Host verarbeitet die Aktionen aller Spieler (autoritativer Reducer)
+  useEffect(() => {
+    if (mode !== 'online' || !code || !isHost) return;
+    const inbox = lobbyRef(code, '/inbox');
+    // Was schon angewendet ist, kommt in einem späteren Snapshot noch einmal
+    // vorbei, bis das remove() durch ist – nicht doppelt anwenden.
+    const seen = new Set<string>();
+    const unsub = onValue(inbox, (snap) => {
+      const val = snap.val() as Record<string, InboxMsg> | null;
+      if (!val) return;
+      const round = roundKey();
+      hostQueue.current(async () => {
+        const entries = Object.entries(val)
+          .filter(([k]) => !seen.has(k))
+          .sort((a, b) => a[1].at - b[1].at);
+        if (!entries.length) return;
+        if (!round || !sameRound(round, roundKey())) {
+          // Keine Runde, oder inzwischen eine andere: die Aktionen verfallen.
+          entries.forEach(([k]) => seen.add(k));
+          await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
+          return;
+        }
+        const actions: GameAction[] = [];
+        for (const [, msg] of entries) {
+          try {
+            const action = decodeState(msg.action) as GameAction | null;
+            if (action) actions.push({ ...action, by: msg.by });
+          } catch (e) {
+            console.error('Spielaktion unlesbar', e);
+          }
+        }
+        // Klappt das Nachladen nicht, bleiben die Einträge liegen und kommen
+        // beim nächsten Snapshot erneut dran.
+        if (!(await applyOnHost(actions, round))) return;
+        entries.forEach(([k]) => seen.add(k));
+        await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
+      });
     });
     return () => unsub();
-  }, [mode, code, isHost, lobbyRef]);
+  }, [mode, code, isHost, lobbyRef, applyOnHost]);
 
   // ---------- Aktionen ----------
   const startLocal = useCallback(() => {
@@ -465,8 +539,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startGame = useCallback(
-    (id: string) => {
-      const def = getGame(id);
+    async (id: string) => {
+      // Erst das Modul, dann der Zustand: der Host-Reducer läuft synchron und
+      // darf nie auf ein Spiel treffen, das noch nicht geladen ist.
+      const def = await loadGame(id).catch((e) => {
+        setError(describe(e));
+        return null;
+      });
       if (!def) return;
       const roster = playersRef.current;
       const state = def.createState(roster);
@@ -515,7 +594,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       const full: GameAction = { ...action, by: myId, at: Date.now() };
       if (mode === 'local') {
         setLocalGameState((cur: unknown) => {
-          const def = localGameIdRef.current ? getGame(localGameIdRef.current) : null;
+          const def = localGameIdRef.current ? getLoadedGame(localGameIdRef.current) : null;
           if (!def) return cur;
           try {
             return def.reduce(cur, full, playersRef.current);
@@ -528,16 +607,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       }
       if (!code) return;
       if (isHost) {
-        // Host rechnet direkt – spart eine Rundreise und fühlt sich sofort an.
-        const cur = snapshotRef.current;
-        const def = cur?.meta?.gameId ? getGame(cur.meta.gameId) : null;
-        if (!def || !cur?.game) return;
-        try {
-          const next = def.reduce(decodeState(cur.game.state), full, playersRef.current);
-          set(lobbyRef(code, '/game/state'), encodeState(next)).catch(() => {});
-        } catch (e) {
-          console.error('Spielaktion fehlgeschlagen', e);
-        }
+        // Host rechnet direkt – spart eine Rundreise. Über dieselbe
+        // Warteschlange wie die Inbox, damit sich zwei Läufe nie überschreiben.
+        const round = roundKey();
+        hostQueue.current(() => applyOnHost([full], round).then(() => undefined));
         return;
       }
       push(lobbyRef(code, '/inbox'), {
@@ -546,7 +619,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         action: encodeState(full),
       }).catch(() => {});
     },
-    [mode, code, isHost, myId, lobbyRef],
+    [mode, code, isHost, myId, lobbyRef, applyOnHost],
   );
 
   const localGameIdRef = useRef<string | null>(null);

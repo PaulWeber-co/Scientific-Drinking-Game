@@ -90,13 +90,13 @@ export function GameDetail() {
   const tooFew = count < game.minPlayers;
   const needsDevices = game.requiresOwnDevice && party.mode !== 'online';
 
-  const start = () => {
+  const start = async () => {
     if (tooFew || needsDevices) {
       setWarn(true);
       return;
     }
     markGamePlayed(game.id);
-    party.startGame(game.id);
+    await party.startGame(game.id);
     nav('/spiel');
   };
 

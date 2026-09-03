@@ -6,6 +6,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface State {
   phase: 'write' | 'guess' | 'result';
@@ -19,22 +20,7 @@ interface State {
 }
 
 export const zweiWahrheiten: GameDefinition<State> = {
-  id: 'zwei-wahrheiten',
-  name: 'Zwei Wahrheiten, eine Lüge',
-  tagline: 'Drei Aussagen. Eine stimmt nicht.',
-  icon: 'quotes',
-  accent: 'var(--green)',
-  minPlayers: 3,
-  maxPlayers: 12,
-  duration: '15-30 Min',
-  intensity: 1,
-  tags: ['geheim', 'reden', 'kreativ'],
-  requiresOwnDevice: true,
-  howTo: [
-    'Reihum schreibt eine Person drei Aussagen über sich – zwei wahr, eine erfunden.',
-    'Alle anderen tippen auf die Aussage, die sie für gelogen halten.',
-    'Wer falsch liegt, trinkt. Durchschauen alle die Lüge, trinkt der Autor.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     phase: 'write',

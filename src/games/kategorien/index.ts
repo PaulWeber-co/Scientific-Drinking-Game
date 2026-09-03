@@ -1,5 +1,6 @@
 import { createCardGame } from '../card-engine/createCardGame';
 import type { CardDef } from '../card-engine/types';
+import { meta } from './meta';
 
 /**
  * Reines Datenspiel: eine Kategorie, reihum ein Beispiel, wer hängt trinkt.
@@ -56,28 +57,12 @@ const CARDS: CardDef[] = [
 ];
 
 export const kategorien = createCardGame({
-  id: 'kategorien',
-  name: 'Kategorien',
-  tagline: 'Reihum ein Beispiel. Wer hängt, trinkt.',
-  icon: 'brackets',
-  accent: 'var(--mint)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '5-15 Min',
-  intensity: 1,
-  tags: ['handy-weg', 'schnell', 'reden'],
-  howTo: [
-    'Ein Handy in der Mitte reicht.',
-    'Kategorie vorlesen, dann reihum ein Beispiel nennen – im Takt.',
-    'Wer hängt, sich wiederholt oder patzt, trinkt.',
-  ],
+  ...meta,
   actor: 'none',
   cardKicker: 'Kategorie',
   baseSips: 3,
   drink: 'self-declare',
   resolveLabel: 'Runde vorbei',
   heatSelectable: true,
-  allowCustomCards: true,
-  allowSpicy: true,
   cards: CARDS,
 });

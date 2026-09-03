@@ -7,6 +7,7 @@ import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { Explosion } from '../shared/Explosion';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { meta } from './meta';
 
 const CATEGORIES = [
   'Dinge, die im Kühlschrank stehen',
@@ -50,22 +51,7 @@ interface State {
 }
 
 export const wortbombe: GameDefinition<State> = {
-  id: 'wortbombe',
-  name: 'Wortbombe',
-  tagline: 'Ein Wort sagen, weitergeben, nicht explodieren.',
-  icon: 'bomb',
-  accent: 'var(--pink)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '5-20 Min',
-  intensity: 2,
-  tags: ['handy-weg', 'schnell', 'bewegung'],
-  requiresOwnDevice: false,
-  howTo: [
-    'Auf einem Handy: die Bombe wird herumgereicht. Mit eigenen Handys: sie springt von selbst weiter.',
-    'Wer die Bombe hat, nennt ein passendes Wort und gibt sofort weiter.',
-    'Wer sie in der Hand hält, wenn sie hochgeht, trinkt.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     order: shuffle(players.map((p) => p.id)),

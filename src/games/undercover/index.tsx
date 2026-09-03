@@ -7,6 +7,7 @@ import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { WORD_PAIRS } from './words';
+import { meta } from './meta';
 
 interface State {
   phase: 'reveal' | 'describe' | 'vote' | 'result' | 'over';
@@ -43,22 +44,7 @@ function newRound(players: GamePlayer[], round: number): State {
 }
 
 export const undercover: GameDefinition<State> = {
-  id: 'undercover',
-  name: 'Undercover',
-  tagline: 'Alle kennen dasselbe Wort. Eine Person nicht.',
-  icon: 'eyeOff',
-  accent: 'var(--indigo)',
-  minPlayers: 4,
-  maxPlayers: 12,
-  duration: '15-30 Min',
-  intensity: 2,
-  tags: ['geheim', 'reden', 'handy-weg'],
-  requiresOwnDevice: true,
-  howTo: [
-    'Jede Person sieht ihr Wort nur auf dem eigenen Handy. Eine Person bekommt ein anderes.',
-    'Reihum beschreibt jede Person ihr Wort mit genau einem Satz – ohne es zu nennen.',
-    'Danach wird abgestimmt. Wer rausfliegt, trinkt. Bleibt Undercover übrig, trinkt die ganze Runde.',
-  ],
+  ...meta,
 
   createState: (players) => newRound(players, 1),
 

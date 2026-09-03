@@ -4,7 +4,7 @@ import { Segmented, Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { useCustomCards, type CustomCard } from '../../store/cards';
 import type { Heat } from '../../games/card-engine/types';
-import type { GameDefinition } from '../../games/types';
+import type { GameMeta } from '../../games/types';
 
 /** Stabile Referenz: ein neues [] pro Render würde zustand in eine
  *  Endlosschleife schicken (React-Fehler 185). */
@@ -21,7 +21,7 @@ const HEAT_OPTIONS: { value: Heat; label: string }[] = [
  * mischt der Host seine Karten in den Stapel – die Inhalte reisen dann mit
  * dem Spielstand, nicht als Index.
  */
-export function CustomCards({ game }: { game: GameDefinition }) {
+export function CustomCards({ game }: { game: GameMeta }) {
   const cards = useCustomCards((s) => s.byGame[game.id] ?? NO_CARDS);
   const add = useCustomCards((s) => s.add);
   const remove = useCustomCards((s) => s.remove);

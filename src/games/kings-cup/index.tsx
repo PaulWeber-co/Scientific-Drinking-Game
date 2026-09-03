@@ -6,6 +6,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface Rule {
   title: string;
@@ -43,22 +44,7 @@ interface State {
 }
 
 export const kingsCup: GameDefinition<State> = {
-  id: 'kings-cup',
-  name: 'Ring of Fire',
-  tagline: 'Kings Cup. 52 Karten, 13 Regeln, ein Becher.',
-  icon: 'crown',
-  accent: 'var(--red)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '20-45 Min',
-  intensity: 3,
-  tags: ['karten', 'handy-weg', 'reden'],
-  requiresOwnDevice: false,
-  howTo: [
-    'Ein leeres Glas steht in der Mitte – das ist der Becher.',
-    'Reihum zieht jede Person eine Karte. Der Kartenwert bestimmt die Regel.',
-    'Wer den vierten König zieht, trinkt den Becher.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     order: shuffle(players.map((p) => p.id)),
