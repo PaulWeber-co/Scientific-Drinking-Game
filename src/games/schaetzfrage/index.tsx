@@ -5,6 +5,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface Question {
   q: string;
@@ -50,22 +51,7 @@ interface State {
 }
 
 export const schaetzfrage: GameDefinition<State> = {
-  id: 'schaetzfrage',
-  name: 'Schätzfrage',
-  tagline: 'Alle tippen eine Zahl. Am weitesten daneben trinkt.',
-  icon: 'target',
-  accent: 'var(--teal)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '10-20 Min',
-  intensity: 1,
-  tags: ['geheim', 'schnell'],
-  requiresOwnDevice: true,
-  howTo: [
-    'Jede Person tippt ihre Schätzung auf dem eigenen Handy ein.',
-    'Erst wenn alle abgegeben haben, wird aufgelöst.',
-    'Wer am weitesten daneben liegt, trinkt. Wer am nächsten dran ist, geht frei aus.',
-  ],
+  ...meta,
 
   createState: () => {
     const deck = shuffle(QUESTIONS.map((_, i) => i));

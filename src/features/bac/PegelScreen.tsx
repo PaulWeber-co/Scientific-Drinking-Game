@@ -148,9 +148,9 @@ export function PegelScreen() {
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">Trink-Log</h2>
-            <button className="chip pressable" onClick={() => setPickerOpen(true)}>
+            <button className="chip chip--shrink pressable" onClick={() => setPickerOpen(true)}>
               <Icon name={drink.icon} size={15} />
-              {drink.name}
+              <span className="chip__text">{drink.name}</span>
             </button>
           </div>
           <div className="grid-2">

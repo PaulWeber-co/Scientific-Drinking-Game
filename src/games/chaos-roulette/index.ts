@@ -1,4 +1,5 @@
 import { createCardGame, type CardDef } from '../card-engine/createCardGame';
+import { meta } from './meta';
 
 /**
  * Bewusst ohne Bildschirmarbeit: Aufgaben, die in den Raum wirken.
@@ -44,27 +45,11 @@ const CARDS: CardDef[] = [
 ];
 
 export const chaosRoulette = createCardGame({
-  id: 'chaos-roulette',
-  name: 'Chaos-Roulette',
-  tagline: 'Aufgaben für die Runde. Handys bleiben liegen.',
-  icon: 'shuffle',
-  accent: 'var(--orange)',
-  minPlayers: 4,
-  maxPlayers: 16,
-  duration: '10-30 Min',
-  intensity: 2,
-  tags: ['handy-weg', 'bewegung', 'schnell'],
-  howTo: [
-    'Ein Handy reicht – es wird reihum weitergegeben.',
-    'Karte vorlesen und sofort machen. Kein Nachdenken.',
-    'Manche Karten treffen die ganze Runde, manche nur dich.',
-  ],
+  ...meta,
   actor: 'turn',
   baseSips: 3,
   drink: 'actor',
   resolveLabel: 'Erledigt',
   heatSelectable: true,
-  allowCustomCards: true,
-  allowSpicy: true,
   cards: CARDS,
 });

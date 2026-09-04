@@ -6,6 +6,15 @@ import { haptic } from '../../lib/haptics';
 import { useParty } from '../../features/party/PartyContext';
 import { useSipsForPlayer } from '../../features/party/sips';
 import type { GamePlayer } from '../types';
+import type { OverSeverity } from '../../engine/types';
+
+/** Schlagwort je Stufe über dem Ziel – statt immer nur „Aussetzen". */
+const OVER_LABEL: Record<OverSeverity, string> = {
+  water: 'Wasser',
+  pause: 'Pause',
+  stop: 'Stopp',
+  danger: 'Gefahr',
+};
 
 interface Props {
   player: GamePlayer;
@@ -63,12 +72,17 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   const shownUnit = done ? confirmed.unit : res.unit;
 
   if (shownSips === 0) {
+    const severity = res.phase === 'over' ? res.severity : undefined;
     return (
-      <div className={`call call--skip ${compact ? 'call--compact' : ''}`}>
+      <div
+        className={`call call--skip ${severity ? `call--${severity}` : ''} ${compact ? 'call--compact' : ''}`}
+      >
         <div className="call__who">
           <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
         </div>
-        <div className="call__big">{res.phase === 'blocked' ? 'Aufgabe' : 'Aussetzen'}</div>
+        <div className="call__big">
+          {res.phase === 'blocked' ? 'Aufgabe' : severity ? OVER_LABEL[severity] : 'Aussetzen'}
+        </div>
         <div className="t-sub t-balance">{res.hint}</div>
       </div>
     );

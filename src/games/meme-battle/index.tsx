@@ -6,6 +6,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface Prompt {
   text: string;
@@ -68,23 +69,7 @@ interface State {
 }
 
 export const memeBattle: GameDefinition<State> = {
-  id: 'meme-battle',
-  name: 'Meme Battle',
-  tagline: 'Prompt lesen, Pointe tippen, anonym abstimmen.',
-  icon: 'quotes',
-  accent: 'var(--mint)',
-  minPlayers: 3,
-  maxPlayers: 12,
-  duration: '15-30 Min',
-  intensity: 2,
-  tags: ['kreativ', 'schnell', 'geheim'],
-  requiresOwnDevice: true,
-  allowSpicy: true,
-  howTo: [
-    'Jede Person braucht ein eigenes Handy – die Antworten bleiben bis zur Abstimmung geheim.',
-    'Alle schreiben zum selben Prompt die beste Pointe.',
-    'Danach wird anonym abgestimmt. Wer keine Stimme bekommt, trinkt.',
-  ],
+  ...meta,
 
   createState: (players) => {
     const deck = spicyDeck(PROMPTS, 'meme-battle');

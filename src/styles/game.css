@@ -40,8 +40,11 @@
   flex-shrink: 0;
 }
 .game__close {
-  width: 34px;
-  height: 34px;
+  /* Sichtbar 34 px, Zielfläche 44 px: transparenter Rand. */
+  width: 44px;
+  height: 44px;
+  border: 5px solid transparent;
+  background-clip: padding-box;
   border-radius: 50%;
   background: var(--surface-2);
   color: var(--label-2);
@@ -136,6 +139,30 @@
 .call--muted {
   border-color: var(--hairline);
   background: var(--surface);
+}
+/* Über dem Ziel: je Stufe eine eigene Farbe, damit die Ansage nicht
+   den ganzen Abend gleich aussieht. Farben wie die Zonenampel:
+   Orange = Grenzbereich, Rot = Zu viel, und dann immer dichter. */
+.call--water {
+  border-color: color-mix(in srgb, var(--orange) 45%, transparent);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+}
+.call--pause {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+.call--stop {
+  border-color: color-mix(in srgb, var(--red) 70%, transparent);
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+}
+.call--danger {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 24%, transparent);
+}
+.call--danger .call__big {
+  /* Mit der Textfarbe gemischt: im Dunklen heller, im Hellen dunkler –
+     so bleibt der Kontrast in beiden Themes über 3:1. */
+  color: color-mix(in srgb, var(--red) 80%, var(--label));
 }
 .call--done {
   opacity: 0.55;
@@ -818,6 +845,6 @@
   letter-spacing: 0;
 }
 .callrow .btn--sm {
-  min-width: 40px;
+  min-width: 44px;
   padding: 0 var(--s-2);
 }

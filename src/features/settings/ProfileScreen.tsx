@@ -4,7 +4,7 @@ import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import type { Sex, StomachState } from '../../engine/types';
-import { ColorPicker, ListItem, NavBar, Segmented, Stepper, Toggle } from '../../components/ui';
+import { ColorPicker, ListItem, NavBar, OptionalStepper, Segmented, Stepper, Toggle } from '../../components/ui';
 import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
 import { formatBac } from '../../lib/format';
@@ -58,10 +58,13 @@ export function ProfileScreen() {
             <Stepper value={profile.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
           </div>
           <div className="field">
-            <span className="field__label">Körpergröße (optional, präziser)</span>
-            <Stepper
-              value={profile.heightCm ?? 175}
+            <span className="field__label">Körpergröße (optional)</span>
+            <OptionalStepper
+              value={profile.heightCm}
               onChange={(heightCm) => patch({ heightCm })}
+              defaultValue={175}
+              addLabel="+ Körpergröße angeben (genauer)"
+              removeLabel="Ohne Körpergröße rechnen"
               min={140}
               max={215}
               unit="cm"
@@ -114,7 +117,10 @@ export function ProfileScreen() {
               </span>
               <Toggle
                 checked={profile.alcoholFree}
-                onChange={(alcoholFree) => patch({ alcoholFree })}
+                onChange={(alcoholFree) =>
+                  // Fahren heißt alkoholfrei – wer Alkoholfrei ausmacht, fährt auch nicht.
+                  patch({ alcoholFree, designatedDriver: alcoholFree && profile.designatedDriver })
+                }
                 label="Alkoholfrei"
               />
             </div>
@@ -132,7 +138,7 @@ export function ProfileScreen() {
                 onChange={(designatedDriver) =>
                   patch({ designatedDriver, alcoholFree: designatedDriver || profile.alcoholFree })
                 }
-                label="Designierte Fahrerin oder designierter Fahrer"
+                label="Ich fahre heute"
               />
             </div>
           </div>

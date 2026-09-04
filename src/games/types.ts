@@ -91,8 +91,12 @@ export const TAG_ICON: Record<GameTag, IconName> = {
  */
 // Die Registry hält Spiele mit ganz unterschiedlichen State-Typen nebeneinander;
 // `unknown` würde jede einzelne Definition unbrauchbar machen.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface GameDefinition<S = any> {
+/**
+ * Was Übersicht, Filter und Lobby über ein Spiel wissen müssen. Liegt in
+ * `<spiel>/meta.ts` und bleibt im Haupt-Bundle; Logik und Komponente lädt
+ * die Registry erst beim Spielstart nach.
+ */
+export interface GameMeta {
   id: string;
   name: string;
   tagline: string;
@@ -112,8 +116,12 @@ export interface GameDefinition<S = any> {
   /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */
   allowSpicy?: boolean;
   /** Kategorien des Spiels, falls es welche hat (für eigene Karten). */
-  modes?: { id: string; label: string }[];
+  modes?: { id: string; label: string; icon?: IconName; tone?: string }[];
   howTo: string[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface GameDefinition<S = any> extends GameMeta {
   createState: (players: GamePlayer[]) => S;
   /** Läuft nur beim Host. Darf Math.random verwenden. */
   reduce: (state: S, action: GameAction, players: GamePlayer[]) => S;

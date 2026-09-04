@@ -6,6 +6,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface State {
   phase: 'ready' | 'armed' | 'go' | 'result';
@@ -24,22 +25,7 @@ function pairFor(order: string[], i: number): [string, string] {
 }
 
 export const duell: GameDefinition<State> = {
-  id: 'duell',
-  name: 'Reaktions-Duell',
-  tagline: 'Handy in die Mitte. Wer zu langsam tippt, trinkt.',
-  icon: 'bolt',
-  accent: 'var(--red)',
-  minPlayers: 3,
-  maxPlayers: 16,
-  duration: '5-15 Min',
-  intensity: 2,
-  tags: ['handy-weg', 'schnell', 'bewegung'],
-  requiresOwnDevice: false,
-  howTo: [
-    'Ein Handy liegt zwischen zwei Personen – jede bekommt eine Bildschirmhälfte.',
-    'Sobald der Bildschirm grün wird, so schnell wie möglich auf die eigene Seite tippen.',
-    'Zu früh getippt heißt sofort verloren. Die langsamere Person trinkt.',
-  ],
+  ...meta,
 
   createState: (players) => ({
     phase: 'ready',

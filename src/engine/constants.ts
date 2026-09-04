@@ -46,6 +46,19 @@ export const MAX_TARGET_BAC = 0.6;
 /** Ab hier greift die Notbremse: es wird nie mehr ausgegeben. */
 export const HARD_CAP_BAC = 0.8;
 
+/** Bis so weit über dem Ziel heißt es noch „Pegel sitzt", nicht „drüber". */
+export const OVER_TOLERANCE_BAC = 0.15;
+
+/**
+ * Stufen oberhalb des Ziels, verankert an den Wirkungsstufen (drugcom.de,
+ * DHS): ab 0,8 ‰ Tunnelblick und Konzentrationsschwäche, 1,0–2,0 ‰
+ * Gleichgewicht, Sprache und Orientierung gestört, ab 2,0 ‰ Gedächtnis-
+ * und Bewusstseinsstörungen. Die erste Stufe ist der harte Deckel.
+ */
+export const OVER_PAUSE_BAC = HARD_CAP_BAC;
+export const OVER_STOP_BAC = 1.2;
+export const OVER_DANGER_BAC = 2.0;
+
 /**
  * Wie viel Promille eine einzelne Ansage höchstens aufbaut.
  *

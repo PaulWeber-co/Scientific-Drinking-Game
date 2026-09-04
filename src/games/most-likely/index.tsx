@@ -4,6 +4,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { meta } from './meta';
 
 interface Prompt {
   text: string;
@@ -66,23 +67,7 @@ interface State {
 }
 
 export const mostLikely: GameDefinition<State> = {
-  id: 'most-likely',
-  name: 'Wer aus der Runde',
-  tagline: 'Alle zeigen gleichzeitig. Meiste Stimmen trinkt.',
-  icon: 'people',
-  accent: 'var(--orange)',
-  minPlayers: 4,
-  maxPlayers: 16,
-  duration: '10-20 Min',
-  intensity: 2,
-  tags: ['geheim', 'schnell', 'reden'],
-  requiresOwnDevice: true,
-  allowSpicy: true,
-  howTo: [
-    'Jede Person braucht ihr eigenes Handy – niemand soll sehen, wer wen wählt.',
-    'Frage lesen, tippen. Erst wenn alle gewählt haben, wird aufgedeckt.',
-    'Wer die meisten Stimmen bekommt, trinkt pro Stimme.',
-  ],
+  ...meta,
 
   createState: () => {
     const deck = spicyDeck(PROMPTS, 'most-likely');

@@ -1,4 +1,5 @@
 import { createCardGame, type CardDef } from '../card-engine/createCardGame';
+import { meta } from './meta';
 
 const CARDS: CardDef[] = [
   { text: 'Ich hab noch nie einen Wecker gestellt und ihn dann 10 Mal weggedrückt.', heat: 1 },
@@ -50,28 +51,12 @@ const CARDS: CardDef[] = [
 ];
 
 export const neverHaveIEver = createCardGame({
-  id: 'never-have-i-ever',
-  name: 'Ich hab noch nie',
-  tagline: 'Handy weg. Karte lesen. Ehrlich sein.',
-  icon: 'eyeOff',
-  accent: 'var(--teal)',
-  minPlayers: 4,
-  maxPlayers: 16,
-  duration: '10-25 Min',
-  intensity: 2,
-  tags: ['handy-weg', 'reden'],
-  howTo: [
-    'Ein Handy liegt in der Mitte, alle anderen bleiben in der Tasche.',
-    'Karte vorlesen. Wer es schon gemacht hat, trinkt.',
-    'Deine persönliche Menge steht auf deinem Handy – oder du fragst den Vorleser.',
-  ],
+  ...meta,
   actor: 'none',
   cardKicker: 'Ehrlich jetzt',
   baseSips: 3,
   drink: 'self-declare',
   resolveLabel: 'Alle haben getrunken',
   heatSelectable: true,
-  allowCustomCards: true,
-  allowSpicy: true,
   cards: CARDS,
 });

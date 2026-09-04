@@ -136,6 +136,59 @@ export function Stepper({
   );
 }
 
+/**
+ * Stepper für einen optionalen Wert. Ohne Wert gibt es nur den
+ * Angeben-Knopf, mit Wert den Stepper plus Entfernen – beides gleich
+ * flach erreichbar. Was nicht angegeben ist, rechnet die App mit
+ * Standardwerten; die Anzeige darf nie einen Wert zeigen, der nicht gilt.
+ */
+export function OptionalStepper({
+  value,
+  onChange,
+  defaultValue,
+  addLabel,
+  removeLabel,
+  ...stepper
+}: {
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  defaultValue: number;
+  addLabel: string;
+  removeLabel: string;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+}) {
+  if (value === undefined) {
+    return (
+      <button
+        className="btn btn--plain"
+        onClick={() => {
+          haptic('select');
+          onChange(defaultValue);
+        }}
+      >
+        {addLabel}
+      </button>
+    );
+  }
+  return (
+    <div className="stack-2">
+      <Stepper value={value} onChange={onChange} {...stepper} />
+      <button
+        className="btn btn--plain"
+        onClick={() => {
+          haptic('tap');
+          onChange(undefined);
+        }}
+      >
+        {removeLabel}
+      </button>
+    </div>
+  );
+}
+
 const COLOR_LABEL: Record<AvatarColor, string> = {
   indigo: 'Indigo',
   purple: 'Violett',

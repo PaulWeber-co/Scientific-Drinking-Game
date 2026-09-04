@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { DrinkCall } from './shared/DrinkCall';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';
 import { usePlayer } from '../store/player';
-import { getGame } from './registry';
+import { getLoadedGame, loadGame } from './registry';
 import type { GameAction, GameActionInput, GamePlayer } from './types';
 
 const me: GamePlayer = { id: 'p0', name: 'Paul', color: 'blue', online: true };
@@ -51,7 +51,7 @@ function party(players: GamePlayer[], patch: Partial<PartyValue> = {}): PartyVal
 
 /** Rendert ein Spiel mit lokalem Host-Reducer – wie PartyScreen, nur ohne Firebase. */
 function Harness({ gameId, players }: { gameId: string; players: GamePlayer[] }) {
-  const def = getGame(gameId)!;
+  const def = getLoadedGame(gameId)!;
   const [state, setState] = useState<unknown>(() => def.createState(players));
   const dispatch = (a: GameActionInput) =>
     setState((s: unknown) =>
@@ -72,6 +72,8 @@ function Harness({ gameId, players }: { gameId: string; players: GamePlayer[] })
     </PartyCtx.Provider>
   );
 }
+
+beforeAll(() => loadGame('kings-cup'));
 
 beforeEach(() => {
   usePlayer.setState({
@@ -220,5 +222,32 @@ describe('Trinkansage: resetKey', () => {
       const keys = src.split('resetKey=').length - 1;
       expect(keys, `${file}: ${calls} Ansagen, ${keys} resetKey`).toBe(calls);
     }
+  });
+});
+
+describe('Trinkansage über dem Ziel', () => {
+  it('zeigt die Stufe statt immer nur „Aussetzen“', () => {
+    // 80 g vor 90 Minuten: rund 1,0 Promille, klar über dem harten Deckel.
+    usePlayer.setState({
+      log: [
+        {
+          id: 'e1',
+          at: Date.now() - 90 * 60_000,
+          drinkId: 'beer-pils',
+          drinkName: 'Bier',
+          sips: 20,
+          alcoholGrams: 80,
+        },
+      ],
+    });
+    const { container } = render(
+      <PartyCtx.Provider value={party([me])}>
+        <DrinkCall player={me} baseSips={3} />
+      </PartyCtx.Provider>,
+    );
+    expect(screen.getByText('Pause')).toBeInTheDocument();
+    expect(screen.queryByText('Aussetzen')).toBeNull();
+    expect(screen.getByText(/Mach eine Pause/)).toBeInTheDocument();
+    expect(container.querySelector('.call--pause')).not.toBeNull();
   });
 });

@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GAMES, gamesForGroup, getGame } from './registry';
+import { GAMES, gamesForGroup, getGame, getLoadedGame, loadGame } from './registry';
 import { useApp } from '../store/app';
 import { encodeState, decodeState } from '../features/party/PartyContext';
 import type { GameAction, GamePlayer } from './types';
 import type { CardGameState } from './card-engine/createCardGame';
 import { cardFromIndex } from './shared/deck';
+
+// Die Module kommen als eigene Chunks – für die Verhaltenstests alle laden.
+const DEFS = await Promise.all(GAMES.map((g) => loadGame(g.id)));
 
 const players = (n: number): GamePlayer[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -55,7 +58,7 @@ describe('Registry', () => {
 
 describe('Alle Spiele: Grundverhalten', () => {
   it('erzeugen einen Startzustand, der die Firebase-Runde ueberlebt', () => {
-    for (const g of GAMES) {
+    for (const g of DEFS) {
       const state = g.createState(players(6));
       const roundTrip = decodeState(encodeState(state));
       expect(roundTrip, g.id).toEqual(state);
@@ -63,7 +66,7 @@ describe('Alle Spiele: Grundverhalten', () => {
   });
 
   it('ignorieren unbekannte Aktionen, statt zu crashen', () => {
-    for (const g of GAMES) {
+    for (const g of DEFS) {
       const state = g.createState(players(5));
       expect(() => g.reduce(state, act('quatsch'), players(5)), g.id).not.toThrow();
     }
@@ -73,7 +76,7 @@ describe('Alle Spiele: Grundverhalten', () => {
     const types = ['draw', 'next', 'resolve', 'pickMode', 'answer', 'continue', 'flip', 'start',
       'pass', 'boom', 'hit', 'skip', 'foul', 'timeUp', 'submit', 'vote', 'lockOrder', 'setOrder',
       'restartBus', 'again', 'setHeat'];
-    for (const g of GAMES) {
+    for (const g of DEFS) {
       const roster = players(5);
       let state = g.createState(roster);
       for (let i = 0; i < 120; i++) {
@@ -93,7 +96,7 @@ describe('Alle Spiele: Grundverhalten', () => {
 });
 
 describe('Wahrheit oder Pflicht', () => {
-  const game = getGame('truth-or-dare')!;
+  const game = getLoadedGame('truth-or-dare')!;
 
   it('startet mit der Modusauswahl', () => {
     const s = game.createState(players(4)) as CardGameState;
@@ -143,7 +146,7 @@ describe('Wahrheit oder Pflicht', () => {
 });
 
 describe('Ring of Fire', () => {
-  const game = getGame('kings-cup')!;
+  const game = getLoadedGame('kings-cup')!;
 
   it('zaehlt Koenige und meldet den vierten', () => {
     const roster = players(4);
@@ -171,7 +174,7 @@ describe('Ring of Fire', () => {
 });
 
 describe('Busfahrer', () => {
-  const game = getGame('busfahrer')!;
+  const game = getLoadedGame('busfahrer')!;
 
   it('durchlaeuft vier Fragen pro Spieler und bestimmt dann den Fahrer', () => {
     const roster = players(3);
@@ -209,7 +212,7 @@ describe('Busfahrer', () => {
 });
 
 describe('Meme Battle', () => {
-  const game = getGame('meme-battle')!;
+  const game = getLoadedGame('meme-battle')!;
 
   it('wechselt erst zur Abstimmung, wenn alle geschrieben haben', () => {
     const roster = players(3);
@@ -251,7 +254,7 @@ describe('Meme Battle', () => {
 });
 
 describe('Top Ten', () => {
-  const game = getGame('top-ten')!;
+  const game = getLoadedGame('top-ten')!;
 
   it('vergibt eindeutige Zahlen zwischen 1 und 10', () => {
     const roster = players(8);
@@ -282,7 +285,7 @@ describe('Top Ten', () => {
 });
 
 describe('Tabu Rush', () => {
-  const game = getGame('tabu')!;
+  const game = getLoadedGame('tabu')!;
 
   it('teilt die Spieler in zwei Teams', () => {
     const s = game.createState(players(6));
@@ -317,7 +320,7 @@ describe('Tabu Rush', () => {
 });
 
 describe('Wortbombe', () => {
-  const game = getGame('wortbombe')!;
+  const game = getLoadedGame('wortbombe')!;
 
   it('zuendet zwischen 22 und 75 Sekunden', () => {
     const roster = players(4);
@@ -352,7 +355,7 @@ describe('Wortbombe', () => {
 });
 
 describe('Wer aus der Runde', () => {
-  const game = getGame('most-likely')!;
+  const game = getLoadedGame('most-likely')!;
 
   it('deckt erst auf, wenn alle gewählt haben', () => {
     const roster = players(4);
@@ -376,7 +379,7 @@ describe('Wer aus der Runde', () => {
 });
 
 describe('Undercover', () => {
-  const game = getGame('undercover')!;
+  const game = getLoadedGame('undercover')!;
 
   it('gibt genau einer Person das abweichende Wort', () => {
     const roster = players(6);
@@ -415,7 +418,7 @@ describe('Undercover', () => {
 });
 
 describe('Schätzfrage', () => {
-  const game = getGame('schaetzfrage')!;
+  const game = getLoadedGame('schaetzfrage')!;
 
   it('nimmt auch die Null als Schätzung an', () => {
     const roster = players(3);
@@ -442,7 +445,7 @@ describe('Schätzfrage', () => {
 });
 
 describe('Zwei Wahrheiten, eine Lüge', () => {
-  const game = getGame('zwei-wahrheiten')!;
+  const game = getLoadedGame('zwei-wahrheiten')!;
 
   it('mischt die Aussagen und merkt sich die Lüge korrekt', () => {
     const roster = players(3);
@@ -476,7 +479,7 @@ describe('Zwei Wahrheiten, eine Lüge', () => {
 });
 
 describe('Mäxchen', () => {
-  const game = getGame('maexchen')!;
+  const game = getLoadedGame('maexchen')!;
 
   it('lässt nur höhere Ansagen zu', () => {
     const roster = players(3);
@@ -515,7 +518,7 @@ describe('Mäxchen', () => {
 });
 
 describe('Reaktions-Duell', () => {
-  const game = getGame('duell')!;
+  const game = getLoadedGame('duell')!;
 
   it('wertet einen Fehlstart sofort als Niederlage', () => {
     const roster = players(4);
@@ -540,7 +543,7 @@ describe('Reaktions-Duell', () => {
 
 describe('Kartenspiele mit eigenen Karten', () => {
   it('legen den Stapel als Inhalt ab, nicht als Index', () => {
-    const game = getGame('truth-or-dare')!;
+    const game = getLoadedGame('truth-or-dare')!;
     const s = game.createState(players(4));
     expect(Array.isArray(s.deck)).toBe(true);
     expect(typeof s.deck[0].text).toBe('string');
@@ -557,7 +560,7 @@ describe('Kartenspiele mit eigenen Karten', () => {
 describe('Kartenspiele ohne Zugreihenfolge', () => {
   it('legen die erste Karte sofort auf den Tisch', () => {
     for (const id of ['never-have-i-ever', 'kategorien']) {
-      const s = getGame(id)!.createState(players(4));
+      const s = getLoadedGame(id)!.createState(players(4));
       expect(s.phase, id).toBe('card');
       expect(s.drawn, id).not.toBeNull();
       expect(typeof s.drawn.text, id).toBe('string');
@@ -565,7 +568,7 @@ describe('Kartenspiele ohne Zugreihenfolge', () => {
   });
 
   it('behalten die liegende Karte, wenn der Härtegrad wechselt', () => {
-    const game = getGame('never-have-i-ever')!;
+    const game = getLoadedGame('never-have-i-ever')!;
     const s = game.createState(players(4));
     const next = game.reduce(s, act('setHeat', 'p0', { heat: 1 }), players(4));
     expect(next.drawn).toEqual(s.drawn);
@@ -588,7 +591,7 @@ describe('Spicy-Modus', () => {
 
   it('lässt Spicy-Karten standardmäßig aus dem Stapel', () => {
     for (const id of SPICY_GAMES) {
-      const game = getGame(id)!;
+      const game = getLoadedGame(id)!;
       const s = game.createState(players(4));
       const deck = [...s.deck, s.drawn].filter(Boolean);
       expect(deck.some((c: { spicy?: boolean }) => c.spicy), id).toBe(false);
@@ -597,7 +600,7 @@ describe('Spicy-Modus', () => {
 
   it('mischt sie ein, sobald der Schalter an ist', () => {
     for (const id of SPICY_GAMES) {
-      const game = getGame(id)!;
+      const game = getLoadedGame(id)!;
       const plain = game.createState(players(4));
       useApp.setState({ spicy: { [id]: true } });
       const spicy = game.reduce(plain, act('setHeat', 'p0', { heat: 3 }), players(4));
@@ -608,7 +611,7 @@ describe('Spicy-Modus', () => {
   it('gilt auch für Spiele mit eigenen Prompt-Listen', () => {
     for (const id of ['most-likely', 'meme-battle', 'top-ten']) {
       expect(getGame(id)?.allowSpicy, id).toBe(true);
-      const game = getGame(id)!;
+      const game = getLoadedGame(id)!;
       const plain = game.createState(players(4));
       useApp.setState({ spicy: { [id]: true } });
       const withSpicy = game.createState(players(4));
