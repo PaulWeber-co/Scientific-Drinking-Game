@@ -1,8 +1,10 @@
 import { haptic } from '../../lib/haptics';
 import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -59,11 +61,15 @@ const PROMPTS: Prompt[] = [
 ];
 
 interface State {
-  phase: 'vote' | 'result';
+  phase: 'vote' | 'result' | 'over';
   prompt: number;
   deck: number[];
   votes: Record<string, string>;
   round: number;
+  /** Ziellinie in Fragen. `null` heißt: ohne Ende. */
+  goal: number | null;
+  /** Stimmen über die ganze Partie, aus allen ausgezählten Runden. */
+  tally: Record<string, number>;
 }
 
 export const mostLikely: GameDefinition<State> = {
@@ -71,7 +77,17 @@ export const mostLikely: GameDefinition<State> = {
 
   createState: () => {
     const deck = spicyDeck(PROMPTS, 'most-likely');
-    return { phase: 'vote', prompt: deck[0], deck: deck.slice(1), votes: {}, round: 1 };
+    return {
+      phase: 'vote',
+      prompt: deck[0],
+      deck: deck.slice(1),
+      votes: {},
+      round: 1,
+      // Eine Runde ist eine Frage. Sechs davon reichen, damit jeder ein paar
+      // Mal gemeint war, bevor sich die Fragen abnutzen.
+      goal: roundGoal(baseFor('most-likely')),
+      tally: {},
+    };
   },
 
   reduce: (state, action, players) => {
@@ -81,18 +97,31 @@ export const mostLikely: GameDefinition<State> = {
         if (state.phase !== 'vote') return state;
         const votes = { ...state.votes, [action.by]: String(action.target) };
         const done = active.every((id) => votes[id]);
-        return { ...state, votes, phase: done ? 'result' : 'vote' };
+        if (!done) return { ...state, votes };
+        // Die Runde ist ausgezählt – erst jetzt zählen ihre Stimmen für die Wertung.
+        const tally = { ...state.tally };
+        for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
+        return { ...state, votes, phase: 'result', tally };
       }
       case 'next': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'result') return state;
         const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely');
+        const round = state.round + 1;
+        if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         return {
+          ...state,
           phase: 'vote',
           prompt: deck[0],
           deck: deck.slice(1),
           votes: {},
-          round: state.round + 1,
+          round,
         };
       }
+      case 'restart':
+        return mostLikely.createState(players);
       default:
         return state;
     }
@@ -118,13 +147,58 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
     );
   }
 
+  if (state.phase === 'over') {
+    const ranking = players.map((p) => ({
+      player: p,
+      value: state.tally[p.id] ?? 0,
+      unit: 'Stimme',
+    }));
+    const most = Math.max(0, ...ranking.map((r) => r.value));
+    const named = ranking.filter((r) => r.value === most).map((r) => r.player);
+    return (
+      <GameFrame
+        title={mostLikely.name}
+        accent={mostLikely.accent}
+        subtitle="Ausgezählt"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={
+            most > 0
+              ? `${state.round - 1} Fragen ausgezählt. Oben steht, wer am häufigsten gemeint war.`
+              : `${state.round - 1} Fragen – und keine einzige Stimme. Auch eine Aussage.`
+          }
+          ranking={most > 0 ? ranking : undefined}
+          rankingTitle="Wer am häufigsten gemeint war"
+          rankHighIsBad
+          finalCall={
+            most > 0
+              ? {
+                  players: named,
+                  baseSips: 4,
+                  label: 'am häufigsten gemeint',
+                  source: 'most-likely',
+                }
+              : undefined
+          }
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'vote') {
     const waiting = players.filter((p) => p.online !== false && !state.votes[p.id]).map((p) => p.name);
     return (
       <GameFrame
         title={mostLikely.name}
         accent={mostLikely.accent}
-        subtitle={`Runde ${state.round}`}
+        subtitle={
+          state.goal
+            ? `Runde ${Math.min(state.round, state.goal)}/${state.goal}`
+            : `Runde ${state.round}`
+        }
         onQuit={quit}
       >
         <BigCard kicker="Zeigt auf">{prompt}</BigCard>
@@ -163,7 +237,7 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
         resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        Nächste Frage
+        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Frage'}
       </button>
     </GameFrame>
   );

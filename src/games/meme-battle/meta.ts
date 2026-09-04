@@ -18,6 +18,6 @@ export const meta: GameMeta = {
   howTo: [
     'Jede Person braucht ein eigenes Handy – die Antworten bleiben bis zur Abstimmung geheim.',
     'Alle schreiben zum selben Prompt die beste Pointe.',
-    'Danach wird anonym abgestimmt. Wer keine Stimme bekommt, trinkt.',
+    'Danach wird anonym abgestimmt. Wer die wenigsten Stimmen holt, trinkt – ganz ohne Stimme wird es teurer.',
   ],
 };

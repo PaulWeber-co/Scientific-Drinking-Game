@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
 import { GAMES, gamesForGroup, getGame, getLoadedGame, loadGame } from './registry';
 import { useApp } from '../store/app';
 import { encodeState, decodeState } from '../features/party/PartyContext';
@@ -22,6 +23,216 @@ const act = (type: string, by = 'p0', extra: Record<string, unknown> = {}): Game
   by,
   at: Date.now(),
   ...extra,
+});
+
+/**
+ * Alle Aktionstypen, die in den Spielen vorkommen – aus dem Quelltext gelesen,
+ * nicht von Hand gepflegt.
+ *
+ * Eine Handliste war der blinde Fleck der ersten Fassung: die Maexchen-
+ * Aktionen fehlten darin, und genau dort lag eine Sackgasse. Spaeter fielen
+ * `arm`, `go`, `nextSpeaker` und `seen` auf, waehrend `reveal` gelistet war,
+ * obwohl es die Aktion gar nicht gibt.
+ *
+ * BLINDER FLECK, der bleibt: erkannt wird nur das Muster `case '<name>'` in
+ * den Reducern. Ein Reducer, der Aktionen anders verzweigt, faellt durch.
+ */
+function readActionTypes(): string[] {
+  const root = `${process.cwd()}/src/games`;
+  const namen = new Set<string>();
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) continue;
+      for (const m of readFileSync(full, 'utf8').matchAll(/case '([a-zA-Z]+)'/g)) {
+        namen.add(m[1]);
+      }
+    }
+  };
+  walk(root);
+  return [...namen].sort();
+}
+
+const ACTION_TYPES = readActionTypes();
+
+/**
+ * Parametervarianten. Eine Aktion kann mit dem einen Wert abgelehnt und mit
+ * dem anderen angenommen werden – ohne Varianten haette der Test die
+ * Maexchen-Sackgasse nicht gesehen, weil `announce` nur mit einem einzigen
+ * Rang probiert worden waere.
+ *
+ * Abgedeckt sind alle Felder, die die Reducer lesen (Stand: `action.answer`,
+ * `heat`, `index`, `lie`, `mode`, `order`, `outcome`, `rank`, `side`,
+ * `statements`, `target`, `text`, `value`, `winner`).
+ *
+ * BLINDER FLECK: die Werte sind geraten, nicht aus dem Code abgeleitet. Ein
+ * Reducer, der einen Wert ausserhalb dieser Auswahl verlangt, wird nur
+ * unvollstaendig geprueft. Ein leerer Ausweg faellt dann als Sackgasse auf –
+ * dann gehoert der Wert hierher, nicht die Pruefung entschaerft.
+ */
+const VARIANTS: Record<string, unknown>[] = [
+  {
+    text: 'Antwort', target: 'p1', mode: 'wahrheit', heat: 1, answer: 'rot',
+    order: ['p1', 'p0'], winner: 'p1', value: 42, index: 0, side: 'left',
+    lie: 0, statements: ['a', 'b', 'c'],
+  },
+  {
+    text: 'Zweite', target: 'p2', mode: 'pflicht', heat: 3, answer: 'hoch',
+    order: ['p0', 'p1'], winner: 'p2', value: 7, index: 1, side: 'right',
+    lie: 1, statements: ['x', 'y', 'z'],
+  },
+  { rank: 0, value: 1, index: 2, answer: 'innen' },
+  { rank: 14, value: 100, answer: 'tief' },
+  { rank: 20, answer: '1' },
+  { outcome: 'refused' },
+  { heat: 2, answer: 'aussen', value: 0 },
+];
+
+/**
+ * Gibt es aus diesem Zustand einen Weg WEITERZUSPIELEN?
+ *
+ * `restart` zaehlt bewusst nicht: es kann jeden Zustand verlassen und wuerde
+ * jede Sackgasse zudecken. Genau daran ist eine erste Fassung dieses Tests
+ * gescheitert – sie blieb gruen, obwohl die Maexchen-Sackgasse offen war.
+ */
+const ESCAPE_HATCHES = new Set(['restart']);
+
+function hasEscape(
+  game: { reduce: (s: unknown, a: GameAction, p: GamePlayer[]) => unknown },
+  state: unknown,
+  roster: GamePlayer[],
+): boolean {
+  for (const type of ACTION_TYPES) {
+    if (ESCAPE_HATCHES.has(type)) continue;
+    for (const extra of VARIANTS) {
+      for (const by of roster) {
+        if (game.reduce(state, act(type, by.id, extra), roster) !== state) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Eine beendete Partie DARF stillstehen – dort ist „Noch eine Runde" der Weg. */
+function isFinished(state: unknown): boolean {
+  const s = state as { phase?: string; over?: boolean };
+  return s.over === true || s.phase === 'over' || s.phase === 'final';
+}
+
+describe('Modulgrenzen', () => {
+  /**
+   * Aus `src/games/` darf statisch nur `features/party/` importiert werden.
+   *
+   * `features/party` haengt am App-Root und ist ausgewertet, lange bevor ein
+   * Spiel-Chunk laedt – diese Kante traegt seit jeher. Jede andere Kante nach
+   * `features/` ist eine Falle: `features/bac` etwa zieht ueber
+   * `nightSummary` die Spiele-Registry, und die laedt ihrerseits die
+   * Spiel-Chunks. Als statischer Import entsteht daraus ein Zyklus, in dem
+   * `PartyCtx` noch nicht ausgewertet ist – jedes Kartenspiel stirbt dann
+   * beim Start mit „useParty muss innerhalb von PartyProvider benutzt
+   * werden", und zwar in einer Datei, die niemand angefasst hat.
+   *
+   * Erlaubt bleibt der dynamische Import (`import(...)` in `lazy`), denn der
+   * erzeugt keine statische Abhaengigkeit.
+   */
+  const ERLAUBT = ['features/party/'];
+
+  it('greift aus games/ nur nach features/party/', () => {
+    // process.cwd() ist unter vitest das Projektwurzelverzeichnis.
+    const root = `${process.cwd()}/src/games`;
+    const treffer: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name) || entry.name.endsWith('.test.tsx')) continue;
+        if (entry.name.endsWith('.test.ts')) continue;
+        for (const line of readFileSync(full, 'utf8').split('\n')) {
+          // Statisch heisst: eine import-Anweisung am Zeilenanfang. `lazy(() =>
+          // import('...'))` steht nie am Zeilenanfang und ist erlaubt.
+          const m = line.match(/^\s*import\s[^(]*from\s+['"][^'"]*(features\/[\w-]+\/)/);
+          if (m && !ERLAUBT.includes(m[1])) {
+            treffer.push(`${full.replace(`${process.cwd()}/`, '')}: ${line.trim()}`);
+          }
+        }
+      }
+    };
+    walk(root);
+    expect(
+      treffer,
+      `verbotene statische Importe (erlaubt: ${ERLAUBT.join(', ')}):\n${treffer.join('\n')}`,
+    ).toEqual([]);
+  });
+});
+
+describe('Kein Spiel laeuft in eine Sackgasse', () => {
+  /**
+   * Stichprobe, kein Beweis: der Lauf nimmt in jedem Schritt die erste
+   * Aktion mit dem ersten Parametersatz, die den Zustand wirklich veraendert,
+   * und kommt so tief ins Spiel statt an abgelehnten Aktionen haengenzubleiben.
+   * Mehrere Startrotationen fahren unterschiedliche Wege ab.
+   *
+   * Verifiziert: nimmt man den Maexchen-Fix zurueck, meldet dieser Test
+   * „maexchen / Lauf 0, Schritt 13". Ohne die Parameterrotation tat er das
+   * NICHT – er lief an dem Zustand vorbei, in dem die Sackgasse lag.
+   *
+   * BLINDER FLECK: Was die Aktionsliste oder die Parametervarianten nicht
+   * hergeben, sieht auch dieser Test nicht. Der gezielte Maexchen-Test
+   * darunter deckt den bekannten Fall unabhaengig davon ab.
+   */
+  it('laesst aus jedem erreichbaren Zustand mindestens eine Aktion zu', () => {
+    for (const g of DEFS) {
+      for (let rot = 0; rot < VARIANTS.length; rot++) {
+        const roster = players(5);
+        let state: unknown = g.createState(roster);
+        expect(hasEscape(g, state, roster), `${g.id} / Startzustand`).toBe(true);
+        for (let i = 0; i < 120; i++) {
+          let moved = false;
+          for (let k = 0; k < ACTION_TYPES.length && !moved; k++) {
+            const type = ACTION_TYPES[(i + k + rot) % ACTION_TYPES.length];
+            if (ESCAPE_HATCHES.has(type)) continue;
+            // Auch die Parameter durchrotieren: sonst wird `announce` immer
+            // mit demselben Rang probiert und der Lauf erreicht nie den
+            // Zustand „Maexchen steht", in dem die Sackgasse lag.
+            for (let v = 0; v < VARIANTS.length && !moved; v++) {
+              const extra = VARIANTS[(i + rot + v) % VARIANTS.length];
+              const by = roster[(i + k) % roster.length].id;
+              const next = g.reduce(state, act(type, by, extra), roster);
+              if (next !== state) {
+                state = next;
+                moved = true;
+              }
+            }
+          }
+          if (!moved || isFinished(state)) break;
+          expect(hasEscape(g, state, roster), `${g.id} / Lauf ${rot}, Schritt ${i}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('bleibt bei Maexchen ansagbar, wenn Maexchen steht', () => {
+    // Der konkrete Fall, an dem die Runde vorher starb: Maexchen angesagt,
+    // der Naechste glaubt – dann hatte niemand mehr einen Knopf.
+    const g = getLoadedGame('maexchen')!;
+    const roster = players(3);
+    let s = g.createState(roster);
+    s = g.reduce(s, act('roll', 'p0'), roster);
+    s = g.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
+    s = g.reduce(s, act('believe', 'p1'), roster);
+    s = g.reduce(s, act('roll', 'p1'), roster);
+    expect(s.phase).toBe('announce');
+    expect(hasEscape(g, s, roster), 'maexchen nach angesagtem Maexchen').toBe(true);
+    const weiter = g.reduce(s, act('announce', 'p1', { rank: 20 }), roster);
+    expect(weiter.phase).toBe('decide');
+  });
 });
 
 describe('Registry', () => {
@@ -73,9 +284,7 @@ describe('Alle Spiele: Grundverhalten', () => {
   });
 
   it('ueberstehen zufaellige Aktionsfolgen ohne Ausnahme', () => {
-    const types = ['draw', 'next', 'resolve', 'pickMode', 'answer', 'continue', 'flip', 'start',
-      'pass', 'boom', 'hit', 'skip', 'foul', 'timeUp', 'submit', 'vote', 'lockOrder', 'setOrder',
-      'restartBus', 'again', 'setHeat'];
+    const types = ACTION_TYPES;
     for (const g of DEFS) {
       const roster = players(5);
       let state = g.createState(roster);
@@ -126,6 +335,8 @@ describe('Wahrheit oder Pflicht', () => {
   it('nimmt Spieler auf, die spaeter dazukommen', () => {
     const roster = players(3);
     let s = game.createState(roster) as CardGameState;
+    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve'), roster);
     s = game.reduce(s, act('next'), players(5));
     expect(s.order).toHaveLength(5);
   });
@@ -133,8 +344,23 @@ describe('Wahrheit oder Pflicht', () => {
   it('entfernt Spieler, die gegangen sind', () => {
     const roster = players(5);
     let s = game.createState(roster) as CardGameState;
+    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve'), roster);
     s = game.reduce(s, act('next'), players(3));
     expect(s.order).toHaveLength(3);
+  });
+
+  it('zaehlt nicht zweimal, wenn zwei Geraete gleichzeitig weiterklicken', () => {
+    // Online wendet die Inbox Aktionen nacheinander an. Ohne Phasenpruefung
+    // sprang der Zaehler um zwei und eine Karte fiel still aus.
+    const roster = players(4);
+    let s = game.createState(roster) as CardGameState;
+    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve'), roster);
+    const eins = game.reduce(s, act('next', 'p0'), roster);
+    const zwei = game.reduce(eins, act('next', 'p1'), roster);
+    expect(zwei.turnIndex).toBe(eins.turnIndex);
+    expect(zwei.round).toBe(eins.round);
   });
 
   it('filtert Karten nach Haertegrad', () => {
@@ -279,6 +505,10 @@ describe('Top Ten', () => {
     const roster = players(4);
     let s = game.createState(roster);
     const first = s.captainIndex;
+    // Bis zur Auflösung spielen – vorher nimmt der Reducer kein 'next' an.
+    for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: 'x' }), roster);
+    s = game.reduce(s, act('lockOrder', roster[first].id, { order: roster.map((p) => p.id) }), roster);
+    expect(s.phase).toBe('results');
     s = game.reduce(s, act('next'), roster);
     expect(s.captainIndex).toBe((first + 1) % 4);
   });
@@ -371,7 +601,11 @@ describe('Wer aus der Runde', () => {
 
   it('zieht für die nächste Runde eine neue Frage', () => {
     const roster = players(4);
-    const s = game.createState(roster);
+    let s = game.createState(roster);
+    // Erst abstimmen, dann weiter – 'next' aus der Abstimmung heraus lehnt
+    // der Reducer ab, sonst zaehlen zwei gleichzeitige Taps zwei Runden.
+    for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: 'p0' }), roster);
+    expect(s.phase).toBe('result');
     const next = game.reduce(s, act('next'), roster);
     expect(next.votes).toEqual({});
     expect(next.round).toBe(2);
@@ -567,11 +801,21 @@ describe('Kartenspiele ohne Zugreihenfolge', () => {
     }
   });
 
-  it('behalten die liegende Karte, wenn der Härtegrad wechselt', () => {
+  it('tauschen die liegende Karte, wenn der Härtegrad wechselt', () => {
     const game = getLoadedGame('never-have-i-ever')!;
     const s = game.createState(players(4));
     const next = game.reduce(s, act('setHeat', 'p0', { heat: 1 }), players(4));
-    expect(next.drawn).toEqual(s.drawn);
+    expect(next.heat).toBe(1);
+    expect(next.drawn.heat ?? 1).toBeLessThanOrEqual(1);
+  });
+
+  it('lassen eine aufgelöste Karte stehen, an der eine Ansage hängt', () => {
+    const game = getLoadedGame('never-have-i-ever')!;
+    const s = game.createState(players(4));
+    const resolved = game.reduce(s, act('resolve', 'p0', {}), players(4));
+    const next = game.reduce(resolved, act('setHeat', 'p0', { heat: 1 }), players(4));
+    expect(next.drawn).toEqual(resolved.drawn);
+    expect(next.heat).toBe(1);
   });
 });
 
@@ -598,13 +842,19 @@ describe('Spicy-Modus', () => {
     }
   });
 
-  it('mischt sie ein, sobald der Schalter an ist', () => {
+  it('mischt sie ein, sobald der Schalter an ist – auf jeder Härtestufe', () => {
+    // Alle Spicy-Karten tragen heat 3. Haengt Spicy am Haertefilter, sieht
+    // niemand sie auf der Start-Haerte, und der Schalter tut sichtbar nichts.
     for (const id of SPICY_GAMES) {
       const game = getLoadedGame(id)!;
-      const plain = game.createState(players(4));
       useApp.setState({ spicy: { [id]: true } });
-      const spicy = game.reduce(plain, act('setHeat', 'p0', { heat: 3 }), players(4));
-      expect(spicy.deck.some((c: { spicy?: boolean }) => c.spicy), id).toBe(true);
+      for (const heat of [1, 2, 3]) {
+        const s = game.createState(players(4));
+        const withHeat = game.reduce(s, act('setHeat', 'p0', { heat }), players(4));
+        const deck = [...withHeat.deck, withHeat.drawn].filter(Boolean);
+        expect(deck.some((c: { spicy?: boolean }) => c.spicy), `${id} @ ${heat}`).toBe(true);
+      }
+      useApp.setState({ spicy: {} });
     }
   });
 

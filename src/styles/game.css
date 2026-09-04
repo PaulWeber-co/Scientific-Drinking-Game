@@ -36,8 +36,27 @@
 }
 .game__action {
   display: flex;
+  align-items: center;
+  gap: var(--s-1);
   justify-content: flex-end;
   flex-shrink: 0;
+}
+.game__settings {
+  /* Gleiche Zielflaeche wie der Beenden-Knopf gegenueber. */
+  width: 44px;
+  height: 44px;
+  border: 5px solid transparent;
+  background-clip: padding-box;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--label-2);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.game__settings:active {
+  transform: scale(0.88);
 }
 .game__close {
   /* Sichtbar 34 px, Zielfläche 44 px: transparenter Rand. */
@@ -202,6 +221,16 @@
 }
 .pchip--off {
   opacity: 0.42;
+}
+/* Als Anzeige reicht die Chip-Hoehe, als Knopf nicht: hier wird ausgewaehlt,
+   wer trinkt. Zielflaeche deshalb auf 44 px, sichtbar bleibt der Chip. */
+.pchip--pick {
+  min-height: 44px;
+  padding-inline: 14px;
+  border-color: var(--hairline);
+}
+.pchip--pick:active {
+  transform: scale(0.96);
 }
 .pchip__drink {
   color: var(--label-3);

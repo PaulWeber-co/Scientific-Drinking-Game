@@ -6,9 +6,11 @@ import { HeatIcons, Icon } from '../../components/icons';
 import { GameCard } from './GameCard';
 import { CustomCards } from './CustomCards';
 import { SpicyToggle } from './SpicyToggle';
-import { NavBar, Sheet } from '../../components/ui';
+import { LENGTH_LABEL, baseFor, roundGoal } from '../../games/shared/rounds';
+import { haptic } from '../../lib/haptics';
+import { NavBar, Segmented, Sheet } from '../../components/ui';
 import { useParty } from '../party/PartyContext';
-import { useApp } from '../../store/app';
+import { useApp, type GameLength } from '../../store/app';
 
 const FILTERS: (GameTag | 'alle')[] = ['alle', 'handy-weg', 'karten', 'kreativ', 'schnell', 'team', 'geheim'];
 
@@ -147,6 +149,8 @@ export function GameDetail() {
           </ol>
         </section>
 
+        <LengthPicker gameId={game.id} />
+
         <SpicyToggle game={game} />
 
         <CustomCards game={game} />
@@ -203,5 +207,49 @@ export function GameDetail() {
         </div>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * Wie lang die Partie laufen soll. Bewusst eine Einstellung für alle Spiele:
+ * Wer einen kurzen Abend hat, will nicht in jedem Spiel neu entscheiden.
+ * Jedes Spiel rechnet die Stufe in seine eigene Rundenzahl um.
+ */
+function LengthPicker({ gameId }: { gameId: string }) {
+  const value = useApp((s) => s.gameLength);
+  const setValue = useApp((s) => s.setGameLength);
+  const basis = baseFor(gameId);
+  const rounds = roundGoal(basis, value);
+  return (
+    <section className="card stack-3">
+      <div className="row-between">
+        <span className="t-headline">Spiellänge</span>
+        <span className="t-caption">{LENGTH_LABEL[value]}</span>
+      </div>
+      <Segmented<GameLength>
+        value={value}
+        onChange={(l) => {
+          haptic('select');
+          setValue(l);
+        }}
+        options={[
+          { value: 'kurz', label: 'Kurz' },
+          { value: 'mittel', label: 'Mittel' },
+          { value: 'lang', label: 'Lang' },
+          // Ein Unendlich-Zeichen allein liest sich weder betrunken noch mit
+          // Screenreader – die anderen drei Optionen sind auch Wörter.
+          { value: 'endlos', label: 'Endlos' },
+        ]}
+      />
+      <span className="t-caption">
+        {value === 'endlos'
+          ? basis === 0
+            ? 'Auch der vierte König beendet dieses Spiel dann nicht mehr. Läuft, bis ihr selbst Schluss macht.'
+            : 'Läuft, bis ihr selbst Schluss macht. Gilt für alle Spiele.'
+          : basis === 0
+            ? 'Dieses Spiel endet, wenn der vierte König gezogen ist. Die Einstellung gilt für die anderen Spiele.'
+            : `Hier sind das ${rounds} Runden, danach kommt der Abschluss. Die Einstellung gilt für alle Spiele.`}
+      </span>
+    </section>
   );
 }

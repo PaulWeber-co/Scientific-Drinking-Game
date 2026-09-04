@@ -3,14 +3,20 @@ import { haptic } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { WORD_PAIRS } from './words';
 import { meta } from './meta';
 
+/** Vier entschiedene Runden sind bei „mittel" eine Partie – jede dauert ein paar Minuten. */
+const ROUND_BASE = baseFor('undercover');
+
 interface State {
-  phase: 'reveal' | 'describe' | 'vote' | 'result' | 'over';
+  /** `over` beendet die Runde, `final` die Partie. */
+  phase: 'reveal' | 'describe' | 'vote' | 'result' | 'over' | 'final';
   words: [string, string];
   undercoverId: string;
   seen: string[];
@@ -20,15 +26,25 @@ interface State {
   eliminated: string[];
   lastOut: string | null;
   round: number;
-  /** Gesetzt, wenn das Spiel entschieden ist. */
+  /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
+  goal: number | null;
+  /** Wie oft die Gruppe enttarnt hat. */
+  groupWins: number;
+  /** Wie oft Undercover durchgekommen ist. */
+  agentWins: number;
+  /** Gesetzt, wenn die Runde entschieden ist. */
   winner: 'gruppe' | 'undercover' | null;
 }
 
-function newRound(players: GamePlayer[], round: number): State {
+/** Was eine neue Runde aus der alten mitnimmt: Ziellinie und Punktestand. */
+type Carry = Pick<State, 'goal' | 'groupWins' | 'agentWins'>;
+
+function newRound(players: GamePlayer[], round: number, carry: Carry): State {
   const alive = players.map((p) => p.id);
   const [a, b] = pick(WORD_PAIRS);
   const flip = Math.random() < 0.5;
   return {
+    ...carry,
     phase: 'reveal',
     words: flip ? [b, a] : [a, b],
     undercoverId: pick(alive),
@@ -46,7 +62,8 @@ function newRound(players: GamePlayer[], round: number): State {
 export const undercover: GameDefinition<State> = {
   ...meta,
 
-  createState: (players) => newRound(players, 1),
+  createState: (players) =>
+    newRound(players, 1, { goal: roundGoal(ROUND_BASE), groupWins: 0, agentWins: 0 }),
 
   reduce: (state, action, players) => {
     const alive = players.filter((p) => !state.eliminated.includes(p.id));
@@ -84,12 +101,28 @@ export const undercover: GameDefinition<State> = {
           lastOut: out,
           phase: undercoverOut || undercoverWins ? 'over' : 'result',
           winner: undercoverOut ? 'gruppe' : undercoverWins ? 'undercover' : null,
+          groupWins: state.groupWins + (undercoverOut ? 1 : 0),
+          agentWins: state.agentWins + (undercoverWins ? 1 : 0),
         };
       }
       case 'continue':
         return { ...state, phase: 'describe', votes: {}, turnIndex: 0, round: state.round };
-      case 'newRound':
-        return newRound(players, state.round + 1);
+      case 'newRound': {
+        // Nur aus einer entschiedenen Runde heraus. Zwei fast gleichzeitige
+        // Taps würden sonst zwei Runden zählen und eine still überspringen.
+        if (state.phase !== 'over') return state;
+        const round = state.round + 1;
+        // Die Ziellinie liegt zwischen zwei Runden – eine angefangene Runde
+        // wird immer zu Ende gespielt.
+        if (isOver(round, state.goal)) return { ...state, round, phase: 'final' };
+        return newRound(players, round, {
+          goal: state.goal,
+          groupWins: state.groupWins,
+          agentWins: state.agentWins,
+        });
+      }
+      case 'restart':
+        return undercover.createState(players);
       default:
         return state;
     }
@@ -118,6 +151,23 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
     );
   }
 
+  if (state.phase === 'final') {
+    return (
+      <GameFrame
+        title={undercover.name}
+        accent={undercover.accent}
+        subtitle="Endstand"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={`${state.round - 1} Runden. Die Gruppe hat ${state.groupWins} mal enttarnt, Undercover ist ${state.agentWins} mal durchgekommen.`}
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'reveal') {
     const mine = state.seen.includes(me.id);
     const waiting = alive.filter((p) => !state.seen.includes(p.id)).map((p) => p.name);
@@ -125,7 +175,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
       <GameFrame
         title={undercover.name}
         accent={undercover.accent}
-        subtitle={`Runde ${state.round}`}
+        subtitle={state.goal ? `Runde ${state.round}/${state.goal}` : `Runde ${state.round}`}
         onQuit={quit}
       >
         {mine ? (
@@ -277,7 +327,11 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
         className="btn btn--brand btn--block btn--lg"
         onClick={() => send({ type: state.phase === 'over' ? 'newRound' : 'continue' })}
       >
-        {state.phase === 'over' ? 'Neue Runde' : 'Weiter beschreiben'}
+        {state.phase !== 'over'
+          ? 'Weiter beschreiben'
+          : isOver(state.round + 1, state.goal)
+            ? 'Endstand'
+            : 'Neue Runde'}
       </button>
     </GameFrame>
   );

@@ -15,7 +15,9 @@ export function NightReview({
 }: {
   open: boolean;
   onClose: () => void;
-  onEnd: () => void;
+  /** Ohne diesen Rückruf zeigt der Rückblick keinen Lösch-Knopf – am Ende
+   *  einer Partie will niemand versehentlich den ganzen Abend wegwerfen. */
+  onEnd?: () => void;
 }) {
   const profile = usePlayer((s) => s.profile);
   const log = usePlayer((s) => s.log);
@@ -90,16 +92,18 @@ export function NightReview({
           ausschließlich das Bild, das du selbst versendest.
         </div>
 
-        <button
-          className="btn btn--danger btn--block"
-          onClick={() => {
-            haptic('warn');
-            onEnd();
-            onClose();
-          }}
-        >
-          Abend beenden und Log löschen
-        </button>
+        {onEnd && (
+          <button
+            className="btn btn--danger btn--block"
+            onClick={() => {
+              haptic('warn');
+              onEnd();
+              onClose();
+            }}
+          >
+            Abend beenden und Log löschen
+          </button>
+        )}
       </div>
     </Sheet>
   );

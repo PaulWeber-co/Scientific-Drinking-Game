@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, Countdown, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
@@ -10,7 +12,9 @@ import { TABU_WORDS } from './words';
 import { meta } from './meta';
 
 const ROUND_MS = 60_000;
-const ROUNDS_PER_TEAM = 3;
+/** Basis: drei Minuten-Runden pro Team sind bei „mittel" eine Partie. */
+/** Runden der ganzen Partie, beide Teams zusammen. */
+const TOTAL_ROUNDS = baseFor('tabu');
 
 type Team = 'A' | 'B';
 
@@ -26,6 +30,8 @@ interface State {
   fouls: number;
   score: Record<Team, number>;
   round: number;
+  /** Runden insgesamt (beide Teams zusammen), nach denen Schluss ist. `null` = ohne Ende. */
+  goal: number | null;
 }
 
 export const tabu: GameDefinition<State> = {
@@ -35,6 +41,8 @@ export const tabu: GameDefinition<State> = {
     const ids = shuffle(players.map((p) => p.id));
     const teams: Record<Team, string[]> = { A: [], B: [] };
     ids.forEach((id, i) => teams[i % 2 === 0 ? 'A' : 'B'].push(id));
+    // Beide Teams kommen gleich oft dran, deshalb das Doppelte pro Team.
+    const gesamt = roundGoal(TOTAL_ROUNDS);
     return {
       teams,
       turn: 'A',
@@ -47,10 +55,11 @@ export const tabu: GameDefinition<State> = {
       fouls: 0,
       score: { A: 0, B: 0 },
       round: 1,
+      goal: gesamt,
     };
   },
 
-  reduce: (state, action) => {
+  reduce: (state, action, players) => {
     const draw = (deck: number[]) => {
       const d = deck.length ? deck : shuffle(TABU_WORDS.map((_, i) => i));
       return { word: d[0], deck: d.slice(1) };
@@ -90,12 +99,16 @@ export const tabu: GameDefinition<State> = {
         };
       }
       case 'next': {
-        const done = state.round >= ROUNDS_PER_TEAM * 2;
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'result') return state;
+        const round = state.round + 1;
         const turn: Team = state.turn === 'A' ? 'B' : 'A';
         return {
           ...state,
-          phase: done ? 'final' : 'ready',
-          round: state.round + 1,
+          phase: isOver(round, state.goal) ? 'final' : 'ready',
+          round,
           turn,
           explainer: {
             ...state.explainer,
@@ -104,6 +117,8 @@ export const tabu: GameDefinition<State> = {
           wordIndex: null,
         };
       }
+      case 'restart':
+        return tabu.createState(players);
       default:
         return state;
     }
@@ -162,9 +177,14 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
           source="tabu"
           resetKey="final"
         />
-        <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
-          Fertig
-        </button>
+        {/* Der Team-Punktestand oben ist aussagekräftiger als eine Liste
+            einzelner Spieler, deshalb bleibt er. Die Knöpfe darunter sind
+            dieselben wie in jedem anderen Spiel. */}
+        <GameOver
+          headline={loser ? `Team ${loser} zahlt die Zeche.` : 'Gleichstand nach dem letzten Wort.'}
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
       </GameFrame>
     );
   }
@@ -173,7 +193,11 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
     <GameFrame
       title={tabu.name}
       accent={tabu.accent}
-      subtitle={`${scoreLine} · Runde ${Math.min(state.round, ROUNDS_PER_TEAM * 2)}/${ROUNDS_PER_TEAM * 2}`}
+      subtitle={
+        state.goal
+          ? `${scoreLine} · Runde ${Math.min(state.round, state.goal)}/${state.goal}`
+          : `${scoreLine} · Runde ${state.round}`
+      }
       onQuit={quit}
     >
       {scoreboard}
@@ -275,7 +299,7 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
           />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-            Team wechseln
+            {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Team wechseln'}
           </button>
         </div>
       )}

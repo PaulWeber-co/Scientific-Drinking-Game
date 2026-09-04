@@ -3,13 +3,15 @@ import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
 interface State {
-  phase: 'write' | 'guess' | 'result';
+  phase: 'write' | 'guess' | 'result' | 'over';
   authorIndex: number;
   order: string[];
   statements: string[];
@@ -17,6 +19,21 @@ interface State {
   lie: number;
   guesses: Record<string, number>;
   round: number;
+  goal: number | null;
+  /** Wie oft jemand die Lüge erkannt hat. */
+  hits: Record<string, number>;
+}
+
+/** Eine Runde ist eine Person mit ihren drei Aussagen. Fünf sind „mittel". */
+const ROUND_BASE = baseFor('zwei-wahrheiten');
+
+/** Ein Punkt für jede erkannte Lüge. */
+function scoreGuesses(state: State): Record<string, number> {
+  const hits = { ...state.hits };
+  for (const [id, index] of Object.entries(state.guesses)) {
+    if (index === state.lie) hits[id] = (hits[id] ?? 0) + 1;
+  }
+  return hits;
 }
 
 export const zweiWahrheiten: GameDefinition<State> = {
@@ -30,6 +47,8 @@ export const zweiWahrheiten: GameDefinition<State> = {
     lie: 0,
     guesses: {},
     round: 1,
+    goal: roundGoal(ROUND_BASE),
+    hits: {},
   }),
 
   reduce: (state, action, players) => {
@@ -60,9 +79,19 @@ export const zweiWahrheiten: GameDefinition<State> = {
         return { ...state, guesses, phase: done ? 'result' : 'guess' };
       }
       case 'next': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'result') return state;
         const order = state.order.filter((id) => players.some((p) => p.id === id));
         const added = players.filter((p) => !order.includes(p.id)).map((p) => p.id);
         const full = [...order, ...added];
+        const round = state.round + 1;
+        // Gezählt wird nur, was auch aufgelöst wurde.
+        const hits = state.phase === 'result' ? scoreGuesses(state) : state.hits;
+        if (isOver(round, state.goal)) {
+          return { ...state, order: full, round, hits, phase: 'over' };
+        }
         return {
           ...state,
           order: full,
@@ -71,9 +100,12 @@ export const zweiWahrheiten: GameDefinition<State> = {
           statements: [],
           lie: 0,
           guesses: {},
-          round: state.round + 1,
+          round,
+          hits,
         };
       }
+      case 'restart':
+        return zweiWahrheiten.createState(players);
       default:
         return state;
     }
@@ -102,12 +134,49 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
     );
   }
 
+  const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
+
+  if (state.phase === 'over') {
+    const guessers = players.filter((p) => p.online !== false);
+    const ranking = guessers.map((p) => ({
+      player: p,
+      value: state.hits[p.id] ?? 0,
+      unit: 'Lüge',
+    }));
+    const fewest = Math.min(...ranking.map((r) => r.value));
+    const trailing = ranking.filter((r) => r.value === fewest).map((r) => r.player);
+    const played = state.goal ?? state.round - 1;
+    return (
+      <GameFrame
+        title={zweiWahrheiten.name}
+        accent={zweiWahrheiten.accent}
+        subtitle="Vorbei"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={`${played} Runden, ${played} Lügen. Oben steht, wer sie am häufigsten erkannt hat.`}
+          ranking={ranking}
+          rankingTitle="Wer die meisten Lügen erkannt hat"
+          finalCall={{
+            // Liegen alle gleichauf, gibt es kein Schlusslicht – dann trinkt niemand.
+            players: trailing.length < ranking.length ? trailing : [],
+            baseSips: 3,
+            label: 'am seltensten durchschaut',
+            source: 'zwei-wahrheiten',
+          }}
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'write') {
     return (
       <GameFrame
         title={zweiWahrheiten.name}
         accent={zweiWahrheiten.accent}
-        subtitle={`Runde ${state.round}`}
+        subtitle={`Runde ${progress}`}
         onQuit={quit}
       >
         {author && (
@@ -175,7 +244,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
       <GameFrame
         title={zweiWahrheiten.name}
         accent={zweiWahrheiten.accent}
-        subtitle="Welche ist gelogen?"
+        subtitle={`Runde ${progress} · Welche ist gelogen?`}
         onQuit={quit}
       >
         {author && (
@@ -204,7 +273,8 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
     );
   }
 
-  const others = players.filter((p) => p.id !== author?.id);
+  // Wer offline gegangen ist, hat nicht danebengetippt – er war gar nicht da.
+  const others = players.filter((p) => p.id !== author?.id && p.online !== false);
   const wrong = others.filter((p) => state.guesses[p.id] !== state.lie);
   const allRight = wrong.length === 0 && others.length > 0;
 
@@ -212,7 +282,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
     <GameFrame
       title={zweiWahrheiten.name}
       accent={zweiWahrheiten.accent}
-      subtitle="Aufgelöst"
+      subtitle={`Runde ${progress} · Aufgelöst`}
       onQuit={quit}
     >
       <div className="stack-3">
@@ -250,7 +320,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         />
       )}
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        Nächste Person
+        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Person'}
       </button>
     </GameFrame>
   );
