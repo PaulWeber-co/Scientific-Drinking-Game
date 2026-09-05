@@ -3,8 +3,10 @@ import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -17,6 +19,21 @@ const RANKS: string[] = [
   '11', '22', '33', '44', '55', '66',
   '21',
 ];
+
+/** Mäxchen (21) ist die hoechste Ansage – nichts schlaegt es. */
+const MAEXCHEN = RANKS.length - 1;
+
+/**
+ * Was der naechste Spieler ansagen darf. Normalerweise alles ueber der
+ * letzten Ansage. Steht Maexchen, bleibt nur Maexchen selbst: es laesst
+ * sich nicht ueberbieten, aber wer glaubt, darf es erneut versuchen. Ohne
+ * diese Ausnahme blieben null Knoepfe uebrig und die Runde waere tot.
+ */
+export function announceOptions(previous: number | null): number[] {
+  if (previous === null) return RANKS.map((_, i) => i);
+  if (previous >= MAEXCHEN) return [MAEXCHEN];
+  return RANKS.map((_, i) => i).filter((i) => i > previous);
+}
 
 const rankLabel = (i: number) => {
   const r = RANKS[i];
@@ -38,7 +55,7 @@ function rankOf(dice: [number, number]): number {
 }
 
 interface State {
-  phase: 'roll' | 'announce' | 'decide' | 'reveal';
+  phase: 'roll' | 'announce' | 'decide' | 'reveal' | 'over';
   order: string[];
   turnIndex: number;
   dice: [number, number] | null;
@@ -46,6 +63,10 @@ interface State {
   previous: number | null;
   reveal: { dice: [number, number]; announced: number; truthful: boolean; loserId: string } | null;
   round: number;
+  /** Ziellinie in Runden. `null` heißt: ohne Ende. */
+  goal: number | null;
+  /** Wie oft wer eine Runde verloren hat – die einzige Wertung, die das Spiel führt. */
+  losses: Record<string, number>;
 }
 
 export const maexchen: GameDefinition<State> = {
@@ -60,6 +81,10 @@ export const maexchen: GameDefinition<State> = {
     previous: null,
     reveal: null,
     round: 1,
+    // Eine Runde ist ein Aufdecken. Acht davon reichen, damit jeder ein paar
+    // Mal gelogen hat, ohne dass es zäh wird.
+    goal: roundGoal(baseFor('maexchen')),
+    losses: {},
   }),
 
   reduce: (state, action, players) => {
@@ -74,7 +99,8 @@ export const maexchen: GameDefinition<State> = {
         if (state.phase !== 'announce') return state;
         const rank = Number(action.rank);
         if (!Number.isInteger(rank) || rank < 0 || rank >= RANKS.length) return state;
-        if (state.previous !== null && rank <= state.previous) return state;
+        // Gleicher Rang ist nur bei Maexchen erlaubt – siehe announceOptions.
+        if (state.previous !== null && rank <= state.previous && rank !== MAEXCHEN) return state;
         return { ...state, announced: rank, phase: 'decide' };
       }
       case 'believe': {
@@ -94,18 +120,24 @@ export const maexchen: GameDefinition<State> = {
         const truthful = actual >= state.announced;
         const announcerId = state.order[state.turnIndex % n];
         const doubterId = state.order[(state.turnIndex + 1) % n];
+        const loserId = truthful ? doubterId : announcerId;
         return {
           ...state,
           phase: 'reveal',
+          losses: { ...state.losses, [loserId]: (state.losses[loserId] ?? 0) + 1 },
           reveal: {
             dice: state.dice,
             announced: state.announced,
             truthful,
-            loserId: truthful ? doubterId : announcerId,
+            loserId,
           },
         };
       }
       case 'nextRound': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Neue Runde" würden sonst zwei Runden zählen, und eine Runde fiele
+        // still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'reveal') return state;
         const ids = new Set(players.map((p) => p.id));
         const order = [
           ...state.order.filter((id) => ids.has(id)),
@@ -113,6 +145,8 @@ export const maexchen: GameDefinition<State> = {
         ];
         const loser = state.reveal?.loserId;
         const idx = loser ? Math.max(0, order.indexOf(loser)) : 0;
+        const round = state.round + 1;
+        if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
         return {
           ...state,
           order,
@@ -122,9 +156,11 @@ export const maexchen: GameDefinition<State> = {
           announced: null,
           previous: null,
           reveal: null,
-          round: state.round + 1,
+          round,
         };
       }
+      case 'restart':
+        return maexchen.createState(players);
       default:
         return state;
     }
@@ -161,14 +197,59 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
   const canAnnounce = !online || announcer?.id === me.id;
   const canDecide = !online || decider?.id === me.id;
 
-  const options = RANKS.map((_, i) => i).filter((i) => state.previous === null || i > state.previous);
+  const options = announceOptions(state.previous);
+
+  if (state.phase === 'over') {
+    const ranking = players.map((p) => ({
+      player: p,
+      value: state.losses[p.id] ?? 0,
+      unit: 'Niederlage',
+    }));
+    const worst = Math.max(0, ...ranking.map((r) => r.value));
+    const losers = ranking.filter((r) => r.value === worst).map((r) => r.player);
+    return (
+      <GameFrame
+        title={maexchen.name}
+        accent={maexchen.accent}
+        subtitle="Ausgewürfelt"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={
+            worst > 0
+              ? `${state.round - 1} Runden Mäxchen. Ganz oben steht, wer am häufigsten danebenlag.`
+              : `${state.round - 1} Runden Mäxchen – und niemand hat sich erwischen lassen.`
+          }
+          ranking={worst > 0 ? ranking : undefined}
+          rankingTitle="Wer am häufigsten danebenlag"
+          rankHighIsBad
+          finalCall={
+            worst > 0
+              ? {
+                  players: losers,
+                  baseSips: 4,
+                  label: 'die meisten Niederlagen',
+                  source: 'maexchen',
+                }
+              : undefined
+          }
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
 
   return (
     <GameFrame
       title={maexchen.name}
       accent={maexchen.accent}
       subtitle={
-        state.previous !== null ? `Zu schlagen: ${rankLabel(state.previous)}` : `Runde ${state.round}`
+        state.previous !== null
+          ? `Zu schlagen: ${rankLabel(state.previous)}`
+          : state.goal
+            ? `Runde ${Math.min(state.round, state.goal)}/${state.goal}`
+            : `Runde ${state.round}`
       }
       onQuit={quit}
     >
@@ -230,7 +311,9 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
             )}
           </div>
           <p className="t-sub t-center t-balance">
-            Sag jetzt an – die Wahrheit oder etwas Höheres. Niemand sieht deinen Wurf.
+            {state.previous === MAEXCHEN
+              ? 'Mäxchen steht. Nur ein eigenes Mäxchen hält dagegen – sonst hilft nur aufdecken lassen.'
+              : 'Sag jetzt an – die Wahrheit oder etwas Höheres. Niemand sieht deinen Wurf.'}
           </p>
           <p className="t-caption t-center">
             Reihenfolge: gemischte Würfe, dann Pasch, dann Mäxchen.
@@ -297,14 +380,16 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
           {byId(state.reveal.loserId) && (
             <DrinkCall
               player={byId(state.reveal.loserId)!}
-              baseSips={4}
+              // Rund um Mäxchen wird doppelt getrunken – darin sind sich alle
+              // Regelquellen einig. Die Engine deckelt die Härte ohnehin.
+              baseSips={state.reveal.announced === MAEXCHEN ? 8 : 4}
               source="maexchen"
               label={state.reveal.truthful ? 'zu Unrecht gezweifelt' : 'beim Lügen erwischt'}
               resetKey={state.round}
             />
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'nextRound' })}>
-            Neue Runde
+            {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Neue Runde'}
           </button>
         </div>
       )}

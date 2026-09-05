@@ -3,6 +3,8 @@ import { shuffle } from '../../lib/format';
 import { cardFromIndex, fullDeck } from '../shared/deck';
 import { PlayingCard } from '../shared/PlayingCard';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { useApp } from '../../store/app';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
@@ -41,6 +43,10 @@ interface State {
   round: number;
   /** true, sobald der vierte König gezogen wurde. */
   finalKing: boolean;
+  /** true, sobald der Becher getrunken ist – dann ist die Partie vorbei. */
+  over: boolean;
+  /** Bei „ohne Ende" läuft das Spiel über den vierten König hinaus weiter. */
+  endless: boolean;
 }
 
 export const kingsCup: GameDefinition<State> = {
@@ -54,6 +60,8 @@ export const kingsCup: GameDefinition<State> = {
     kings: 0,
     round: 1,
     finalKing: false,
+    over: false,
+    endless: useApp.getState().gameLength === 'endlos',
   }),
 
   reduce: (state, action, players) => {
@@ -72,6 +80,9 @@ export const kingsCup: GameDefinition<State> = {
           ...players.filter((p) => !state.order.includes(p.id)).map((p) => p.id),
         ];
         const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
+        // Der vierte König ist das Ende des Spiels, nicht bloß eine harte
+        // Karte. Nur „ohne Ende" mischt danach weiter.
+        if (state.finalKing && !state.endless) return { ...state, order, over: true };
         return {
           ...state,
           order,
@@ -82,6 +93,8 @@ export const kingsCup: GameDefinition<State> = {
           finalKing: false,
         };
       }
+      case 'restart':
+        return kingsCup.createState(players);
       default:
         return state;
     }
@@ -103,6 +116,23 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
     haptic(a.type === 'draw' ? 'heavy' : 'select');
     dispatch(a);
   };
+
+  if (state.over) {
+    return (
+      <GameFrame
+        title={kingsCup.name}
+        accent={kingsCup.accent}
+        subtitle="Der Becher ist leer"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={`Vier Könige, ${state.round} Runden. ${actor?.name ?? 'Wer zuletzt zog'} hat den Becher getrunken.`}
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
 
   return (
     <GameFrame
@@ -155,7 +185,7 @@ function KingsCupGame({ state, players, me, dispatch, quit }: GameRuntime<State>
             </div>
           )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-            Nächster
+            {state.finalKing && !state.endless ? 'Becher leeren und Schluss' : 'Nächster'}
           </button>
         </div>
       )}

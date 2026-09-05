@@ -3,6 +3,8 @@ import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
@@ -56,14 +58,19 @@ const PROMPTS: Prompt[] = [
   { text: 'Die ehrlichste Antwort auf „Wie war ich?": …', spicy: true },
 ];
 
+/** Fünf Prompts sind bei „mittel" eine runde Partie – danach wiederholen sich die Pointen. */
+const ROUND_BASE = baseFor('meme-battle');
+
 interface State {
-  phase: 'writing' | 'voting' | 'results';
+  phase: 'writing' | 'voting' | 'results' | 'over';
   prompt: number;
   deck: number[];
   answers: Record<string, string>;
   votes: Record<string, string>;
   scores: Record<string, number>;
   round: number;
+  /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
+  goal: number | null;
   /** Reihenfolge, in der die Antworten gezeigt werden (anonym). */
   reveal: string[];
 }
@@ -81,6 +88,7 @@ export const memeBattle: GameDefinition<State> = {
       votes: {},
       scores: Object.fromEntries(players.map((p) => [p.id, 0])),
       round: 1,
+      goal: roundGoal(ROUND_BASE),
       reveal: [],
     };
   },
@@ -114,6 +122,10 @@ export const memeBattle: GameDefinition<State> = {
         return { ...state, votes, scores, phase: 'results' };
       }
       case 'next': {
+        // Ein zurückgebliebenes Gerät darf die beendete Partie nicht weiterzählen.
+        if (state.phase === 'over') return state;
+        const round = state.round + 1;
+        if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle');
         return {
           ...state,
@@ -123,9 +135,11 @@ export const memeBattle: GameDefinition<State> = {
           answers: {},
           votes: {},
           reveal: [],
-          round: state.round + 1,
+          round,
         };
       }
+      case 'restart':
+        return memeBattle.createState(players);
       default:
         return state;
     }
@@ -154,11 +168,52 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
     );
   }
 
+  if (state.phase === 'over') {
+    const rows = players.map((p) => ({ player: p, value: state.scores[p.id] ?? 0, unit: 'Stimme' }));
+    const values = rows.map((r) => r.value);
+    const best = values.length ? Math.max(...values) : 0;
+    const worst = values.length ? Math.min(...values) : 0;
+    const champions = rows.filter((r) => r.value === best);
+    const last = rows.filter((r) => r.value === worst).map((r) => r.player);
+    return (
+      <GameFrame
+        title={memeBattle.name}
+        accent={memeBattle.accent}
+        subtitle="Ausgespielt"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={
+            champions.length === 1
+              ? `${state.round - 1} Prompts. ${champions[0].player.name} hat die meisten Stimmen geholt.`
+              : `${state.round - 1} Prompts. An der Spitze bleibt es unentschieden.`
+          }
+          ranking={rows}
+          rankingTitle="Die meisten Stimmen"
+          finalCall={
+            // Nur wenn es wirklich ein Schlusslicht gibt – sonst trinkt die
+            // ganze Runde für ein Ergebnis, das keins ist.
+            best > worst
+              ? { players: last, baseSips: 4, label: 'am wenigsten Stimmen', source: 'meme-battle' }
+              : undefined
+          }
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'writing') {
     const submitted = !!state.answers[me.id];
     const waiting = players.filter((p) => p.online !== false && !state.answers[p.id]).map((p) => p.name);
     return (
-      <GameFrame title={memeBattle.name} accent={memeBattle.accent} subtitle={`Runde ${state.round}`} onQuit={quit}>
+      <GameFrame
+        title={memeBattle.name}
+        accent={memeBattle.accent}
+        subtitle={state.goal ? `Runde ${state.round}/${state.goal}` : `Runde ${state.round}`}
+        onQuit={quit}
+      >
         <BigCard kicker="Prompt">{prompt}</BigCard>
         {submitted ? (
           <WaitingFor names={waiting} what="Warten auf" />
@@ -247,13 +302,14 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
       </div>
       <DrinkCallList
         players={losers}
-        baseSips={3}
+        // Gar keine Stimme ist mehr als nur wenige – das darf man spüren.
+        baseSips={minVotes === 0 ? 5 : 3}
         source="meme-battle"
-        label="wenig Stimmen"
+        label={minVotes === 0 ? 'keine einzige Stimme' : 'wenig Stimmen'}
         resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        Nächster Prompt
+        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächster Prompt'}
       </button>
     </GameFrame>
   );

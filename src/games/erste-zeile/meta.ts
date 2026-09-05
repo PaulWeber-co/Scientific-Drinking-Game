@@ -15,7 +15,7 @@ export const meta: GameMeta = {
   tags: ['handy-weg', 'reden', 'kreativ'],
   howTo: [
     'Die Person am Zug sucht sich einen passenden Song aus und singt die erste Zeile.',
-    'Wer ihn zuerst errät, ist raus aus der Trinkrunde.',
+    'Wer ihn zuerst errät, wird angetippt und ist raus – alle anderen trinken.',
     'Errät ihn niemand, trinkt die singende Person.',
   ],
   allowCustomCards: true,

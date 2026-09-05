@@ -17,6 +17,7 @@ import { QrCode } from '../../components/ui/QrCode';
 import { haptic } from '../../lib/haptics';
 import { formatBac } from '../../lib/format';
 import { gamesForGroup } from '../../games/registry';
+import type { GamePlayer } from '../../games/types';
 import { GameCard } from '../games/GameCard';
 import { useParty } from '../party/PartyContext';
 import { useApp } from '../../store/app';
@@ -26,6 +27,7 @@ export function LobbyScreen() {
   const nav = useNavigate();
   const [joinOpen, setJoinOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<GamePlayer | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const lastCode = useApp((s) => s.lastLobbyCode);
@@ -165,13 +167,18 @@ export function LobbyScreen() {
                   </span>
                 </span>
                 {p.local && (
-                  <button
-                    className="btn btn--plain"
-                    style={{ color: 'var(--red)' }}
-                    onClick={() => party.removeLocalPlayer(p.id)}
-                  >
-                    Entfernen
-                  </button>
+                  <>
+                    <button className="btn btn--plain" onClick={() => setEditing(p)}>
+                      Ändern
+                    </button>
+                    <button
+                      className="btn btn--plain"
+                      style={{ color: 'var(--red)' }}
+                      onClick={() => party.removeLocalPlayer(p.id)}
+                    >
+                      Entfernen
+                    </button>
+                  </>
                 )}
               </div>
             ))}
@@ -222,6 +229,7 @@ export function LobbyScreen() {
         }}
       />
       <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddPlayerSheet open={editing !== null} onClose={() => setEditing(null)} edit={editing} />
     </div>
   );
 }
@@ -263,35 +271,52 @@ function JoinSheet({
   );
 }
 
-function AddPlayerSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  // Das Formular lebt nur, solange das Sheet offen ist: jeder Gast startet
-  // mit frischen Standardwerten, nichts bleibt vom vorigen Gast hängen.
+function AddPlayerSheet({
+  open,
+  onClose,
+  edit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  edit?: GamePlayer | null;
+}) {
+  // Das Formular lebt nur, solange das Sheet offen ist: jeder neue Gast
+  // startet mit frischen Standardwerten, nichts bleibt vom vorigen hängen.
+  // Beim Bearbeiten sorgt der key dafür, dass die Felder zum richtigen Gast
+  // gehören, auch wenn direkt danach ein anderer geöffnet wird.
   return (
-    <Sheet open={open} onClose={onClose} title="Mitspieler auf diesem Handy">
-      <GuestForm onDone={onClose} />
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={edit ? `${edit.name} ändern` : 'Mitspieler auf diesem Handy'}
+    >
+      <GuestForm key={edit?.id ?? 'neu'} onDone={onClose} edit={edit ?? null} />
     </Sheet>
   );
 }
 
-function GuestForm({ onDone }: { onDone: () => void }) {
+function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | null }) {
   const party = useParty();
-  const [name, setName] = useState('');
+  // Beim Bearbeiten stehen die gespeicherten Werte im Formular, sonst die
+  // Standardwerte. Der Trink-Log des Gastes bleibt in beiden Fällen unberührt.
+  const alt = edit?.local?.profile ?? null;
+  const [name, setName] = useState(alt?.name ?? '');
   // Jeder neue Gast bekommt automatisch eine noch freie Avatarfarbe.
-  const taken = party.players.map((p) => p.color);
+  const taken = party.players.filter((p) => p.id !== edit?.id).map((p) => p.color);
   const [color, setColor] = useState<AvatarColor>(
-    () => AVATAR_COLORS.find((c) => !taken.includes(c)) ?? 'purple',
+    () => alt?.color ?? AVATAR_COLORS.find((c) => !taken.includes(c)) ?? 'purple',
   );
-  const [sex, setSex] = useState<Sex>('female');
-  const [weight, setWeight] = useState(65);
-  const [heightCm, setHeightCm] = useState<number | undefined>(undefined);
-  const [age, setAge] = useState(25);
-  const [stomach, setStomach] = useState<StomachState>('light');
-  const [targetBac, setTargetBac] = useState(DEFAULT_TARGET_BAC);
+  const [sex, setSex] = useState<Sex>(alt?.sex ?? 'female');
+  const [weight, setWeight] = useState(alt?.weightKg ?? 65);
+  const [heightCm, setHeightCm] = useState<number | undefined>(alt?.heightCm);
+  const [age, setAge] = useState(alt?.age ?? 25);
+  const [stomach, setStomach] = useState<StomachState>(alt?.stomach ?? 'light');
+  const [targetBac, setTargetBac] = useState(alt?.targetBac ?? DEFAULT_TARGET_BAC);
   // Fahren heißt alkoholfrei – in beide Richtungen: wer den Alkoholfrei-
   // Schalter ausmacht, fährt auch nicht. So zeigt jeder Schalter, was gilt.
-  const [alcoholFree, setAlcoholFree] = useState(false);
-  const [driver, setDriver] = useState(false);
-  const [drinkId, setDrinkId] = useState('beer-pils');
+  const [alcoholFree, setAlcoholFree] = useState(alt?.alcoholFree ?? false);
+  const [driver, setDriver] = useState(alt?.designatedDriver ?? false);
+  const [drinkId, setDrinkId] = useState(edit?.local?.drinkId ?? 'beer-pils');
   const setDry = (v: boolean) => {
     setAlcoholFree(v);
     if (!v) setDriver(false);
@@ -316,7 +341,9 @@ function GuestForm({ onDone }: { onDone: () => void }) {
       alcoholFree,
       designatedDriver: driver,
     };
-    party.addLocalPlayer({ name: profile.name, color, profile, drinkId: alcoholFree ? 'soft' : drinkId });
+    const drink = alcoholFree ? 'soft' : drinkId;
+    if (edit) party.updateLocalPlayer(edit.id, { name: profile.name, color, profile, drinkId: drink });
+    else party.addLocalPlayer({ name: profile.name, color, profile, drinkId: drink });
     haptic('success');
     onDone();
   };
@@ -326,9 +353,9 @@ function GuestForm({ onDone }: { onDone: () => void }) {
   return (
     <div className="stack">
       <p className="t-sub t-balance">
-        Für Pass-&-Play: Die App rechnet auch für diese Person die richtige Menge aus. Was du
-        nicht angibst, rechnet sie mit Standardwerten. Alles bleibt auf diesem Gerät und wird
-        beim Schließen der App nicht gespeichert.
+        {edit
+          ? 'Änderungen gelten ab der nächsten Ansage. Was diese Person heute schon getrunken hat, bleibt erhalten.'
+          : 'Für Pass-&-Play: Die App rechnet auch für diese Person die richtige Menge aus. Was du nicht angibst, rechnet sie mit Standardwerten. Alles bleibt auf diesem Gerät und wird beim Schließen der App nicht gespeichert.'}
       </p>
       <input className="input" placeholder="Name" maxLength={16} value={name} onChange={(e) => setName(e.target.value)} />
       <div className="row" style={{ justifyContent: 'center' }}>
@@ -442,7 +469,7 @@ function GuestForm({ onDone }: { onDone: () => void }) {
         </>
       )}
       <button className="btn btn--brand btn--block btn--lg" onClick={submit}>
-        Hinzufügen
+        {edit ? 'Speichern' : 'Hinzufügen'}
       </button>
     </div>
   );

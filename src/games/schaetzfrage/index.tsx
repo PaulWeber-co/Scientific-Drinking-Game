@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
@@ -43,11 +45,29 @@ const QUESTIONS: Question[] = [
 ];
 
 interface State {
-  phase: 'guess' | 'result';
+  phase: 'guess' | 'result' | 'over';
   q: number;
   deck: number[];
   guesses: Record<string, number>;
   round: number;
+  goal: number | null;
+  /** Wie oft jemand am nächsten an der Wahrheit lag. */
+  wins: Record<string, number>;
+}
+
+/** Eine Runde ist eine Frage. Sechs davon sind eine „mittlere" Partie. */
+const ROUND_BASE = baseFor('schaetzfrage');
+
+/** Wer am nächsten dran lag, bekommt den Punkt – bei Gleichstand alle. */
+function scoreRound(state: State): Record<string, number> {
+  const ids = Object.keys(state.guesses);
+  if (!ids.length) return state.wins;
+  const answer = QUESTIONS[state.q].answer;
+  const off = (id: string) => Math.abs(state.guesses[id] - answer);
+  const best = Math.min(...ids.map(off));
+  const wins = { ...state.wins };
+  for (const id of ids) if (off(id) === best) wins[id] = (wins[id] ?? 0) + 1;
+  return wins;
 }
 
 export const schaetzfrage: GameDefinition<State> = {
@@ -55,7 +75,15 @@ export const schaetzfrage: GameDefinition<State> = {
 
   createState: () => {
     const deck = shuffle(QUESTIONS.map((_, i) => i));
-    return { phase: 'guess', q: deck[0], deck: deck.slice(1), guesses: {}, round: 1 };
+    return {
+      phase: 'guess',
+      q: deck[0],
+      deck: deck.slice(1),
+      guesses: {},
+      round: 1,
+      goal: roundGoal(ROUND_BASE),
+      wins: {},
+    };
   },
 
   reduce: (state, action, players) => {
@@ -70,15 +98,27 @@ export const schaetzfrage: GameDefinition<State> = {
         return { ...state, guesses, phase: done ? 'result' : 'guess' };
       }
       case 'next': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'result') return state;
         const deck = state.deck.length ? state.deck : shuffle(QUESTIONS.map((_, i) => i));
+        const round = state.round + 1;
+        // Gezählt wird nur, was auch aufgelöst wurde.
+        const wins = state.phase === 'result' ? scoreRound(state) : state.wins;
+        if (isOver(round, state.goal)) return { ...state, round, wins, phase: 'over' };
         return {
+          ...state,
           phase: 'guess',
           q: deck[0],
           deck: deck.slice(1),
           guesses: {},
-          round: state.round + 1,
+          round,
+          wins,
         };
       }
+      case 'restart':
+        return schaetzfrage.createState(players);
       default:
         return state;
     }
@@ -107,6 +147,42 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
     );
   }
 
+  const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
+
+  if (state.phase === 'over') {
+    const contenders = players.filter((p) => p.online !== false);
+    const ranking = contenders.map((p) => ({
+      player: p,
+      value: state.wins[p.id] ?? 0,
+      unit: 'Runde',
+    }));
+    const fewest = Math.min(...ranking.map((r) => r.value));
+    const trailing = ranking.filter((r) => r.value === fewest).map((r) => r.player);
+    return (
+      <GameFrame
+        title={schaetzfrage.name}
+        accent={schaetzfrage.accent}
+        subtitle="Vorbei"
+        onQuit={quit}
+      >
+        <GameOver
+          headline={`${state.goal ?? state.round - 1} Fragen geschätzt. Oben steht, wer am häufigsten am nächsten dran war.`}
+          ranking={ranking}
+          rankingTitle="Wer am häufigsten am nächsten dran war"
+          finalCall={{
+            // Liegen alle gleichauf, gibt es kein Schlusslicht – dann trinkt niemand.
+            players: trailing.length < ranking.length ? trailing : [],
+            baseSips: 4,
+            label: 'am seltensten nah dran',
+            source: 'schaetzfrage',
+          }}
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'guess') {
     const submitted = state.guesses[me.id] !== undefined;
     const waiting = players
@@ -116,7 +192,7 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
       <GameFrame
         title={schaetzfrage.name}
         accent={schaetzfrage.accent}
-        subtitle={`Runde ${state.round}`}
+        subtitle={`Runde ${progress}`}
         onQuit={quit}
       >
         <BigCard kicker={`Antwort in ${question.unit}`}>{question.q}</BigCard>
@@ -160,7 +236,7 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
     <GameFrame
       title={schaetzfrage.name}
       accent={schaetzfrage.accent}
-      subtitle="Auflösung"
+      subtitle={`Runde ${progress} · Auflösung`}
       onQuit={quit}
     >
       <BigCard kicker={question.q}>
@@ -187,7 +263,7 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
         resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        Nächste Frage
+        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Frage'}
       </button>
     </GameFrame>
   );

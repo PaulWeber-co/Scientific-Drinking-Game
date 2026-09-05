@@ -5,6 +5,8 @@ import { shuffle } from '../../lib/format';
 import { cardFromIndex, cardValue, fullDeck, isRed, RANKS, SUIT_ICONS, SUIT_NAMES } from '../shared/deck';
 import { PlayingCard } from '../shared/PlayingCard';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
@@ -48,9 +50,13 @@ const QUESTIONS: { q: string; options: { id: string; label: ReactNode }[] }[] = 
 /** Strafschlucke für aufgedeckte Bildkarten auf der Busfahrt. */
 const BUS_PENALTY: Record<number, number> = { 10: 2, 11: 3, 12: 4, 0: 5 }; // Bube, Dame, König, Ass
 
+/** Fragerunde plus Busfahrt dauert; drei Durchgänge sind bei „mittel" genug. */
+const ROUND_BASE = baseFor('busfahrer');
+
 interface State {
   order: string[];
-  phase: 'questions' | 'bus' | 'done';
+  /** `done` beendet die Busfahrt, `over` die Partie. */
+  phase: 'questions' | 'bus' | 'done' | 'over';
   playerIndex: number;
   qIndex: number;
   hand: number[];
@@ -63,6 +69,11 @@ interface State {
   busRow: (number | null)[];
   busPenalty: number;
   busAttempts: number;
+  round: number;
+  /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
+  goal: number | null;
+  /** Wie oft jemand den Bus fahren musste – die Bilanz am Ende. */
+  drives: Record<string, number>;
 }
 
 const BUS_LENGTH = 5;
@@ -85,11 +96,18 @@ export const busfahrer: GameDefinition<State> = {
     busRow: Array(BUS_LENGTH).fill(null),
     busPenalty: 0,
     busAttempts: 0,
+    round: 1,
+    goal: roundGoal(ROUND_BASE),
+    drives: Object.fromEntries(players.map((p) => [p.id, 0])),
   }),
 
   reduce: (state, action, players) => {
     switch (action.type) {
       case 'answer': {
+        // Die Frage braucht so viele Handkarten, wie schon beantwortet wurden.
+        // Eine verspaetete Antwort aus der Inbox traf sonst auf eine leere Hand
+        // und riss den Host-Reducer mit einem Zugriff auf undefined ab.
+        if (state.phase !== 'questions' || state.hand.length < state.qIndex) return state;
         const deck = state.deck.length >= 5 ? state.deck : shuffle(fullDeck());
         const [next, ...rest] = deck;
         const card = cardFromIndex(next);
@@ -121,6 +139,9 @@ export const busfahrer: GameDefinition<State> = {
           ...state,
           phase: 'bus',
           driverId,
+          drives: driverId
+            ? { ...state.drives, [driverId]: (state.drives[driverId] ?? 0) + 1 }
+            : state.drives,
           busDeck: shuffle(fullDeck()),
           busPos: 0,
           busRow: Array(BUS_LENGTH).fill(null),
@@ -157,7 +178,16 @@ export const busfahrer: GameDefinition<State> = {
           busPenalty: 0,
           busAttempts: state.busAttempts + 1,
         };
-      case 'again':
+      case 'again': {
+        // Nur aus einer gefahrenen Runde heraus. Zwei fast gleichzeitige Taps
+        // würden sonst zwei Runden zählen und eine still überspringen.
+        if (state.phase !== 'done') return state;
+        const round = state.round + 1;
+        if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
+        // Neue Karten, neue Fragen – Ziellinie und Bilanz bleiben stehen.
+        return { ...busfahrer.createState(players), round, goal: state.goal, drives: state.drives };
+      }
+      case 'restart':
         return busfahrer.createState(players);
       default:
         return state;
@@ -198,6 +228,42 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
     dispatch(a);
   };
   const findP = (id: string | null) => players.find((p) => p.id === id) ?? players[0];
+
+  if (state.phase === 'over') {
+    const rows = players.map((p) => ({
+      player: p,
+      value: state.drives[p.id] ?? 0,
+      unit: 'Busfahrt',
+      unitPlural: 'Busfahrten',
+    }));
+    const values = rows.map((r) => r.value);
+    const most = values.length ? Math.max(...values) : 0;
+    const fewest = values.length ? Math.min(...values) : 0;
+    const top = rows.filter((r) => r.value === most).map((r) => r.player);
+    return (
+      <GameFrame title={busfahrer.name} accent={busfahrer.accent} subtitle="Endstation" onQuit={quit}>
+        <GameOver
+          headline={
+            top.length === 1
+              ? `${state.round - 1} Runden. ${top[0].name} saß am häufigsten am Steuer.`
+              : `${state.round - 1} Runden. Ganz oben steht, wer am häufigsten fahren musste.`
+          }
+          ranking={rows}
+          rankingTitle="Wer am häufigsten fahren musste"
+          rankHighIsBad
+          finalCall={
+            // Nur wenn jemand wirklich heraussticht – bei Gleichstand träfe
+            // die Ansage die ganze Runde und sagte damit nichts.
+            most > fewest
+              ? { players: top, baseSips: 4, label: 'die meisten Busfahrten', source: 'busfahrer' }
+              : undefined
+          }
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
 
   if (state.phase === 'questions') {
     const actor = findP(state.order[state.playerIndex]);
@@ -267,7 +333,12 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
 
   if (state.phase === 'done') {
     return (
-      <GameFrame title={busfahrer.name} accent={busfahrer.accent} subtitle="Angekommen" onQuit={quit}>
+      <GameFrame
+        title={busfahrer.name}
+        accent={busfahrer.accent}
+        subtitle={state.goal ? `Angekommen · Runde ${state.round}/${state.goal}` : 'Angekommen'}
+        onQuit={quit}
+      >
         <BigCard kicker="Endstation">
           {driver?.name} hat es geschafft – nach {state.busAttempts}{' '}
           {state.busAttempts === 1 ? 'Versuch' : 'Versuchen'}.
@@ -278,7 +349,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
           ))}
         </div>
         <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'again' })}>
-          Neue Runde
+          {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Neue Runde'}
         </button>
       </GameFrame>
     );

@@ -63,6 +63,15 @@ export const kategorien = createCardGame({
   baseSips: 3,
   drink: 'self-declare',
   resolveLabel: 'Runde vorbei',
+  // Ohne eigene Beschriftung stünde hier der Wortlaut von „Ich hab noch nie".
+  // Bei Kategorien trinkt aber, wer hängen bleibt.
+  declare: {
+    yes: 'Ich hab gehangen',
+    no: 'Ich war schnell genug',
+    label: 'gehangen',
+    clean: 'Durchgekommen. Diese Runde kostet dich nichts.',
+    heading: 'Wer hängen bleibt, trinkt',
+  },
   heatSelectable: true,
   cards: CARDS,
 });

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { Explosion } from '../shared/Explosion';
@@ -40,13 +42,18 @@ const CATEGORIES = [
   'Etwas, das man nie zurückbekommt',
 ];
 
+/** Acht Explosionen sind bei „mittel" eine Partie – jede Runde dauert unter einer Minute. */
+const ROUND_BASE = baseFor('wortbombe');
+
 interface State {
   order: string[];
   holderIndex: number;
-  phase: 'ready' | 'running' | 'boom';
+  phase: 'ready' | 'running' | 'boom' | 'over';
   category: string;
   explodesAt: number;
   round: number;
+  /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
+  goal: number | null;
   losses: Record<string, number>;
 }
 
@@ -60,6 +67,7 @@ export const wortbombe: GameDefinition<State> = {
     category: pick(CATEGORIES),
     explodesAt: 0,
     round: 1,
+    goal: roundGoal(ROUND_BASE),
     losses: {},
   }),
 
@@ -91,13 +99,22 @@ export const wortbombe: GameDefinition<State> = {
           losses: { ...state.losses, [loser]: (state.losses[loser] ?? 0) + 1 },
         };
       }
-      case 'next':
+      case 'next': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'boom') return state;
+        const round = state.round + 1;
+        if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         return {
           ...state,
           phase: 'ready',
-          round: state.round + 1,
+          round,
           holderIndex: (state.holderIndex + 1) % Math.max(1, state.order.length),
         };
+      }
+      case 'restart':
+        return wortbombe.createState(players);
       default:
         return state;
     }
@@ -148,11 +165,43 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     return () => clearInterval(t);
   }, [state.phase, isHolder, online, tension]);
 
+  if (state.phase === 'over') {
+    const rows = players.map((p) => ({
+      player: p,
+      value: state.losses[p.id] ?? 0,
+      unit: 'Verlust',
+      unitPlural: 'Verluste',
+    }));
+    const values = rows.map((r) => r.value);
+    const most = values.length ? Math.max(...values) : 0;
+    const fewest = values.length ? Math.min(...values) : 0;
+    const top = rows.filter((r) => r.value === most).map((r) => r.player);
+    return (
+      <GameFrame title={wortbombe.name} accent={wortbombe.accent} subtitle="Ausgezählt" onQuit={quit}>
+        <GameOver
+          headline={`${state.round - 1} Runden. Ganz oben steht, wem die Bombe am häufigsten in der Hand hochging.`}
+          ranking={rows}
+          rankingTitle="Wem die Bombe am häufigsten hochging"
+          rankHighIsBad
+          finalCall={
+            // Nur wenn es wirklich ein Schlusslicht gibt – bei Gleichstand
+            // träfe die Ansage die ganze Runde und sagte damit nichts.
+            most > fewest
+              ? { players: top, baseSips: 4, label: 'die meisten Bomben', source: 'wortbombe' }
+              : undefined
+          }
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   return (
     <GameFrame
       title={wortbombe.name}
       accent={wortbombe.accent}
-      subtitle={`Runde ${state.round}`}
+      subtitle={state.goal ? `Runde ${state.round}/${state.goal}` : `Runde ${state.round}`}
       onQuit={quit}
     >
       <BigCard kicker="Kategorie" tone={state.phase === 'boom' ? 'danger' : 'default'}>
@@ -205,7 +254,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
           </BigCard>
           <DrinkCall player={holder} baseSips={5} source="wortbombe" resetKey={state.round} />
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-            Nächste Runde
+            {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Runde'}
           </button>
         </div>
       )}

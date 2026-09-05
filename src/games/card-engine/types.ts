@@ -41,6 +41,17 @@ export interface CardGameConfig {
   /** Wer trinkt, wenn die Karte einfach erledigt wird. */
   drink: 'actor' | 'all' | 'none' | 'self-declare';
   resolveLabel?: string;
+  /**
+   * Beschriftung der Selbstauskunft bei `drink: 'self-declare'`. Ohne diese
+   * Angabe steht dort der Wortlaut von „Ich hab noch nie" – der passt nicht
+   * zu jedem Spiel, das die Runde selbst entscheiden lässt.
+   */
+  declare?: { yes: string; no: string; label: string; clean: string; heading: string };
+  /**
+   * Nach dem Auflösen wird eine Person gewählt, etwa wer als Erster geraten
+   * hat. Sie ist raus, alle anderen trinken.
+   */
+  pickWinner?: { prompt: string; label: string; sips: number };
   /** Überschrift über der Karte, wenn die Karte selbst keine mitbringt. */
   cardKicker?: string;
   /** Wenn gesetzt: der Spieler darf kneifen und trinkt stattdessen. */
@@ -65,6 +76,10 @@ export interface CardGameState {
   deck: CardDef[];
   drawn: CardDef | null;
   mode: string | null;
-  phase: 'choose' | 'card' | 'resolved';
+  phase: 'choose' | 'card' | 'resolved' | 'over';
   outcome: 'done' | 'refused' | null;
+  /** Nur mit `pickWinner`: wer die Runde für sich entschieden hat. */
+  winner: string | null;
+  /** Nach so vielen vollen Runden ist Schluss. `null` = ohne Ende. */
+  goal: number | null;
 }

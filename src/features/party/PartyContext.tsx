@@ -528,6 +528,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           name: (name as string) ?? p.name,
           color: (color as AvatarColor) ?? p.color,
           drinkIcon: findDrink(local.drinkId).icon,
+          // Muss mitwandern: die Lobby und die Spiele lesen den Fahrer-Status
+          // von hier, nicht aus dem Profil darunter.
+          driver: local.profile.designatedDriver,
           local,
         };
       }),

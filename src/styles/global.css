@@ -1006,6 +1006,19 @@ button.chip--outline {
   font-weight: 650;
   line-height: 1.2;
 }
+/* Mitten im Spiel zaehlt Hoehe: vier statt drei Spalten, damit unter dem
+   Raster noch Zielpegel und Schalter ins Bild passen. */
+.drinkgrid--compact {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s-1);
+}
+.drinkgrid--compact .drinktile {
+  padding: var(--s-2) 4px;
+  min-height: 44px;
+}
+.drinkgrid--compact .drinktile__name {
+  font-size: 10.5px;
+}
 
 /* ---------- Slider ---------- */
 .slider {

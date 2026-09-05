@@ -4,9 +4,11 @@ import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
+import { GameOver } from '../shared/GameOver';
+import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
-import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
 interface Category {
@@ -53,7 +55,7 @@ const CATEGORIES: Category[] = [
 ];
 
 interface State {
-  phase: 'writing' | 'ordering' | 'results';
+  phase: 'writing' | 'ordering' | 'results' | 'over';
   category: number;
   deck: number[];
   numbers: Record<string, number>;
@@ -62,6 +64,32 @@ interface State {
   captainIndex: number;
   captainOrder: string[];
   round: number;
+  goal: number | null;
+  /**
+   * Perfekt sortierte Runden je Kapitän. Wer einmal sortiert hat, steht hier
+   * drin – auch mit 0. Nur so bleibt die Rangliste am Ende unter denen, die
+   * überhaupt an der Reihe waren.
+   */
+  perfect: Record<string, number>;
+}
+
+/** Eine Runde ist eine Kategorie. Sechs davon sind eine „mittlere" Partie. */
+const ROUND_BASE = baseFor('top-ten');
+
+/** Zählt die Fehlstellen in der Reihenfolge, die der Kapitän festgelegt hat. */
+function wrongPairsIn(order: string[], numbers: Record<string, number>): number {
+  let wrong = 0;
+  for (let i = 0; i < order.length - 1; i++) {
+    if ((numbers[order[i]] ?? 0) > (numbers[order[i + 1]] ?? 0)) wrong++;
+  }
+  return wrong;
+}
+
+function scoreCaptain(state: State, players: GamePlayer[]): Record<string, number> {
+  const captain = players[state.captainIndex % Math.max(1, players.length)];
+  if (!captain) return state.perfect;
+  const hit = wrongPairsIn(state.captainOrder, state.numbers) === 0 ? 1 : 0;
+  return { ...state.perfect, [captain.id]: (state.perfect[captain.id] ?? 0) + hit };
 }
 
 export const topTen: GameDefinition<State> = {
@@ -80,6 +108,8 @@ export const topTen: GameDefinition<State> = {
       captainIndex: 0,
       captainOrder: [],
       round: 1,
+      goal: roundGoal(ROUND_BASE),
+      perfect: {},
     };
   },
 
@@ -102,10 +132,19 @@ export const topTen: GameDefinition<State> = {
       case 'setOrder':
         return { ...state, captainOrder: (action.order as string[]) ?? state.captainOrder };
       case 'lockOrder':
+        if (state.phase !== 'ordering') return state;
         return { ...state, phase: 'results' };
       case 'next': {
+        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
+        // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'results') return state;
         const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten');
         const ids = players.map((p) => p.id);
+        const round = state.round + 1;
+        // Gewertet wird nur eine Reihenfolge, die auch festgelegt wurde.
+        const perfect = state.phase === 'results' ? scoreCaptain(state, players) : state.perfect;
+        if (isOver(round, state.goal)) return { ...state, round, perfect, phase: 'over' };
         return {
           ...state,
           phase: 'writing',
@@ -116,9 +155,12 @@ export const topTen: GameDefinition<State> = {
           order: ids,
           captainOrder: [],
           captainIndex: (state.captainIndex + 1) % Math.max(1, ids.length),
-          round: state.round + 1,
+          round,
+          perfect,
         };
       }
+      case 'restart':
+        return topTen.createState(players);
       default:
         return state;
     }
@@ -157,12 +199,37 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
     );
   }
 
+  const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
+
+  if (state.phase === 'over') {
+    const captains = players.filter((p) => state.perfect[p.id] !== undefined);
+    const ranking = captains.map((p) => ({ player: p, value: state.perfect[p.id], unit: 'Runde' }));
+    // Ohne eine einzige perfekte Sortierung wäre die Reihenfolge der Liste Zufall.
+    const anyPerfect = ranking.some((r) => r.value > 0);
+    const played = state.goal ?? state.round - 1;
+    return (
+      <GameFrame title={topTen.name} accent={topTen.accent} subtitle="Vorbei" onQuit={quit}>
+        <GameOver
+          headline={
+            anyPerfect
+              ? `${played} Runden sortiert. Oben steht, wer als Kapitän am häufigsten alles richtig gelegt hat.`
+              : `${played} Runden sortiert – und kein einziges Mal saß die Reihenfolge perfekt.`
+          }
+          ranking={anyPerfect ? ranking : undefined}
+          rankingTitle="Wer als Kapitän am häufigsten alles richtig legte"
+          onAgain={() => send({ type: 'restart' })}
+          onQuit={quit}
+        />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'writing') {
     const myNumber = state.numbers[me.id];
     const submitted = !!state.answers[me.id];
     const waiting = players.filter((p) => p.online !== false && !state.answers[p.id]).map((p) => p.name);
     return (
-      <GameFrame title={topTen.name} accent={topTen.accent} subtitle={`Runde ${state.round}`} onQuit={quit}>
+      <GameFrame title={topTen.name} accent={topTen.accent} subtitle={`Runde ${progress}`} onQuit={quit}>
         <BigCard kicker={cat.low + ' → ' + cat.high}>{cat.title}</BigCard>
         <div className="secret">
           <div className="t-upper">Deine geheime Zahl</div>
@@ -208,7 +275,12 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
       send({ type: 'setOrder', order: next });
     };
     return (
-      <GameFrame title={topTen.name} accent={topTen.accent} subtitle="Sortieren" onQuit={quit}>
+      <GameFrame
+        title={topTen.name}
+        accent={topTen.accent}
+        subtitle={`Runde ${progress} · Sortieren`}
+        onQuit={quit}
+      >
         <div className="row" style={{ justifyContent: 'center' }}>
           {captain && <PlayerChip player={captain} note={isCaptain ? 'du sortierst' : 'sortiert'} />}
         </div>
@@ -249,15 +321,17 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
   }
 
   const truth = [...local].sort((a, b) => (state.numbers[a] ?? 0) - (state.numbers[b] ?? 0));
-  let wrongPairs = 0;
-  for (let i = 0; i < local.length - 1; i++) {
-    if ((state.numbers[local[i]] ?? 0) > (state.numbers[local[i + 1]] ?? 0)) wrongPairs++;
-  }
+  const wrongPairs = wrongPairsIn(local, state.numbers);
   const perfect = wrongPairs === 0;
   const others = players.filter((p) => p.id !== captain?.id);
 
   return (
-    <GameFrame title={topTen.name} accent={topTen.accent} subtitle="Auflösung" onQuit={quit}>
+    <GameFrame
+      title={topTen.name}
+      accent={topTen.accent}
+      subtitle={`Runde ${progress} · Auflösung`}
+      onQuit={quit}
+    >
       <BigCard kicker={perfect ? 'Perfekt' : `${wrongPairs} ${wrongPairs === 1 ? 'Fehler' : 'Fehler'}`}>
         {perfect
           ? `${captain?.name} hat alles richtig sortiert. Alle anderen trinken.`
@@ -283,7 +357,7 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
         resetKey={state.round}
       />
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        Nächste Runde
+        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Runde'}
       </button>
     </GameFrame>
   );

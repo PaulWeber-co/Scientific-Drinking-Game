@@ -50,6 +50,14 @@ export const ersteZeile = createCardGame({
   resolveLabel: 'Erraten',
   refuseLabel: 'Keiner wusste es',
   refuseSips: 3,
+  // Die Anleitung verspricht, dass der schnellste Rater raus ist. Ohne diese
+  // Auswahl war das Spiel praktisch trinkfrei: getrunken wurde nur, wenn
+  // niemand den Song kannte.
+  pickWinner: {
+    prompt: 'Wer hatte den Song zuerst?',
+    label: 'zu langsam',
+    sips: 2,
+  },
   heatSelectable: true,
   cards: CARDS,
 });
