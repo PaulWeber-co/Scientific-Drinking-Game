@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 // Vitest läuft vom Projektroot (vite.config.ts liegt dort).
 const root = process.cwd();
 
-// Trefferflächen selbst lassen sich ohne Layout nicht testen – das macht
-// das Playwright-Skript. Hier nur, was jsdom prüfen kann: Zoom bleibt
+// Trefferflächen selbst lassen sich ohne Layout nicht testen – das braucht
+// einen echten Browser. Hier nur, was jsdom prüfen kann: Zoom bleibt
 // erlaubt, Doppeltipp-Zoom ist per CSS unterbunden.
 describe('Zoom bleibt erlaubt', () => {
   it('Viewport-Tag sperrt das Vergrößern nicht', () => {
