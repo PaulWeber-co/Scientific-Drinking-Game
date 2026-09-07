@@ -27,7 +27,6 @@ interface SeenState {
   /** Vergibt die Nummern, steigt monoton. */
   cursor: number;
   markSeen: (keys: readonly string[]) => void;
-  forgetAll: () => void;
 }
 
 export const useSeen = create<SeenState>()(
@@ -44,8 +43,6 @@ export const useSeen = create<SeenState>()(
           for (const key of keys) seen[key] = ++cursor;
           return { seen: prune(seen), cursor };
         }),
-
-      forgetAll: () => set({ seen: {}, cursor: 0 }),
     }),
     { name: 'sdg.seen', version: 1 },
   ),

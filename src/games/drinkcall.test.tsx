@@ -371,6 +371,32 @@ describe('Aufgaben statt leerer Ansagen', () => {
     expect(aufgabe()).toBe(erst);
   });
 
+  it('verbraucht keine Aufgabe, nachdem die Schlucke eingetragen sind', () => {
+    // Nach dem Eintragen rechnet `res` sofort auf 0, angezeigt bleibt aber die
+    // eingefrorene Zahl. Haengt die Aufgabe am Live-Wert, waehlt sie eine und
+    // merkt sie als gesehen, ohne dass sie je jemand liest - der Vorrat an
+    // ungesehenen Aufgaben schrumpft dann schneller als noetig.
+    trunken(30);
+    render(
+      <PartyCtx.Provider
+        value={party([me], {
+          gameId: 'kings-cup',
+          logSipsFor: (_id: string, sips: number, src?: string) =>
+            usePlayer.getState().logSips(sips, src),
+        })}
+      >
+        <DrinkCall player={me} baseSips={3} source="test" resetKey="karte-1" />
+      </PartyCtx.Provider>,
+    );
+    expect(aufgabe(), 'vor dem Eintragen darf keine Aufgabe stehen').toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Getrunken' }));
+    expect(aufgabe(), 'nach dem Eintragen auch nicht').toBeNull();
+    expect(
+      Object.keys(useSeen.getState().seen),
+      'eine Aufgabe wurde gemerkt, ohne angezeigt zu werden',
+    ).toHaveLength(0);
+  });
+
   it('gibt jedem Spieler am selben Gerät eine eigene Aufgabe', () => {
     // Pass & Play: DrinkCallList rendert alle lokalen Spieler. Bekaeme die
     // Auswahl keinen Spieler-Anteil im Seed, stuende bei allen dasselbe.

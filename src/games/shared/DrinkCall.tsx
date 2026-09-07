@@ -101,7 +101,12 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   const round = resetKey ?? '';
   const done = confirmed !== null && confirmed.key === round;
   const mine = player.id === me.id;
-  const task = useTask(reasonFor(res), `${player.id}|${round}`);
+  // Was WIRKLICH auf dem Schirm steht, nicht was gerade gerechnet wird: nach
+  // dem Eintragen faellt `res.sips` sofort auf 0, angezeigt bleibt aber die
+  // eingefrorene Zahl. Ohne diese Unterscheidung waehlte der Haken darunter
+  // eine Aufgabe und merkte sie als gesehen, ohne dass sie je jemand liest.
+  const shownSips = done ? confirmed.sips : (res?.sips ?? 0);
+  const task = useTask(shownSips === 0 ? reasonFor(res) : null, `${player.id}|${round}`);
 
   const confirm = () => {
     if (!res) return;
@@ -121,7 +126,6 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
     );
   }
 
-  const shownSips = done ? confirmed.sips : res.sips;
   const shownUnit = done ? confirmed.unit : res.unit;
 
   if (shownSips === 0) {
