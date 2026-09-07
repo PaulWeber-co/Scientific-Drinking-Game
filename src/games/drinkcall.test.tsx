@@ -53,7 +53,16 @@ function party(players: GamePlayer[], patch: Partial<PartyValue> = {}): PartyVal
 }
 
 /** Rendert ein Spiel mit lokalem Host-Reducer – wie PartyScreen, nur ohne Firebase. */
-function Harness({ gameId, players }: { gameId: string; players: GamePlayer[] }) {
+function Harness({
+  gameId,
+  players,
+  online = true,
+}: {
+  gameId: string;
+  players: GamePlayer[];
+  /** Pass & Play: dann darf das eine Geraet fuer jeden handeln. */
+  online?: boolean;
+}) {
   const def = getLoadedGame(gameId)!;
   const [state, setState] = useState<unknown>(() => def.createState(players));
   const dispatch = (a: GameActionInput) =>
@@ -68,7 +77,7 @@ function Harness({ gameId, players }: { gameId: string; players: GamePlayer[] })
         players={players}
         me={me}
         isHost
-        online
+        online={online}
         dispatch={dispatch}
         quit={() => {}}
       />
@@ -111,17 +120,28 @@ const drinkButton = () =>
 
 describe('Trinkansage: Zustand pro Runde', () => {
   it('gibt den Getrunken-Button in der naechsten Runde wieder frei (Ring of Fire)', () => {
-    render(<Harness gameId="kings-cup" players={roster(5)} />);
-    // Karten ziehen, bis eine Ansage fuer mich erscheint
-    let found = false;
-    for (let i = 0; i < 20 && !found; i++) {
+    // Pass & Play: die Personenauswahl gehoert dem Geraet des Ziehenden, und
+    // hier ist es dasselbe Geraet fuer alle. Genau der Fall, um den es geht.
+    render(<Harness gameId="kings-cup" players={roster(5)} online={false} />);
+
+    /**
+     * Einen Zug weiterspielen. Manche Regeln verlangen jetzt, dass jemand die
+     * getroffene Person benennt – ohne diese Auswahl bleibt „Naechster"
+     * gesperrt, und der Lauf haenge fest, statt eine Ansage zu finden.
+     */
+    const einSchritt = () => {
+      const chip = document.querySelector('.pchip--pick') as HTMLButtonElement | null;
+      if (chip) return fireEvent.click(chip);
       const draw = screen.queryByRole('button', { name: 'Karte ziehen' });
-      if (draw) fireEvent.click(draw);
+      if (draw) return fireEvent.click(draw);
+      const next = screen.queryByRole('button', { name: 'Nächster' }) as HTMLButtonElement | null;
+      if (next && !next.disabled) fireEvent.click(next);
+    };
+
+    let found = false;
+    for (let i = 0; i < 40 && !found; i++) {
       if (drinkButton()) found = true;
-      else {
-        const next = screen.queryByRole('button', { name: 'Nächster' });
-        if (next) fireEvent.click(next);
-      }
+      else einSchritt();
     }
     expect(found, 'keine Trinkansage gefunden').toBe(true);
     const btn = drinkButton()!;
@@ -129,14 +149,14 @@ describe('Trinkansage: Zustand pro Runde', () => {
     fireEvent.click(btn);
     expect(drinkButton()!.disabled).toBe(true);
 
-    // Weiter bis zur naechsten Ansage
+    // Weiter, bis die naechste Ansage kommt – der Knopf muss dann wieder frei
+    // sein, statt ueber die Runde hinaus gesperrt zu bleiben.
+    const next = screen.queryByRole('button', { name: 'Nächster' });
+    if (next) fireEvent.click(next);
     let again: HTMLButtonElement | null = null;
-    for (let i = 0; i < 20 && !again; i++) {
-      const next = screen.queryByRole('button', { name: 'Nächster' });
-      if (next) fireEvent.click(next);
-      const draw = screen.queryByRole('button', { name: 'Karte ziehen' });
-      if (draw) fireEvent.click(draw);
+    for (let i = 0; i < 40 && !again; i++) {
       again = drinkButton();
+      if (!again) einSchritt();
     }
     expect(again, 'keine zweite Trinkansage gefunden').not.toBeNull();
     expect(again!.disabled, 'Button blieb ueber die Runde hinaus gesperrt').toBe(false);
