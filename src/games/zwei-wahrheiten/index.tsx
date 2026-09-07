@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { Icon } from '../../components/icons';
@@ -6,18 +6,31 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, PlayerChip, WaitingFor } from '../shared/pieces';
+import { BigCard, Choice, PlayerChip, WaitingFor } from '../shared/pieces';
+import { PassDevice } from '../shared/PassDevice';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
 interface State {
-  phase: 'write' | 'guess' | 'result' | 'over';
+  phase: 'write' | 'commit' | 'interrogate' | 'guess' | 'result' | 'over';
   authorIndex: number;
   order: string[];
   statements: string[];
-  /** Index der Lüge in der angezeigten (gemischten) Reihenfolge. */
-  lie: number;
+  /** Wer als Nächstes eine Rückfrage stellt – Index in `order` ohne den Autor. */
+  askIndex: number;
   guesses: Record<string, number>;
+  /**
+   * Index der Lüge. Wird in der Phase `commit` festgeschrieben, BEVOR jemand
+   * rät – und zwar auf einem Bildschirm, den nur der Autor sieht.
+   *
+   * Die Festlegung nachträglich zuzulassen wäre bequemer gewesen, macht das
+   * Spiel aber kaputt: Auf einem geteilten Handy trägt zwangsläufig der Autor
+   * die Tipps der anderen ein (er ist der Einzige, der nichts zu zeigen hat)
+   * und säße Sekunden später mit der ganzen Verteilung vor Augen da. Er könnte
+   * immer die Aussage benennen, die am wenigsten Leute getroffen haben, und
+   * würde nie verlieren.
+   */
+  lie: number | null;
   round: number;
   goal: number | null;
   /** Wie oft jemand die Lüge erkannt hat. */
@@ -27,15 +40,6 @@ interface State {
 /** Eine Runde ist eine Person mit ihren drei Aussagen. Fünf sind „mittel". */
 const ROUND_BASE = baseFor('zwei-wahrheiten');
 
-/** Ein Punkt für jede erkannte Lüge. */
-function scoreGuesses(state: State): Record<string, number> {
-  const hits = { ...state.hits };
-  for (const [id, index] of Object.entries(state.guesses)) {
-    if (index === state.lie) hits[id] = (hits[id] ?? 0) + 1;
-  }
-  return hits;
-}
-
 export const zweiWahrheiten: GameDefinition<State> = {
   ...meta,
 
@@ -44,39 +48,78 @@ export const zweiWahrheiten: GameDefinition<State> = {
     authorIndex: 0,
     order: shuffle(players.map((p) => p.id)),
     statements: [],
-    lie: 0,
+    askIndex: 0,
     guesses: {},
+    lie: null,
     round: 1,
     goal: roundGoal(ROUND_BASE),
     hits: {},
   }),
 
   reduce: (state, action, players) => {
+    const authorId = state.order[state.authorIndex % Math.max(1, state.order.length)];
     switch (action.type) {
       case 'submit': {
         if (state.phase !== 'write') return state;
         const raw = (action.statements as string[]) ?? [];
-        const lieIndex = Number(action.lie);
         if (raw.length !== 3 || raw.some((t) => !t.trim())) return state;
-        // Reihenfolge mischen, damit die Lüge nicht immer an derselben Stelle steht.
-        const withFlag = raw.map((text, i) => ({ text: text.trim(), lie: i === lieIndex }));
-        const mixed = shuffle(withFlag);
+        // Blind mischen, dann legt der Autor auf dem gemischten Stand fest,
+        // welche die Lüge war – sonst müsste er sich die Reihenfolge merken.
         return {
           ...state,
-          statements: mixed.map((m) => m.text),
-          lie: mixed.findIndex((m) => m.lie),
-          phase: 'guess',
+          statements: shuffle(raw.map((t) => t.trim())),
+          phase: 'commit',
+          askIndex: 0,
           guesses: {},
+          lie: null,
         };
       }
+      case 'markLie': {
+        if (state.phase !== 'commit') return state;
+        const lie = Number(action.index);
+        if (!(lie >= 0 && lie <= 2)) return state;
+        return { ...state, lie, phase: 'interrogate', askIndex: 0 };
+      }
+      case 'nextQuestion': {
+        if (state.phase !== 'interrogate') return state;
+        const askers = state.order.filter((id) => id !== authorId);
+        const next = state.askIndex + 1;
+        if (next >= askers.length) return { ...state, phase: 'guess', askIndex: 0 };
+        return { ...state, askIndex: next };
+      }
       case 'guess': {
-        if (state.phase !== 'guess') return state;
-        const authorId = state.order[state.authorIndex % Math.max(1, state.order.length)];
-        if (action.by === authorId) return state;
+        // Eigenes Gerät je Person: eine Stimme pro Handy.
+        if (state.phase !== 'guess' || action.by === authorId) return state;
         const guesses = { ...state.guesses, [action.by]: Number(action.index) };
+        return { ...state, guesses };
+      }
+      case 'guessAll': {
+        // Ein geteiltes Handy: die Runde zeigt gleichzeitig Finger, die
+        // Person mit dem Handy trägt danach alle Tipps auf einmal ein.
+        if (state.phase !== 'guess') return state;
+        const raw = (action.guesses as Record<string, number>) ?? {};
         const others = players.filter((p) => p.id !== authorId && p.online !== false);
-        const done = others.every((p) => guesses[p.id] !== undefined);
-        return { ...state, guesses, phase: done ? 'result' : 'guess' };
+        const guesses = { ...state.guesses };
+        for (const p of others) {
+          const v = raw[p.id];
+          if (typeof v === 'number' && v >= 0 && v <= 2) guesses[p.id] = v;
+        }
+        return { ...state, guesses };
+      }
+      case 'revealLie': {
+        // Auflösen heißt nur noch anzeigen: die Lüge steht seit `commit` fest
+        // und kann nicht mehr an die Tipps angepasst werden.
+        if (state.phase !== 'guess') return state;
+        const lie = state.lie;
+        if (lie === null) return state;
+        const others = players.filter((p) => p.id !== authorId && p.online !== false);
+        const done = others.length > 0 && others.every((p) => state.guesses[p.id] !== undefined);
+        if (!done) return state;
+        const hits = { ...state.hits };
+        for (const p of others) {
+          if (state.guesses[p.id] === lie) hits[p.id] = (hits[p.id] ?? 0) + 1;
+        }
+        return { ...state, hits, phase: 'result' };
       }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
@@ -87,10 +130,8 @@ export const zweiWahrheiten: GameDefinition<State> = {
         const added = players.filter((p) => !order.includes(p.id)).map((p) => p.id);
         const full = [...order, ...added];
         const round = state.round + 1;
-        // Gezählt wird nur, was auch aufgelöst wurde.
-        const hits = state.phase === 'result' ? scoreGuesses(state) : state.hits;
         if (isOver(round, state.goal)) {
-          return { ...state, order: full, round, hits, phase: 'over' };
+          return { ...state, order: full, round, phase: 'over' };
         }
         return {
           ...state,
@@ -98,10 +139,10 @@ export const zweiWahrheiten: GameDefinition<State> = {
           authorIndex: (state.authorIndex + 1) % Math.max(1, full.length),
           phase: 'write',
           statements: [],
-          lie: 0,
+          askIndex: 0,
           guesses: {},
+          lie: null,
           round,
-          hits,
         };
       }
       case 'restart':
@@ -116,24 +157,15 @@ export const zweiWahrheiten: GameDefinition<State> = {
 
 function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
   const [texts, setTexts] = useState(['', '', '']);
-  const [lie, setLie] = useState(0);
+  // Uebergabe vor der privaten Festlegung. Bewusst lokal: geht niemanden sonst an.
+  const [handedOver, setHandedOver] = useState(false);
   const send = (a: GameActionInput) => dispatch(a);
-  const author = players.find((p) => p.id === state.order[state.authorIndex % Math.max(1, state.order.length)]) ?? players[0];
+  const byId = (id: string | null) => players.find((p) => p.id === id) ?? null;
+  const author =
+    players.find((p) => p.id === state.order[state.authorIndex % Math.max(1, state.order.length)]) ??
+    players[0];
   const isAuthor = author?.id === me.id;
-
-  if (!online) {
-    return (
-      <GameFrame title={zweiWahrheiten.name} accent={zweiWahrheiten.accent} onQuit={quit}>
-        <BigCard kicker="Eigene Handys nötig">
-          Die Aussagen dürfen beim Schreiben niemand sehen. Startet dafür eine Online-Lobby.
-        </BigCard>
-        <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
-          Zurück
-        </button>
-      </GameFrame>
-    );
-  }
-
+  const others = players.filter((p) => p.id !== author?.id && p.online !== false);
   const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
 
   if (state.phase === 'over') {
@@ -172,6 +204,8 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
   }
 
   if (state.phase === 'write') {
+    const showForm = !online || isAuthor;
+    const authorNote = !online ? 'ist dran' : isAuthor ? 'du schreibst' : 'schreibt';
     return (
       <GameFrame
         title={zweiWahrheiten.name}
@@ -181,44 +215,32 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
       >
         {author && (
           <div className="row" style={{ justifyContent: 'center' }}>
-            <PlayerChip player={author} note={isAuthor ? 'du schreibst' : 'schreibt'} />
+            <PlayerChip player={author} note={authorNote} />
           </div>
         )}
-        {isAuthor ? (
+        {showForm ? (
           <div className="stack-3">
             <p className="t-sub t-balance t-center">
-              Zwei wahre Aussagen, eine erfundene. Markiere die Lüge – sie wird gemischt angezeigt.
+              Zwei wahre Aussagen, eine erfundene – in beliebiger Reihenfolge. Gleich
+              markierst du unter vier Augen, welche gelogen war.
             </p>
             {texts.map((t, i) => (
-              <div key={i} className="lierow">
-                <input
-                  className="input"
-                  placeholder={`Aussage ${i + 1}`}
-                  maxLength={120}
-                  value={t}
-                  onChange={(e) => setTexts(texts.map((x, j) => (j === i ? e.target.value : x)))}
-                />
-                <button
-                  className={`liemark ${lie === i ? 'liemark--on' : ''}`}
-                  aria-label={`Aussage ${i + 1} ist die Lüge`}
-                  aria-pressed={lie === i}
-                  onClick={() => {
-                    haptic('select');
-                    setLie(i);
-                  }}
-                >
-                  <Icon name="ban" size={17} />
-                </button>
-              </div>
+              <input
+                key={i}
+                className="input"
+                placeholder={`Aussage ${i + 1}`}
+                maxLength={120}
+                value={t}
+                onChange={(e) => setTexts(texts.map((x, j) => (j === i ? e.target.value : x)))}
+              />
             ))}
             <button
               className="btn btn--brand btn--block btn--lg"
               disabled={texts.some((t) => !t.trim())}
               onClick={() => {
                 haptic('success');
-                send({ type: 'submit', statements: texts, lie });
+                send({ type: 'submit', statements: texts });
                 setTexts(['', '', '']);
-                setLie(0);
               }}
             >
               Abschicken
@@ -234,12 +256,131 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
     );
   }
 
-  const myGuess = state.guesses[me.id];
+  if (state.phase === 'commit') {
+    // Der Autor legt sich fest, BEVOR jemand rät – auf einem Bildschirm, den
+    // nur er sieht. Online ist das sein eigenes Gerät, sonst schiebt die
+    // Übergabe das Handy vorher zu ihm.
+    const mark = (i: number) => {
+      haptic('success');
+      setHandedOver(false);
+      send({ type: 'markLie', index: i });
+    };
+    const rahmen = (inner: ReactNode) => (
+      <GameFrame
+        title={zweiWahrheiten.name}
+        accent={zweiWahrheiten.accent}
+        subtitle={`Runde ${progress}`}
+        onQuit={quit}
+      >
+        {inner}
+      </GameFrame>
+    );
+    if (online && !isAuthor) {
+      return rahmen(
+        <>
+          <BigCard kicker="Gleich geht's los">{author?.name} legt sich gerade fest.</BigCard>
+          <WaitingFor names={[author?.name ?? '']} what="Warten auf" />
+        </>,
+      );
+    }
+    if (!online && !handedOver && author) {
+      return rahmen(
+        <PassDevice player={author} step={1} total={1} onConfirm={() => setHandedOver(true)} />,
+      );
+    }
+    return rahmen(
+      <div className="stack-3">
+        <div className="t-upper t-center">Nur für {author?.name}</div>
+        <BigCard kicker="Unter vier Augen">Welche der drei war gelogen?</BigCard>
+        <Choice
+          options={state.statements.map((t, i) => ({ id: String(i), label: t }))}
+          onPick={(id: string) => mark(Number(id))}
+        />
+        <p className="t-sub t-center t-balance">
+          Danach wandert das Handy zurück in die Runde. Die Antwort steht dann fest.
+        </p>
+      </div>,
+    );
+  }
+
+  if (state.phase === 'interrogate') {
+    const askers = state.order.filter((id) => id !== author?.id);
+    const asker = byId(askers[state.askIndex % Math.max(1, askers.length)]);
+    return (
+      <GameFrame
+        title={zweiWahrheiten.name}
+        accent={zweiWahrheiten.accent}
+        subtitle={`Runde ${progress} · Verhör ${state.askIndex + 1}/${askers.length}`}
+        onQuit={quit}
+      >
+        {asker && (
+          <div className="row" style={{ justifyContent: 'center' }}>
+            <PlayerChip player={asker} note={asker.id === me.id ? 'du fragst' : 'fragt'} />
+          </div>
+        )}
+        <BigCard kicker="Eine Rückfrage">
+          {asker?.id === me.id
+            ? `Stell ${author?.name} eine Frage zu den drei Aussagen.`
+            : `${asker?.name} befragt ${author?.name}.`}
+        </BigCard>
+        <p className="t-sub t-center t-balance">
+          Eine offene Frage, keine Ja/Nein-Frage – {author?.name} antwortet, ohne sich zu
+          verraten.
+        </p>
+        <button
+          className="btn btn--brand btn--block btn--lg"
+          onClick={() => send({ type: 'nextQuestion' })}
+        >
+          Gefragt – weiter
+        </button>
+      </GameFrame>
+    );
+  }
 
   if (state.phase === 'guess') {
-    const waiting = players
-      .filter((p) => p.id !== author?.id && p.online !== false && state.guesses[p.id] === undefined)
-      .map((p) => p.name);
+    const myGuess = state.guesses[me.id];
+    const complete = others.length > 0 && others.every((p) => state.guesses[p.id] !== undefined);
+    const canReveal = !online || isAuthor;
+
+    if (complete) {
+      return (
+        <GameFrame
+          title={zweiWahrheiten.name}
+          accent={zweiWahrheiten.accent}
+          subtitle={`Runde ${progress} · Auflösung`}
+          onQuit={quit}
+        >
+          {canReveal ? (
+            <>
+              <BigCard kicker="Nur du weißt es">Welche deiner drei Aussagen war die Lüge?</BigCard>
+              <div className="stack-3">
+                {state.statements.map((t, i) => (
+                  <button
+                    key={i}
+                    className="answer-card"
+                    style={{ ['--i' as string]: i }}
+                    onClick={() => {
+                      haptic('success');
+                      send({ type: 'revealLie', lie: i });
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <BigCard kicker="Alle haben getippt">
+                {author?.name} verrät gleich, welche Aussage gelogen war.
+              </BigCard>
+              <WaitingFor names={[author?.name ?? '']} what="Warten auf" />
+            </>
+          )}
+        </GameFrame>
+      );
+    }
+
     return (
       <GameFrame
         title={zweiWahrheiten.name}
@@ -253,28 +394,54 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
           </div>
         )}
         <div className="stack-3">
-          {state.statements.map((t, i) => (
-            <button
-              key={i}
-              className={`answer-card ${myGuess === i ? 'answer-card--picked' : ''}`}
-              style={{ ['--i' as string]: i }}
-              disabled={isAuthor || myGuess !== undefined}
-              onClick={() => {
-                haptic('select');
-                send({ type: 'guess', index: i });
-              }}
-            >
-              {t}
-            </button>
-          ))}
+          {state.statements.map((t, i) =>
+            online ? (
+              <button
+                key={i}
+                className={`answer-card ${myGuess === i ? 'answer-card--picked' : ''}`}
+                style={{ ['--i' as string]: i }}
+                disabled={isAuthor || myGuess !== undefined}
+                onClick={() => {
+                  haptic('select');
+                  send({ type: 'guess', index: i });
+                }}
+              >
+                {t}
+              </button>
+            ) : (
+              <div key={i} className="answer-card" style={{ ['--i' as string]: i }}>
+                {t}
+              </div>
+            ),
+          )}
         </div>
-        {(isAuthor || myGuess !== undefined) && <WaitingFor names={waiting} what="Warten auf" />}
+        {online ? (
+          (isAuthor || myGuess !== undefined) && (
+            <WaitingFor
+              names={others.filter((p) => state.guesses[p.id] === undefined).map((p) => p.name)}
+              what="Warten auf"
+            />
+          )
+        ) : (
+          <>
+            <p className="t-sub t-center t-balance">
+              Auf drei zeigen alle gleichzeitig 1, 2 oder 3 Finger. Trag danach ein, wer worauf
+              getippt hat.
+            </p>
+            <GuessEntry
+              players={others}
+              onSubmit={(guesses) => {
+                haptic('success');
+                send({ type: 'guessAll', guesses });
+              }}
+            />
+          </>
+        )}
       </GameFrame>
     );
   }
 
-  // Wer offline gegangen ist, hat nicht danebengetippt – er war gar nicht da.
-  const others = players.filter((p) => p.id !== author?.id && p.online !== false);
+  // phase === 'result' – wer offline gegangen ist, hat nicht danebengetippt: er war gar nicht da.
   const wrong = others.filter((p) => state.guesses[p.id] !== state.lie);
   const allRight = wrong.length === 0 && others.length > 0;
 
@@ -323,5 +490,57 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Person'}
       </button>
     </GameFrame>
+  );
+}
+
+/**
+ * Eintragen auf einem geteilten Handy: die Gruppe zeigt gleichzeitig 1, 2
+ * oder 3 Finger, danach trägt die Person mit dem Handy für jede*n ein,
+ * welche Zahl sie gesehen hat. Drei feste Werte statt eines Zahlenfelds –
+ * kein Vertippen, keine Tastatur.
+ */
+function GuessEntry({
+  players,
+  onSubmit,
+}: {
+  players: GamePlayer[];
+  onSubmit: (guesses: Record<string, number>) => void;
+}) {
+  const [picks, setPicks] = useState<Record<string, number>>({});
+  const ready = players.length > 0 && players.every((p) => picks[p.id] !== undefined);
+  return (
+    <div className="stack-3">
+      <div className="stack-2">
+        {players.map((p, i) => (
+          <div key={p.id} className="result-row" style={{ ['--i' as string]: i }}>
+            <PlayerChip player={p} />
+            <span className="grow" />
+            <div className="row" style={{ gap: 6 }}>
+              {[0, 1, 2].map((n) => (
+                <button
+                  key={n}
+                  className={`btn btn--sm ${picks[p.id] === n ? 'btn--tinted' : 'btn--gray'}`}
+                  aria-pressed={picks[p.id] === n}
+                  aria-label={`${p.name} tippt auf Aussage ${n + 1}`}
+                  onClick={() => {
+                    haptic('select');
+                    setPicks((c) => ({ ...c, [p.id]: n }));
+                  }}
+                >
+                  {n + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        className="btn btn--brand btn--block btn--lg"
+        disabled={!ready}
+        onClick={() => onSubmit(picks)}
+      >
+        Eingetragen
+      </button>
+    </div>
   );
 }

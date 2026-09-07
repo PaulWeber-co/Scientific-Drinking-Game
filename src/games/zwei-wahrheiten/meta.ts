@@ -13,10 +13,10 @@ export const meta: GameMeta = {
   duration: '15-30 Min',
   intensity: 1,
   tags: ['geheim', 'reden', 'kreativ'],
-  requiresOwnDevice: true,
+  requiresOwnDevice: false,
   howTo: [
     'Reihum schreibt eine Person drei Aussagen über sich – zwei wahr, eine erfunden.',
-    'Alle anderen tippen auf die Aussage, die sie für gelogen halten.',
+    'Alle anderen dürfen je eine Rückfrage stellen, dann tippen sie auf die Aussage, die sie für gelogen halten.',
     'Wer falsch liegt, trinkt. Durchschauen alle die Lüge, trinkt der Autor.',
   ],
 };

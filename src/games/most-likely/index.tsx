@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { markTextsSeen } from '../../store/seen';
 import { spicyDeck } from '../shared/prompts';
+import { Icon } from '../../components/icons';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
+import { BigCard, PlayerChip, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
@@ -66,6 +67,12 @@ interface State {
   phase: 'vote' | 'result' | 'over';
   prompt: number;
   deck: number[];
+  /**
+   * Stimme -> Ziel. Im Online-Modus ein Eintrag pro Spielgerät. Auf einem
+   * geteilten Handy trägt `countVotes` mehrere Finger auf einmal ein, dafür
+   * unter erfundenen Schlüsseln (`@0`, `@1`, ...) – Auszählung und Statistik
+   * darunter bleiben dieselbe Funktion wie im Online-Modus.
+   */
   votes: Record<string, string>;
   round: number;
   /** Ziellinie in Fragen. `null` heißt: ohne Ende. */
@@ -105,6 +112,24 @@ export const mostLikely: GameDefinition<State> = {
         for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
         return { ...state, votes, phase: 'result', tally };
       }
+      case 'countVotes': {
+        // Ein geteiltes Handy: alle zeigen auf drei gleichzeitig, danach
+        // trägt die Person mit dem Handy ein, wie viele Finger wer bekam.
+        // Jeder Finger wird als eigene Stimme unter einem erfundenen
+        // Schlüssel verbucht, damit diese Runde exakt so ausgezählt wird
+        // wie eine Online-Runde mit echten Stimmen je Gerät.
+        if (state.phase !== 'vote') return state;
+        const raw = (action.counts as Record<string, number>) ?? {};
+        const votes: Record<string, string> = {};
+        let n = 0;
+        for (const id of active) {
+          const count = Math.min(active.length, Math.max(0, Math.floor(Number(raw[id]) || 0)));
+          for (let i = 0; i < count; i++) votes[`@${n++}`] = id;
+        }
+        const tally = { ...state.tally };
+        for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
+        return { ...state, votes, phase: 'result', tally };
+      }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
@@ -139,19 +164,6 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
   useEffect(() => {
     if (prompt) markTextsSeen([prompt]);
   }, [prompt]);
-
-  if (!online) {
-    return (
-      <GameFrame title={mostLikely.name} accent={mostLikely.accent} onQuit={quit}>
-        <BigCard kicker="Eigene Handys nötig">
-          Der Reiz liegt darin, dass niemand sieht, wer wen wählt. Startet dafür eine Online-Lobby.
-        </BigCard>
-        <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
-          Zurück
-        </button>
-      </GameFrame>
-    );
-  }
 
   if (state.phase === 'over') {
     const ranking = players.map((p) => ({
@@ -208,15 +220,33 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
         onQuit={quit}
       >
         <BigCard kicker="Zeigt auf">{prompt}</BigCard>
-        <VoteGrid
-          players={players}
-          myVote={state.votes[me.id]}
-          onVote={(id) => {
-            haptic('select');
-            send({ type: 'vote', target: id });
-          }}
-        />
-        {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+        {online ? (
+          <>
+            <VoteGrid
+              players={players}
+              myVote={state.votes[me.id]}
+              onVote={(id) => {
+                haptic('select');
+                send({ type: 'vote', target: id });
+              }}
+            />
+            {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+          </>
+        ) : (
+          <>
+            <p className="t-sub t-center t-balance">
+              Auf drei zeigen alle gleichzeitig auf eine Person. Trag danach ein, wie viele
+              Finger jede Person abbekommen hat.
+            </p>
+            <FingerTally
+              players={players}
+              onSubmit={(counts) => {
+                haptic('success');
+                send({ type: 'countVotes', counts });
+              }}
+            />
+          </>
+        )}
       </GameFrame>
     );
   }
@@ -225,6 +255,19 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
   for (const t of Object.values(state.votes)) counts[t] = (counts[t] ?? 0) + 1;
   const max = Math.max(0, ...Object.values(counts));
   const winners = players.filter((p) => (counts[p.id] ?? 0) === max && max > 0);
+
+  // Originalregel: jeder trinkt pro Stimme, die auf ihn zeigt – nicht nur
+  // die Meistgewählten. Gleiche Stimmenzahl teilt sich eine DrinkCallList,
+  // damit der bestehende Baustein unverändert bleibt und trotzdem jede
+  // Person ihre eigene Härte bekommt.
+  const groups = new Map<number, GamePlayer[]>();
+  for (const p of players) {
+    const n = counts[p.id] ?? 0;
+    if (n <= 0) continue;
+    if (!groups.has(n)) groups.set(n, []);
+    groups.get(n)?.push(p);
+  }
+  const sortedGroups = [...groups.entries()].sort((a, b) => b[0] - a[0]);
 
   return (
     <GameFrame
@@ -235,16 +278,85 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
     >
       <BigCard kicker="Ergebnis">{prompt}</BigCard>
       <VoteResult players={players} counts={counts} highlight={winners[0]?.id ?? null} />
-      <DrinkCallList
-        players={winners as GamePlayer[]}
-        baseSips={Math.min(6, 1 + max)}
-        source="most-likely"
-        label="pro Stimme"
-        resetKey={state.round}
-      />
+      {sortedGroups.length > 0 ? (
+        <div className="stack-3">
+          {sortedGroups.map(([n, group]) => (
+            <DrinkCallList
+              key={n}
+              players={group}
+              baseSips={Math.min(6, n)}
+              source="most-likely"
+              label="pro Stimme"
+              resetKey={state.round}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="t-sub t-center">Keine einzige Stimme diese Runde.</p>
+      )}
       <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
         {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Frage'}
       </button>
     </GameFrame>
+  );
+}
+
+/**
+ * Eintragen auf einem geteilten Handy: eine Zeile pro Person mit einem
+ * Zähler statt Texteingabe. Ein Stepper braucht kein Zahlenfeld samt
+ * Tastatur und lässt sich nicht vertippen – auf einem Handy, das gerade
+ * herumgereicht oder in der Mitte liegt, ist Tippen auf +/- schneller als
+ * eine Zahl einzutippen.
+ */
+function FingerTally({
+  players,
+  onSubmit,
+}: {
+  players: GamePlayer[];
+  onSubmit: (counts: Record<string, number>) => void;
+}) {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const bump = (id: string, delta: number) => {
+    haptic('select');
+    setCounts((c) => ({
+      ...c,
+      [id]: Math.max(0, Math.min(players.length, (c[id] ?? 0) + delta)),
+    }));
+  };
+  return (
+    <div className="stack-3">
+      <div className="stack-2">
+        {players.map((p, i) => (
+          <div key={p.id} className="result-row" style={{ ['--i' as string]: i }}>
+            <PlayerChip player={p} />
+            <span className="grow" />
+            <button
+              className="btn btn--gray btn--sm"
+              aria-label={`Weniger Finger bei ${p.name}`}
+              onClick={() => bump(p.id, -1)}
+            >
+              <Icon name="minus" size={15} strokeWidth={2.2} />
+            </button>
+            <span className="t-mono-num" style={{ minWidth: 22, textAlign: 'center' }}>
+              {counts[p.id] ?? 0}
+            </span>
+            <button
+              className="btn btn--gray btn--sm"
+              aria-label={`Mehr Finger bei ${p.name}`}
+              onClick={() => bump(p.id, 1)}
+            >
+              <Icon name="plus" size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="t-caption t-center">
+        Insgesamt eingetragen: {total} von {players.length}
+      </p>
+      <button className="btn btn--brand btn--block btn--lg" onClick={() => onSubmit(counts)}>
+        Aufdecken
+      </button>
+    </div>
   );
 }

@@ -13,9 +13,9 @@ export const meta: GameMeta = {
   duration: '15-30 Min',
   intensity: 2,
   tags: ['geheim', 'reden', 'handy-weg'],
-  requiresOwnDevice: true,
+  requiresOwnDevice: false,
   howTo: [
-    'Jede Person sieht ihr Wort nur auf dem eigenen Handy. Eine Person bekommt ein anderes.',
+    'Jede Person sieht ihr Wort für sich – online auf dem eigenen Handy, sonst reihum auf dem geteilten. Eine Person bekommt ein anderes.',
     'Reihum beschreibt jede Person ihr Wort mit genau einem Satz – ohne es zu nennen.',
     'Danach wird abgestimmt. Wer rausfliegt, trinkt. Bleibt Undercover übrig, trinkt die ganze Runde.',
   ],

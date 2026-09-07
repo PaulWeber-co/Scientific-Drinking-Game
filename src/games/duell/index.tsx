@@ -7,7 +7,7 @@ import { GameOver } from '../shared/GameOver';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
-import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 import { meta } from './meta';
 
 interface State {
@@ -25,9 +25,49 @@ interface State {
   wins: Record<string, number>;
 }
 
-function pairFor(order: string[], i: number): [string, string] {
-  const n = Math.max(2, order.length);
-  return [order[i % n], order[(i + 1) % n]];
+/**
+ * Rundlauf-Verfahren (circle method), wie Turniere ihre Runden auslosen: eine
+ * Person bleibt fix, der Rest rotiert – jede Runde ergibt so viele Paare, wie
+ * Platz ist, bis nach `n - 1` Runden jede Person gegen jede andere genau
+ * einmal antrat. Bei ungerader Personenzahl bekommt reihum eine Person ein
+ * Freilos (Bye) und wird für diese Runde übersprungen.
+ *
+ * Hier duelliert immer nur ein Paar aufs Mal statt aller Paare einer Runde
+ * gleichzeitig – deshalb werden die Runden zu einer einzigen Kette aus Paaren
+ * aneinandergereiht, statt sie parallel zu vergeben.
+ */
+function roundRobinSchedule(n: number): [number, number][] {
+  const bye = -1;
+  const size = n % 2 === 0 ? n : n + 1;
+  let ring = Array.from({ length: size }, (_, i) => (i < n ? i : bye));
+  const half = size / 2;
+  const schedule: [number, number][] = [];
+  for (let round = 0; round < size - 1; round++) {
+    for (let i = 0; i < half; i++) {
+      const a = ring[i];
+      const b = ring[size - 1 - i];
+      if (a !== bye && b !== bye) schedule.push([a, b]);
+    }
+    // Position 0 bleibt fix, der Rest rückt eine Stelle weiter.
+    ring = [ring[0], ring[size - 1], ...ring.slice(1, size - 1)];
+  }
+  return schedule;
+}
+
+/**
+ * Welches Paar in Runde `i` antritt. Vorher liefen hier nur aufeinanderfolgende
+ * Nachbarn (0,1)‑(1,2)‑(2,3)…, wodurch bei 8 Personen und 6 Runden die achte
+ * Person nie drankam. Der Rundlauf-Spielplan wiederholt sich erst, wenn jede
+ * Person gegen jede andere einmal angetreten ist.
+ */
+export function pairFor(order: string[], i: number): [string, string] {
+  if (order.length < 2) {
+    const id = order[0] ?? '';
+    return [id, id];
+  }
+  const schedule = roundRobinSchedule(order.length);
+  const [a, b] = schedule[i % schedule.length];
+  return [order[a], order[b]];
 }
 
 export const duell: GameDefinition<State> = {
@@ -51,6 +91,9 @@ export const duell: GameDefinition<State> = {
   reduce: (state, action, players) => {
     switch (action.type) {
       case 'arm':
+        // Ein zweiter Tap auf „Bereit" wuerfelt sonst nur den Startzeitpunkt
+        // neu aus - harmlos, aber es hat hier nichts verloren.
+        if (state.phase !== 'ready') return state;
         return {
           ...state,
           phase: 'armed',
@@ -106,7 +149,12 @@ export const duell: GameDefinition<State> = {
         return {
           ...state,
           order,
-          pairIndex: (state.pairIndex + 1) % Math.max(1, order.length),
+          // Nicht auf `order.length` begrenzen: `pairFor` wickelt den vollen
+          // Rundlauf-Spielplan ab (n·(n-1)/2 Paare), der bei mehr als zwei
+          // Personen länger ist als die Spielerliste selbst. Ein Modulo hier
+          // hätte den Spielplan nach `order.length` Paaren vorzeitig
+          // zurückgesetzt und immer dieselbe kleine Auswahl wiederholt.
+          pairIndex: state.pairIndex + 1,
           phase: 'ready',
           winner: null,
           loser: null,
@@ -127,6 +175,9 @@ export const duell: GameDefinition<State> = {
 function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State>) {
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string | null) => players.find((p) => p.id === id) ?? null;
+  // Einmal nachschlagen statt zweimal – der Cast unterdrueckte sonst genau
+  // die Pruefung, dass der zweite Aufruf ebenfalls `null` liefern koennte.
+  const verlierer = byId(state.loser) ?? null;
   const [leftId, rightId] = pairFor(state.order, state.pairIndex);
   const left = byId(leftId);
   const right = byId(rightId);
@@ -226,9 +277,9 @@ function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State
               ? `${byId(state.loser)?.name} war zu früh dran.`
               : `${byId(state.winner)?.name} war schneller.`}
           </BigCard>
-          {byId(state.loser) && (
+          {verlierer && (
             <DrinkCall
-              player={byId(state.loser) as GamePlayer}
+              player={verlierer}
               baseSips={state.falseStart ? 4 : 3}
               source="duell"
               resetKey={state.round}
