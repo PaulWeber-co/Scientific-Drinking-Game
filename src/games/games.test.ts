@@ -458,13 +458,36 @@ describe('Ring of Fire', () => {
   });
 
   it('mischt neu, wenn das Deck leer ist', () => {
+    // Nur „ohne Ende" zieht ueber den vierten Koenig hinaus weiter. Mit
+    // Ziellinie ist dort Schluss, die Karte bleibt liegen und es wird bewusst
+    // nicht mehr gezogen - der Test war ohne diese Unterscheidung flakig und
+    // fiel genau dann, wenn der vierte Koenig spaet kam.
+    const vorher = useApp.getState().gameLength;
+    useApp.setState({ gameLength: 'endlos' });
     const roster = players(4);
     let s = game.createState(roster);
+    useApp.setState({ gameLength: vorher });
+    expect(s.endless, 'Partie laeuft nicht ohne Ende').toBe(true);
     for (let i = 0; i < 60; i++) {
       s = game.reduce(s, act('draw'), roster);
       s = game.reduce(s, act('next'), roster);
     }
     expect(s.deck.length).toBeGreaterThan(0);
+  });
+
+  it('hört mit Ziellinie beim vierten König auf zu ziehen', () => {
+    // Gegenstueck zum Test darueber: hier MUSS es stehenbleiben.
+    const vorher = useApp.getState().gameLength;
+    useApp.setState({ gameLength: 'mittel' });
+    const roster = players(4);
+    let s = game.createState(roster);
+    useApp.setState({ gameLength: vorher });
+    for (let i = 0; i < 60; i++) {
+      s = game.reduce(s, act('draw'), roster);
+      s = game.reduce(s, act('next'), roster);
+    }
+    expect(s.over, 'Partie endete nicht am vierten Koenig').toBe(true);
+    expect(s.kings).toBe(4);
   });
 });
 
