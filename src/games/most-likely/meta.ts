@@ -5,7 +5,7 @@ import type { GameMeta } from '../types';
 export const meta: GameMeta = {
   id: 'most-likely',
   name: 'Wer aus der Runde',
-  tagline: 'Alle zeigen gleichzeitig. Meiste Stimmen trinkt.',
+  tagline: 'Alle zeigen gleichzeitig. Wer gezeigt wird, trinkt.',
   icon: 'people',
   accent: 'var(--orange)',
   minPlayers: 4,
@@ -13,11 +13,11 @@ export const meta: GameMeta = {
   duration: '10-20 Min',
   intensity: 2,
   tags: ['geheim', 'schnell', 'reden'],
-  requiresOwnDevice: true,
+  requiresOwnDevice: false,
   allowSpicy: true,
   howTo: [
-    'Jede Person braucht ihr eigenes Handy – niemand soll sehen, wer wen wählt.',
-    'Frage lesen, tippen. Erst wenn alle gewählt haben, wird aufgedeckt.',
-    'Wer die meisten Stimmen bekommt, trinkt pro Stimme.',
+    'Frage vorlesen. Auf drei zeigen alle gleichzeitig mit dem Finger auf eine Person.',
+    'Eine Person zählt nach und trägt ein, wie viele Finger auf wen zeigten.',
+    'Jede Person trinkt so viele Schlucke, wie Finger auf sie gezeigt haben.',
   ],
 };

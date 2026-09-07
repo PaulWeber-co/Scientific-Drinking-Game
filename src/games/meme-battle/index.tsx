@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { spicyDeck } from '../shared/prompts';
+import { markTextsSeen } from '../../store/seen';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
@@ -79,7 +80,7 @@ export const memeBattle: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => {
-    const deck = spicyDeck(PROMPTS, 'meme-battle');
+    const deck = spicyDeck(PROMPTS, 'meme-battle', (p) => p.text);
     return {
       phase: 'writing',
       prompt: deck[0],
@@ -126,7 +127,7 @@ export const memeBattle: GameDefinition<State> = {
         if (state.phase === 'over') return state;
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
-        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle');
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle', (p) => p.text);
         return {
           ...state,
           phase: 'writing',
@@ -153,6 +154,10 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string) => players.find((p) => p.id === id);
   const prompt = PROMPTS[state.prompt]?.text ?? '';
+  // Gemerkt, damit die naechste Partie am selben Abend andere Prompts zieht.
+  useEffect(() => {
+    if (prompt) markTextsSeen([prompt]);
+  }, [prompt]);
 
   if (!online) {
     return (

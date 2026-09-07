@@ -1,7 +1,8 @@
 import { Icon } from '../../components/icons';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
+import { keepScreenAwake } from '../../lib/wakelock';
 import { GameSettings, type HeatControl, type SpicyControl } from './GameSettings';
 
 interface Props {
@@ -28,6 +29,9 @@ export function GameFrame({
   children,
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
+  // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
+  // fällt beim Verlassen von selbst wieder weg.
+  useEffect(() => keepScreenAwake(), []);
 
   return (
     <div className="game" style={{ ['--accent' as string]: accent }}>

@@ -1,12 +1,15 @@
 import { Icon } from '../../components/icons';
 import { CountUp } from './pieces';
 import { Avatar } from '../../components/ui/Avatar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { useParty } from '../../features/party/PartyContext';
 import { useSipsForPlayer } from '../../features/party/sips';
+import { taskFor, type TaskDef, type TaskReason } from '../../engine/tasks';
+import { useApp } from '../../store/app';
+import { markTextsSeen, useSeen } from '../../store/seen';
 import type { GamePlayer } from '../types';
-import type { OverSeverity } from '../../engine/types';
+import type { OverSeverity, SipResult } from '../../engine/types';
 
 /** Schlagwort je Stufe über dem Ziel – statt immer nur „Aussetzen". */
 const OVER_LABEL: Record<OverSeverity, string> = {
@@ -15,6 +18,55 @@ const OVER_LABEL: Record<OverSeverity, string> = {
   stop: 'Stopp',
   danger: 'Gefahr',
 };
+
+/**
+ * Warum es gerade keine Schlucke gibt – oder `null`, wenn es welche gibt und
+ * damit keine Aufgabe.
+ *
+ * Über dem Ziel bekommt nur die mildeste Stufe etwas zu tun. Pause, Stopp und
+ * Gefahr sind Sicherheitsansagen; eine Spielaufgabe daneben würde sie
+ * relativieren.
+ */
+function reasonFor(res: SipResult | null): TaskReason | null {
+  if (!res || res.sips > 0) return null;
+  if (res.phase === 'blocked') return 'blocked';
+  if (res.phase === 'over') return res.severity === 'water' ? 'water' : null;
+  return 'maintaining';
+}
+
+/**
+ * Die Aufgabe für diese Ansage.
+ *
+ * Eingefroren pro Ansage: sobald sie einmal auf dem Bildschirm stand, merkt
+ * das Gedächtnis sie sich – eine erneute Auswahl käme auf eine andere und der
+ * Text wechselte unter dem Lesenden weg. Dieselbe Vorsicht wie bei der
+ * eingetragenen Schluckzahl weiter unten.
+ */
+function useTask(reason: TaskReason | null, seed: string): TaskDef | null {
+  const { gameId } = useParty();
+  const frequency = useApp((s) => s.taskOnSkip);
+  const spicy = useApp((s) => (gameId ? s.spicy[gameId] === true : false));
+  const key = reason ? `${reason}|${seed}|${frequency}|${spicy}` : '';
+  const [cached, setCached] = useState<{ key: string; task: TaskDef | null }>({
+    key: '',
+    task: null,
+  });
+
+  if (cached.key !== key) {
+    setCached({
+      key,
+      task: reason
+        ? taskFor({ reason, seed, spicy, frequency, seen: useSeen.getState().seen })
+        : null,
+    });
+  }
+
+  useEffect(() => {
+    if (cached.task) markTextsSeen([cached.task.text]);
+  }, [cached]);
+
+  return cached.key === key ? cached.task : null;
+}
 
 interface Props {
   player: GamePlayer;
@@ -49,6 +101,12 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   const round = resetKey ?? '';
   const done = confirmed !== null && confirmed.key === round;
   const mine = player.id === me.id;
+  // Was WIRKLICH auf dem Schirm steht, nicht was gerade gerechnet wird: nach
+  // dem Eintragen faellt `res.sips` sofort auf 0, angezeigt bleibt aber die
+  // eingefrorene Zahl. Ohne diese Unterscheidung waehlte der Haken darunter
+  // eine Aufgabe und merkte sie als gesehen, ohne dass sie je jemand liest.
+  const shownSips = done ? confirmed.sips : (res?.sips ?? 0);
+  const task = useTask(shownSips === 0 ? reasonFor(res) : null, `${player.id}|${round}`);
 
   const confirm = () => {
     if (!res) return;
@@ -68,11 +126,11 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
     );
   }
 
-  const shownSips = done ? confirmed.sips : res.sips;
   const shownUnit = done ? confirmed.unit : res.unit;
 
   if (shownSips === 0) {
     const severity = res.phase === 'over' ? res.severity : undefined;
+    const blocked = res.phase === 'blocked';
     return (
       <div
         className={`call call--skip ${severity ? `call--${severity}` : ''} ${compact ? 'call--compact' : ''}`}
@@ -81,9 +139,16 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
           <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
         </div>
         <div className="call__big">
-          {res.phase === 'blocked' ? 'Aufgabe' : severity ? OVER_LABEL[severity] : 'Aussetzen'}
+          {blocked ? 'Aufgabe' : severity ? OVER_LABEL[severity] : 'Aussetzen'}
         </div>
         <div className="t-sub t-balance">{res.hint}</div>
+        {task && (
+          <div className="call__task">
+            {/* Bei "Aufgabe" steht die Überschrift schon oben. */}
+            {!blocked && <div className="t-upper">Stattdessen</div>}
+            <p className="call__tasktext t-balance">{task.text}</p>
+          </div>
+        )}
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { GAMES, gamesForGroup, getGame, getLoadedGame, loadGame } from './registry';
+import { pairFor } from './duell/index';
 import { useApp } from '../store/app';
 import { encodeState, decodeState } from '../features/party/PartyContext';
 import type { GameAction, GamePlayer } from './types';
@@ -65,11 +66,14 @@ const ACTION_TYPES = readActionTypes();
  * Maexchen-Sackgasse nicht gesehen, weil `announce` nur mit einem einzigen
  * Rang probiert worden waere.
  *
- * Abgedeckt sind alle Felder, die die Reducer lesen (Stand: `action.answer`,
- * `heat`, `index`, `lie`, `mode`, `order`, `outcome`, `rank`, `side`,
- * `statements`, `target`, `text`, `value`, `winner`).
+ * Welche Felder es geben MUSS, prueft der Test „deckt jedes Feld ab" weiter
+ * unten – er liest sie aus den Reducern und meldet jede Luecke. Vorher war
+ * diese Liste handgepflegt und damit selbst der blinde Fleck: als Top Ten
+ * `action.id` zu lesen begann, fand der Sackgassen-Test keinen Ausweg mehr
+ * und meldete einen Fehler, den es nicht gab.
  *
- * BLINDER FLECK: die Werte sind geraten, nicht aus dem Code abgeleitet. Ein
+ * BLINDER FLECK, der bleibt: die WERTE sind geraten, nur die NAMEN sind
+ * abgeleitet. Ein
  * Reducer, der einen Wert ausserhalb dieser Auswahl verlangt, wird nur
  * unvollstaendig geprueft. Ein leerer Ausweg faellt dann als Sackgasse auf –
  * dann gehoert der Wert hierher, nicht die Pruefung entschaerft.
@@ -78,13 +82,22 @@ const VARIANTS: Record<string, unknown>[] = [
   {
     text: 'Antwort', target: 'p1', mode: 'wahrheit', heat: 1, answer: 'rot',
     order: ['p1', 'p0'], winner: 'p1', value: 42, index: 0, side: 'left',
-    lie: 0, statements: ['a', 'b', 'c'],
+    lie: 0, statements: ['a', 'b', 'c'], id: 'p1', word: 'a', who: 'p1',
+    counts: { p1: 1 }, guesses: { p1: 0 },
   },
   {
     text: 'Zweite', target: 'p2', mode: 'pflicht', heat: 3, answer: 'hoch',
     order: ['p0', 'p1'], winner: 'p2', value: 7, index: 1, side: 'right',
-    lie: 1, statements: ['x', 'y', 'z'],
+    lie: 1, statements: ['x', 'y', 'z'], id: 'p2', word: 'b', who: 'p2',
+    counts: { p2: 2 }, guesses: { p2: 1 },
   },
+  // Spielerbezuege ueber den GANZEN Kader, nicht nur p1/p2: Top Ten deckt
+  // nacheinander jede Person auf und blieb mit zwei IDs nach zwei Schritten
+  // stehen – der Sackgassen-Test meldete dann ein Spiel als kaputt, das es
+  // nicht war.
+  { id: 'p0', target: 'p0', winner: 'p0', who: 'p0', index: 0 },
+  { id: 'p3', target: 'p3', winner: 'p3', who: 'p3', index: 3 },
+  { id: 'p4', target: 'p4', winner: 'p4', who: 'p4', index: 4 },
   { rank: 0, value: 1, index: 2, answer: 'innen' },
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
@@ -101,6 +114,41 @@ const VARIANTS: Record<string, unknown>[] = [
  */
 const ESCAPE_HATCHES = new Set(['restart']);
 
+/**
+ * Welche Felder die Reducer aus `action` lesen – aus der Quelle, nicht
+ * gepflegt. `by`, `at` und `type` traegt jede Aktion ohnehin.
+ */
+function readActionFields(): string[] {
+  const root = `${process.cwd()}/src/games`;
+  const namen = new Set<string>();
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) continue;
+      for (const m of readFileSync(full, 'utf8').matchAll(/action\.([a-zA-Z]+)/g)) {
+        if (!['by', 'at', 'type'].includes(m[1])) namen.add(m[1]);
+      }
+    }
+  };
+  walk(root);
+  return [...namen].sort();
+}
+
+/**
+ * Personenbezuege aus dem KADER erzeugt, nicht geraten: ein Spiel mit neun
+ * Personen braucht neun IDs. Eine feste Liste `p0`–`p4` liess den
+ * Sackgassen-Test bei groesseren Runden ein gesundes Spiel als kaputt melden.
+ */
+function personVariants(roster: GamePlayer[]): Record<string, unknown>[] {
+  return roster.map((p) => ({ id: p.id, target: p.id, winner: p.id, who: p.id }));
+}
+
+const variantsFor = (roster: GamePlayer[]) => [...VARIANTS, ...personVariants(roster)];
+
 function hasEscape(
   game: { reduce: (s: unknown, a: GameAction, p: GamePlayer[]) => unknown },
   state: unknown,
@@ -108,7 +156,7 @@ function hasEscape(
 ): boolean {
   for (const type of ACTION_TYPES) {
     if (ESCAPE_HATCHES.has(type)) continue;
-    for (const extra of VARIANTS) {
+    for (const extra of variantsFor(roster)) {
       for (const by of roster) {
         if (game.reduce(state, act(type, by.id, extra), roster) !== state) return true;
       }
@@ -188,11 +236,15 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
    * darunter deckt den bekannten Fall unabhaengig davon ab.
    */
   it('laesst aus jedem erreichbaren Zustand mindestens eine Aktion zu', () => {
+    // Auch am Minimum und bei grosser Runde: eine Sackgasse, die nur bei genau
+    // drei Personen oder erst ab neun entsteht (etwa ein Modulo ueber
+    // `order.length`), saehe ein Lauf mit fester Funferbesetzung strukturell nie.
     for (const g of DEFS) {
-      for (let rot = 0; rot < VARIANTS.length; rot++) {
-        const roster = players(5);
+      for (const groesse of [3, 5, 9]) {
+        const rot = groesse % VARIANTS.length;
+        const roster = players(groesse);
         let state: unknown = g.createState(roster);
-        expect(hasEscape(g, state, roster), `${g.id} / Startzustand`).toBe(true);
+        expect(hasEscape(g, state, roster), `${g.id} / Start mit ${groesse}`).toBe(true);
         for (let i = 0; i < 120; i++) {
           let moved = false;
           for (let k = 0; k < ACTION_TYPES.length && !moved; k++) {
@@ -201,8 +253,9 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
             // Auch die Parameter durchrotieren: sonst wird `announce` immer
             // mit demselben Rang probiert und der Lauf erreicht nie den
             // Zustand „Maexchen steht", in dem die Sackgasse lag.
-            for (let v = 0; v < VARIANTS.length && !moved; v++) {
-              const extra = VARIANTS[(i + rot + v) % VARIANTS.length];
+            const alle = variantsFor(roster);
+            for (let v = 0; v < alle.length && !moved; v++) {
+              const extra = alle[(i + rot + v) % alle.length];
               const by = roster[(i + k) % roster.length].id;
               const next = g.reduce(state, act(type, by, extra), roster);
               if (next !== state) {
@@ -212,10 +265,26 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
             }
           }
           if (!moved || isFinished(state)) break;
-          expect(hasEscape(g, state, roster), `${g.id} / Lauf ${rot}, Schritt ${i}`).toBe(true);
+          expect(hasEscape(g, state, roster), `${g.id} / ${groesse} Spieler, Schritt ${i}`).toBe(true);
         }
       }
     }
+  });
+
+  it('deckt jedes Feld ab, das ein Reducer aus der Aktion liest', () => {
+    // Ohne diesen Test faellt eine fehlende Parametervariante als
+    // „Sackgasse" auf – an einem Spiel, das gar keine hat. Genau das ist bei
+    // Top Ten passiert, als es `action.id` zu lesen begann.
+    const gelesen = readActionFields();
+    // Nahe an der echten Zahl (heute 18): eine Regression, die die Haelfte der
+    // Felder verliert - etwa weil ein Reducer kuenftig destrukturiert statt
+    // `action.feld` zu schreiben -, bliebe bei einer Schranke von 8 gruen.
+    expect(gelesen.length, 'zu wenige Aktionsfelder gefunden').toBeGreaterThan(15);
+    const abgedeckt = new Set(VARIANTS.flatMap((v) => Object.keys(v)));
+    const fehlend = gelesen.filter((f) => !abgedeckt.has(f));
+    expect(fehlend, `Parametervarianten kennen diese Felder nicht: ${fehlend.join(', ')}`).toEqual(
+      [],
+    );
   });
 
   it('bleibt bei Maexchen ansagbar, wenn Maexchen steht', () => {
@@ -389,13 +458,36 @@ describe('Ring of Fire', () => {
   });
 
   it('mischt neu, wenn das Deck leer ist', () => {
+    // Nur „ohne Ende" zieht ueber den vierten Koenig hinaus weiter. Mit
+    // Ziellinie ist dort Schluss, die Karte bleibt liegen und es wird bewusst
+    // nicht mehr gezogen - der Test war ohne diese Unterscheidung flakig und
+    // fiel genau dann, wenn der vierte Koenig spaet kam.
+    const vorher = useApp.getState().gameLength;
+    useApp.setState({ gameLength: 'endlos' });
     const roster = players(4);
     let s = game.createState(roster);
+    useApp.setState({ gameLength: vorher });
+    expect(s.endless, 'Partie laeuft nicht ohne Ende').toBe(true);
     for (let i = 0; i < 60; i++) {
       s = game.reduce(s, act('draw'), roster);
       s = game.reduce(s, act('next'), roster);
     }
     expect(s.deck.length).toBeGreaterThan(0);
+  });
+
+  it('hört mit Ziellinie beim vierten König auf zu ziehen', () => {
+    // Gegenstueck zum Test darueber: hier MUSS es stehenbleiben.
+    const vorher = useApp.getState().gameLength;
+    useApp.setState({ gameLength: 'mittel' });
+    const roster = players(4);
+    let s = game.createState(roster);
+    useApp.setState({ gameLength: vorher });
+    for (let i = 0; i < 60; i++) {
+      s = game.reduce(s, act('draw'), roster);
+      s = game.reduce(s, act('next'), roster);
+    }
+    expect(s.over, 'Partie endete nicht am vierten Koenig').toBe(true);
+    expect(s.kings).toBe(4);
   });
 });
 
@@ -493,12 +585,15 @@ describe('Top Ten', () => {
     }
   });
 
-  it('geht nach allen Antworten ins Sortieren', () => {
+  it('geht nach allen Antworten ins Aufdecken', () => {
+    // Frueher wurde still sortiert und am Ende alles auf einmal gezeigt. Jetzt
+    // benennt der Kapitaen Person fuer Person, und ein Fehler wird in dem
+    // Moment sichtbar, in dem er passiert – wie im Vorbild.
     const roster = players(4);
     let s = game.createState(roster);
     for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: 'x' }), roster);
-    expect(s.phase).toBe('ordering');
-    expect(s.captainOrder).toHaveLength(4);
+    expect(s.phase).toBe('revealing');
+    expect(s.revealed).toEqual([]);
   });
 
   it('wechselt den Kapitaen in der naechsten Runde', () => {
@@ -507,7 +602,7 @@ describe('Top Ten', () => {
     const first = s.captainIndex;
     // Bis zur Auflösung spielen – vorher nimmt der Reducer kein 'next' an.
     for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: 'x' }), roster);
-    s = game.reduce(s, act('lockOrder', roster[first].id, { order: roster.map((p) => p.id) }), roster);
+    for (const p of roster) s = game.reduce(s, act('reveal', roster[first].id, { id: p.id }), roster);
     expect(s.phase).toBe('results');
     s = game.reduce(s, act('next'), roster);
     expect(s.captainIndex).toBe((first + 1) % 4);
@@ -629,15 +724,22 @@ describe('Undercover', () => {
     expect(s.phase).toBe('describe');
   });
 
-  it('beendet das Spiel, sobald Undercover rausgewählt wird', () => {
+  it('gibt dem enttarnten Undercover einen letzten Rateversuch', () => {
+    // Frueher war mit dem Rauswurf sofort Schluss. Trifft er jetzt das Wort
+    // der Gruppe, dreht die Runde noch – der Moment, den das Vorbild hat.
     const roster = players(5);
     let s = game.createState(roster);
-    for (const p of roster) s = game.reduce(s, act('seen', p.id), roster);
+    for (const p of roster) s = game.reduce(s, act('seen', p.id, { who: p.id }), roster);
     s = { ...s, phase: 'vote' };
     for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: s.undercoverId }), roster);
+    expect(s.phase).toBe('guess');
+    expect(s.eliminated).toContain(s.undercoverId);
+    expect(s.guessOptions).toContain(s.words[0]);
+
+    const daneben = s.guessOptions.find((w: string) => w !== s.words[0])!;
+    s = game.reduce(s, act('guess', s.undercoverId, { word: daneben }), roster);
     expect(s.phase).toBe('over');
     expect(s.winner).toBe('gruppe');
-    expect(s.eliminated).toContain(s.undercoverId);
   });
 
   it('lässt Undercover gewinnen, wenn nur noch zwei übrig sind', () => {
@@ -681,18 +783,25 @@ describe('Schätzfrage', () => {
 describe('Zwei Wahrheiten, eine Lüge', () => {
   const game = getLoadedGame('zwei-wahrheiten')!;
 
-  it('mischt die Aussagen und merkt sich die Lüge korrekt', () => {
+  it('geht nach den Aussagen erst ins Verhör, nicht sofort ins Raten', () => {
+    // Die Luege wird nicht mehr beim Schreiben markiert, sondern erst nach dem
+    // Raten vom Autor aufgedeckt. Dadurch muss die App nie ein Geheimnis vor
+    // der Runde verbergen – und das Spiel laeuft auf einem Handy.
     const roster = players(3);
     let s = game.createState(roster);
     const author = s.order[0];
-    s = game.reduce(
-      s,
-      act('submit', author, { statements: ['wahr A', 'LUEGE', 'wahr B'], lie: 1 }),
-      roster,
-    );
-    expect(s.phase).toBe('guess');
+    s = game.reduce(s, act('submit', author, { statements: ['wahr A', 'LUEGE', 'wahr B'] }), roster);
+    // Zuerst legt sich der Autor unter vier Augen fest – erst danach das
+    // Verhoer. Ohne diese Festlegung koennte er die Luege spaeter an die
+    // Tipps anpassen und nie verlieren.
+    expect(s.phase).toBe('commit');
+    s = game.reduce(s, act('markLie', author, { index: 1 }), roster);
+    expect(s.phase).toBe('interrogate');
     expect(s.statements).toHaveLength(3);
-    expect(s.statements[s.lie]).toBe('LUEGE');
+    for (let i = 0; i < roster.length - 1; i++) {
+      s = game.reduce(s, act('nextQuestion', roster[i].id), roster);
+    }
+    expect(s.phase).toBe('guess');
   });
 
   it('nimmt keine unvollständigen Aussagen an', () => {
@@ -768,10 +877,13 @@ describe('Reaktions-Duell', () => {
     let s = game.createState(roster);
     s = game.reduce(s, act('arm'), roster);
     s = game.reduce(s, act('go'), roster);
+    // Wer antritt, sagt der Spielplan – frueher waren es immer die Nachbarn
+    // in `order`, weshalb bei 8 Personen jemand nie drankam.
+    const [links, rechts] = pairFor(s.order, s.pairIndex);
     s = game.reduce(s, act('tap', 'p1', { side: 1 }), roster);
     expect(s.phase).toBe('result');
-    expect(s.winner).toBe(s.order[1]);
-    expect(s.loser).toBe(s.order[0]);
+    expect(s.winner).toBe(rechts);
+    expect(s.loser).toBe(links);
   });
 });
 

@@ -13,11 +13,11 @@ export const meta: GameMeta = {
   duration: '20-40 Min',
   intensity: 1,
   tags: ['geheim', 'kreativ', 'reden'],
-  requiresOwnDevice: true,
+  requiresOwnDevice: false,
   allowSpicy: true,
   howTo: [
     'Jede Person bekommt heimlich eine Zahl von 1 bis 10.',
-    'Zur Kategorie gibt jede Person eine Antwort, die genau zu ihrer Zahl passt.',
-    'Der Kapitän sortiert alle Antworten von 1 nach 10. Jeder Fehler kostet die Runde Schlucke.',
+    'Zur Kategorie sagt jede Person eine Antwort, die zu ihrer Zahl passt.',
+    'Der Kapitän deckt die Zahlen nacheinander auf. Ist eine kleiner als die vorherige, wandert ein Plättchen in die Häufchenzone – sind alle weg, ist die Partie verloren.',
   ],
 };

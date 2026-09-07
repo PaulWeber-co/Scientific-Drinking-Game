@@ -6,6 +6,7 @@ import { DRINK_CATALOG } from '../../engine/drinks';
 import { formatBac } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { useApp } from '../../store/app';
+import type { TaskFrequency } from '../../engine/tasks';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 import type { Heat } from '../card-engine/types';
 
@@ -38,6 +39,12 @@ interface Props {
  * von Bier auf Shots wechselt und das nicht eintragen kann, bekommt für den
  * Rest des Abends Ansagen für das falsche Getränk.
  */
+const TASK_OPTIONS: { id: TaskFrequency; label: string }[] = [
+  { id: 'aus', label: 'Nie' },
+  { id: 'manchmal', label: 'Manchmal' },
+  { id: 'immer', label: 'Immer' },
+];
+
 export function GameSettings({ heat, spicy }: Props) {
   const [open, setOpen] = useState(false);
   const drink = useCurrentDrink();
@@ -69,6 +76,8 @@ function SettingsBody({ heat, spicy }: Props) {
   const setDrink = usePlayer((s) => s.setDrink);
   const spicyOn = useApp((s) => (spicy ? s.spicy[spicy.gameId] === true : false));
   const toggleSpicy = useApp((s) => s.toggleSpicy);
+  const taskOnSkip = useApp((s) => s.taskOnSkip);
+  const setTaskOnSkip = useApp((s) => s.setTaskOnSkip);
 
   if (!profile) return null;
   const drinks = [...customDrinks, ...DRINK_CATALOG.filter((d) => d.abvPercent > 0)];
@@ -149,6 +158,31 @@ function SettingsBody({ heat, spicy }: Props) {
             label="Ich fahre heute"
           />
         </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Aufgaben beim Aussetzen</span>
+        <div className="segmented" role="group" aria-label="Aufgaben beim Aussetzen">
+          {TASK_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              className="segmented__opt"
+              aria-pressed={taskOnSkip === opt.id}
+              onClick={() => {
+                haptic('select');
+                setTaskOnSkip(opt.id);
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="t-caption">
+          Sitzt dein Pegel oder bist du leicht drüber, kommt keine
+          Trinkansage. Hier entscheidest du, ob stattdessen eine Aufgabe kommt.
+          Fährst du oder spielst alkoholfrei, bekommst du unabhängig davon
+          immer eine.
+        </span>
       </div>
 
       <div className="notice notice--neutral">
