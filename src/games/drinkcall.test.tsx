@@ -3,9 +3,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
-import { DrinkCall } from './shared/DrinkCall';
+import { DrinkCall, DrinkCallList } from './shared/DrinkCall';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';
-import { usePlayer } from '../store/player';
+import { usePlayer, defaultProfile } from '../store/player';
+import { useApp } from '../store/app';
+import { useSeen } from '../store/seen';
+import { TASKS } from '../engine/tasks';
 import { getLoadedGame, loadGame } from './registry';
 import type { GameAction, GameActionInput, GamePlayer } from './types';
 
@@ -76,6 +79,11 @@ function Harness({ gameId, players }: { gameId: string; players: GamePlayer[] })
 beforeAll(() => loadGame('kings-cup'));
 
 beforeEach(() => {
+  // Alle drei Stores zuruecksetzen, nicht nur den Spieler: sonst laufen die
+  // vorderen Bloecke mit dem, was ein spaeterer Test hinterlassen hat, und die
+  // Datei traegt eine unausgesprochene Reihenfolge-Annahme.
+  useApp.setState({ taskOnSkip: 'manchmal', spicy: {} });
+  useSeen.setState({ seen: {}, cursor: 0 });
   usePlayer.setState({
     profile: {
       name: 'Paul',
@@ -94,6 +102,7 @@ beforeEach(() => {
     customDrinks: [],
     log: [],
     waterCount: 0,
+    nightStartedAt: null,
   });
 });
 
@@ -249,5 +258,159 @@ describe('Trinkansage über dem Ziel', () => {
     expect(screen.queryByText('Aussetzen')).toBeNull();
     expect(screen.getByText(/Mach eine Pause/)).toBeInTheDocument();
     expect(container.querySelector('.call--pause')).not.toBeNull();
+  });
+});
+
+describe('Aufgaben statt leerer Ansagen', () => {
+  /** Ein Log, das den Spieler auf den gewuenschten Pegel hebt. */
+  const trunken = (gramm: number) => {
+    usePlayer.setState({
+      log: [
+        {
+          id: 'seed',
+          at: Date.now() - 60 * 60_000,
+          drinkId: 'beer-pils',
+          drinkName: 'Bier (Pils)',
+          sips: 1,
+          alcoholGrams: gramm,
+        },
+      ],
+    });
+  };
+
+  const zeigen = () =>
+    render(
+      <PartyCtx.Provider value={party([me], { gameId: 'kings-cup' })}>
+        <DrinkCall player={me} baseSips={3} source="test" resetKey="karte-1" />
+      </PartyCtx.Provider>,
+    );
+
+  /** Der Aufgabentext ist alles unter der Trennlinie. */
+  const aufgabe = () => document.querySelector('.call__tasktext')?.textContent ?? null;
+
+  beforeEach(() => {
+    useApp.setState({ taskOnSkip: 'immer' });
+  });
+
+  it('gibt dem Fahrer eine echte Aufgabe statt nur der Überschrift', () => {
+    // Das Versprechen steht an sieben Stellen in der App. Bis hierher war
+    // "Aufgabe" eine Ueberschrift ohne Inhalt.
+    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    zeigen();
+    expect(document.querySelector('.call__big')!.textContent).toBe('Aufgabe');
+    const text = aufgabe();
+    expect(text, 'keine Aufgabe angezeigt').not.toBeNull();
+    expect(TASKS.some((t) => t.text === text)).toBe(true);
+  });
+
+  it('gibt sie dem Fahrer auch dann, wenn Aufgaben beim Aussetzen abgeschaltet sind', () => {
+    useApp.setState({ taskOnSkip: 'aus' });
+    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    zeigen();
+    expect(aufgabe()).not.toBeNull();
+  });
+
+  it('schweigt beim Aussetzen, wenn der Schalter auf „Nie" steht', () => {
+    useApp.setState({ taskOnSkip: 'aus' });
+    trunken(40);
+    zeigen();
+    expect(document.querySelector('.call__big')!.textContent).toBe('Aussetzen');
+    expect(aufgabe()).toBeNull();
+  });
+
+  it('gibt beim Aussetzen eine, wenn der Schalter auf „Immer" steht', () => {
+    // Gegenprobe zum Test darueber: sonst ginge ein kaputter Aufgabenpfad als
+    // "Schalter wirkt" durch.
+    trunken(40);
+    zeigen();
+    expect(document.querySelector('.call__big')!.textContent).toBe('Aussetzen');
+    expect(aufgabe()).not.toBeNull();
+  });
+
+  it('gibt der mildesten Stufe über dem Ziel noch etwas zu tun', () => {
+    trunken(55);
+    zeigen();
+    expect(document.querySelector('.call__big')!.textContent).toBe('Wasser');
+    expect(aufgabe()).not.toBeNull();
+  });
+
+  it('lässt Pause, Stopp und Gefahr ohne Aufgabe', () => {
+    // Sicherheitsansagen. Eine Spielaufgabe daneben wuerde sie relativieren.
+    // Jede Stufe einzeln benannt: eine Liste erlaubter Stufen wuerde nicht
+    // auffallen, wenn zwei der drei Faelle nie erreicht werden.
+    const stufen: [number, string][] = [
+      [70, 'Pause'],
+      [90, 'Stopp'],
+      [150, 'Gefahr'],
+    ];
+    for (const [gramm, erwartet] of stufen) {
+      trunken(gramm);
+      const { unmount } = zeigen();
+      expect(document.querySelector('.call__big')!.textContent, `${gramm} g`).toBe(erwartet);
+      expect(aufgabe(), `${erwartet} zeigte eine Aufgabe`).toBeNull();
+      unmount();
+    }
+  });
+
+  it('behält dieselbe Aufgabe über einen Re-Render', () => {
+    // Das Gedaechtnis merkt sich die Aufgabe, sobald sie einmal dastand. Ohne
+    // das Einfrieren stuende beim naechsten Render eine andere da.
+    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    function Wrap() {
+      const [, force] = useState(0);
+      return (
+        <PartyCtx.Provider value={party([me], { gameId: 'kings-cup' })}>
+          <button onClick={() => force((v) => v + 1)}>Neu rendern</button>
+          <DrinkCall player={me} baseSips={3} source="test" resetKey="karte-1" />
+        </PartyCtx.Provider>
+      );
+    }
+    render(<Wrap />);
+    const erst = aufgabe();
+    fireEvent.click(screen.getByRole('button', { name: 'Neu rendern' }));
+    expect(aufgabe()).toBe(erst);
+  });
+
+  it('gibt jedem Spieler am selben Gerät eine eigene Aufgabe', () => {
+    // Pass & Play: DrinkCallList rendert alle lokalen Spieler. Bekaeme die
+    // Auswahl keinen Spieler-Anteil im Seed, stuende bei allen dasselbe.
+    const fahrer = (id: string, name: string): GamePlayer => ({
+      id,
+      name,
+      color: 'pink',
+      online: true,
+      local: {
+        profile: { ...defaultProfile(), name, designatedDriver: true, alcoholFree: true },
+        drinkId: 'beer-pils',
+        log: [],
+      },
+    });
+    const runde = [me, fahrer('g1', 'Anna'), fahrer('g2', 'Ben'), fahrer('g3', 'Cem')];
+    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    render(
+      <PartyCtx.Provider value={party(runde, { mode: 'local', gameId: 'kings-cup' })}>
+        <DrinkCallList players={runde} baseSips={3} source="test" resetKey="karte-1" />
+      </PartyCtx.Provider>,
+    );
+    const texte = [...document.querySelectorAll('.call__tasktext')].map((e) => e.textContent);
+    expect(texte, 'nicht jeder Spieler hat eine Aufgabe').toHaveLength(runde.length);
+    expect(new Set(texte).size, `doppelte Aufgaben: ${texte.join(' | ')}`).toBe(runde.length);
+  });
+
+  it('gibt in der nächsten Runde eine andere Aufgabe', () => {
+    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    function Wrap() {
+      const [n, setN] = useState(0);
+      return (
+        <PartyCtx.Provider value={party([me], { gameId: 'kings-cup' })}>
+          <button onClick={() => setN((v) => v + 1)}>Weiter</button>
+          <DrinkCall player={me} baseSips={3} source="test" resetKey={n} />
+        </PartyCtx.Provider>
+      );
+    }
+    render(<Wrap />);
+    const erst = aufgabe();
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+    expect(aufgabe()).not.toBe(erst);
   });
 });

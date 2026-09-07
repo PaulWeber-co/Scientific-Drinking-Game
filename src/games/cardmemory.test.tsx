@@ -131,7 +131,7 @@ beforeEach(() => {
   useSeen.setState({ seen: {}, cursor: 0 });
   localStorage.clear();
   // Ohne Ende, sonst schliesst die Partie vor dem letzten Zug.
-  useApp.setState({ gameLength: 'endlos', spicy: {} });
+  useApp.setState({ gameLength: 'endlos', spicy: {}, taskOnSkip: 'aus' });
   usePlayer.setState({
     profile: { ...defaultProfile(), name: 'Paul' },
     currentDrinkId: 'beer-pils',

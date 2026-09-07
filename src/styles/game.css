@@ -207,6 +207,33 @@
   color: var(--label-2);
 }
 
+/* Die Aufgabe für Runden ohne Schlucke. Abgesetzt vom Hinweis darüber, damit
+   Erklärung und Auftrag nicht ineinanderlaufen. */
+.call__task {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-1);
+  width: 100%;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+}
+.call__tasktext {
+  margin: 0;
+  font-size: var(--t-headline);
+  font-weight: 650;
+  line-height: 1.3;
+}
+/* In der Gruppenansicht stehen bis zu sechs Aufgaben untereinander – dort
+   eine Stufe kleiner, sonst füllt eine Runde drei Bildschirme. */
+.call--compact .call__task {
+  padding-top: var(--s-2);
+}
+.call--compact .call__tasktext {
+  font-size: var(--t-subhead);
+  font-weight: 600;
+}
+
 /* ---------- Spieler-Chips ---------- */
 .pchip {
   display: inline-flex;
