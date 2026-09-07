@@ -551,41 +551,102 @@
 }
 
 /* ---------- Geheimes Wort (gedrückt halten) ---------- */
-.peek {
-  display: grid;
-  place-items: center;
-  min-height: 190px;
-  border-radius: var(--r-2xl);
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  user-select: none;
-  -webkit-user-select: none;
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) linear,
-    border-color var(--dur-fast) linear,
-    transform var(--dur-fast) var(--ease-spring);
-}
-.peek--open {
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  transform: scale(1.015);
-}
-.peek__hint {
+/* ---------- Uebergabe zwischen zwei Spielern ---------- */
+.passdev {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-3);
+  padding: var(--s-6) var(--s-4);
+  text-align: center;
+  animation: card-in var(--dur) var(--ease-spring) both;
+}
+.passdev__name {
+  font-size: var(--t-title1);
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+.passdev .btn {
+  margin-top: var(--s-3);
+}
+
+/* ---------- Aufdeck-Karte ---------- */
+/* Der Deckel folgt dem Finger. `touch-action: none` ist Pflicht: sonst deutet
+   iOS die Bewegung als Scrollen und die Geste kommt nie an. `transform` und
+   `opacity` laufen auf dem Compositor, alles andere wuerde ruckeln. */
+.peekcard {
+  position: relative;
+  min-height: 190px;
+  border-radius: var(--r-2xl);
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.peekcard__under {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+  text-align: center;
+  background: color-mix(in srgb, var(--accent, var(--green)) 14%, var(--surface));
+}
+.peekcard__lid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  cursor: grab;
+  will-change: transform;
+  /* Der Schatten waechst nicht mit - er sitzt an der Unterkante des Deckels
+     und macht sichtbar, dass etwas ANGEHOBEN ist und nicht verschoben. */
+  box-shadow: 0 8px 18px -8px rgb(0 0 0 / 0.55);
+}
+.peekcard__lid:active {
+  cursor: grabbing;
+}
+.peekcard__lid:focus-visible {
+  outline: 2px solid var(--accent, var(--green));
+  outline-offset: -3px;
+}
+.peekcard__word {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  text-wrap: balance;
+}
+.peekcard__label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   color: var(--label-3);
   font-size: var(--t-footnote);
   font-weight: 600;
 }
-.peek__word {
-  font-size: 34px;
-  font-weight: 750;
-  letter-spacing: -0.8px;
-  animation: pop-in var(--dur-fast) var(--ease-spring) both;
+/* Solange der Deckel oben ist, tritt der Rest des Bildschirms zurueck. Das
+   ist kein Schmuck: bei einem Geheimwort sieht der Nachbar dadurch weniger,
+   und der Blick des Lesenden liegt dort, wo er hingehoert. */
+.peekcard--open {
+  z-index: 3;
 }
+/* Der Rahmen verschachtelt allen Spielinhalt in EIN `.game__body`. Ein
+   Selektor auf die direkten Kinder von `.game` haette deshalb nur die
+   Kopfzeile getroffen und den Rest unberuehrt gelassen - er haette eine
+   Genauigkeit vorgetaeuscht, die es nicht gibt. Gedimmt werden die
+   Geschwister der Karte INNERHALB des Rumpfes, plus die Kopfzeile. */
+.game:has(.peekcard--open) > .game__bar,
+.game:has(.peekcard--open) .game__body > *:not(:has(.peekcard--open)) {
+  opacity: 0.35;
+  transition: opacity var(--dur-fast) linear;
+}
+
 
 /* ---------- Zwei Wahrheiten ---------- */
 .lierow {

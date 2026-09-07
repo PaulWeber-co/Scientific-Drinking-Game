@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { GameFrame } from '../shared/GameFrame';
+import { PeekCard } from '../shared/PeekCard';
 import { GameOver } from '../shared/GameOver';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
@@ -188,7 +188,6 @@ function Die({ value }: { value: number }) {
 }
 
 function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
-  const [peek, setPeek] = useState(false);
   const send = (a: GameActionInput) => dispatch(a);
   const n = Math.max(1, state.order.length);
   const byId = (id: string) => players.find((p) => p.id === id);
@@ -290,26 +289,16 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
 
       {state.phase === 'announce' && (
         <>
-          <div
-            className={`peek ${peek ? 'peek--open' : ''}`}
-            onPointerDown={() => canAnnounce && setPeek(true)}
-            onPointerUp={() => setPeek(false)}
-            onPointerLeave={() => setPeek(false)}
-            role="button"
-            tabIndex={0}
-          >
-            {peek && state.dice ? (
+          <PeekCard label="Becher anheben">
+            {state.dice && canAnnounce ? (
               <span className="row" style={{ gap: 14 }}>
                 <Die value={state.dice[0]} />
                 <Die value={state.dice[1]} />
               </span>
             ) : (
-              <span className="peek__hint">
-                <Icon name="lock" size={28} />
-                Gedrückt halten
-              </span>
+              <span className="t-sub">Nicht dein Wurf.</span>
             )}
-          </div>
+          </PeekCard>
           <p className="t-sub t-center t-balance">
             {state.previous === MAEXCHEN
               ? 'Mäxchen steht. Nur ein eigenes Mäxchen hält dagegen – sonst hilft nur aufdecken lassen.'
