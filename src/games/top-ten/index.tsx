@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { spicyDeck } from '../shared/prompts';
+import { markTextsSeen } from '../../store/seen';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
@@ -96,7 +97,7 @@ export const topTen: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => {
-    const deck = spicyDeck(CATEGORIES, 'top-ten');
+    const deck = spicyDeck(CATEGORIES, 'top-ten', (c) => c.title);
     const ids = players.map((p) => p.id);
     return {
       phase: 'writing',
@@ -139,7 +140,7 @@ export const topTen: GameDefinition<State> = {
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
         // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
         if (state.phase !== 'results') return state;
-        const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten');
+        const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten', (c) => c.title);
         const ids = players.map((p) => p.id);
         const round = state.round + 1;
         // Gewertet wird nur eine Reihenfolge, die auch festgelegt wurde.
@@ -183,6 +184,10 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string) => players.find((p) => p.id === id);
   const cat = CATEGORIES[state.category];
+  // Gemerkt, damit die naechste Partie am selben Abend andere Kategorien zieht.
+  useEffect(() => {
+    if (cat) markTextsSeen([cat.title]);
+  }, [cat]);
   const captain = players[state.captainIndex % Math.max(1, players.length)];
   const isCaptain = captain?.id === me.id;
 

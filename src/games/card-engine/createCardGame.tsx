@@ -3,6 +3,7 @@ import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { customCardsFor } from '../../store/cards';
 import { isSpicyOn } from '../../store/app';
+import { markTextsSeen, orderByFreshness } from '../../store/seen';
 import { HeatIcons, Icon } from '../../components/icons';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, Choice, PlayerChip } from '../shared/pieces';
@@ -29,7 +30,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       ? [...config.cards, ...customCardsFor(config.id)]
       : config.cards;
     const spicyOn = config.allowSpicy && isSpicyOn(config.id);
-    return all
+    const matching = all
       .filter((c) => spicyOn || !c.spicy)
       // Spicy ist eine Frage des Inhalts, nicht der Menge: wer den Schalter
       // umlegt, will diese Karten sehen – und zwar auf jeder Härtestufe. Ohne
@@ -37,7 +38,32 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       // tragen, und der Schalter täte sichtbar nichts.
       .filter((c) => c.spicy || (c.heat ?? 1) <= heat)
       .filter((c) => !mode || !c.mode || c.mode === mode);
+
+    // Gleicher Text = dieselbe Karte. Sie lägen sonst doppelt im Stapel und
+    // wären fürs Gedächtnis nicht unterscheidbar, weil es über den Text geht.
+    // Betrifft eigene Karten (die darf man doppelt anlegen) und einen
+    // Doppeleintrag in "Ich hab noch nie".
+    const texts = new Set<string>();
+    return matching.filter((card) => {
+      if (texts.has(card.text)) return false;
+      texts.add(card.text);
+      return true;
+    });
   };
+
+  /**
+   * Ein frischer Stapel: gemischt, dann nach Gedächtnis geordnet. Karten, die
+   * noch nie dran waren, liegen oben – danach die am längsten zurückliegenden.
+   *
+   * Das ist der Unterschied zwischen "nicht wiederholen" und "nicht mehr
+   * ziehen können": der Stapel geht nie aus, er rotiert. Wichtig ist es vor
+   * allem für Spiele mit Moduswahl, wo bei jedem Zug ein kompletter Stapel neu
+   * entsteht und ohne das Gedächtnis mit Zurücklegen gezogen würde.
+   *
+   * Läuft nur beim Host, wie alles im Reducer.
+   */
+  const freshDeck = (heat: Heat, mode: string | null): CardDef[] =>
+    orderByFreshness(shuffle(pool(heat, mode)), (card) => card.text);
 
   const startsWithChoice = Boolean(config.modes) && config.actor === 'turn';
 
@@ -46,7 +72,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
   const ROUND_BASE = baseFor(config.id);
 
   const createState = (players: GamePlayer[]): CardGameState => {
-    const deck = shuffle(pool(config.intensity, null));
+    const deck = freshDeck(config.intensity, null);
     return {
       order: shuffle(players.map((p) => p.id)),
       turnIndex: 0,
@@ -72,7 +98,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
-        const deck = shuffle(pool(heat, state.mode));
+        const deck = freshDeck(heat, state.mode);
         // Solange die Karte nur daliegt, wird sie mitgetauscht: sonst wirkt
         // der Regler tot, weil die neue Härte erst eine Karte später sichtbar
         // wird. Ist die Karte schon aufgelöst, bleibt sie stehen – dort hängt
@@ -82,7 +108,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       }
       case 'pickMode': {
         const mode = String(action.mode);
-        const deck = shuffle(pool(state.heat, mode));
+        const deck = freshDeck(state.heat, mode);
         return {
           ...state,
           mode,
@@ -92,7 +118,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         };
       }
       case 'draw': {
-        const deck = state.deck.length ? state.deck : shuffle(pool(state.heat, state.mode));
+        const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode);
         return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card' };
       }
       case 'resolve':
@@ -115,7 +141,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         // Die Ziellinie liegt am Ende eines vollen Durchlaufs, damit niemand
         // mittendrin aussteigt, während andere schon dran waren.
         if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
-        const deck = state.deck.length ? state.deck : shuffle(pool(state.heat, null));
+        const deck = state.deck.length ? state.deck : freshDeck(state.heat, null);
         return {
           ...state,
           order,
@@ -150,6 +176,12 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     // Wechselt die Karte unter einer schon getroffenen Entscheidung weg (etwa
     // weil jemand den Härtegrad verstellt), gilt die Entscheidung nicht mehr.
     useEffect(() => setDeclared(null), [card?.text]);
+    // Jedes Geraet merkt sich, was es gezeigt bekommen hat. Online sehen alle
+    // dieselbe Karte, der Stapel entsteht aber beim Host - dessen Gedaechtnis
+    // ist deshalb das der Runde.
+    useEffect(() => {
+      if (card) markTextsSeen([card.text]);
+    }, [card?.text]);
     const isMyTurn = !actor || actor.id === me.id;
     // Pass & Play: ein Gerät, also darf es auch für den Spieler am Zug tippen.
     const canAct = !online || isMyTurn;

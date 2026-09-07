@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { haptic } from '../../lib/haptics';
+import { markTextsSeen } from '../../store/seen';
 import { spicyDeck } from '../shared/prompts';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
@@ -76,7 +78,7 @@ export const mostLikely: GameDefinition<State> = {
   ...meta,
 
   createState: () => {
-    const deck = spicyDeck(PROMPTS, 'most-likely');
+    const deck = spicyDeck(PROMPTS, 'most-likely', (p) => p.text);
     return {
       phase: 'vote',
       prompt: deck[0],
@@ -108,7 +110,7 @@ export const mostLikely: GameDefinition<State> = {
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
         // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
         if (state.phase !== 'result') return state;
-        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely');
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely', (p) => p.text);
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         return {
@@ -133,6 +135,10 @@ export const mostLikely: GameDefinition<State> = {
 function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
   const send = (a: GameActionInput) => dispatch(a);
   const prompt = PROMPTS[state.prompt]?.text ?? '';
+  // Gemerkt, damit die naechste Partie am selben Abend andere Fragen zieht.
+  useEffect(() => {
+    if (prompt) markTextsSeen([prompt]);
+  }, [prompt]);
 
   if (!online) {
     return (
