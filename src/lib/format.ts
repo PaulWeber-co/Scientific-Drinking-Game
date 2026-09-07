@@ -33,3 +33,29 @@ export function shuffle<T>(input: readonly T[], rng: () => number = Math.random)
 export function pick<T>(arr: readonly T[], rng: () => number = Math.random): T {
   return arr[Math.floor(rng() * arr.length)];
 }
+
+const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const MONTHS = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+];
+
+/**
+ * Datum eines Abends, wie man es im Rückblick lesen will.
+ *
+ * Die letzten beiden Tage bekommen Wörter statt Zahlen – „Gestern" findet
+ * sich schneller wieder als „Fr, 5. September". Verglichen wird nach
+ * Kalendertag, nicht nach 24-Stunden-Abstand: ein Abend, der um 2 Uhr
+ * endet, war trotzdem gestern.
+ */
+export function formatNightDate(ts: number, now: number = Date.now()): string {
+  const d = new Date(ts);
+  const midnight = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((midnight(new Date(now)) - midnight(d)) / 86_400_000);
+  if (days === 0) return 'Heute';
+  if (days === 1) return 'Gestern';
+  const label = `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
+  return d.getFullYear() === new Date(now).getFullYear()
+    ? label
+    : `${label} ${d.getFullYear()}`;
+}

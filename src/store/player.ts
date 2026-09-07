@@ -2,7 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_TARGET_BAC } from '../engine/constants';
 import { findDrink } from '../engine/drinks';
+import { nightPeak, soberAt } from '../engine/bac';
 import { makeDrinkEvent } from '../engine/sips';
+import { useNights } from './nights';
+import { useFilm } from './film';
 import { colorFor } from '../components/ui/Avatar';
 import type { DrinkDefinition, DrinkEvent, Profile } from '../engine/types';
 
@@ -27,6 +30,8 @@ interface PlayerState {
   logEvent: (e: DrinkEvent) => void;
   undoLast: () => void;
   addWater: () => void;
+  /** Startet den Abend ohne Trink-Ereignis – etwa wenn ein Spiel losgeht. */
+  beginNight: () => void;
   endNight: () => void;
   resetAll: () => void;
 }
@@ -72,8 +77,37 @@ export const usePlayer = create<PlayerState>()(
         })),
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
       addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
-      endNight: () => set({ log: [], nightStartedAt: null, waterCount: 0 }),
-      resetAll: () =>
+      beginNight: () =>
+        set((s) => (s.nightStartedAt ? s : { nightStartedAt: Date.now() })),
+
+      // Der Abend wird archiviert, nicht weggeworfen. Diese eine Stelle
+      // deckt ALLE drei Wege ab, auf denen ein Abend endet: der Knopf im
+      // Rückblick, die 14-Stunden-Automatik unten, und `resetAll`.
+      endNight: () => {
+        const s = get();
+        if (s.nightStartedAt) {
+          const at = Date.now();
+          const peak = s.profile
+            ? nightPeak(s.log, s.profile, at)
+            : { peakBac: 0, peakAt: s.nightStartedAt };
+          const nightId = useNights.getState().archive({
+            startedAt: s.nightStartedAt,
+            endedAt: at,
+            log: s.log,
+            waterCount: s.waterCount,
+            ...peak,
+            soberAt: s.profile ? soberAt(s.log, s.profile, at) : at,
+          });
+          // Die Bilder des Abends bekommen jetzt ihre Zuordnung, und der
+          // nächste Abend fängt mit frischem Film an.
+          useFilm.getState().assignNight(nightId);
+          useFilm.getState().resetRoll();
+        }
+        set({ log: [], nightStartedAt: null, waterCount: 0 });
+      },
+      resetAll: () => {
+        useNights.getState().clearAll();
+        useFilm.getState().clearAll();
         set({
           profile: null,
           onboarded: false,
@@ -82,7 +116,8 @@ export const usePlayer = create<PlayerState>()(
           waterCount: 0,
           customDrinks: [],
           currentDrinkId: 'beer-pils',
-        }),
+        });
+      },
     }),
     {
       name: 'sdg.player',
@@ -100,15 +135,24 @@ export const usePlayer = create<PlayerState>()(
         }
         return state;
       },
-      onRehydrateStorage: () => (state) => {
-        // Abgelaufene Nächte automatisch schließen, damit der Restalkohol-
-        // Rechner nicht mit Daten von vorletzter Woche rechnet.
-        if (!state?.nightStartedAt) return;
-        if (Date.now() - state.nightStartedAt > NIGHT_MS) state.endNight();
-      },
+      onRehydrateStorage: () => (state) => closeStaleNight(state),
     },
   ),
 );
+
+/**
+ * Schließt eine abgelaufene Nacht beim Start der App.
+ *
+ * Sonst rechnet der Restalkohol-Rechner mit Daten von vorletzter Woche.
+ * Der Abend geht dabei nicht verloren – `endNight` archiviert ihn.
+ *
+ * Exportiert, damit ein Test diesen Weg prüfen kann, ohne den Store neu
+ * zu laden: es ist der einzige der drei Abschluss-Wege ohne Knopf.
+ */
+export function closeStaleNight(state: PlayerState | undefined, now = Date.now()): void {
+  if (!state?.nightStartedAt) return;
+  if (now - state.nightStartedAt > NIGHT_MS) state.endNight();
+}
 
 /** Bequemer Zugriff auf das aktuell gewählte Getränk. */
 export function useCurrentDrink(): DrinkDefinition {

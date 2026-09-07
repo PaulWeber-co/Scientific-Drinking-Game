@@ -2,6 +2,7 @@ import { HashRouter } from 'react-router-dom';
 import { Router } from './Router';
 import { PartyProvider } from '../features/party/PartyContext';
 import { ErrorBoundary } from './ErrorBoundary';
+import { NightTracker } from '../features/bac/NightTracker';
 
 /**
  * HashRouter statt BrowserRouter: GitHub Pages liefert nur statische Dateien
@@ -13,6 +14,7 @@ export function App() {
     <ErrorBoundary>
       <HashRouter>
         <PartyProvider>
+          <NightTracker />
           <Router />
         </PartyProvider>
       </HashRouter>

@@ -531,6 +531,12 @@ textarea.input {
   background: transparent;
   border: 1px solid var(--hairline-strong);
 }
+/* Ausgewählte Rastung: dieselbe Pille, nur in der Akzentfarbe. */
+.chip--on {
+  --tint: var(--brand);
+  background: color-mix(in srgb, var(--brand) 26%, transparent);
+  color: var(--label);
+}
 /* Chips als Knöpfe: sichtbar 30 px hoch, Zielfläche 44 px (Material-
    Modell: transparenter Rand, Hintergrund nur auf der Padding-Box). */
 button.chip {
@@ -1616,4 +1622,136 @@ button.chip--outline {
 .legal__block:first-of-type {
   border-top: none;
   padding-top: 0;
+}
+
+/* ---------- Album & Sucher ---------- */
+
+.photogrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-2);
+}
+.photoframe {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--label-3);
+}
+.photoframe img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Unentwickelt: man soll sehen, DASS da etwas wartet, nicht WAS. */
+.photoframe--latent {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface),
+    var(--surface) 6px,
+    var(--surface-2) 6px,
+    var(--surface-2) 12px
+  );
+}
+.photofull {
+  width: 100%;
+  border-radius: var(--r-md);
+  display: block;
+}
+
+.viewfinder {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.viewfinder__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Der Auslöse-Blitz auf dem Bildschirm. Er ersetzt die Vorschau, die es
+   bewusst nicht gibt: irgendeine Rückmeldung braucht der Finger. */
+.viewfinder__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: shutter-flash 260ms ease-out;
+  pointer-events: none;
+}
+@keyframes shutter-flash {
+  from { opacity: 0.9; }
+  to { opacity: 0; }
+}
+.viewfinder__top,
+.viewfinder__bottom {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: calc(env(safe-area-inset-top) + var(--s-4)) var(--s-4) var(--s-4);
+  color: #fff;
+}
+.viewfinder__top {
+  justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+}
+.viewfinder__bottom {
+  flex-direction: column;
+  padding: var(--s-4) var(--s-4) calc(env(safe-area-inset-bottom) + var(--s-6));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
+}
+.viewfinder__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.viewfinder__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: rec-blink 1.6s ease-in-out infinite;
+}
+@keyframes rec-blink {
+  50% { opacity: 0.25; }
+}
+.viewfinder__hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin: 0;
+}
+.shutter {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.shutter:disabled {
+  opacity: 0.35;
+}
+.shutter__ring {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid #000;
+  display: block;
 }

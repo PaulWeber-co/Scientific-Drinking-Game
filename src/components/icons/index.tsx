@@ -16,6 +16,7 @@ export type IconName =
   | 'share' | 'undo' | 'trash' | 'refresh' | 'phone' | 'qr'
   // Zustände & Hinweise
   | 'flame' | 'droplet' | 'car' | 'clock' | 'timer' | 'alert' | 'info' | 'lock' | 'sparkles'
+  | 'camera' | 'album'
   | 'trophy' | 'wifi' | 'wifiOff'
   // Spiel-Kategorien
   | 'phoneOff' | 'cards' | 'chat' | 'brush' | 'bolt' | 'team' | 'activity' | 'eyeOff'
@@ -55,6 +56,8 @@ const P: Record<IconName, ReactNode> = {
   droplet: <path d="M12 3.2c3.4 4 6 6.9 6 10.1a6 6 0 0 1-12 0c0-3.2 2.6-6.1 6-10.1Z" />,
   car: <><path d="M3.4 16.2v-3.1l1.9-4.4a2 2 0 0 1 1.8-1.2h9.8a2 2 0 0 1 1.8 1.2l1.9 4.4v3.1" /><path d="M3.4 13.1h17.2" /><path d="M4.6 16.2v2.2h2.8v-2.2M16.6 16.2v2.2h2.8v-2.2" /><circle cx="7.6" cy="15" r=".9" fill="currentColor" stroke="none" /><circle cx="16.4" cy="15" r=".9" fill="currentColor" stroke="none" /></>,
   clock: <><circle cx="12" cy="12" r="8.6" /><path d="M12 6.9V12l3.4 2.2" /></>,
+  camera: <><path d="M3.4 8.8a1.8 1.8 0 0 1 1.8-1.8h2.1l1.3-2.2h6.8l1.3 2.2h2.1a1.8 1.8 0 0 1 1.8 1.8v9a1.8 1.8 0 0 1-1.8 1.8H5.2a1.8 1.8 0 0 1-1.8-1.8z" /><circle cx="12" cy="13.1" r="3.6" /></>,
+  album: <><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.4" /><path d="M3.6 15.6 8.4 11l4 3.6 3.2-2.6 4.8 4.2" /><circle cx="8.8" cy="8.9" r="1.3" /></>,
   timer: <><circle cx="12" cy="13.6" r="7.6" /><path d="M12 9.6v4M9.6 2.8h4.8M18.6 7 20 5.6" /></>,
   alert: <><path d="M12 3.6 21.2 19.6a.9.9 0 0 1-.8 1.3H3.6a.9.9 0 0 1-.8-1.3Z" /><path d="M12 9.6v4.4" /><circle cx="12" cy="17.4" r="1" fill="currentColor" stroke="none" /></>,
   info: <><circle cx="12" cy="12" r="8.6" /><path d="M12 11.2v5.2" /><circle cx="12" cy="7.9" r="1" fill="currentColor" stroke="none" /></>,

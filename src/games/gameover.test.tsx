@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { GameOver } from './shared/GameOver';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';
 import type { GamePlayer } from './types';
+import { MemoryRouter } from 'react-router-dom';
 
 const spieler = (id: string, name: string): GamePlayer => ({ id, name, color: 'blue', online: true });
 const a = spieler('p0', 'Anna');
@@ -17,9 +18,13 @@ const ctx = {
 
 const zeige = (props: Parameters<typeof GameOver>[0]) =>
   render(
-    <PartyCtx.Provider value={ctx}>
-      <GameOver {...props} />
-    </PartyCtx.Provider>,
+    // Der Abschluss fragt nach einem Gruppenbild und verlinkt die Kamera –
+    // dafuer braucht er einen Router.
+    <MemoryRouter>
+      <PartyCtx.Provider value={ctx}>
+        <GameOver {...props} />
+      </PartyCtx.Provider>
+    </MemoryRouter>,
   );
 
 describe('Abschlussbildschirm', () => {

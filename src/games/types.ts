@@ -14,6 +14,8 @@ export interface GamePlayer {
   driver?: boolean;
   /** Grobe Pegel-Zone – bewusst ohne Zahlenwert. */
   zone?: BacZone;
+  /** Wie viele Bilder dieses Gerät vom gemeinsamen Film verbraucht hat. */
+  shots?: number;
   /**
    * Nur im Pass-&-Play-Modus gesetzt: Körperdaten der Mitspieler, die auf
    * diesem einen Gerät mitgeführt werden. Online bleiben diese Daten

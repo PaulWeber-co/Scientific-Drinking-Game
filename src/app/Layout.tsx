@@ -11,6 +11,7 @@ const TABS: { to: string; icon: IconName; label: string }[] = [
   { to: '/spiele', icon: 'games', label: 'Spiele' },
   { to: '/lobby', icon: 'people', label: 'Runde' },
   { to: '/pegel', icon: 'chart', label: 'Pegel' },
+  { to: '/album', icon: 'album', label: 'Album' },
 ];
 
 export function Layout() {

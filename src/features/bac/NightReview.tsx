@@ -31,7 +31,13 @@ export function NightReview({
   if (!summary || !profile) {
     return (
       <Sheet open={open} onClose={onClose} title="Rückblick">
-        <p className="t-sub">Für heute Abend ist noch nichts eingetragen.</p>
+        <div className="stack">
+          <p className="t-sub">
+            Für heute Abend ist nichts eingetragen. Abschließen kannst du ihn trotzdem – der
+            Abend landet mit allen, die dabei waren, in deinen Rückblicken.
+          </p>
+          {onEnd && <EndButton onEnd={onEnd} onClose={onClose} />}
+        </div>
       </Sheet>
     );
   }
@@ -92,19 +98,31 @@ export function NightReview({
           ausschließlich das Bild, das du selbst versendest.
         </div>
 
-        {onEnd && (
-          <button
-            className="btn btn--danger btn--block"
-            onClick={() => {
-              haptic('warn');
-              onEnd();
-              onClose();
-            }}
-          >
-            Abend beenden und Log löschen
-          </button>
-        )}
+        {onEnd && <EndButton onEnd={onEnd} onClose={onClose} />}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Schließt den Abend ab.
+ *
+ * Der Trink-Log wird geleert, damit der Restalkohol-Rechner morgen nicht
+ * mit den Zahlen von heute weiterrechnet – der Abend selbst bleibt aber als
+ * Rückblick erhalten. Deshalb steht hier kein Warnton mehr wie bei einer
+ * echten Löschung.
+ */
+function EndButton({ onEnd, onClose }: { onEnd: () => void; onClose: () => void }) {
+  return (
+    <button
+      className="btn btn--glass btn--block"
+      onClick={() => {
+        haptic('select');
+        onEnd();
+        onClose();
+      }}
+    >
+      <Icon name="check" size={18} /> Abend abschließen
+    </button>
   );
 }

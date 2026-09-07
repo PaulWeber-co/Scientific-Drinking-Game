@@ -19,6 +19,12 @@
           "createdAt": { ".validate": "newData.isNumber()" },
           "updatedAt": { ".validate": "newData.isNumber()" },
           "expiresAt": { ".validate": "newData.isNumber() && newData.val() <= now + 43200000" },
+          "film": {
+            ".validate": "newData.hasChildren(['rolls', 'developAfterH'])",
+            "rolls": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 40" },
+            "developAfterH": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 48" },
+            "$other": { ".validate": false }
+          },
           "$other": { ".validate": false }
         },
 
@@ -35,6 +41,7 @@
             "ready": { ".validate": "newData.isBoolean()" },
             "driver": { ".validate": "newData.isBoolean()" },
             "zone": { ".validate": "newData.isString() && newData.val().length <= 12" },
+            "shots": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2000" },
             "$other": { ".validate": false }
           }
         },
