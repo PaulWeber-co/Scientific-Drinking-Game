@@ -50,7 +50,7 @@ export function AlbumScreen() {
             </div>
             <p className="t-sub">
               {remaining > 0
-                ? `Noch ${plural(remaining, 'Bild', 'Bilder')} auf dem Film, ${mineLeft} davon für dich.`
+                ? `Noch ${remaining} ${plural(remaining, 'Bild', 'Bilder')} auf dem Film, ${mineLeft} davon für dich.`
                 : 'Der Film ist voll. Mehr Bilder gibt es nur mit einem neuen Film.'}
             </p>
             <button
@@ -79,7 +79,9 @@ export function AlbumScreen() {
           <section key={nightId ?? 'current'} className="stack-3">
             <div className="row-between">
               <h2 className="t-title2">{titelFor(nightId)}</h2>
-              <span className="t-caption">{plural(bilder.length, 'Bild', 'Bilder')}</span>
+              <span className="t-caption">
+                {bilder.length} {plural(bilder.length, 'Bild', 'Bilder')}
+              </span>
             </div>
             <div className="photogrid">
               {bilder.map((p) => (

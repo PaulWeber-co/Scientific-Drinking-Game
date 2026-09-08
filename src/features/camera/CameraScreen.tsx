@@ -91,7 +91,7 @@ export default function CameraScreen() {
         <div className="viewfinder__bottom">
           <p className="viewfinder__hint">
             {mineLeft > 0
-              ? `Noch ${plural(mineLeft, 'Bild', 'Bilder')} für dich. Wie es geworden ist, siehst du morgen.`
+              ? `Noch ${mineLeft} ${plural(mineLeft, 'Bild', 'Bilder')} für dich. Wie es geworden ist, siehst du morgen.`
               : 'Dein Anteil am Film ist verbraucht.'}
           </p>
           <button
