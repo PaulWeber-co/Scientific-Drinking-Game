@@ -9,6 +9,7 @@ import { isDeveloped, useFilm, type Photo } from '../../store/film';
 import { useFilmStatus } from './useFilmStatus';
 import { FilmSetup } from './FilmSetup';
 import { usePhotoUrl } from './usePhotoUrl';
+import { makePrint } from './print';
 import { sweepOrphans } from './sweep';
 
 /**
@@ -133,7 +134,14 @@ function PhotoSheet({ photo, onClose }: { photo: Photo | null; onClose: () => vo
     <Sheet open={!!photo} onClose={onClose} title={photo ? `${formatTime(photo.at)} Uhr` : ''}>
       {photo && (
         <div className="stack">
-          {url && <img className="photofull" src={url} alt="" />}
+          {/* Dasselbe Papier wie auf der Spielkarte: Was man sich ansieht,
+              ist ein Abzug, kein Dateivorschaubild. */}
+          {url && (
+            <figure className="abzug">
+              <img className="photofull" src={url} alt="" />
+              <figcaption className="abzug__stempel">PEGEL</figcaption>
+            </figure>
+          )}
           <button
             className="btn btn--glass btn--block"
             onClick={() => {
@@ -158,14 +166,19 @@ function PhotoSheet({ photo, onClose }: { photo: Photo | null; onClose: () => vo
 async function sharePhoto(url: string | null, photo: Photo): Promise<void> {
   if (!url) return;
   const blob = await fetch(url).then((r) => r.blob());
-  const datei = new File([blob], `pegel-${photo.at}.jpg`, { type: 'image/jpeg' });
+  // Der Rahmen muss in die Datei hinein: CSS reist nicht mit.
+  const abzug = await makePrint(blob);
+  const datei = new File([abzug], `pegel-${photo.at}.jpg`, { type: 'image/jpeg' });
   if (navigator.canShare?.({ files: [datei] })) {
     await navigator.share({ files: [datei] }).catch(() => {});
     return;
   }
   // Kein Teilen-Menü (Desktop-Browser): dann wenigstens herunterladen.
+  const ziel = URL.createObjectURL(abzug);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = ziel;
   a.download = datei.name;
   a.click();
+  // Sofortiges Freigeben bricht den Download in manchen Browsern ab.
+  setTimeout(() => URL.revokeObjectURL(ziel), 10_000);
 }

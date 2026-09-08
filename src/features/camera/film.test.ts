@@ -9,6 +9,7 @@ import {
   type Photo,
 } from '../../store/film';
 import { DISPOSABLE, applyFilmLook, viewfinderCrop } from './filmLook';
+import { printLayout } from './print';
 
 describe('Anteil am Film', () => {
   const anteil = (o: Partial<Parameters<typeof myShotsLeft>[0]>) =>
@@ -217,5 +218,24 @@ describe('Sperre bis zur Entwicklung', () => {
     const frueh = foto(jetzt - 1);
     const spaet = foto(jetzt + 3_600_000);
     expect([frueh, spaet].filter((p) => isDeveloped(p, jetzt))).toHaveLength(1);
+  });
+});
+
+describe('Abzug', () => {
+  it('legt Papier um das Bild, unten breiter', () => {
+    const l = printLayout(1620, 1080);
+    expect(l.width).toBe(1620 + l.pad * 2);
+    expect(l.height).toBe(1080 + l.pad + l.padBottom);
+    // Der breite Rand unten ist das ganze Erkennungszeichen eines Abzugs.
+    expect(l.padBottom).toBeGreaterThan(l.pad * 2);
+  });
+
+  it('haelt die Raender im Verhaeltnis zum Bild', () => {
+    // Sonst saehe ein Abzug bei jeder Aufloesung anders aus.
+    const klein = printLayout(810, 540);
+    const gross = printLayout(1620, 1080);
+    // Auf ein Pixel genau, mehr gibt das Runden nicht her.
+    expect(Math.abs(gross.pad - klein.pad * 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(gross.padBottom - klein.padBottom * 2)).toBeLessThanOrEqual(1);
   });
 });

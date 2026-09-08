@@ -37,8 +37,11 @@ export async function developFrame(
 }
 
 /**
- * Datum und App-Name unten rechts, in dem Orange, das jeder als „analog"
- * liest.
+ * Datum unten rechts, in dem Orange, das jeder als „analog" liest.
+ *
+ * Nur das Datum: der Name der App steht auf dem Papier, nicht im Bild
+ * (siehe `print.ts`). Eine Kamera mit Datenrückwand belichtete Zahlen mit,
+ * niemals eine Marke.
  *
  * Genau genommen ist das der Look einer Kompaktkamera mit Datenrückwand und
  * nicht der einer Wegwerfkamera – die druckte gar nichts aufs Bild. Aber es
@@ -61,10 +64,5 @@ function burnInDate(ctx: CanvasRenderingContext2D, at: number): void {
   ctx.shadowBlur = 14;
   ctx.fillStyle = 'rgba(255,150,40,0.92)';
   ctx.fillText(text, W - 46, H - 46);
-
-  ctx.font = '600 22px system-ui, sans-serif';
-  ctx.shadowBlur = 8;
-  ctx.fillStyle = 'rgba(255,150,40,0.55)';
-  ctx.fillText('PEGEL', W - 46, H - 92);
   ctx.restore();
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { useFilm, type Photo } from '../../store/film';
@@ -63,6 +63,16 @@ describe('Album: die Sperre an ihrer Wirkstelle', () => {
     zeige();
     expect(await screen.findByRole('img')).toBeTruthy();
     expect(photoUrl).toHaveBeenCalledWith('a.jpg');
+  });
+
+  it('zeigt das geoeffnete Bild als Abzug', async () => {
+    // Was man sich ansieht, ist ein Abzug auf Papier - und derselbe Rahmen
+    // wird beim Teilen in die Datei gerechnet (siehe print.ts).
+    useFilm.setState({ photos: [foto({ developAt: Date.now() - 1 })] });
+    zeige();
+    fireEvent.click(await screen.findByRole('button', { name: /Foto von/ }));
+    expect(await screen.findByText('PEGEL')).toBeTruthy();
+    expect(document.querySelector('.abzug .photofull')).toBeTruthy();
   });
 
   it('trennt entwickelte und wartende Bilder im selben Abend', async () => {
