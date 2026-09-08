@@ -36,7 +36,7 @@ export default defineConfig({
       workbox: {
         // App-Shell komplett vorab: HTML, CSS, JS (auch die Spiel-Chunks),
         // Icons. Damit startet Pass & Play ohne Netz.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
         runtimeCaching: [

@@ -39,6 +39,22 @@
   --brand-2: #409cff;
   --brand-ink: #ffffff;
 
+  /* --- Einwegkamera (Stage 09) ---
+     Der Abzug ist der Grundbaustein: Papier aussen, Farbe innen. Der
+     weisse Rand betont ein EINZELBILD (Spielbildschirm, Album) und
+     gehoert nicht ins Spieleraster. */
+  --paper: #f2ece2;
+  --paper-ink: #17110a;
+  --paper-pad: 8px;
+  --paper-pad-b: 30px;
+  --stamp: #ff8a1e;
+  --stamp-glow: 0 0 7px rgba(255, 138, 30, 0.9);
+  --vignette: inset 0 0 46px 12px rgba(0, 0, 0, 0.42);
+  --grain-opacity: 0.18;
+  /* Rauschen als Data-URI: eine Anfrage weniger, und es funktioniert
+     offline in der nativen App. */
+  --grain: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+
   /* --- Radii --- */
   --r-xs: 8px;
   --r-sm: 12px;
@@ -63,6 +79,9 @@
   /* --- Type --- */
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI Variable',
     'Segoe UI', system-ui, 'Helvetica Neue', sans-serif;
+  /* Plakative Titel: Spielnamen und Bildschirm-Ueberschriften, immer
+     Grossbuchstaben. Fliesstext und Zahlen bleiben bei --font. */
+  --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow', var(--font);
   --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI',
     system-ui, sans-serif;
   --t-large: 34px;

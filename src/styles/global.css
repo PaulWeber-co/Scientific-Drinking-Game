@@ -1,5 +1,16 @@
 @import './tokens.css';
 
+/* Lokal mitgeliefert statt vom CDN: die App laeuft offline und nativ.
+   Herkunft und Lizenz: src/assets/fonts/README.md */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/anton-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
+}
+
 /* ---------- Reset ---------- */
 *,
 *::before,
@@ -1631,17 +1642,26 @@ button.chip--outline {
   grid-template-columns: repeat(3, 1fr);
   gap: var(--s-2);
 }
+/* Auch hier ein Abzug – dieselbe Sprache wie die Spielkarte, nur kleiner:
+   im Dreierraster wären 8/30 px Papierrand größer als das Bild. */
 .photoframe {
   aspect-ratio: 3 / 2;
-  border-radius: var(--r-sm);
   overflow: hidden;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  padding: 0;
+  background: var(--paper);
+  border: 0;
+  padding: 3px 3px 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--label-3);
+  /* Das Papier ist in beiden Themes hell – die Tinte muss es auch in
+     beiden sein. `--label-3` waere im Dunkelmodus fast weiss. */
+  color: color-mix(in srgb, var(--paper-ink) 45%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.photoframe img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .photoframe img {
   width: 100%;
@@ -1650,14 +1670,28 @@ button.chip--outline {
   display: block;
 }
 /* Unentwickelt: man soll sehen, DASS da etwas wartet, nicht WAS. */
+/* Noch nicht entwickelt: Das Papier ist schon da, das Bild fehlt. */
 .photoframe--latent {
+  background: var(--paper);
+}
+.photoframe--latent::before {
+  content: '';
+  position: absolute;
+  inset: 3px 3px 11px;
   background: repeating-linear-gradient(
     -45deg,
-    var(--surface),
-    var(--surface) 6px,
-    var(--surface-2) 6px,
-    var(--surface-2) 12px
+    #2a2426,
+    #2a2426 6px,
+    #201b1d 6px,
+    #201b1d 12px
   );
+}
+.photoframe--latent {
+  position: relative;
+}
+.photoframe--latent > * {
+  position: relative;
+  color: rgba(255, 255, 255, 0.55);
 }
 .photofull {
   width: 100%;
@@ -1754,4 +1788,240 @@ button.chip--outline {
   border-radius: 50%;
   border: 3px solid #000;
   display: block;
+}
+
+/* ==========================================================================
+   Spielewand und Spielseite (Stage 09)
+   ========================================================================== */
+
+/* Die Wand geht bis an den Rand – Kacheln wirken nur, wenn sie Platz haben.
+   Der Innenabstand sitzt deshalb an den Teilen, nicht am Bildschirm. */
+.screen--wand {
+  padding-left: 0;
+  padding-right: 0;
+}
+.wandkopf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 var(--s-4) var(--s-4);
+}
+.wandkopf__titel {
+  font-size: 40px;
+}
+.wandkopf__sub {
+  font-size: var(--t-footnote);
+  color: var(--label-3);
+  letter-spacing: 0.04em;
+}
+
+/* Zone und Wert, nie der Wert allein: „0,42" ohne „Angeheitert" ist eine
+   Zahl ohne Bedeutung. Führt in den Pegel-Tab. */
+.pegelzeile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  color: var(--label);
+  text-decoration: none;
+  min-height: 40px;
+}
+.pegelzeile__punkt {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.pegelzeile__text {
+  flex: 1;
+  font-size: var(--t-subhead);
+  font-weight: 600;
+}
+.pegelzeile__pfeil {
+  color: var(--label-3);
+}
+
+.wandteil + .wandteil {
+  margin-top: var(--s-6);
+}
+.wandteil__titel {
+  padding: 0 var(--s-4) var(--s-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--label-3);
+}
+.wandraster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+}
+
+/* Die Kachel: Motiv, Titel, Spielerzahl. Sonst nichts. */
+.gametile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  aspect-ratio: 3 / 4;
+  padding: var(--s-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  isolation: isolate;
+  text-align: left;
+  color: #fff;
+  /* Ohne Motiv trägt die Kachel den Verlauf ihrer Akzentfarbe. Das ist der
+     Auslieferungszustand, kein Platzhalter. */
+  background: linear-gradient(
+    168deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 26%, black 74%)
+  );
+}
+.gametile--dim {
+  opacity: 0.55;
+}
+.gametile__img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
+.gametile__mark {
+  position: absolute;
+  right: -18px;
+  top: 12px;
+  z-index: 0;
+  color: #fff;
+  opacity: 0.16;
+}
+.gametile__badge {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, 0.42);
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+/* Abdunklung unter dem Titel, damit er auf jedem Motiv lesbar bleibt.
+   Ohne Bild unsichtbar, weil der Verlauf selbst transparent beginnt. */
+.gametile__img + .gametile__badge ~ .gametile__title::before,
+.gametile__img ~ .gametile__title::before {
+  content: '';
+  position: absolute;
+  inset: -60% -8px -8px;
+  z-index: -1;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+}
+.gametile__title {
+  position: relative;
+  z-index: 2;
+  font-size: 15px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* --- Spielseite --- */
+.screen--detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  /* Ohne Mindesthöhe greift `margin-top: auto` am Startknopf nicht und er
+     klebt am Text statt am Daumen. */
+  min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--tabbar-h));
+}
+.detailkopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.detailkopf__hilfe {
+  color: var(--label-2);
+}
+.detailbild {
+  position: relative;
+  height: 190px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--s-3);
+  background: linear-gradient(
+    168deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 26%, black 74%)
+  );
+}
+.detailbild img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.detailbild__mark {
+  position: absolute;
+  right: -20px;
+  top: 8px;
+  color: #fff;
+  opacity: 0.16;
+}
+.detailbild img + .detailbild__titel::before {
+  content: '';
+  position: absolute;
+  inset: -80% -16px -16px;
+  z-index: -1;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+}
+.detailbild__titel {
+  position: relative;
+  font-size: 28px;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+/* Anzeige UND Knopf in einem: Was eingestellt ist, steht da – ein Tipp
+   ändert es. Das ersetzt fünf Blöcke mit Erklärtexten. */
+.detailchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.chip--warn {
+  background: color-mix(in srgb, var(--orange) 20%, transparent);
+  color: var(--orange);
+}
+.chip--hot {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+  color: var(--red);
+}
+.detailhinweis {
+  font-size: var(--t-subhead);
+  color: var(--label-2);
+  line-height: 1.4;
+}
+.detailstart {
+  margin-top: auto;
+  padding-top: var(--s-4);
+}
+
+/* In der Lobby stehen nur die passenden Vorschlaege – drei schmale Spalten
+   halten den Abschnitt kurz, statt den halben Bildschirm zu fuellen. */
+.wandraster--flach {
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0;
+}
+.wandraster--flach .gametile__title {
+  font-size: 12px;
 }
