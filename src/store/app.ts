@@ -33,6 +33,7 @@ interface AppState {
   setLastLobbyCode: (c: string | null) => void;
   markGamePlayed: (id: string) => void;
   toggleSpicy: (id: string) => void;
+  clearSpicy: () => void;
   setGameLength: (l: GameLength) => void;
   setTaskOnSkip: (f: TaskFrequency) => void;
 }
@@ -62,6 +63,9 @@ export const useApp = create<AppState>()(
       markGamePlayed: (id) =>
         set((s) => ({ recentGames: [id, ...s.recentGames.filter((g) => g !== id)].slice(0, 8) })),
       toggleSpicy: (id) => set((s) => ({ spicy: { ...s.spicy, [id]: !s.spicy[id] } })),
+      // Spicy ist eine Einwilligung der Runde, keine Vorliebe: Am nächsten
+      // Abend sitzen andere Leute am Tisch. Wird von `endNight` gerufen.
+      clearSpicy: () => set({ spicy: {} }),
       setGameLength: (gameLength) => set({ gameLength }),
       setTaskOnSkip: (taskOnSkip) => set({ taskOnSkip }),
     }),
