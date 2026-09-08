@@ -175,12 +175,16 @@ export function GameDetail() {
         </button>
       </header>
 
-      <div className={`detailbild ${game.image ? '' : 'detailbild--leer'}`}>
-        {game.image ? (
-          <img src={game.image} alt="" />
-        ) : (
-          <Icon className="detailbild__mark" name={game.icon} size={120} strokeWidth={1.2} />
-        )}
+      {/* Derselbe Abzug wie die Kachel, nur gross: Der Titel steht als Tinte
+          im Papier, nicht weiss auf dem Motiv. */}
+      <div className="detailbild">
+        <div className="detailbild__foto">
+          {game.image ? (
+            <img src={game.image} alt="" />
+          ) : (
+            <Icon className="detailbild__mark" name={game.icon} size={120} strokeWidth={1.2} />
+          )}
+        </div>
         <h1 className="t-display detailbild__titel">{game.name}</h1>
       </div>
 

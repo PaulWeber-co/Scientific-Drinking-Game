@@ -1693,9 +1693,10 @@ button.chip--outline {
   position: relative;
   color: rgba(255, 255, 255, 0.55);
 }
+/* Das Bild im Abzug. Keine runden Ecken - das Papier drumherum hat auch
+   keine, und beides zusammen saehe nach Sticker aus. */
 .photofull {
   width: 100%;
-  border-radius: var(--r-md);
   display: block;
 }
 
@@ -1862,35 +1863,50 @@ button.chip--outline {
   padding: 0 var(--s-4);
 }
 
-/* Die Kachel: Motiv, Titel, Spielerzahl. Sonst nichts. */
+/* Die Kachel ist ein Abzug: Motiv im Papier, Titel als Tinte im unteren
+   Rand. Anders als beim grossen Abzug sind die Ecken rund - die Kachel ist
+   ein Knopf im Raster, kein Bild in der Hand. */
 .gametile {
+  --tile-rand-h: 30px;
+  --tile-title: 13px;
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   aspect-ratio: 3 / 4;
-  padding: var(--s-2);
+  /* Papierrand. Unten traegt er den Titel, deshalb keine Polsterung dort. */
+  padding: 5px 5px 0;
   border: 0;
   border-radius: var(--r-sm);
   overflow: hidden;
-  isolation: isolate;
   text-align: left;
-  color: #fff;
-  /* Ohne Motiv trägt die Kachel den Verlauf ihrer Akzentfarbe. Das ist der
-     Auslieferungszustand, kein Platzhalter. */
+  background: var(--paper);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.gametile--dim {
+  opacity: 0.55;
+}
+/* Auf hellem Grund liegt cremefarbenes Papier fast auf der Hintergrundfarbe.
+   Ohne Kante verschwindet die Kachel - dieselbe Loesung wie beim grossen
+   Abzug in game.css. */
+[data-theme='light'] .gametile {
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md);
+}
+/* Das Foto. Ohne Motiv traegt es den Verlauf seiner Akzentfarbe - das ist
+   der Auslieferungszustand, kein Platzhalter. */
+.gametile__foto {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
   background: linear-gradient(
     168deg,
     var(--accent),
     color-mix(in srgb, var(--accent) 26%, black 74%)
   );
 }
-.gametile--dim {
-  opacity: 0.55;
-}
 .gametile__img {
   position: absolute;
   inset: 0;
-  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1900,37 +1916,47 @@ button.chip--outline {
   position: absolute;
   right: -18px;
   top: 12px;
-  z-index: 0;
   color: #fff;
   opacity: 0.16;
 }
-.gametile__badge {
-  position: absolute;
-  top: 6px;
-  right: 7px;
-  z-index: 2;
-  padding: 2px 7px;
-  border-radius: var(--r-full);
-  background: rgba(0, 0, 0, 0.42);
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-}
-/* Abdunklung unter dem Titel, damit er auf jedem Motiv lesbar bleibt.
-   Ohne Bild unsichtbar, weil der Verlauf selbst transparent beginnt. */
-.gametile__img + .gametile__badge ~ .gametile__title::before,
-.gametile__img ~ .gametile__title::before {
-  content: '';
-  position: absolute;
-  inset: -60% -8px -8px;
-  z-index: -1;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+/* Der untere Papierrand. Feste Hoehe, damit die Kacheln einer Reihe gleich
+   hoch bleiben, auch wenn ein Titel zweizeilig wird. */
+.gametile__rand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--tile-rand-h);
+  padding: 0 2px;
 }
 .gametile__title {
-  position: relative;
-  z-index: 2;
-  font-size: 15px;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  /* Tinte auf Papier statt Weiss auf Foto: der Kontrast haengt nicht mehr
+     davon ab, welche Farbe das Motiv gerade hat. */
+  color: var(--paper-ink);
+  font-size: var(--tile-title);
+  line-height: 1.06;
+  /* Zwei Zeilen fassen auch den laengsten Namen. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  /* Platz fuer den Stempel, auch in der zweiten Zeile. */
+  padding-right: 30px;
+}
+/* Die Spielerzahl im Papierrand, wie das Datum auf einem echten Abzug. */
+.gametile__stempel {
+  position: absolute;
+  right: 2px;
+  /* Mittig statt am Papierrand: so sitzt der Stempel auf der Linie des
+     Titels - auch wenn der zweizeilig wird. */
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--stamp);
+  text-shadow: var(--stamp-glow);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Spielseite --- */
@@ -1950,27 +1976,38 @@ button.chip--outline {
 .detailkopf__hilfe {
   color: var(--label-2);
 }
+/* Der Kopf der Spielseite ist derselbe Abzug wie die Kachel, nur gross und
+   quer: Bild im Papier, Titel als Tinte im unteren Rand. Hier ohne runde
+   Ecken - das ist ein Bild, kein Knopf im Raster. */
 .detailbild {
+  background: var(--paper);
+  padding: var(--paper-pad) var(--paper-pad) 0;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.62);
+}
+/* Auf hellem Grund verschwindet cremefarbenes Papier ohne Kante. */
+[data-theme='light'] .detailbild {
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md);
+}
+/* 3:2 quer - dasselbe Format wie ein Abzug im Album. */
+.detailbild__foto {
   position: relative;
-  height: 190px;
-  border-radius: var(--r-md);
+  aspect-ratio: 3 / 2;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  padding: var(--s-3);
   background: linear-gradient(
     168deg,
     var(--accent),
     color-mix(in srgb, var(--accent) 26%, black 74%)
   );
 }
-.detailbild img {
+.detailbild__foto img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+/* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
 .detailbild__mark {
   position: absolute;
   right: -20px;
@@ -1978,18 +2015,11 @@ button.chip--outline {
   color: #fff;
   opacity: 0.16;
 }
-.detailbild img + .detailbild__titel::before {
-  content: '';
-  position: absolute;
-  inset: -80% -16px -16px;
-  z-index: -1;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
-}
 .detailbild__titel {
-  position: relative;
+  padding: 10px 4px 14px;
+  color: var(--paper-ink);
   font-size: 28px;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  line-height: 1.05;
 }
 /* Anzeige UND Knopf in einem: Was eingestellt ist, steht da – ein Tipp
    ändert es. Das ersetzt fünf Blöcke mit Erklärtexten. */
@@ -2022,6 +2052,15 @@ button.chip--outline {
   grid-template-columns: repeat(3, 1fr);
   padding: 0;
 }
+.wandraster--flach .gametile {
+  --tile-rand-h: 22px;
+  --tile-title: 11px;
+}
+/* Drei Spalten sind zu schmal fuer Titel UND Stempel. In der Lobby stehen
+   ohnehin nur Spiele, die zur Gruppe passen - die Zahl saegt dort nichts ab. */
 .wandraster--flach .gametile__title {
-  font-size: 12px;
+  padding-right: 0;
+}
+.wandraster--flach .gametile__stempel {
+  display: none;
 }
