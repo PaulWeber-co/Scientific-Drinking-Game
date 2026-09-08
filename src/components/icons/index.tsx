@@ -12,7 +12,7 @@ export type IconName =
   // Navigation
   | 'home' | 'games' | 'people' | 'chart' | 'person' | 'settings'
   // Aktionen
-  | 'plus' | 'minus' | 'close' | 'check' | 'chevronRight' | 'chevronUp' | 'chevronDown'
+  | 'plus' | 'minus' | 'close' | 'check' | 'chevronRight' | 'chevronLeft' | 'chevronUp' | 'chevronDown'
   | 'share' | 'undo' | 'trash' | 'refresh' | 'phone' | 'qr'
   // Zustände & Hinweise
   | 'flame' | 'droplet' | 'car' | 'clock' | 'timer' | 'alert' | 'info' | 'lock' | 'sparkles'
@@ -43,6 +43,7 @@ const P: Record<IconName, ReactNode> = {
   close: <path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6" />,
   check: <path d="M4.8 12.6 9.6 17.4 19.2 6.8" />,
   chevronRight: <path d="M9.4 5.6 15.8 12l-6.4 6.4" />,
+  chevronLeft: <path d="M14.6 5.6 8.2 12l6.4 6.4" />,
   chevronUp: <path d="M5.6 14.6 12 8.2l6.4 6.4" />,
   chevronDown: <path d="M5.6 9.4 12 15.8l6.4-6.4" />,
   share: <><path d="M12 15.4V3.6" /><path d="M8.4 7.2 12 3.6l3.6 3.6" /><path d="M6.4 11.4H5.2a1.6 1.6 0 0 0-1.6 1.6v6.2a1.6 1.6 0 0 0 1.6 1.6h13.6a1.6 1.6 0 0 0 1.6-1.6V13a1.6 1.6 0 0 0-1.6-1.6h-1.2" /></>,

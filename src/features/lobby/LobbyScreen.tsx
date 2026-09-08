@@ -194,17 +194,23 @@ export function LobbyScreen() {
         <section className="stack-3">
           <h2 className="t-title2">Passt zu euch</h2>
           {suitable.length ? (
-            suitable.map((g) => (
-              <GameCard
-                key={g.id}
-                game={g}
-                onClick={async () => {
-                  markGamePlayed(g.id);
-                  await party.startGame(g.id);
-                  nav('/spiel');
-                }}
-              />
-            ))
+            // Dasselbe Raster wie auf der Spielewand: Die Kachel ist 3:4 hoch,
+            // untereinander gestapelt fuellt schon eine den halben Bildschirm.
+            <div className="wandraster wandraster--flach">
+              {/* Nur zwei Reihen: Die vollstaendige Auswahl steht einen Tab
+                  weiter, hier geht es um den schnellen Einstieg. */}
+              {suitable.slice(0, 6).map((g) => (
+                <GameCard
+                  key={g.id}
+                  game={g}
+                  onClick={async () => {
+                    markGamePlayed(g.id);
+                    await party.startGame(g.id);
+                    nav('/spiel');
+                  }}
+                />
+              ))}
+            </div>
           ) : (
             <div className="notice notice--neutral">
               Für diese Gruppengröße ist noch nichts dabei. Trag mehr Spieler ein.

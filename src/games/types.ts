@@ -105,6 +105,11 @@ export interface GameMeta {
   icon: IconName;
   /** CSS-Custom-Property, färbt Karte und Spielbildschirm. */
   accent: string;
+  /**
+   * Motiv der Kachel im Spieleraster (3:4, hochkant). Fehlt es, greift der
+   * Verlauf aus `accent` – die App ist ohne Bilder vollständig benutzbar.
+   */
+  image?: string;
   minPlayers: number;
   maxPlayers: number;
   duration: string;

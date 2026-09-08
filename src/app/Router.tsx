@@ -2,7 +2,6 @@ import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-rou
 import { useEffect } from 'react';
 import { FullLayout, Layout } from './Layout';
 import { Onboarding } from '../features/onboarding/Onboarding';
-import { Home } from '../features/home/Home';
 import { GameDetail, GamesScreen } from '../features/games/GamesScreen';
 import { LobbyScreen } from '../features/lobby/LobbyScreen';
 import { PegelScreen } from '../features/bac/PegelScreen';
@@ -39,8 +38,10 @@ export function Router() {
         <Route path="/datenschutz" element={<Datenschutz />} />
       </Route>
       <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/spiele" element={<GamesScreen />} />
+        <Route path="/" element={<GamesScreen />} />
+        {/* Alte Route: gespeicherte Links und der Rücksprung aus
+            einem Spiel sollen nicht ins Leere laufen. */}
+        <Route path="/spiele" element={<Navigate to="/" replace />} />
         <Route path="/spiele/:id" element={<GameDetail />} />
         <Route path="/lobby" element={<LobbyWithInvite />} />
         <Route path="/pegel" element={<PegelScreen />} />
