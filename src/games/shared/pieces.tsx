@@ -3,7 +3,14 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GamePlayer } from '../types';
 
-/** Große Spielkarte – der zentrale visuelle Anker fast aller Spiele. */
+/**
+ * Große Spielkarte – der zentrale visuelle Anker fast aller Spiele.
+ *
+ * Sie ist ein Foto-Abzug: cremeweißes Papier außen, die Spielfarbe im Bild,
+ * Blitzfleck und Vignette wie bei einer Einwegkamera. Dieselbe Sprache wie
+ * die Bilder im Album – Spielen und Fotografieren sind ein Abend, nicht
+ * zwei Funktionen.
+ */
 export function BigCard({
   kicker,
   children,
@@ -18,12 +25,24 @@ export function BigCard({
   animateKey?: string | number;
 }) {
   return (
-    <div key={animateKey} className={`bigcard bigcard--${tone}`}>
-      {kicker && <div className="bigcard__kicker">{kicker}</div>}
-      <div className="bigcard__text t-balance">{children}</div>
-      {footer && <div className="bigcard__footer">{footer}</div>}
+    <div key={animateKey} className="abzug bigcard">
+      <div className={`abzug__foto abzug__foto--${tone}`}>
+        {kicker && <div className="bigcard__kicker">{kicker}</div>}
+        <div className="bigcard__text t-balance">{children}</div>
+        {footer && <div className="bigcard__footer">{footer}</div>}
+      </div>
+      <span className="abzug__stempel" aria-hidden>
+        {stempelDatum()}
+      </span>
     </div>
   );
+}
+
+/** Datumsstempel im Papierrand, wie ihn eine Einwegkamera einbelichtet. */
+function stempelDatum(at: number = Date.now()): string {
+  const d = new Date(at);
+  const zwei = (n: number) => String(n).padStart(2, '0');
+  return `${zwei(d.getDate())} ${zwei(d.getMonth() + 1)} ${zwei(d.getFullYear() % 100)}`;
 }
 
 export function PlayerChip({ player, note }: { player: GamePlayer; note?: ReactNode }) {

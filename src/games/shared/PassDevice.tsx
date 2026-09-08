@@ -22,13 +22,23 @@ interface Props {
 export function PassDevice({ player, step, total, onConfirm }: Props) {
   return (
     <div className="passdev">
-      <span className="t-upper">Gib das Handy weiter an</span>
-      <Avatar name={player.name} color={player.color} size="lg" />
-      <span className="passdev__name">{player.name}</span>
-      <span className="t-caption">
-        {step} von {total}
-      </span>
-      <p className="t-sub t-center t-balance">Alle anderen: jetzt nicht mitlesen.</p>
+      {/* Der unbelichtete Abzug: Solange niemand mitlesen darf, bleibt das
+          Bild schwarz und der Stempel leer. Dieselbe Sprache wie im Spiel,
+          nur ohne Inhalt – das macht die Sperre sichtbar statt bloß leer. */}
+      <div className="abzug passdev__abzug">
+        <div className="abzug__foto abzug__foto--leer">
+          <span className="t-upper">Gib das Handy weiter an</span>
+          <Avatar name={player.name} color={player.color} size="lg" />
+          <span className="passdev__name">{player.name}</span>
+          <span className="t-caption">
+            {step} von {total}
+          </span>
+          <p className="t-sub t-center t-balance">Alle anderen: jetzt nicht mitlesen.</p>
+        </div>
+        <span className="abzug__stempel abzug__stempel--leer" aria-hidden>
+          — — —
+        </span>
+      </div>
       <button
         className="btn btn--brand btn--block btn--lg"
         onClick={() => {

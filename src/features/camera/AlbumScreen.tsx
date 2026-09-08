@@ -38,7 +38,7 @@ export function AlbumScreen() {
   };
 
   return (
-    <div className="screen">
+    <div className="screen korn">
       <NavBar title={<span className="t-headline">Album</span>} />
 
       <div className="stack-6">
