@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { setHapticsEnabled } from '../lib/haptics';
+import { setSoundEnabled } from '../lib/sound';
 import type { TaskFrequency } from '../engine/tasks';
 
 type Theme = 'dark' | 'light';
@@ -11,6 +12,9 @@ export type GameLength = 'kurz' | 'mittel' | 'lang' | 'endlos';
 interface AppState {
   theme: Theme;
   haptics: boolean;
+  /** Kurze Klaenge. Getrennt von der Vibration: die beiden Kanaele bedienen
+   *  verschiedene Leute. */
+  sound: boolean;
   waterReminder: boolean;
   disclaimerAccepted: boolean;
   lastLobbyCode: string | null;
@@ -28,6 +32,7 @@ interface AppState {
 
   setTheme: (t: Theme) => void;
   toggleHaptics: () => void;
+  toggleSound: () => void;
   toggleWaterReminder: () => void;
   acceptDisclaimer: () => void;
   setLastLobbyCode: (c: string | null) => void;
@@ -43,6 +48,7 @@ export const useApp = create<AppState>()(
     (set) => ({
       theme: 'dark',
       haptics: true,
+      sound: true,
       waterReminder: true,
       disclaimerAccepted: false,
       lastLobbyCode: null,
@@ -56,6 +62,11 @@ export const useApp = create<AppState>()(
         set((s) => {
           setHapticsEnabled(!s.haptics);
           return { haptics: !s.haptics };
+        }),
+      toggleSound: () =>
+        set((s) => {
+          setSoundEnabled(!s.sound);
+          return { sound: !s.sound };
         }),
       toggleWaterReminder: () => set((s) => ({ waterReminder: !s.waterReminder })),
       acceptDisclaimer: () => set({ disclaimerAccepted: true }),
@@ -71,10 +82,13 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'sdg.app',
-      version: 4,
+      version: 5,
       migrate: migrateApp,
       onRehydrateStorage: () => (state) => {
-        if (state) setHapticsEnabled(state.haptics);
+        if (state) {
+          setHapticsEnabled(state.haptics);
+          setSoundEnabled(state.sound);
+        }
       },
     },
   ),
@@ -91,6 +105,10 @@ export function migrateApp(persisted: unknown, version: number): AppState {
   const state = persisted as Partial<AppState>;
   if (version < 3) state.gameLength = 'mittel';
   if (version < 4) state.taskOnSkip = 'manchmal';
+  // Ohne diese Zeile stuende bei jedem Bestandsnutzer `undefined`, und
+  // `onRehydrateStorage` schaltete den Ton stumm, ohne dass jemand ihn
+  // ausgeschaltet hat.
+  if (version < 5) state.sound = true;
   return state as AppState;
 }
 

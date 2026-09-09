@@ -152,6 +152,21 @@ export function PeekCard({ children, label = 'Karte aufdecken', onRevealed, clas
     markReadable(false);
   };
 
+  /**
+   * iOS entzieht die Zeigerbindung bei Systemgesten (Kontrollzentrum, Wischen
+   * vom Rand). Dann kommt weder `pointerup` noch `pointercancel`, und der
+   * Deckel bliebe auf halber Hoehe kleben. Nach einem normalen Ende ist
+   * `drag.current` bereits leer, deshalb greift der Waechter und es passiert
+   * nichts doppelt.
+   */
+  const onLostCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    drag.current = null;
+    setLift(0, true);
+    markReadable(false);
+  };
+
   // Der gerastete Zustand wird nicht im Move-Pfad gesetzt, sondern hier — so
   // teilen sich Ziehen und Tippen denselben Deckel, ohne sich zu stören.
   useEffect(() => {
@@ -179,6 +194,7 @@ export function PeekCard({ children, label = 'Karte aufdecken', onRevealed, clas
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        onLostPointerCapture={onLostCapture}
         onKeyDown={(e) => {
           if (e.key !== 'Enter' && e.key !== ' ') return;
           e.preventDefault();
