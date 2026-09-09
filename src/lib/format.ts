@@ -34,6 +34,17 @@ export function pick<T>(arr: readonly T[], rng: () => number = Math.random): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+/**
+ * Datumsstempel im Papierrand, wie ihn eine Einwegkamera einbelichtet:
+ * „08 09 26". Steht hier und nicht bei den Spiel-Bausteinen, weil ihn
+ * inzwischen drei Stellen brauchen – und drei Kopien wären drei Formate.
+ */
+export function formatStamp(at: number = Date.now()): string {
+  const d = new Date(at);
+  const zwei = (n: number) => String(n).padStart(2, '0');
+  return `${zwei(d.getDate())} ${zwei(d.getMonth() + 1)} ${zwei(d.getFullYear() % 100)}`;
+}
+
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const MONTHS = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',

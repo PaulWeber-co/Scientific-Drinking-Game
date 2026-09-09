@@ -28,7 +28,7 @@ export function PassDevice({ player, step, total, onConfirm }: Props) {
       <div className="abzug passdev__abzug">
         <div className="abzug__foto abzug__foto--leer">
           <span className="t-upper">Gib das Handy weiter an</span>
-          <Avatar name={player.name} color={player.color} size="lg" />
+          <Avatar name={player.name} color={player.color} photo={player.photo} size="lg" />
           <span className="passdev__name">{player.name}</span>
           <span className="t-caption">
             {step} von {total}

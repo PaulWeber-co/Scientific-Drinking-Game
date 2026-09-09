@@ -1,12 +1,13 @@
 import { Icon } from '../../components/icons';
-import { useEffect, useState } from 'react';
-import { haptic } from '../../lib/haptics';
+import { useEffect } from 'react';
+import { haptic, hapticRamp } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
+import { Bomb } from '../shared/Bomb';
 import { Explosion } from '../shared/Explosion';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 import { meta } from './meta';
@@ -50,6 +51,10 @@ interface State {
   holderIndex: number;
   phase: 'ready' | 'running' | 'boom' | 'over';
   category: string;
+  /** Wann die Bombe scharf gemacht wurde. Ohne diesen Zeitpunkt kennt ein
+   *  Gerät, das später dazukommt, die Gesamtdauer nicht – und die Zündschnur
+   *  liefe dort von vorn los. */
+  armedAt: number;
   explodesAt: number;
   round: number;
   /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
@@ -65,6 +70,7 @@ export const wortbombe: GameDefinition<State> = {
     holderIndex: 0,
     phase: 'ready',
     category: pick(CATEGORIES),
+    armedAt: 0,
     explodesAt: 0,
     round: 1,
     goal: roundGoal(ROUND_BASE),
@@ -73,14 +79,17 @@ export const wortbombe: GameDefinition<State> = {
 
   reduce: (state, action, players) => {
     switch (action.type) {
-      case 'start':
+      case 'start': {
+        const jetzt = Date.now();
         return {
           ...state,
           phase: 'running',
           category: pick(CATEGORIES),
+          armedAt: jetzt,
           // Zwischen 22 und 75 Sekunden – niemand kann mitzählen.
-          explodesAt: Date.now() + 22_000 + Math.random() * 53_000,
+          explodesAt: jetzt + 22_000 + Math.random() * 53_000,
         };
+      }
       case 'pass': {
         if (state.phase !== 'running') return state;
         const ids = new Set(players.map((p) => p.id));
@@ -127,21 +136,6 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
   const holder = players.find((p) => p.id === state.order[state.holderIndex]) ?? players[0];
   const isHolder = holder?.id === me.id;
   const send = (a: GameActionInput) => dispatch(a);
-  // 0 = gerade scharf gemacht, 1 = gleich knallt es. Treibt Puls und Vibration.
-  const [tension, setTension] = useState(0);
-
-  useEffect(() => {
-    if (state.phase !== 'running') {
-      setTension(0);
-      return;
-    }
-    const total = Math.max(1, state.explodesAt - Date.now());
-    const t = setInterval(() => {
-      const left = Math.max(0, state.explodesAt - Date.now());
-      setTension(1 - left / total);
-    }, 120);
-    return () => clearInterval(t);
-  }, [state.phase, state.explodesAt]);
 
   // Die Bombe zündet auf dem Gerät des Halters (und beim Host als Rückfall).
   useEffect(() => {
@@ -149,21 +143,36 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     if (online && !isHolder && !isHost) return;
     const check = () => {
       if (Date.now() >= state.explodesAt) {
-        haptic('error');
+        haptic('boom');
         send({ type: 'boom' });
       }
     };
     const t = setInterval(check, 250);
     return () => clearInterval(t);
+    // `send` gehört bewusst NICHT in die Abhängigkeiten: die Funktion ist bei
+    // jedem Rendern neu, und ein Intervall, das dabei jedes Mal von vorn
+    // startet, feuert nie. Genau daran hing das Ticken unten.
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
-  // Ticken über Vibration – wird schneller, je näher der Knall kommt.
+  // Ticken über die Haptik. Der Takt zieht an und der Schlag wird härter, je
+  // näher der Knall kommt.
+  //
+  // Als Kette einzelner Timeouts, nicht als Intervall mit berechneter Länge:
+  // Die alte Fassung hatte die Spannung in den Abhängigkeiten und hat das
+  // Intervall deshalb alle 120 ms verworfen – kürzer, als der erste Tick
+  // gebraucht hätte. Auf dem Gerät kam damit fast nie etwas an.
   useEffect(() => {
     if (state.phase !== 'running' || (online && !isHolder)) return;
-    const interval = Math.max(160, 900 - tension * 700);
-    const t = setInterval(() => haptic('tap'), interval);
-    return () => clearInterval(t);
-  }, [state.phase, isHolder, online, tension]);
+    const total = Math.max(1, state.explodesAt - state.armedAt);
+    let timer = 0;
+    const tick = () => {
+      const p = Math.max(0, Math.min(1, (Date.now() - state.armedAt) / total));
+      hapticRamp(p);
+      timer = window.setTimeout(tick, 880 - p * 700);
+    };
+    timer = window.setTimeout(tick, 600);
+    return () => clearTimeout(timer);
+  }, [state.phase, state.armedAt, state.explodesAt, isHolder, online]);
 
   if (state.phase === 'over') {
     const rows = players.map((p) => ({
@@ -219,7 +228,13 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
               ? 'Die Bombe springt von Handy zu Handy. Wer sie hat, sagt ein Wort und tippt weiter.'
               : 'Legt das Handy in die Mitte. Es wird reihum weitergereicht.'}
           </div>
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'start' })}>
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            onClick={() => {
+              haptic('press');
+              send({ type: 'start' });
+            }}
+          >
             <Icon name="bomb" size={20} /> Bombe scharf machen
           </button>
         </>
@@ -227,12 +242,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
 
       {state.phase === 'running' && (
         <>
-          <div
-            className={`bomb-pulse ${tension > 0.7 ? 'bomb-pulse--hot' : ''}`}
-            style={{ ['--tension' as string]: tension.toFixed(2) }}
-          >
-            <Icon name="bomb" size={84} strokeWidth={1.2} />
-          </div>
+          <Bomb armedAt={state.armedAt} explodesAt={state.explodesAt} />
           <button
             className="btn btn--brand btn--block btn--lg"
             disabled={online && !isHolder}
@@ -253,7 +263,13 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
             {holder?.name} hatte die Bombe.
           </BigCard>
           <DrinkCall player={holder} baseSips={5} source="wortbombe" resetKey={state.round} />
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            onClick={() => {
+              haptic('press');
+              send({ type: 'next' });
+            }}
+          >
             {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Runde'}
           </button>
         </div>

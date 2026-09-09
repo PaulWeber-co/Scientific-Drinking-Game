@@ -96,7 +96,7 @@ export function GamesScreen() {
           <h1 className="t-display wandkopf__titel">Spiele</h1>
           {profile && (
             <Link to="/profil" className="pressable hit" aria-label="Profil">
-              <Avatar name={profile.name} color={profile.color} />
+              <Avatar name={profile.name} color={profile.color} photo={profile.photo} />
             </Link>
           )}
         </div>

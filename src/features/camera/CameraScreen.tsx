@@ -39,7 +39,7 @@ export default function CameraScreen() {
 
     setBusy(true);
     setBlitz(true);
-    haptic('select');
+    haptic('heavy');
     try {
       await setTorch(true);
       await new Promise((r) => setTimeout(r, FLASH_LEAD_MS));
@@ -50,7 +50,7 @@ export default function CameraScreen() {
         await savePhoto(name, blob);
         addPhoto(name, developsAt);
         void scheduleDevelopNotice(developsAt);
-        haptic('warn');
+        haptic('success');
       }
     } finally {
       setBlitz(false);
@@ -72,7 +72,14 @@ export default function CameraScreen() {
       {blitz && <div className="viewfinder__flash" aria-hidden />}
 
       <div className="viewfinder__top">
-        <button className="btn btn--plain" onClick={() => nav(-1)} aria-label="Zurück">
+        <button
+          className="viewfinder__ico pressable"
+          onClick={() => {
+            haptic('tap');
+            nav(-1);
+          }}
+          aria-label="Zurück"
+        >
           <Icon name="close" size={22} />
         </button>
         {/* Pflicht und Anstand: es muss erkennbar sein, dass die Kamera
@@ -114,7 +121,13 @@ export default function CameraScreen() {
               'Ohne Kamerazugriff geht kein Foto. Du kannst ihn in den Einstellungen erlauben – der Rest der App funktioniert weiter.'}
             {state === 'unavailable' && 'Dieses Gerät stellt keine Kamera bereit.'}
           </div>
-          <button className="btn btn--glass btn--block" onClick={() => nav(-1)}>
+          <button
+            className="btn btn--glass btn--block"
+            onClick={() => {
+              haptic('tap');
+              nav(-1);
+            }}
+          >
             Zurück zum Album
           </button>
         </div>

@@ -119,7 +119,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
     return (
       <div className={`call call--muted ${compact ? 'call--compact' : ''}`}>
         <div className="call__who">
-          <Avatar name={player.name} color={player.color} size="sm" /> {player.name}
+          <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" /> {player.name}
         </div>
         <div className="t-sub">sieht seine Menge auf dem eigenen Handy</div>
       </div>
@@ -136,7 +136,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
         className={`call call--skip ${severity ? `call--${severity}` : ''} ${compact ? 'call--compact' : ''}`}
       >
         <div className="call__who">
-          <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
+          <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" /> {mine ? 'Du' : player.name}
         </div>
         <div className="call__big">
           {blocked ? 'Aufgabe' : severity ? OVER_LABEL[severity] : 'Aussetzen'}
@@ -156,7 +156,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   if (compact) {
     return (
       <div className={`callrow ${done ? 'call--done' : ''}`}>
-        <Avatar name={player.name} color={player.color} size="sm" />
+        <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" />
         <span className="grow">
           <span className="callrow__name">{mine ? 'Du' : player.name}</span>
           {label && <span className="t-caption"> · {label}</span>}
@@ -181,7 +181,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   return (
     <div className={`call ${done ? 'call--done' : ''}`}>
       <div className="call__who">
-        <Avatar name={player.name} color={player.color} size="sm" /> {mine ? 'Du' : player.name}
+        <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" /> {mine ? 'Du' : player.name}
         {label && <span className="t-caption"> · {label}</span>}
       </div>
       <div className="call__big t-mono-num">

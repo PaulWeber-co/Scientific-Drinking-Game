@@ -76,7 +76,7 @@ export const LEGAL: LegalConfig = {
   /** Öffentliche Adresse der App. */
   url: 'https://paulweber-co.github.io/Scientific-Drinking-Game/',
   /** Datum der letzten inhaltlichen Änderung an Impressum/Datenschutz. */
-  lastUpdated: '2026-09-02',
+  lastUpdated: '2026-09-09',
 
   /**
    * false = private, unentgeltliche Seite ohne Werbung, ohne Verkauf.
@@ -135,24 +135,59 @@ export const LEGAL: LegalConfig = {
       key: 'sdg.player',
       label: 'Profil und Trink-Log',
       content:
-        'Spitzname, Avatarfarbe, Alter, Geschlecht, Gewicht, optional Körpergröße, Magenfüllung, Zielpegel, gewähltes Getränk, eigene Getränke und die Liste der eingetragenen Schlucke',
+        'Spitzname, Avatarfarbe, ein selbst gewähltes Profilbild, Alter, Geschlecht, Gewicht, optional Körpergröße, Magenfüllung, Zielpegel, gewähltes Getränk, eigene Getränke und die Liste der eingetragenen Schlucke',
       retention: 'Bleibt bis du „Alles zurücksetzen" drückst oder die Browserdaten löschst.',
     },
     {
       key: 'sdg.app',
       label: 'App-Einstellungen',
       content:
-        'Darstellung hell/dunkel, Vibration, Wasser-Erinnerung, bestätigter Hinweis beim Start, zuletzt gespielte Spiele, Spicy-Schalter je Spiel',
+        'Darstellung hell/dunkel, Vibration, Wasser-Erinnerung, bestätigter Hinweis beim Start, zuletzt gespielte Spiele, Spicy-Schalter je Spiel, Rundenlänge und Aufgaben-Häufigkeit',
       retention: 'Bleibt bis du die Browserdaten löschst.',
     },
     {
-      key: 'sdg.local-players',
-      label: 'Mitspieler im Pass-&-Play',
+      key: 'sdg.nights',
+      label: 'Vergangene Abende',
       content:
-        'Name, Farbe, Alter, Geschlecht, Gewicht und Getränk der Gäste, die du auf diesem Gerät angelegt hast',
-      retention: 'Liegt im sessionStorage und verschwindet, sobald du den Tab schließt.',
+        'Je Abend: Beginn und Ende, ein frei eingetragener Ort, die Namen und Farben der Anwesenden, die Liste der Schlucke sowie die daraus errechneten Werte (Höchststand, „nüchtern um"). Körperdaten stehen NICHT darin.',
+      retention: 'Die letzten 50 Abende; ältere werden automatisch verworfen.',
+    },
+    {
+      key: 'sdg.film',
+      label: 'Einwegkamera und Album',
+      content:
+        'Nur die Angaben ZU den Bildern: Aufnahmezeit, Entwicklungszeitpunkt, Dateiname und der Abend, zu dem sie gehören. Die Bilder selbst liegen als Dateien im Speicher der App und werden weder hochgeladen noch ausgewertet.',
+      retention:
+        'Bilder verschwinden mit ihrem Abend – gelöscht, verdrängt oder über „Alles zurücksetzen".',
+    },
+    {
+      key: 'sdg.cards',
+      label: 'Eigene Karten',
+      content: 'Die Karten und Aufgaben, die du selbst zu einzelnen Spielen hinzugefügt hast',
+      retention: 'Bleibt bis du sie selbst löschst oder die Browserdaten löschst.',
+    },
+    {
+      key: 'sdg.seen',
+      label: 'Schon gesehene Karten',
+      content:
+        'Eine Liste laufender Nummern, damit derselbe Stapel beim nächsten Mal mit Ungesehenem anfängt. Kein Inhalt, keine Antworten – nur Kennungen.',
+      retention: 'Die zuletzt 1000 Einträge; ältere werden automatisch verworfen.',
+    },
+    {
+      key: 'sdg.device-id',
+      label: 'Gerätekennung',
+      content:
+        'Eine zufällige Zeichenfolge, damit dich eine Lobby nach einem Neuladen als denselben Spieler erkennt. Sie hängt an nichts anderem und sagt nichts über dich aus.',
+      retention: 'Bleibt bis du die Browserdaten löschst.',
     },
   ],
+
+  /**
+   * Mitspieler im Pass-&-Play stehen bewusst NICHT in dieser Liste: sie leben
+   * nur im Arbeitsspeicher der laufenden Sitzung und werden nirgends abgelegt.
+   * (Bis 09/2026 stand hier ein Eintrag `sdg.local-players` – den Schlüssel
+   * hat es nie gegeben.)
+   */
 
   /**
    * Aufsichtsbehörde für Beschwerden nach Art. 77 DSGVO.

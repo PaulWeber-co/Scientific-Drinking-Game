@@ -1,5 +1,6 @@
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
+import { formatStamp } from '../../lib/format';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GamePlayer } from '../types';
 
@@ -32,23 +33,16 @@ export function BigCard({
         {footer && <div className="bigcard__footer">{footer}</div>}
       </div>
       <span className="abzug__stempel" aria-hidden>
-        {stempelDatum()}
+        {formatStamp()}
       </span>
     </div>
   );
 }
 
-/** Datumsstempel im Papierrand, wie ihn eine Einwegkamera einbelichtet. */
-function stempelDatum(at: number = Date.now()): string {
-  const d = new Date(at);
-  const zwei = (n: number) => String(n).padStart(2, '0');
-  return `${zwei(d.getDate())} ${zwei(d.getMonth() + 1)} ${zwei(d.getFullYear() % 100)}`;
-}
-
 export function PlayerChip({ player, note }: { player: GamePlayer; note?: ReactNode }) {
   return (
     <span className={`pchip ${player.online === false ? 'pchip--off' : ''}`}>
-      <Avatar name={player.name} color={player.color} size="sm" />
+      <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" />
       <span className="pchip__name">{player.name}</span>
       {player.drinkIcon && <Icon name={player.drinkIcon} size={15} className="pchip__drink" />}
       {note && <span className="t-caption">{note}</span>}
@@ -167,7 +161,7 @@ export function VoteGrid({
             disabled={disabled || Boolean(myVote)}
             onClick={() => onVote(p.id)}
           >
-            <Avatar name={p.name} color={p.color} />
+            <Avatar name={p.name} color={p.color} photo={p.photo} />
             <span className="votecard__name">{p.name}</span>
           </button>
         ))}
@@ -198,7 +192,7 @@ export function VoteResult({
             style={{ ['--i' as string]: i, ['--pct' as string]: `${(n / max) * 100}%` }}
           >
             <span className="votebar__fill" />
-            <Avatar name={p.name} color={p.color} size="sm" />
+            <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
             <span className="grow t-headline">{p.name}</span>
             <span className="t-mono-num t-headline">{n}</span>
           </div>

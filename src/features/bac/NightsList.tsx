@@ -131,7 +131,13 @@ function NightDetail({ night, onClose }: { night: Night | null; onClose: () => v
                 machen.
               </p>
               <div className="grid-2">
-                <button className="btn btn--gray" onClick={() => setConfirmOpen(false)}>
+                <button
+                  className="btn btn--gray"
+                  onClick={() => {
+                    haptic('tap');
+                    setConfirmOpen(false);
+                  }}
+                >
                   Behalten
                 </button>
                 <button
@@ -151,7 +157,13 @@ function NightDetail({ night, onClose }: { night: Night | null; onClose: () => v
               </div>
             </div>
           ) : (
-            <button className="btn btn--gray btn--block" onClick={() => setConfirmOpen(true)}>
+            <button
+              className="btn btn--gray btn--block"
+              onClick={() => {
+                haptic('tap');
+                setConfirmOpen(true);
+              }}
+            >
               <Icon name="trash" size={17} /> Abend löschen
             </button>
           )}

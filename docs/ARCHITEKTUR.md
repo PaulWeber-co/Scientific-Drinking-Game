@@ -54,7 +54,8 @@ src/
     party/           Der einzige Ort, an dem Multiplayer stattfindet
       PartyContext   Lokale Runde und Online-Lobby hinter einer Schnittstelle
       sips.ts        Hooks für die persönliche Schluckzahl
-    onboarding/ home/ lobby/ bac/ drinks/ games/ settings/
+    profile/         Profilbild: Auswahl, Zuschnitt, Film-Look (nur lokal)
+    onboarding/ home/ lobby/ bac/ camera/ drinks/ games/ settings/
   games/
     types.ts         GameMeta (Stammdaten) + GameDefinition — das Plugin-Interface
     registry.ts      Stammdaten statisch, Spielmodule per import() als eigene Chunks
@@ -64,7 +65,7 @@ src/
   components/
     icons/         Eigenes SVG-Set – die App benutzt bewusst keine Emojis
     ui/            Buttons, Sheets, Stepper, Segmented, Toggle, Avatar, QR-Code
-  lib/             firebase, id, haptics, format
+  lib/             firebase, id, haptics, format, platform, wakelock
   styles/          tokens.css (Design-System), global.css, game.css
 ```
 
@@ -91,6 +92,38 @@ in die Menge, die zu seiner Person passt. Auf fremden Bildschirmen steht deshalb
 Im Pass-&-Play-Modus ist das anders — dort gibt es nur ein Gerät, und die eingetragenen
 Mitspielerdaten liegen im Arbeitsspeicher dieser Sitzung. Sie werden nicht persistiert.
 
+## Haptik
+
+Die App läuft inzwischen auch in einer nativen Hülle (Capacitor) — und genau dort war die
+Vibration bis zuletzt tot: **`navigator.vibrate` gibt es unter iOS/WebKit nicht**, weder in
+Safari noch im WKWebView. Auf einem iPhone hat also kein einziger der rund 150 Haptik-Aufrufe
+je etwas ausgelöst.
+
+`src/lib/haptics.ts` hat deshalb zwei Wege:
+
+| | Web (Android, Desktop) | Nativ (iOS, Android) |
+|:--|:--|:--|
+| Weg | `navigator.vibrate` | `@capacitor/haptics` → Taptic Engine |
+| Geladen | immer | per `import()`, nur wenn `window.Capacitor` da ist |
+
+Die Muster heißen nach ihrer **Bedeutung**, nicht nach ihrer Länge (`tap`, `select`, `press`,
+`heavy`, `success`, `warn`, `error`, `sip`, `tick`, `boom`). Nur so lässt sich die Stärke an
+einer Stelle nachjustieren, statt 150 Aufrufe zu suchen. `hapticRamp(0…1)` gibt einen Schlag,
+der mit der Anspannung härter wird — dafür gibt es genau einen Fall, den Zünder der Wortbombe.
+
+Zwei Dinge, die von außen unsichtbar sind, aber den Unterschied machen:
+
+- **Sperre von 40 ms** zwischen zwei Impulsen. Die Taptic Engine stellt Aufrufe in eine
+  Warteschlange; ohne die Sperre rattert ein gedrückt gehaltener Stepper noch Sekunden später
+  nach.
+- Gemessen wird mit `performance.now()`, nicht mit `Date.now()`. Die Uhr eines Telefons
+  springt (Zeitzone, Zeitabgleich), und ein Rücksprung würde die Sperre sonst für die Dauer
+  des Sprungs zumachen.
+
+> **Für die native Hülle:** `@capacitor/haptics` ist eine neue Abhängigkeit und braucht einmal
+> `npx cap sync`. Ohne das fällt die App auf den Web-Weg zurück — unter iOS heißt das:
+> weiterhin keine Haptik.
+
 ## Ausfallsicherheit
 
 | Fall | Verhalten |
@@ -114,7 +147,9 @@ Das Design orientiert sich an iOS und hält sich bewusst zurück:
   eine Fläche in einer Farbe.
 - **Icons statt Emojis.** Emojis sehen auf jedem System anders aus und lassen sich nicht
   einfärben; das eigene Set teilt Raster, Strichstärke und `currentColor`.
-- **Avatare sind Monogramme** auf einer gewählten Farbe – wie in Kontakte-Apps.
+- **Avatare sind Monogramme** auf einer gewählten Farbe – wie in Kontakte-Apps. Wer ein
+  eigenes Bild hinterlegt, sieht es statt der Initialen; die Farbe bleibt als Ring stehen,
+  weil man sie in einer Liste schneller erkennt als ein 26 Pixel großes Gesicht.
 - **Bewegung mit Absicht:** kurze Federkurven, gestaffeltes Einlaufen von Listen,
   hochzählende Schluckzahlen, eine Explosion für die Wortbombe. Alles respektiert
   `prefers-reduced-motion`.

@@ -44,11 +44,18 @@ export function Sheet({
     };
   }, [open, onClose]);
 
+  // Ein Sheet ist ein Ebenenwechsel – der gehoert gespuert, egal ueber
+  // welchen der drei Wege es zugeht (Knopf, Hintergrund, Escape).
+  const schliessen = () => {
+    haptic('tap');
+    onClose();
+  };
+
   if (!open) return null;
   // Portal ans <body>: die Screens haben durch ihre Einblend-Animation einen
   // eigenen Stacking-Context, sonst läge das Sheet unter der Tab-Leiste.
   return createPortal(
-    <div className="sheet-backdrop" onClick={onClose} role="presentation">
+    <div className="sheet-backdrop" onClick={schliessen} role="presentation">
       <div
         className="sheet"
         onClick={(e) => e.stopPropagation()}
@@ -60,7 +67,7 @@ export function Sheet({
         {title && (
           <div className="row-between" style={{ marginBottom: 12 }}>
             <div className="t-title2">{title}</div>
-            <button className="btn btn--plain" onClick={onClose}>
+            <button className="btn btn--plain" onClick={schliessen}>
               Fertig
             </button>
           </div>
@@ -186,6 +193,52 @@ export function OptionalStepper({
         {removeLabel}
       </button>
     </div>
+  );
+}
+
+/**
+ * Schieber mit Rasten.
+ *
+ * Ein Wertregler ohne Rueckmeldung fuehlt sich auf dem Handy nach nichts an –
+ * man zieht an einer Zahl statt an einem Regler. Ein kurzer Impuls je Schritt
+ * ist genau das, was iOS an seinen eigenen Reglern macht, und der Grund, warum
+ * die sich „echt“ anfuehlen.
+ *
+ * Steht hier und nicht zweimal inline: Onboarding und Profil hatten denselben
+ * Zielpegel-Regler als Kopie, mit denselben Grenzen und ohne Haptik.
+ */
+export function Slider({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+  label?: string;
+}) {
+  return (
+    <input
+      className="slider"
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      aria-label={label}
+      onChange={(e) => {
+        const next = Number(e.target.value);
+        // Nur bei echter Aenderung: `change` feuert auch, wenn der Finger
+        // innerhalb derselben Raste wandert.
+        if (next !== value) haptic('tap');
+        onChange(next);
+      }}
+    />
   );
 }
 

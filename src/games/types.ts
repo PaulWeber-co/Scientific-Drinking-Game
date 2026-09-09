@@ -7,6 +7,12 @@ export interface GamePlayer {
   id: string;
   name: string;
   color: AvatarColor;
+  /**
+   * Profilbild als Data-URL – nur für Personen, deren Profil auf DIESEM Gerät
+   * liegt (man selbst, Mitspieler im Pass-&-Play). Aus einer Online-Lobby
+   * kommt es nie: dorthin gehen Spitzname, Farbe und Getränkesymbol.
+   */
+  photo?: string;
   drinkIcon?: IconName;
   online?: boolean;
   isHost?: boolean;

@@ -171,12 +171,15 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       id: myId,
       name: profile?.name || 'Du',
       color: profile?.color ?? 'indigo',
+      // Bleibt lokal: `writeMe` und `createOnline` schreiben es NICHT in die
+      // Lobby. In der Runde sehen die anderen weiterhin nur das Monogramm.
+      photo: profile?.photo,
       drinkIcon: myDrink.icon,
       driver: profile?.designatedDriver ?? false,
       online: true,
       isHost: mode === 'local' ? true : snapshot?.meta?.host === myId,
     }),
-    [myId, profile?.name, profile?.color, myDrink.icon, mode, snapshot?.meta?.host],
+    [myId, profile?.name, profile?.color, profile?.photo, myDrink.icon, mode, snapshot?.meta?.host],
   );
 
   const isHost = mode === 'local' ? true : snapshot?.meta?.host === myId;

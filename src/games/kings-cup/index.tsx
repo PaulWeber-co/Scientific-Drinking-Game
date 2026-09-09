@@ -286,7 +286,7 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
                       disabled={rule.drink === 'pick' && !canPick}
                       onClick={() => send({ type: 'pickTarget', target: p.id })}
                     >
-                      <Avatar name={p.name} color={p.color} size="sm" />
+                      <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
                       <span className="pchip__name">{p.name}</span>
                     </button>
                   ))}

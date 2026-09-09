@@ -6,8 +6,9 @@ import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import { DRINK_CATALOG, alcoholPerSip, sipUnit } from '../../engine/drinks';
 import { sipsToTarget } from '../../engine/sips';
 import type { Profile, Sex, StomachState } from '../../engine/types';
-import { ColorPicker, OptionalStepper, Segmented, Stepper } from '../../components/ui';
-import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
+import { OptionalStepper, Segmented, Slider, Stepper } from '../../components/ui';
+import type { AvatarColor } from '../../components/ui/Avatar';
+import { AvatarPicker } from '../profile/AvatarPicker';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { formatBac } from '../../lib/format';
@@ -30,14 +31,17 @@ export function Onboarding() {
   const patch = (v: Partial<Profile>) => setP((prev) => ({ ...prev, ...v }));
 
   const next = () => {
-    haptic('select');
     if (current === 'alter' && gate === 'blocked') return;
     if (step === STEPS.length - 1) {
+      // Der letzte Schritt schliesst etwas ab – das ist eine andere Ansage
+      // als „einen Schritt weiter“ und bekommt darum das Erfolgsmuster.
+      haptic('success');
       acceptDisclaimer();
       complete({ ...p, alcoholFree: p.alcoholFree || gate !== 'full' }, drinkId);
       nav('/', { replace: true });
       return;
     }
+    haptic('press');
     setStep((s) => s + 1);
   };
   const back = () => {
@@ -66,10 +70,13 @@ export function Onboarding() {
               value={p.name}
               onChange={(e) => patch({ name: e.target.value })}
             />
-            <div className="row" style={{ justifyContent: 'center' }}>
-              <Avatar name={p.name} color={p.color} size="lg" />
-            </div>
-            <ColorPicker value={p.color} onChange={(color: AvatarColor) => patch({ color })} />
+            <AvatarPicker
+              name={p.name}
+              color={p.color}
+              photo={p.photo}
+              onColor={(color: AvatarColor) => patch({ color })}
+              onPhoto={(photo) => patch({ photo })}
+            />
           </StepShell>
         )}
         {current === 'alter' && (
@@ -163,14 +170,13 @@ export function Onboarding() {
           >
             <div className="targetpick">
               <div className="targetpick__value t-mono-num">{formatBac(p.targetBac)}</div>
-              <input
-                className="slider"
-                type="range"
+              <Slider
                 min={MIN_TARGET_BAC * 100}
                 max={MAX_TARGET_BAC * 100}
                 step={5}
                 value={p.targetBac * 100}
-                onChange={(e) => patch({ targetBac: Number(e.target.value) / 100 })}
+                onChange={(v) => patch({ targetBac: v / 100 })}
+                label="Zielpegel"
               />
               <div className="row-between t-caption">
                 <span>vorsichtig</span>

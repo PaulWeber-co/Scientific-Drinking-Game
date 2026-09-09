@@ -35,7 +35,10 @@ export function SpicyToggle({ game }: { game: GameMeta }) {
     <>
       <button
         className={`chip pressable ${on ? 'chip--hot' : ''}`}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          haptic('tap');
+          setOpen(true);
+        }}
       >
         <Icon name="flame" size={13} /> {on ? 'Spicy' : 'Zahm'}
       </button>
