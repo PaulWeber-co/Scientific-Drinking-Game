@@ -74,3 +74,61 @@ describe('Haptik', () => {
     expect(() => haptic('success')).not.toThrow();
   });
 });
+
+/**
+ * Der native Weg, an der einzigen Stelle, an der er ohne Gerät prüfbar ist:
+ * Was passiert, wenn die Bridge den Aufruf ablehnt?
+ *
+ * Genau das tut sie, wenn `@capacitor/haptics` zwar im Bundle liegt (der
+ * Import gelingt immer), im nativen Projekt aber nie einsynchronisiert wurde.
+ * Ohne Rückfall wäre die App dann auf Android stumm — dort, wo der Web-Weg
+ * vorher funktioniert hat.
+ */
+describe('Haptik nativ, aber ohne einsynchronisiertes Plugin', () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.doUnmock('@capacitor/haptics');
+    Reflect.deleteProperty(window, 'Capacitor');
+    vi.restoreAllMocks();
+  });
+
+  it('fällt auf navigator.vibrate zurück, wenn die Bridge ablehnt', async () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+    (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+
+    const abgelehnt = vi.fn(() =>
+      Promise.reject(new Error('Haptics does not have an implementation')),
+    );
+    vi.doMock('@capacitor/haptics', () => ({
+      Haptics: {
+        impact: abgelehnt,
+        notification: abgelehnt,
+        selectionStart: abgelehnt,
+        selectionChanged: abgelehnt,
+        selectionEnd: abgelehnt,
+        vibrate: abgelehnt,
+      },
+      ImpactStyle: { LIGHT: 'LIGHT', MEDIUM: 'MEDIUM', HEAVY: 'HEAVY' },
+      NotificationType: { SUCCESS: 'SUCCESS', WARNING: 'WARNING', ERROR: 'ERROR' },
+    }));
+
+    vi.resetModules();
+    const modul = await import('./haptics');
+    // Der Import des Plugins läuft asynchron – einmal die Warteschlange leeren.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    modul.haptic('heavy');
+    // Erst der native Versuch …
+    expect(abgelehnt).toHaveBeenCalledTimes(1);
+    // … und nach dessen Absage der Web-Weg.
+    await vi.waitFor(() => expect(vibrate).toHaveBeenCalledTimes(1));
+
+    // Ab jetzt direkt der Web-Weg: kein zweiter Anlauf gegen die Bridge.
+    vi.spyOn(performance, 'now').mockReturnValue(performance.now() + 5_000);
+    modul.haptic('tap');
+    expect(abgelehnt).toHaveBeenCalledTimes(1);
+    expect(vibrate).toHaveBeenCalledTimes(2);
+  });
+});

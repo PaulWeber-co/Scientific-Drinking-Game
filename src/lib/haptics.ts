@@ -1,16 +1,22 @@
 /**
  * Haptik.
  *
- * Die App läuft inzwischen nicht mehr nur im Browser, sondern auch in einer
- * nativen Hülle – und genau da war die Vibration bisher tot: `navigator.vibrate`
- * gibt es unter iOS/WebKit schlicht nicht (weder in Safari noch im WKWebView).
- * Auf einem iPhone hat deshalb kein einziger der Haptik-Aufrufe je etwas
- * ausgelöst. Nativ läuft die Haptik deshalb über die Taptic Engine
- * (`@capacitor/haptics`), im Web weiter über `navigator.vibrate`.
+ * Zwei Wege, weil `navigator.vibrate` nur die halbe Welt abdeckt:
+ *
+ * - **Android** (Browser wie App-Hülle) kennt die API. Dort hat die Vibration
+ *   schon immer funktioniert.
+ * - **WebKit** kennt sie nicht – weder Safari noch der WKWebView. Auf einem
+ *   iPhone lief deshalb keiner der Haptik-Aufrufe ins Ziel, in der Web- wie in
+ *   der App-Fassung.
+ *
+ * Läuft die App nativ, geht die Haptik darum über `@capacitor/haptics` und
+ * damit über die System-Haptik (Taptic Engine bzw. HapticFeedback). Das schließt
+ * nicht nur die iOS-Lücke: Ein `impact` mit Stärke fühlt sich auch auf Android
+ * anders an als ein flaches `vibrate(8)` auf dem nackten Motor.
  *
  * Das Plugin wird nur nativ geladen (dynamischer Import): der Web-Build soll
- * kein Byte davon mitschleppen. Bis es da ist – die ersten Millisekunden nach
- * dem Start – greift der Web-Weg, der unter Android ohnehin funktioniert.
+ * kein Byte davon mitschleppen. Solange es nicht da ist – und wenn die Bridge
+ * den Aufruf ablehnt – greift der Web-Weg.
  *
  * Die Muster sind nach ihrer BEDEUTUNG benannt, nicht nach ihrer Länge. Nur so
  * lässt sich später an einer Stelle nachjustieren, ohne 150 Aufrufe zu suchen.
@@ -91,6 +97,8 @@ interface HapticsPlugin {
 
 let plugin: HapticsPlugin | null = null;
 let laedt = false;
+/** Der native Weg hat sich als Sackgasse erwiesen – siehe `haptic()`. */
+let nativeAus = false;
 let styles: Record<string, string> = {};
 let types: Record<string, string> = {};
 
@@ -103,11 +111,10 @@ let types: Record<string, string> = {};
  * Wird beim Laden des Moduls UND bei jedem Impuls versucht. Der zweite Weg
  * ist die Absicherung: Wann die Capacitor-Bridge `window.Capacitor` setzt,
  * ist nicht garantiert – steht sie beim ersten Versuch noch nicht, bliebe
- * die App sonst die ganze Sitzung lang auf dem Web-Weg und damit unter iOS
- * stumm.
+ * die App sonst die ganze Sitzung lang auf dem Web-Weg.
  */
 export function initHaptics(): void {
-  if (plugin || laedt) return;
+  if (plugin || laedt || nativeAus) return;
   // `window` fehlt in Tests ohne DOM – dann gibt es auch nichts zu vibrieren.
   if (typeof window === 'undefined') return;
   if (window.Capacitor?.isNativePlatform?.() !== true) return;
@@ -119,7 +126,8 @@ export function initHaptics(): void {
       types = m.NotificationType as unknown as Record<string, string>;
     })
     .catch(() => {
-      // Plugin nicht einsynchronisiert: dann bleibt es beim Web-Weg.
+      // Paket nicht ladbar: dann bleibt es beim Web-Weg.
+      nativeAus = true;
     });
 }
 
@@ -156,15 +164,29 @@ export function haptic(pattern: Pattern = 'tap'): void {
 
   if (!plugin) initHaptics();
   if (plugin) {
-    void fireNative(plugin, NATIVE[pattern]).catch(() => {
-      /* Gerät ohne Taptic Engine – kein Grund für einen Fehler. */
+    const h = plugin;
+    void fireNative(h, NATIVE[pattern]).catch(() => {
+      // WICHTIG: Das Paket lässt sich immer importieren – es liegt im Bundle.
+      // Ob im nativen Projekt auch der PLUGIN-Teil steckt, zeigt sich erst
+      // hier: ohne `npx cap sync` lehnt die Bridge jeden Aufruf ab
+      // („Haptics does not have an implementation"). Würden wir das nur
+      // schlucken, wäre die App auf Android schlagartig stumm — dort hat der
+      // Web-Weg vorher funktioniert. Also einmal zurückfallen und ab jetzt
+      // gleich den Web-Weg nehmen.
+      nativeAus = true;
+      plugin = null;
+      webVibrate(pattern);
     });
     return;
   }
+  webVibrate(pattern);
+}
+
+function webVibrate(pattern: Pattern): void {
   try {
     navigator.vibrate?.(WEB[pattern]);
   } catch {
-    /* Safari kann das (noch) nicht – kein Problem. */
+    /* Gerät ohne Vibrationsmotor – kein Grund für einen Fehler. */
   }
 }
 

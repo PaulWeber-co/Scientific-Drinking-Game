@@ -94,17 +94,22 @@ Mitspielerdaten liegen im Arbeitsspeicher dieser Sitzung. Sie werden nicht persi
 
 ## Haptik
 
-Die App läuft inzwischen auch in einer nativen Hülle (Capacitor) — und genau dort war die
-Vibration bis zuletzt tot: **`navigator.vibrate` gibt es unter iOS/WebKit nicht**, weder in
-Safari noch im WKWebView. Auf einem iPhone hat also kein einziger der rund 150 Haptik-Aufrufe
-je etwas ausgelöst.
+`navigator.vibrate` deckt nur die halbe Welt ab: **WebKit kennt die API nicht** — weder Safari
+noch der WKWebView. Auf Android gibt es sie, im Browser wie in der App-Hülle; dort hat die
+Vibration also immer funktioniert. Auf einem iPhone dagegen lief keiner der rund 150
+Haptik-Aufrufe ins Ziel, in der Web- wie in der App-Fassung.
+
+Läuft die App nativ, geht die Haptik darum über die System-Haptik. Das schließt nicht nur die
+iOS-Lücke: Ein `impact` mit Stärke fühlt sich auch auf Android anders an als ein flaches
+`vibrate(8)` auf dem nackten Motor.
 
 `src/lib/haptics.ts` hat deshalb zwei Wege:
 
 | | Web (Android, Desktop) | Nativ (iOS, Android) |
 |:--|:--|:--|
-| Weg | `navigator.vibrate` | `@capacitor/haptics` → Taptic Engine |
+| Weg | `navigator.vibrate` | `@capacitor/haptics` → Taptic Engine / HapticFeedback |
 | Geladen | immer | per `import()`, nur wenn `window.Capacitor` da ist |
+| Fällt zurück | — | auf den Web-Weg, sobald die Bridge einen Aufruf ablehnt |
 
 Die Muster heißen nach ihrer **Bedeutung**, nicht nach ihrer Länge (`tap`, `select`, `press`,
 `heavy`, `success`, `warn`, `error`, `sip`, `tick`, `boom`). Nur so lässt sich die Stärke an
@@ -121,8 +126,11 @@ Zwei Dinge, die von außen unsichtbar sind, aber den Unterschied machen:
   des Sprungs zumachen.
 
 > **Für die native Hülle:** `@capacitor/haptics` ist eine neue Abhängigkeit und braucht einmal
-> `npx cap sync`. Ohne das fällt die App auf den Web-Weg zurück — unter iOS heißt das:
-> weiterhin keine Haptik.
+> `npx cap sync`. Das JS-Paket liegt danach so oder so im Bundle — ob im nativen Projekt auch
+> der Plugin-Teil steckt, zeigt sich erst beim ersten Aufruf. Fehlt er, lehnt die Bridge ihn
+> ab („Haptics does not have an implementation"), und `haptic()` fällt für den Rest der
+> Sitzung auf `navigator.vibrate` zurück. Auf Android bleibt damit alles wie vorher, unter
+> iOS bleibt es still — aber nichts geht kaputt.
 
 ## Ausfallsicherheit
 
