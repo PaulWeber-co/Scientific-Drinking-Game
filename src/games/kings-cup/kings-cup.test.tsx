@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { kingsCup, RULES, seatSplit } from './index';
 import { cardFromIndex, fullDeck } from '../shared/deck';
-import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
+import { PartyCtx, decodeState, encodeState, type PartyValue } from '../../features/party/PartyContext';
 import { useApp } from '../../store/app';
 import { useSeen } from '../../store/seen';
 import { usePlayer, defaultProfile } from '../../store/player';
@@ -317,5 +317,144 @@ describe('Zwei fast gleichzeitige Taps', () => {
     const nachZweitem = tun(s, 'next');
     expect(nachEinem, 'ein Tap muss weiterzaehlen').toBe((vorher + 1) % roster.length);
     expect(nachZweitem.turnIndex, 'zwei Taps zaehlten zwei Runden').toBe(nachEinem);
+  });
+});
+
+/**
+ * Was ein Kartenstapel vergisst, sobald die Karte weiterwandert: die
+ * erfundene Regel und wer Fragemeister ist. Beides steht deshalb im
+ * Zustand und nicht nur im Kartentext.
+ */
+describe('Merkzettel: Regel und Fragemeister', () => {
+  const RULE_RANK = RULES.findIndex((r) => r.title === 'Regel');
+  const MASTER_RANK = RULES.findIndex((r) => r.title === 'Fragemeister');
+  const karte = (rank: number) => fullDeck().find((i) => cardFromIndex(i).rank === rank)!;
+  const tun = (s: State, type: string, extra: Record<string, unknown> = {}) =>
+    kingsCup.reduce(s, { type, by: 'p1', at: Date.now(), ...extra } as GameAction, roster);
+  // Ben (p1) zieht: turnIndex 0 auf der festen Sitzordnung dieses Files.
+  const basis = (): State => ({ ...kingsCup.createState(roster), order: ORDER, turnIndex: 0 });
+
+  it('findet beide Karten in der Regelliste', () => {
+    // Die Raenge werden aus RULES abgeleitet. Fände `findIndex` nichts, wäre
+    // es -1 und jede folgende Prüfung liefe ins Leere, ohne rot zu werden.
+    expect(RULE_RANK).toBeGreaterThanOrEqual(0);
+    expect(MASTER_RANK).toBeGreaterThanOrEqual(0);
+  });
+
+  it('merkt sich die erfundene Regel samt Urheber', () => {
+    const s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
+    expect(s.rules).toEqual([{ by: 'p1', text: 'Keine Namen' }]);
+  });
+
+  it('behält sie über die nächsten Züge', () => {
+    let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
+    s = tun(s, 'next');
+    s = tun(s, 'draw');
+    expect(s.rules).toHaveLength(1);
+  });
+
+  it('überschreibt statt zu doppeln, wenn zweimal getippt wird', () => {
+    // Die Inbox wendet Aktionen nacheinander an: zwei fast gleichzeitige Taps
+    // legten sonst zweimal eine Regel zur selben Karte an.
+    let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Erst so' });
+    s = tun(s, 'setRule', { text: 'Doch anders' });
+    expect(s.rules).toEqual([{ by: 'p1', text: 'Doch anders' }]);
+  });
+
+  it('legt zur nächsten Regel-Karte eine zweite an', () => {
+    let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
+    s = tun(s, 'next');
+    s = tun({ ...s, drawn: karte(RULE_RANK) }, 'setRule', { text: 'Links trinken' });
+    expect(s.rules.map((r) => r.text)).toEqual(['Keine Namen', 'Links trinken']);
+  });
+
+  it('nimmt keine Regel an, wenn gar keine Karte liegt', () => {
+    const s = tun(basis(), 'setRule', { text: 'Zu spät' });
+    expect(s.rules).toEqual([]);
+  });
+
+  it('nimmt keine Regel an, wenn eine andere Karte liegt', () => {
+    const andere = karte(RULE_RANK === 0 ? 1 : 0);
+    const s = tun({ ...basis(), drawn: andere }, 'setRule', { text: 'Falsche Karte' });
+    expect(s.rules).toEqual([]);
+  });
+
+  it('ignoriert leeren Text', () => {
+    const s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: '   ' });
+    expect(s.rules).toEqual([]);
+  });
+
+  it('behält höchstens vier Regeln', () => {
+    // Mehr verdrängen die Karte vom Schirm.
+    // Ueber `next` statt `ruleOpen` von Hand: sonst bliebe dieser Test gruen,
+    // wenn `next` den Ruecksetzer verloere.
+    let s = basis();
+    for (const text of ['eins', 'zwei', 'drei', 'vier', 'fünf']) {
+      s = tun({ ...s, drawn: karte(RULE_RANK) }, 'setRule', { text });
+      s = tun(s, 'next');
+    }
+    expect(s.rules.map((r) => r.text)).toEqual(['zwei', 'drei', 'vier', 'fünf']);
+  });
+
+  it('kürzt zu langen Text nach Zeichen, nicht nach Code-Einheiten', () => {
+    // Ueber die Lobby kommt beliebiger Text, das Eingabefeld schuetzt nur das
+    // eigene Geraet. `slice` wuerde ein Emoji an der Grenze halbieren.
+    const lang = 'a'.repeat(58) + '🍺🍺';
+    const s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: lang });
+    expect(Array.from(s.rules[0].text)).toHaveLength(60);
+    expect(s.rules[0].text.endsWith('🍺')).toBe(true);
+  });
+
+  it('macht aus Zeilenumbrüchen einfache Leerzeichen', () => {
+    // Ein Umbruch bricht den Chip auf; `trim` entfernt nur aussen.
+    const s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', {
+      text: 'Erste\n\nZeile   zwei',
+    });
+    expect(s.rules[0].text).toBe('Erste Zeile zwei');
+  });
+
+  it('räumt den Fragemeister weg, wenn die Person die Runde verlässt', () => {
+    // Sonst bleibt eine tote Kennung im Zustand: die Oberflaeche blendet den
+    // Streifen still aus, der Zustand luegt.
+    let s = tun({ ...basis(), deck: [karte(MASTER_RANK), ...fullDeck()] }, 'draw');
+    expect(s.questionMaster).toBe('p1');
+    const ohneBen = roster.filter((p) => p.id !== 'p1');
+    s = kingsCup.reduce(s, { type: 'next', by: 'p0', at: Date.now() } as GameAction, ohneBen);
+    expect(s.questionMaster).toBeNull();
+  });
+
+  it('vergisst Merkzettel und Fragemeister beim Neustart', () => {
+    let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
+    s = { ...s, questionMaster: 'p1' };
+    s = tun(s, 'restart');
+    expect(s.rules).toEqual([]);
+    expect(s.questionMaster).toBeNull();
+  });
+
+  it('übersteht den Weg durch die Lobby mit gefülltem Merkzettel', () => {
+    // Der Rundlauf-Test in games.test.ts schickt nur den FRISCHEN Zustand
+    // durch - ein gefuellter Merkzettel war nie geprueft.
+    let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
+    s = { ...s, questionMaster: 'p1' };
+    const zurueck = decodeState(encodeState(s)) as State;
+    expect(zurueck.rules).toEqual(s.rules);
+    expect(zurueck.questionMaster).toBe('p1');
+  });
+
+  it('macht den Ziehenden zum Fragemeister und löst ihn mit der nächsten Dame ab', () => {
+    let s = tun({ ...basis(), deck: [karte(MASTER_RANK), ...fullDeck()] }, 'draw');
+    expect(s.questionMaster).toBe('p1');
+    s = tun(s, 'next');
+    // Weiter im Kreis: jetzt zieht Mira (p0).
+    s = tun({ ...s, deck: [karte(MASTER_RANK), ...s.deck] }, 'draw');
+    expect(s.questionMaster).toBe('p0');
+  });
+
+  it('lässt den Fragemeister stehen, solange keine Dame kommt', () => {
+    let s = tun({ ...basis(), deck: [karte(MASTER_RANK), ...fullDeck()] }, 'draw');
+    s = tun(s, 'next');
+    const andere = karte(MASTER_RANK === 0 ? 1 : 0);
+    s = tun({ ...s, deck: [andere, ...s.deck] }, 'draw');
+    expect(s.questionMaster).toBe('p1');
   });
 });

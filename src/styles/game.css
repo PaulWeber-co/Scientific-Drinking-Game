@@ -366,6 +366,44 @@
   box-shadow: var(--shadow-md);
   animation: card-flip var(--dur) var(--ease-spring) both;
 }
+/* Merkzettel: was ein Kartenstapel vergisst. Steht ueber der Karte und
+   bleibt die ganze Partie stehen. Bewusst klein und ruhig - es ist ein
+   Randvermerk, keine Ansage. Nachgebaut nach `.chip` in global.css. */
+.merkzettel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.merkzettel__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  /* Nicht `--r-full`: ein langer Regeltext bricht im Chip um, und eine
+     vollrunde Pille wird dann zur zweizeiligen Blase. */
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--label) 10%, transparent);
+  color: var(--label-2);
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  line-height: 1.3;
+  /* Deckel: vier lange Regeln duerfen die Karte nicht vom Schirm draengen. */
+  max-width: min(100%, 260px);
+}
+.merkzettel__item--rolle {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  /* Die Spielfarbe traegt der Rand, nicht der Text: Rot auf hellem Grund
+     reisst bei dieser Schriftgroesse unter die Lesbarkeitsschwelle. */
+  color: var(--label);
+}
+.merkzettel__von {
+  color: var(--label-3);
+  font-weight: 600;
+}
+
 @keyframes card-flip {
   from {
     transform: rotateY(80deg) scale(0.9);

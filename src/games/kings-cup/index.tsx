@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { cardFromIndex, fullDeck } from '../shared/deck';
@@ -8,6 +9,7 @@ import { useApp } from '../../store/app';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { Avatar } from '../../components/ui/Avatar';
+import { Icon } from '../../components/icons';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -55,6 +57,28 @@ export const RULES: Rule[] = [
 ];
 
 /**
+ * Aus der Regelliste abgeleitet statt hart geschrieben: wer die Liste
+ * umsortiert, soll nicht still die falsche Karte treffen.
+ */
+const RULE_RANK = RULES.findIndex((r) => r.title === 'Regel');
+const MASTER_RANK = RULES.findIndex((r) => r.title === 'Fragemeister');
+/** Mehr passt nicht auf den Schirm, ohne die Karte zu verdraengen. */
+const MAX_RULES = 4;
+const MAX_RULE_CHARS = 60;
+
+/**
+ * Antippbare Vorschlaege. Um ein Uhr nachts tippt niemand gern einen Satz,
+ * und eine Tastatur, die den halben Bildschirm verdeckt, haelt den Tisch auf.
+ */
+const RULE_IDEAS = [
+  'Keine Vornamen',
+  'Nur mit links trinken',
+  'Kein Fluchen',
+  'Vor dem Trinken anstoßen',
+  'Niemand sagt „ich"',
+];
+
+/**
  * Feste Sitzordnung (state.order) in zwei Hälften teilen: wer vom Ziehenden
  * aus links bzw. rechts sitzt. `order` wird nur beim Start gemischt und bei
  * Beitritt/Verlassen synchronisiert (siehe 'next') – sonst bleibt die
@@ -95,6 +119,22 @@ interface State {
   over: boolean;
   /** Bei „ohne Ende" läuft das Spiel über den vierten König hinaus weiter. */
   endless: boolean;
+  /**
+   * Erfundene Regeln, älteste zuerst.
+   *
+   * Der Grund, warum sie überhaupt im Zustand stehen: Ein Kartenstapel
+   * vergisst die Regel in dem Moment, in dem die Karte weiterwandert, und am
+   * Tisch erinnert sich nach drei Runden niemand mehr. Ein Handy kann das.
+   */
+  rules: { by: string; text: string }[];
+  /**
+   * Gehört die oberste Regel zur gerade liegenden Karte? Dann überschreibt
+   * ein zweiter Eintrag sie, statt eine zweite anzulegen — zwei Taps auf
+   * „Regel merken" legten sonst dieselbe Regel doppelt an.
+   */
+  ruleOpen: boolean;
+  /** Wer Fragemeister ist. Löst sich mit der nächsten Dame ab. */
+  questionMaster: string | null;
 }
 
 export const kingsCup: GameDefinition<State> = {
@@ -111,6 +151,9 @@ export const kingsCup: GameDefinition<State> = {
     finalKing: false,
     over: false,
     endless: useApp.getState().gameLength === 'endlos',
+    rules: [],
+    ruleOpen: false,
+    questionMaster: null,
   }),
 
   reduce: (state, action, players) => {
@@ -128,7 +171,8 @@ export const kingsCup: GameDefinition<State> = {
         const fresh = !state.deck.length;
         const deck = fresh ? shuffle(fullDeck()) : state.deck;
         const [next, ...rest] = deck;
-        const isKing = cardFromIndex(next).rank === 12;
+        const gezogen = cardFromIndex(next);
+        const isKing = gezogen.rank === 12;
         const kings = (fresh ? 0 : state.kings) + (isKing ? 1 : 0);
         return {
           ...state,
@@ -137,6 +181,12 @@ export const kingsCup: GameDefinition<State> = {
           kings,
           finalKing: isKing && kings >= 4,
           target: null,
+          // Die Dame loest den Fragemeister ab. Regeln ueberleben ein neues
+          // Blatt: sie sind eine Abmachung am Tisch, kein Stapelzustand.
+          questionMaster:
+            gezogen.rank === MASTER_RANK
+              ? state.order[state.turnIndex]
+              : state.questionMaster,
         };
       }
       case 'pickTarget': {
@@ -144,6 +194,24 @@ export const kingsCup: GameDefinition<State> = {
         // verspaetete Auswahl an der naechsten Karte.
         if (state.drawn == null) return state;
         return { ...state, target: String(action.target) };
+      }
+      case 'setRule': {
+        // Nur solange die Regel-Karte liegt. Ohne diese Pruefung haengt eine
+        // verspaetete Eingabe an der naechsten Karte.
+        if (state.drawn == null) return state;
+        if (cardFromIndex(state.drawn).rank !== RULE_RANK) return state;
+        // Nach ZEICHEN kuerzen, nicht nach Code-Einheiten: `slice` zerlegt
+        // ein Emoji an der Grenze in ein halbes Zeichen. Und Umbrueche raus -
+        // ueber die Lobby kommt beliebiger Text, nicht nur was unser Feld
+        // zulaesst.
+        const roh = String(action.text ?? '').replace(/\s+/g, ' ').trim();
+        const text = Array.from(roh).slice(0, MAX_RULE_CHARS).join('');
+        if (!text) return state;
+        const eintrag = { by: state.order[state.turnIndex], text };
+        const rules = state.ruleOpen
+          ? [...state.rules.slice(0, -1), eintrag]
+          : [...state.rules, eintrag];
+        return { ...state, rules: rules.slice(-MAX_RULES), ruleOpen: true };
       }
       case 'next': {
         // Ebenso: zwei Taps wuerden `turnIndex` zweimal erhoehen und eine
@@ -157,7 +225,14 @@ export const kingsCup: GameDefinition<State> = {
         const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
         // Der vierte König ist das Ende des Spiels, nicht bloß eine harte
         // Karte. Nur „ohne Ende" mischt danach weiter.
-        if (state.finalKing && !state.endless) return { ...state, order, over: true };
+        // `ruleOpen` auch hier: es ist der einzige Ausgang, der die
+        // Invariante sonst nicht haelt.
+        const master = state.questionMaster && ids.has(state.questionMaster)
+          ? state.questionMaster
+          : null;
+        if (state.finalKing && !state.endless) {
+          return { ...state, order, over: true, ruleOpen: false, questionMaster: master };
+        }
         return {
           ...state,
           order,
@@ -167,6 +242,10 @@ export const kingsCup: GameDefinition<State> = {
           round: turnIndex === 0 ? state.round + 1 : state.round,
           kings: state.finalKing ? 0 : state.kings,
           finalKing: false,
+          ruleOpen: false,
+          // Wer die Runde verlaesst, bleibt sonst als tote Kennung stehen:
+          // die Oberflaeche blendet den Streifen still aus, der Zustand luegt.
+          questionMaster: master,
         };
       }
       case 'restart':
@@ -180,6 +259,10 @@ export const kingsCup: GameDefinition<State> = {
 };
 
 function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntime<State>) {
+  const [entwurf, setEntwurf] = useState('');
+  // Der Entwurf gehoert zur liegenden Karte. Ohne das hier findet die naechste
+  // Person den halben Satz ihres Vorgaengers im Feld, mit aktivem Knopf.
+  useEffect(() => setEntwurf(''), [state.drawn]);
   const actorId = state.order[state.turnIndex % Math.max(1, state.order.length)];
   const actor = players.find((p) => p.id === actorId) ?? players[0];
   const isMyTurn = actor?.id === me.id;
@@ -208,6 +291,8 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
   // Ohne benannte Zielperson gibt es niemanden, dem die Ansage gehört –
   // "Nächster" bleibt dann gesperrt, bis wer getippt hat (wie pickWinner).
   const needsTarget = !state.finalKing && (rule?.drink === 'pick' || rule?.drink === 'loser');
+  const fragemeister = players.find((p) => p.id === state.questionMaster) ?? null;
+  const nameVon = (id: string) => players.find((p) => p.id === id)?.name ?? '';
 
   const send = (a: GameActionInput) => {
     haptic(a.type === 'draw' ? 'heavy' : 'select');
@@ -238,6 +323,26 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
       subtitle={`${state.deck.length} Karten · ${state.kings}/4 Könige`}
       onQuit={quit}
     >
+      {/* Was ein Kartenstapel vergisst, sobald die Karte weiterwandert. Steht
+          deshalb ueber der Karte und bleibt stehen, nicht als Ansage, die
+          nach einem Zug verschwindet. */}
+      {(state.rules.length > 0 || fragemeister) && (
+        <div className="merkzettel" role="list" aria-label="Merkzettel" aria-live="polite">
+          {fragemeister && (
+            <span className="merkzettel__item merkzettel__item--rolle" role="listitem">
+              <Icon name="chat" size={13} />
+              {fragemeister.name} fragt – wer antwortet, trinkt
+            </span>
+          )}
+          {state.rules.map((r, i) => (
+            <span key={`${i}-${r.text}`} className="merkzettel__item" role="listitem">
+              {r.text}
+              {nameVon(r.by) && <span className="merkzettel__von">· {nameVon(r.by)}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="row" style={{ justifyContent: 'center' }}>
         <PlayerChip player={actor} note={isMyTurn ? 'du ziehst' : 'zieht'} />
       </div>
@@ -291,6 +396,42 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
                     </button>
                   ))}
                 </div>
+              </div>
+            )
+          ) : rule?.title === 'Regel' ? (
+            canPick ? (
+              <div className="stack-3">
+                <div className="row wrap" style={{ justifyContent: 'center', gap: 8 }}>
+                  {RULE_IDEAS.map((idee) => (
+                    <button
+                      key={idee}
+                      className="chip pressable"
+                      onClick={() => send({ type: 'setRule', text: idee })}
+                    >
+                      {idee}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  className="input"
+                  value={entwurf}
+                  maxLength={MAX_RULE_CHARS}
+                  aria-label="Eigene Regel"
+                  placeholder="Oder eigene Regel eintippen"
+                  onChange={(e) => setEntwurf(e.target.value)}
+                />
+                <button
+                  className="btn btn--glass btn--block"
+                  disabled={!entwurf.trim()}
+                  onClick={() => send({ type: 'setRule', text: entwurf })}
+                >
+                  Regel merken
+                </button>
+                <div className="t-center t-caption">Ohne Regel geht es auch weiter.</div>
+              </div>
+            ) : (
+              <div className="t-center t-sub t-balance">
+                {actor?.name} erfindet gerade die Regel.
               </div>
             )
           ) : (
