@@ -10,6 +10,7 @@ import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { usePlayer, defaultProfile } from '../../store/player';
 import { useApp } from '../../store/app';
 import type { GameAction, GameActionInput, GamePlayer } from '../types';
+import { MemoryRouter } from 'react-router-dom';
 
 const me: GamePlayer = { id: 'p0', name: 'Paul', color: 'blue', online: true };
 const runde = (n: number): GamePlayer[] => [
@@ -224,7 +225,11 @@ describe('Zwei Wahrheiten: Ablauf an einem geteilten Handy', () => {
         </PartyCtx.Provider>
       );
     }
-    render(<Harness />);
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
 
     for (let runde_ = 1; runde_ <= goal!; runde_++) {
       // Schreiben: das Formular ist auf dem geteilten Handy immer da – egal,

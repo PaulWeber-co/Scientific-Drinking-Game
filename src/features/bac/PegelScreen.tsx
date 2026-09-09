@@ -14,6 +14,8 @@ import { BacGauge } from './BacGauge';
 import { useLiveBac } from './useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
 import { NightReview } from './NightReview';
+import { NightsList } from './NightsList';
+import { Stat } from './Stat';
 import { GAMES } from '../../games/registry';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 
@@ -25,6 +27,7 @@ export function PegelScreen() {
   const logSips = usePlayer((s) => s.logSips);
   const undoLast = usePlayer((s) => s.undoLast);
   const endNight = usePlayer((s) => s.endNight);
+  const nightStartedAt = usePlayer((s) => s.nightStartedAt);
   const drink = useCurrentDrink();
   const { estimate, now } = useLiveBac();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -188,12 +191,14 @@ export function PegelScreen() {
               Noch nichts getrunken. Trinkansagen aus den Spielen landen automatisch hier.
             </div>
           )}
-          {log.length > 0 && (
+          {(log.length > 0 || nightStartedAt) && (
             <button className="btn btn--glass btn--block" onClick={() => setReviewOpen(true)}>
               <Icon name="trophy" size={18} /> Abend abschließen
             </button>
           )}
         </section>
+
+        <NightsList />
       </div>
 
       <NightReview open={reviewOpen} onClose={() => setReviewOpen(false)} onEnd={endNight} />
@@ -229,16 +234,6 @@ export function PegelScreen() {
 /** Deutsche Zahlenschreibweise mit Komma. */
 function de(value: number, digits: number): string {
   return value.toFixed(digits).replace('.', ',');
-}
-
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="stat">
-      <div className="stat__value t-mono-num">{value}</div>
-      <div className="t-caption">{label}</div>
-      {hint && <div className="t-caption" style={{ opacity: 0.6 }}>{hint}</div>}
-    </div>
-  );
 }
 
 /** Aus der Spiel-ID den lesbaren Namen machen – "kings-cup" sagt niemandem etwas. */

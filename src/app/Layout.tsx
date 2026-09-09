@@ -6,11 +6,14 @@ import { useApp } from '../store/app';
 import { WaterReminder } from '../features/bac/WaterReminder';
 import { GameInvite } from '../features/party/GameInvite';
 
+// Vier statt fünf: Der alte Start war ein zweites Spiele-Menü mit
+// Promille-Anzeige davor. Die Spiele sind jetzt selbst der Start, die
+// Promille-Anzeige lebt vollständig im Pegel-Tab.
 const TABS: { to: string; icon: IconName; label: string }[] = [
-  { to: '/', icon: 'home', label: 'Start' },
-  { to: '/spiele', icon: 'games', label: 'Spiele' },
+  { to: '/', icon: 'games', label: 'Spiele' },
   { to: '/lobby', icon: 'people', label: 'Runde' },
   { to: '/pegel', icon: 'chart', label: 'Pegel' },
+  { to: '/album', icon: 'album', label: 'Album' },
 ];
 
 export function Layout() {

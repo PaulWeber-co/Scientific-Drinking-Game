@@ -2,10 +2,11 @@ import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-rou
 import { useEffect } from 'react';
 import { FullLayout, Layout } from './Layout';
 import { Onboarding } from '../features/onboarding/Onboarding';
-import { Home } from '../features/home/Home';
 import { GameDetail, GamesScreen } from '../features/games/GamesScreen';
 import { LobbyScreen } from '../features/lobby/LobbyScreen';
 import { PegelScreen } from '../features/bac/PegelScreen';
+import { AlbumScreen } from '../features/camera/AlbumScreen';
+import CameraScreen from '../features/camera/CameraScreen';
 import { ProfileScreen } from '../features/settings/ProfileScreen';
 import { PartyScreen } from '../features/party/PartyScreen';
 import { Impressum } from '../legal/Impressum';
@@ -32,15 +33,19 @@ export function Router() {
       <Route element={<FullLayout />}>
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/spiel" element={<PartyScreen />} />
+        <Route path="/kamera" element={<CameraScreen />} />
         <Route path="/impressum" element={<Impressum />} />
         <Route path="/datenschutz" element={<Datenschutz />} />
       </Route>
       <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/spiele" element={<GamesScreen />} />
+        <Route path="/" element={<GamesScreen />} />
+        {/* Alte Route: gespeicherte Links und der Rücksprung aus
+            einem Spiel sollen nicht ins Leere laufen. */}
+        <Route path="/spiele" element={<Navigate to="/" replace />} />
         <Route path="/spiele/:id" element={<GameDetail />} />
         <Route path="/lobby" element={<LobbyWithInvite />} />
         <Route path="/pegel" element={<PegelScreen />} />
+        <Route path="/album" element={<AlbumScreen />} />
         <Route path="/profil" element={<ProfileScreen />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

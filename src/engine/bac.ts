@@ -194,6 +194,38 @@ export function soberAt(events: DrinkEvent[], profile: Profile, from: number = D
   return Math.ceil(hi);
 }
 
+/**
+ * Höchster Pegel eines Abends und wann er erreicht wird.
+ *
+ * Sucht bis drei Stunden über das LETZTE Getränk hinaus: wer kurz vor
+ * Schluss noch einen Shot kippt, hat seinen Höchststand erst danach. Ohne
+ * das stellt ein Rückblick den Abend systematisch harmloser dar, als er war.
+ *
+ * Der Deckel hängt bewusst am letzten Ereignis und nicht an `now`: danach
+ * fällt der Pegel nur noch, das Ergebnis bleibt also gleich. Mit `now` als
+ * Grenze würde ein Abend, der beim Start der App nach zwei Wochen Pause
+ * geschlossen wird, zehntausende Schritte durchlaufen und die App blockieren.
+ */
+export function nightPeak(
+  events: DrinkEvent[],
+  profile: Profile,
+  now: number = Date.now(),
+): { peakBac: number; peakAt: number } {
+  if (!events.length) return { peakBac: 0, peakAt: now };
+  const from = Math.min(...events.map((e) => e.at));
+  let peakBac = 0;
+  let peakAt = from;
+  const until = Math.max(...events.map((e) => e.at)) + 180 * MS_PER_MIN;
+  for (let t = from; t <= until; t += 5 * MS_PER_MIN) {
+    const { bac } = estimateBac(events, profile, t);
+    if (bac > peakBac) {
+      peakBac = bac;
+      peakAt = t;
+    }
+  }
+  return { peakBac, peakAt };
+}
+
 /** Konservativer Restalkohol zu einer Zielzeit (für den Fahr-Check). */
 export function residualBac(events: DrinkEvent[], profile: Profile, at: number): number {
   return bacAt(events, profile, at, { beta: BETA_CONSERVATIVE, resorptionDeficit: 0 });

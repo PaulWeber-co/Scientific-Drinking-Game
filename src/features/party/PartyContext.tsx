@@ -38,6 +38,7 @@ import type { GameAction, GameActionInput, GamePlayer } from '../../games/types'
 import { getLoadedGame, loadGame } from '../../games/registry';
 import { createQueue } from './hostQueue';
 import { usePlayer } from '../../store/player';
+import { useFilm } from '../../store/film';
 import { useApp } from '../../store/app';
 
 export type PartyMode = 'local' | 'online';
@@ -57,6 +58,8 @@ interface RemotePlayer {
   driver?: boolean;
   /** Nur die grobe Pegel-Zone – nie ein Zahlenwert. */
   zone?: BacZone;
+  /** Verbrauchte Bilder des gemeinsamen Films – eine Zahl, nie ein Bild. */
+  shots?: number;
 }
 
 interface LobbySnapshot {
@@ -68,6 +71,8 @@ interface LobbySnapshot {
     /** Wer die aktuelle Runde gestartet hat – für die Einladung an die anderen. */
     startedBy?: string;
     startedAt?: number;
+    /** Einstellungen des gemeinsamen Films – nur Zahlen, nie ein Bild. */
+    film?: { rolls: number; developAfterH: number };
     createdAt: number;
     updatedAt?: number;
     expiresAt: number;
@@ -102,6 +107,8 @@ export interface PartyValue {
   /** Wer die laufende Runde gestartet hat (nur im Online-Modus gesetzt). */
   startedBy: string | null;
   startedAt: number;
+  /** Film-Einstellungen der Runde; `null`, solange niemand etwas gesetzt hat. */
+  film: { rolls: number; developAfterH: number } | null;
 
   createOnline: () => Promise<string>;
   joinOnline: (code: string) => Promise<void>;
@@ -113,6 +120,8 @@ export interface PartyValue {
   /** Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'. */
   startGame: (gameId: string) => Promise<void>;
   endGame: () => void;
+  /** Setzt Filmlänge und Entwicklungszeit für die ganze Runde (nur der Host). */
+  setFilm: (patch: { rolls?: number; developAfterH?: number }) => void;
   dispatch: (action: GameActionInput) => void;
   logSipsFor: (playerId: string, sips: number, source?: string) => void;
 }
@@ -150,10 +159,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [localStatus, setLocalStatus] = useState<PartyStatus>('lobby');
 
   const myDrink = findDrink(currentDrinkId, customDrinks);
+  // Nur die ZAHL der verbrauchten Bilder geht in die Runde, nie ein Bild.
+  const myShots = useFilm((s) => s.mine);
 
   // Für den Heartbeat: aktuelle Werte ohne das Abo neu aufzubauen.
-  const liveRef = useRef({ profile, log, drink: myDrink });
-  liveRef.current = { profile, log, drink: myDrink };
+  const liveRef = useRef({ profile, log, drink: myDrink, shots: myShots });
+  liveRef.current = { profile, log, drink: myDrink, shots: myShots };
 
   const me: GamePlayer = useMemo(
     () => ({
@@ -182,6 +193,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         drinkIcon: p.drinkIcon,
         driver: p.driver === true,
         zone: p.zone,
+        shots: p.shots ?? 0,
         online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
         isHost: snapshot?.meta?.host === p.id,
       }));
@@ -197,6 +209,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }, [gameId]);
   const startedBy = mode === 'local' ? null : (snapshot?.meta?.startedBy ?? null);
   const startedAt = mode === 'local' ? 0 : (snapshot?.meta?.startedAt ?? 0);
+  const film = mode === 'local' ? null : (snapshot?.meta?.film ?? null);
   const remoteStateRaw = snapshot?.game?.state ?? null;
   const remoteState = useMemo(() => decodeState(remoteStateRaw), [remoteStateRaw]);
   const gameState = mode === 'local' ? localGameState : remoteState;
@@ -328,7 +341,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     const meRef = lobbyRef(code, `/players/${myId}`);
     onDisconnect(meRef).update({ online: false }).catch(() => {});
     const beat = () => {
-      const { profile: p, log: l, drink } = liveRef.current;
+      const { profile: p, log: l, drink, shots } = liveRef.current;
       // Es geht nur die grobe Zone raus – kein Promillewert, kein Gewicht.
       const zone = p ? bacZone(estimateBac(l, p).bac) : 'sober';
       update(meRef, {
@@ -337,6 +350,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         zone,
         driver: p?.designatedDriver ?? false,
         drinkIcon: drink.icon,
+        shots,
       }).catch(() => {});
     };
     beat();
@@ -573,6 +587,26 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     [mode, code, lobbyRef, myId],
   );
 
+  /**
+   * Filmlänge und Entwicklungszeit gelten für die ganze Runde.
+   *
+   * Nur der Host schreibt: sonst überschreiben sich zwei Geräte gegenseitig,
+   * und die Bilder eines Abends entwickelten zu verschiedenen Zeiten.
+   */
+  const setFilm = useCallback(
+    (patch: { rolls?: number; developAfterH?: number }) => {
+      if (mode !== 'online' || !code || !isHost) return;
+      const next = {
+        rolls: patch.rolls ?? film?.rolls ?? 1,
+        developAfterH: patch.developAfterH ?? film?.developAfterH ?? 0,
+      };
+      update(lobbyRef(code), { 'meta/film': next, 'meta/updatedAt': Date.now() }).catch((e) =>
+        setError(describe(e)),
+      );
+    },
+    [mode, code, isHost, film, lobbyRef],
+  );
+
   const endGame = useCallback(() => {
     if (mode === 'local') {
       setLocalStatus('lobby');
@@ -664,6 +698,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     gameState,
     startedBy,
     startedAt,
+    film,
     createOnline,
     joinOnline,
     startLocal,
@@ -673,6 +708,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     removeLocalPlayer,
     startGame,
     endGame,
+    setFilm,
     dispatch,
     logSipsFor,
   };

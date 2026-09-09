@@ -36,7 +36,7 @@ export default defineConfig({
       workbox: {
         // App-Shell komplett vorab: HTML, CSS, JS (auch die Spiel-Chunks),
         // Icons. Damit startet Pass & Play ohne Netz.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
         runtimeCaching: [
@@ -47,6 +47,18 @@ export default defineConfig({
             urlPattern: ({ url }) =>
               /firebasedatabase\.app$|firebaseio\.com$|googleapis\.com$/.test(url.hostname),
             handler: 'NetworkOnly',
+          },
+          {
+            // Die Kachel-Motive liegen als eigene Dateien neben dem Paket und
+            // stehen bewusst NICHT im Precache: 17 Motive sind rund zwei
+            // Megabyte, die beim ersten Start niemand braucht. Wer ein Spiel
+            // einmal gesehen hat, sieht sein Bild danach auch ohne Netz.
+            urlPattern: ({ request }) => request.destination === 'image',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'motive',
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
           },
         ],
       },

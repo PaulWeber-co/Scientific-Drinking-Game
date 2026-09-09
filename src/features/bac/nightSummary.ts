@@ -1,5 +1,6 @@
-import { estimateBac, soberAt } from '../../engine/bac';
+import { nightPeak, soberAt } from '../../engine/bac';
 import type { DrinkEvent, Profile } from '../../engine/types';
+import type { Night } from '../../store/nights';
 import { GAMES } from '../../games/registry';
 
 export interface NightSummary {
@@ -19,29 +20,14 @@ export interface NightSummary {
 /** Ein Standardglas entspricht etwa 12 g reinem Alkohol. */
 const STANDARD_DRINK_G = 12;
 
-export function buildNightSummary(
-  log: DrinkEvent[],
-  profile: Profile,
-  water: number,
-  now = Date.now(),
-): NightSummary | null {
-  if (!log.length) return null;
-  const from = Math.min(...log.map((e) => e.at));
+/**
+ * Alles, was sich ohne Körperdaten aus dem Log ergibt.
+ *
+ * Getrennt vom Rest, weil ein archivierter Abend genau diese Zahlen frisch
+ * rechnen kann – seine profilabhängigen liegen eingefroren daneben.
+ */
+function logFigures(log: DrinkEvent[], water: number, now: number) {
   const totalGrams = log.reduce((s, e) => s + e.alcoholGrams, 0);
-
-  // Bis drei Stunden über das Abendende hinaus suchen: wer kurz vor Schluss
-  // noch einen Shot kippt, hat seinen Höchststand erst danach. Ohne das würde
-  // der Rückblick den Abend systematisch harmloser darstellen, als er war.
-  let peakBac = 0;
-  let peakAt = from;
-  const until = now + 180 * 60_000;
-  for (let t = from; t <= until; t += 5 * 60_000) {
-    const { bac } = estimateBac(log, profile, t);
-    if (bac > peakBac) {
-      peakBac = bac;
-      peakAt = t;
-    }
-  }
 
   const count = (key: (e: DrinkEvent) => string | undefined) => {
     const tally: Record<string, number> = {};
@@ -55,16 +41,43 @@ export function buildNightSummary(
 
   const topSource = count((e) => e.source);
   return {
-    from,
+    from: Math.min(...log.map((e) => e.at)),
     to: now,
     totalGrams,
     standardDrinks: totalGrams / STANDARD_DRINK_G,
     calls: log.length,
     water,
-    peakBac,
-    peakAt,
-    soberAt: soberAt(log, profile, now),
     topGame: GAMES.find((g) => g.id === topSource)?.name ?? null,
     topDrink: count((e) => e.drinkName),
+  };
+}
+
+export function buildNightSummary(
+  log: DrinkEvent[],
+  profile: Profile,
+  water: number,
+  now = Date.now(),
+): NightSummary | null {
+  if (!log.length) return null;
+  return {
+    ...logFigures(log, water, now),
+    ...nightPeak(log, profile, now),
+    soberAt: soberAt(log, profile, now),
+  };
+}
+
+/**
+ * Rückblick auf einen archivierten Abend.
+ *
+ * Nimmt die eingefrorenen Promille-Zahlen statt sie neu zu rechnen: das
+ * heutige Gewicht sagt nichts darüber, wie voll jemand vor drei Wochen war.
+ */
+export function summarizeNight(night: Night): NightSummary | null {
+  if (!night.log.length) return null;
+  return {
+    ...logFigures(night.log, night.waterCount, night.endedAt),
+    peakBac: night.peakBac,
+    peakAt: night.peakAt,
+    soberAt: night.soberAt,
   };
 }

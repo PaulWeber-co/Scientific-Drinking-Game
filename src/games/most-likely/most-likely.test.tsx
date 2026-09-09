@@ -11,6 +11,7 @@ import { usePlayer, defaultProfile } from '../../store/player';
 import { useApp } from '../../store/app';
 import { useSeen } from '../../store/seen';
 import type { GameAction, GameActionInput, GamePlayer } from '../types';
+import { MemoryRouter } from 'react-router-dom';
 
 const me: GamePlayer = { id: 'p0', name: 'Paul', color: 'blue', online: true };
 const runde = (n: number): GamePlayer[] => [
@@ -132,7 +133,11 @@ describe('Wer aus der Runde: Ablauf an einem geteilten Handy', () => {
         </PartyCtx.Provider>
       );
     }
-    render(<Harness />);
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
 
     for (let runde_ = 1; runde_ <= goal!; runde_++) {
       // Auf drei zeigen: Paul bekommt zwei Finger, Gast 1 einen.
@@ -169,7 +174,11 @@ describe('Wer aus der Runde: Ablauf an einem geteilten Handy', () => {
         </PartyCtx.Provider>
       );
     }
-    render(<Harness />);
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
     fireEvent.click(screen.getByRole('button', { name: `Weniger Finger bei ${players[0].name}` }));
     expect(screen.getByText('Insgesamt eingetragen: 0 von 3')).toBeTruthy();
   });

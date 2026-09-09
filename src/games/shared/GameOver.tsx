@@ -5,6 +5,7 @@ import { haptic } from '../../lib/haptics';
 import { DrinkCall, DrinkCallList } from './DrinkCall';
 import { BigCard } from './pieces';
 import type { GamePlayer } from '../types';
+import { PhotoPrompt } from './PhotoPrompt';
 
 /**
  * Bewusst nachgeladen statt statisch importiert: der Rückblick zieht über
@@ -71,6 +72,8 @@ export function GameOver({
   return (
     <div className="stack-3">
       <BigCard kicker="Vorbei">{headline}</BigCard>
+
+      <PhotoPrompt />
 
       {ranked && (
         <div className="stack-2">

@@ -34,7 +34,7 @@ export function GameFrame({
   useEffect(() => keepScreenAwake(), []);
 
   return (
-    <div className="game" style={{ ['--accent' as string]: accent }}>
+    <div className="game korn" style={{ ['--accent' as string]: accent }}>
       <header className="game__bar">
         <button
           className="game__close"
