@@ -54,7 +54,8 @@ src/
     party/           Der einzige Ort, an dem Multiplayer stattfindet
       PartyContext   Lokale Runde und Online-Lobby hinter einer Schnittstelle
       sips.ts        Hooks für die persönliche Schluckzahl
-    onboarding/ home/ lobby/ bac/ drinks/ games/ settings/
+    profile/         Profilbild: Auswahl, Zuschnitt, Film-Look (nur lokal)
+    onboarding/ home/ lobby/ bac/ camera/ drinks/ games/ settings/
   games/
     types.ts         GameMeta (Stammdaten) + GameDefinition — das Plugin-Interface
     registry.ts      Stammdaten statisch, Spielmodule per import() als eigene Chunks
@@ -64,7 +65,7 @@ src/
   components/
     icons/         Eigenes SVG-Set – die App benutzt bewusst keine Emojis
     ui/            Buttons, Sheets, Stepper, Segmented, Toggle, Avatar, QR-Code
-  lib/             firebase, id, haptics, format
+  lib/             firebase, id, haptics, format, platform, wakelock
   styles/          tokens.css (Design-System), global.css, game.css
 ```
 
@@ -91,6 +92,50 @@ in die Menge, die zu seiner Person passt. Auf fremden Bildschirmen steht deshalb
 Im Pass-&-Play-Modus ist das anders — dort gibt es nur ein Gerät, und die eingetragenen
 Mitspielerdaten liegen im Arbeitsspeicher dieser Sitzung. Sie werden nicht persistiert.
 
+## Haptik
+
+`navigator.vibrate` deckt nur die halbe Welt ab: **WebKit kennt die API nicht** — weder Safari
+noch der WKWebView. Auf Android gibt es sie, im Browser wie in der App-Hülle; dort hat die
+Vibration also immer funktioniert. Auf einem iPhone dagegen lief keiner der rund 150
+Haptik-Aufrufe ins Ziel, in der Web- wie in der App-Fassung.
+
+Läuft die App nativ, geht die Haptik darum über die System-Haptik. Das schließt nicht nur die
+iOS-Lücke: Ein `impact` mit Stärke fühlt sich auch auf Android anders an als ein flaches
+`vibrate(8)` auf dem nackten Motor.
+
+`src/lib/haptics.ts` hat deshalb zwei Wege:
+
+| | Web (Android, Desktop) | Nativ (iOS, Android) |
+|:--|:--|:--|
+| Weg | `navigator.vibrate` | `@capacitor/haptics` → Taptic Engine / HapticFeedback |
+| Geladen | immer | per `import()`, nur wenn `window.Capacitor` da ist |
+| Fällt zurück | — | auf den Web-Weg, sobald die Bridge einen Aufruf ablehnt |
+
+Die Muster heißen nach ihrer **Bedeutung**, nicht nach ihrer Länge (`tap`, `select`, `press`,
+`heavy`, `success`, `warn`, `error`, `sip`, `tick`, `boom`). Nur so lässt sich die Stärke an
+einer Stelle nachjustieren, statt 150 Aufrufe zu suchen. `hapticRamp(0…1)` gibt einen Schlag,
+der mit der Anspannung härter wird — dafür gibt es genau einen Fall, den Zünder der Wortbombe.
+
+Zwei Dinge, die von außen unsichtbar sind, aber den Unterschied machen:
+
+- **Sperre von 40 ms** zwischen zwei Impulsen. Die Taptic Engine stellt Aufrufe in eine
+  Warteschlange; ohne die Sperre rattert ein gedrückt gehaltener Stepper noch Sekunden später
+  nach.
+- Gemessen wird mit `performance.now()`, nicht mit `Date.now()`. Die Uhr eines Telefons
+  springt (Zeitzone, Zeitabgleich), und ein Rücksprung würde die Sperre sonst für die Dauer
+  des Sprungs zumachen.
+
+> **Für die native Hülle:** `@capacitor/haptics` ist eine neue Abhängigkeit. Im Xcode-Projekt
+> steckt das Plugin bereits. Das JS-Paket liegt so oder so im Bundle — ob im nativen Projekt
+> auch der Plugin-Teil steckt, zeigt sich erst beim ersten Aufruf. Fehlt er, lehnt die Bridge
+> ihn ab („Haptics does not have an implementation"), und `haptic()` fällt für den Rest der
+> Sitzung auf `navigator.vibrate` zurück — nichts geht kaputt.
+
+Die Sperre greift **nur bei Wiederholungen desselben Musters**. Ein Musterwechsel kommt
+durch, und das ist keine Feinheit: In der Wortbombe laufen Zünder und Explosionsprüfung als
+zwei unabhängige Timer auf demselben Gerät. Eine musterblinde Sperre verschluckte den `boom`
+bei grob jedem fünften Knall — das Ticken hörte dann einfach auf, ohne dass etwas nachkommt.
+
 ## Ausfallsicherheit
 
 | Fall | Verhalten |
@@ -114,7 +159,9 @@ Das Design orientiert sich an iOS und hält sich bewusst zurück:
   eine Fläche in einer Farbe.
 - **Icons statt Emojis.** Emojis sehen auf jedem System anders aus und lassen sich nicht
   einfärben; das eigene Set teilt Raster, Strichstärke und `currentColor`.
-- **Avatare sind Monogramme** auf einer gewählten Farbe – wie in Kontakte-Apps.
+- **Avatare sind Monogramme** auf einer gewählten Farbe – wie in Kontakte-Apps. Wer ein
+  eigenes Bild hinterlegt, sieht es statt der Initialen; die Farbe bleibt als Ring stehen,
+  weil man sie in einer Liste schneller erkennt als ein 26 Pixel großes Gesicht.
 - **Bewegung mit Absicht:** kurze Federkurven, gestaffeltes Einlaufen von Listen,
   hochzählende Schluckzahlen, eine Explosion für die Wortbombe. Alles respektiert
   `prefers-reduced-motion`.

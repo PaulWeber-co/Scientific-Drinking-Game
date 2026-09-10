@@ -27,7 +27,10 @@ in der jede Person ihr eigenes Gerät benutzt.
 | Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
 | Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
 | Eigenes SVG-Icon-Set statt Emojis, Monogramm-Avatare | fertig |
+| Eigenes Profilbild im Einwegkamera-Look (bleibt lokal) | fertig |
+| Haptik über die Taptic Engine, wenn die App nativ läuft | fertig |
 | QR-Code zum Beitreten, Abend-Rückblick als teilbares Bild | fertig |
+| Einwegkamera: 27 Bilder je Abend, sichtbar erst am nächsten Morgen | fertig |
 | Rolle „Ich fahre heute" mit Wasserzähler | fertig |
 | Eigene Karten pro Spiel, anonyme Gruppen-Pegelanzeige | fertig |
 | Spieleinladung: startet jemand, fragt die App „mitspielen?" | fertig |
@@ -62,7 +65,7 @@ in der jede Person ihr eigenes Gerät benutzt.
 ```bash
 npm install
 npm run dev        # Dev-Server
-npm test           # 99 Tests (Engine, alle Spiel-Reducer, Spieleinladung)
+npm test           # Tests: Engine, alle Spiel-Reducer, Spieleinladung, Haptik
 npm run typecheck
 npm run build      # Produktions-Build nach dist/
 ```
@@ -160,11 +163,12 @@ Für Spiele mit eigener Mechanik siehe [`docs/SPIEL-HINZUFUEGEN.md`](docs/SPIEL-
 
 ## Datenschutz in einem Satz
 
-Name, Alter, Gewicht, Größe und das komplette Trink-Log liegen ausschließlich im
-`localStorage` des Geräts. In eine Lobby gehen nur Spitzname, Avatarfarbe, das Symbol des
-Getränks, die Rolle „fährt heute" und die grobe Pegel-**Zone** — nie ein Promillewert.
-Gesundheitsdaten verlassen das Gerät nie; deshalb rechnet jedes Gerät seine eigene
-Schluckzahl selbst aus.
+Name, Alter, Gewicht, Größe, ein hinterlegtes Profilbild und das komplette Trink-Log liegen
+ausschließlich im `localStorage` des Geräts; die Fotos des Abends liegen daneben im
+Dateisystem der App. In eine Lobby gehen nur Spitzname, Avatarfarbe, das Symbol des
+Getränks, die Rolle „fährt heute" und die grobe Pegel-**Zone** — nie ein Promillewert und
+nie ein Bild. Gesundheitsdaten verlassen das Gerät nie; deshalb rechnet jedes Gerät seine
+eigene Schluckzahl selbst aus.
 
 ## Disclaimer
 

@@ -81,7 +81,7 @@ export function GameOver({
           {ranked.map((r, i) => (
             <div key={r.player.id} className="result-row">
               {!rankHighIsBad && <div className="result-row__rank">{i + 1}</div>}
-              <Avatar name={r.player.name} color={r.player.color} size="sm" />
+              <Avatar name={r.player.name} color={r.player.color} photo={r.player.photo} size="sm" />
               <div className="grow">
                 <div className="t-headline">{r.player.name}</div>
               </div>

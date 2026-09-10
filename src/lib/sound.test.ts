@@ -191,4 +191,45 @@ describe('Klänge', () => {
     });
     expect(() => sound('tick')).not.toThrow();
   });
+
+  it('versucht es nach einem Fehlschlag nicht bei jedem Tick erneut', () => {
+    // Sonst laufen auf einem Geraet ganz ohne Web-Audio fuenf vergebliche
+    // Konstruktoraufrufe je Sekunde, und die duerfen auch noch werfen.
+    const uhr = vi.spyOn(performance, 'now').mockReturnValue(0);
+    let versuche = 0;
+    setAudioFactory(() => {
+      versuche++;
+      return null;
+    });
+    sound('tick');
+    sound('tick');
+    sound('tick');
+    expect(versuche).toBe(1);
+    uhr.mockRestore();
+  });
+
+  it('kommt zurueck, wenn der Kontext spaeter doch zu haben ist', () => {
+    // Der haeufigste Grund fuer einen Fehlschlag ist voruebergehend (Safaris
+    // Kontingent an Kontexten). Vorher wurde nach dem ersten dauerhaft
+    // aufgegeben – die App blieb bis zum Neuladen stumm.
+    const uhr = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const { ctx, sources } = fakeContext();
+    let kaputt = true;
+    setAudioFactory(() => (kaputt ? null : (ctx as unknown as AudioContext)));
+
+    sound('tick');
+    expect(sources).toHaveLength(0);
+
+    // Nur die Zeit vergeht – die Ursache besteht noch, es bleibt still.
+    uhr.mockReturnValue(5_000);
+    sound('tick');
+    expect(sources).toHaveLength(0);
+
+    // Jetzt ist die Ursache weg: der naechste Versuch traegt.
+    kaputt = false;
+    uhr.mockReturnValue(10_000);
+    sound('tick');
+    expect(sources).toHaveLength(1);
+    uhr.mockRestore();
+  });
 });

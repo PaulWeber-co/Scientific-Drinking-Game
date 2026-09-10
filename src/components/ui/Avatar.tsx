@@ -39,28 +39,41 @@ export function avatarStyle(color: AvatarColor) {
 }
 
 /**
- * Monogramm-Avatar: Initialen auf einem Farbverlauf. Skaliert sauber,
- * lässt sich einfärben und sieht auf allen Plattformen gleich aus.
+ * Avatar: eigenes Foto, sonst Initialen auf einem Farbverlauf.
+ *
+ * Das Monogramm bleibt der Normalfall und nicht der Ersatz – es skaliert
+ * sauber, lässt sich einfärben und sieht auf allen Plattformen gleich aus.
+ * Wer ein Bild hinterlegt hat, sieht es überall dort, wo die eigene Person
+ * auftaucht; die Farbe bleibt als Rand stehen, damit die Zuordnung in der
+ * Runde erhalten bleibt (in Ranglisten und Chips erkennt man sie schneller
+ * als ein 26 Pixel grosses Gesicht).
  */
 export function Avatar({
   name,
   color,
+  photo,
   size = 'md',
   className = '',
 }: {
   name: string;
   color: AvatarColor;
+  /** Eigenes Bild als Data-URL. Kommt aus `Profile.photo`. */
+  photo?: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
   const text = initials(name);
   return (
     <span
-      className={`avatar avatar--${size} ${className}`}
+      className={`avatar avatar--${size} ${photo ? 'avatar--foto' : ''} ${className}`}
       style={avatarStyle(color)}
       aria-hidden="true"
     >
-      {text || <Icon name="person" size={size === 'lg' ? 28 : size === 'sm' ? 15 : 19} />}
+      {photo ? (
+        <img className="avatar__img" src={photo} alt="" />
+      ) : (
+        text || <Icon name="person" size={size === 'lg' ? 28 : size === 'sm' ? 15 : 19} />
+      )}
     </span>
   );
 }

@@ -121,7 +121,13 @@ function Frame({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
     );
   }
   return (
-    <button className="photoframe pressable" onClick={onOpen}>
+    <button
+      className="photoframe pressable"
+      onClick={() => {
+        haptic('tap');
+        onOpen();
+      }}
+    >
       {url && <img src={url} alt={`Foto von ${formatTime(photo.at)} Uhr`} loading="lazy" />}
     </button>
   );

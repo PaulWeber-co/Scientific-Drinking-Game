@@ -27,6 +27,15 @@ export interface Profile {
   name: string;
   /** Avatarfarbe – die Initialen kommen aus dem Namen. */
   color: AvatarColor;
+  /**
+   * Eigenes Profilbild als Data-URL (kleines JPEG, ~20 KB).
+   *
+   * Liegt bewusst IM Profil und damit im localStorage dieses Geräts – wie
+   * Gewicht und Trink-Log. Es wird nie in eine Lobby geschrieben: dorthin
+   * gehen Spitzname, Farbe und Getränkesymbol. Siehe
+   * `features/profile/portrait.ts`.
+   */
+  photo?: string;
   age: number;
   weightKg: number;
   /** Optional – schaltet die präzisere Watson-Schätzung frei. */

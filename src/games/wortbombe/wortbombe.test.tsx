@@ -4,7 +4,13 @@ import { wortbombe } from './index';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import type { GamePlayer } from '../types';
 
-vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
+vi.mock('../../lib/haptics', () => ({
+  haptic: vi.fn(),
+  // Der Zünder schlägt nicht mehr gleich hart, sondern härter, je näher der
+  // Knall kommt.
+  hapticRamp: vi.fn(),
+  setHapticsEnabled: vi.fn(),
+}));
 vi.mock('../../lib/sound', () => ({
   sound: vi.fn(),
   stopSounds: vi.fn(),
@@ -81,7 +87,9 @@ describe('Wortbombe: der Knall', () => {
     // Vorher lief der Zuend-Timer fuer diese Person gar nicht: sie sah die
     // Explosion, spuerte und hoerte aber nichts.
     render(<Spiel state={knallt()} me={spieler[2]} online isHost={false} />);
-    expect(haptic).toHaveBeenCalledWith('error');
+    // 'boom' statt 'error': Der Schlag ist das Ereignis selbst, keine
+    // Fehlermeldung – und er muss sich vom letzten Tick des Zünders absetzen.
+    expect(haptic).toHaveBeenCalledWith('boom');
   });
 
   it('klingt online nur dort, wo auch der Zünder klang', () => {
@@ -106,6 +114,9 @@ describe('Wortbombe: der Zünder', () => {
     phase: 'running',
     order: ['p0', 'p1', 'p2'],
     holderIndex,
+    // Beide Zeitpunkte gehoeren zusammen: der Takt kommt aus dem Verhaeltnis
+    // von verstrichener zu gesamter Zuendzeit.
+    armedAt: Date.now(),
     explodesAt: Date.now() + 30_000,
   });
 

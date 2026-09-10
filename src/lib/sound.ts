@@ -56,7 +56,28 @@ export function setAudioFactory(f: Factory | null) {
 let ctx: AudioContext | null = null;
 let bus: GainNode | null = null;
 let noise: AudioBuffer | null = null;
-let dead = false;
+
+/**
+ * Sperrfrist, nachdem das Bauen eines Kontexts fehlgeschlagen ist.
+ *
+ * Vorher wurde nach dem ersten Fehlschlag dauerhaft aufgegeben. Der Grund für
+ * so einen Fehlschlag ist aber meistens VORÜBERGEHEND – Safaris Kontingent an
+ * Kontexten ist irgendwann wieder frei –, und die App blieb dann bis zum
+ * Neuladen stumm, ohne dass jemand den Zusammenhang gesehen hätte.
+ *
+ * Andersherum darf es auch nicht bei jedem Tick neu versuchen: Auf einem Gerät
+ * ganz ohne Web-Audio wären das fünf vergebliche Konstruktoraufrufe je Sekunde,
+ * und die dürfen auch noch werfen. Zwei Sekunden sind lang genug, dass es nicht
+ * ins Gewicht fällt, und kurz genug, dass der Ton innerhalb einer Runde
+ * zurückkommt.
+ */
+const RETRY_MS = 2_000;
+let gesperrtBis = 0;
+
+/** Monotone Uhr: die Uhrzeit eines Telefons springt, die Sperrfrist nicht. */
+function jetzt(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
 
 /** Kopfraum: Filter überhöhen im Durchlassbereich, und Zünder und Knall
  *  können sich überlappen. Bei 1.0 schneidet Web-Audio hart ab. */
@@ -66,7 +87,7 @@ function reset() {
   ctx = null;
   bus = null;
   noise = null;
-  dead = false;
+  gesperrtBis = 0;
 }
 
 /**
@@ -77,8 +98,8 @@ function reset() {
  * ohnehin angehalten.
  */
 function ensure(): AudioContext | null {
-  if (dead) return null;
   if (!ctx) {
+    if (jetzt() < gesperrtBis) return null;
     try {
       ctx = factory();
     } catch {
@@ -87,9 +108,10 @@ function ensure(): AudioContext | null {
       ctx = null;
     }
     if (!ctx) {
-      dead = true;
+      gesperrtBis = jetzt() + RETRY_MS;
       return null;
     }
+    gesperrtBis = 0;
   }
   if (!bus) {
     bus = ctx.createGain();

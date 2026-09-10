@@ -9,7 +9,7 @@ type Theme = 'dark' | 'light';
 /** Wie lang eine Partie laufen soll. 'endlos' = kein Abschluss. */
 export type GameLength = 'kurz' | 'mittel' | 'lang' | 'endlos';
 
-interface AppState {
+export interface AppState {
   theme: Theme;
   haptics: boolean;
   /** Kurze Klaenge. Getrennt von der Vibration: die beiden Kanaele bedienen
@@ -84,15 +84,34 @@ export const useApp = create<AppState>()(
       name: 'sdg.app',
       version: 5,
       migrate: migrateApp,
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          setHapticsEnabled(state.haptics);
-          setSoundEnabled(state.sound);
-        }
-      },
+      onRehydrateStorage: () => rehydrateApp,
     },
   ),
 );
+
+/**
+ * Schaltet Ton und Vibration auf das, was gespeichert war.
+ *
+ * Beide Schalter leben ausserhalb von React – in `lib/haptics.ts` und
+ * `lib/sound.ts` –, und ohne diesen Schritt stünden sie nach jedem Start
+ * wieder auf ihrer Voreinstellung.
+ *
+ * Ein unvollständiger Eintrag darf dabei nichts abschalten, was niemand
+ * abgeschaltet hat. `migrateApp` fängt den Normalfall ab, aber nur beim
+ * Versionswechsel: ein halb geschriebener oder von Hand beschnittener Eintrag
+ * trägt die Felder trotzdem nicht. Ohne die beiden `??` käme `undefined` an,
+ * und die App wäre still, ohne dass der Schalter das anzeigt.
+ *
+ * Exportiert, damit ein Test diesen Weg prüfen kann, ohne den Store neu zu
+ * laden – wie `closeStaleNight` im Spieler-Store.
+ */
+export function rehydrateApp(state: AppState | undefined): void {
+  if (!state) return;
+  state.haptics = state.haptics ?? true;
+  state.sound = state.sound ?? true;
+  setHapticsEnabled(state.haptics);
+  setSoundEnabled(state.sound);
+}
 
 /**
  * Ältere Installationen kennen die neuen Felder nicht – ohne Voreinstellung

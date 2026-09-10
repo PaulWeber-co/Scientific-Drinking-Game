@@ -1,6 +1,6 @@
 import { Icon } from '../../components/icons';
-import { useEffect, useRef, useState } from 'react';
-import { haptic } from '../../lib/haptics';
+import { useEffect, useRef } from 'react';
+import { haptic, hapticRamp } from '../../lib/haptics';
 import { sound, stopSounds } from '../../lib/sound';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
@@ -8,6 +8,7 @@ import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
+import { Bomb } from '../shared/Bomb';
 import { Explosion } from '../shared/Explosion';
 import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
 import { meta } from './meta';
@@ -51,6 +52,10 @@ interface State {
   holderIndex: number;
   phase: 'ready' | 'running' | 'boom' | 'over';
   category: string;
+  /** Wann die Bombe scharf gemacht wurde. Ohne diesen Zeitpunkt kennt ein
+   *  Gerät, das später dazukommt, die Gesamtdauer nicht – und die Zündschnur
+   *  liefe dort von vorn los. */
+  armedAt: number;
   explodesAt: number;
   round: number;
   /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
@@ -66,6 +71,7 @@ export const wortbombe: GameDefinition<State> = {
     holderIndex: 0,
     phase: 'ready',
     category: pick(CATEGORIES),
+    armedAt: 0,
     explodesAt: 0,
     round: 1,
     goal: roundGoal(ROUND_BASE),
@@ -74,14 +80,17 @@ export const wortbombe: GameDefinition<State> = {
 
   reduce: (state, action, players) => {
     switch (action.type) {
-      case 'start':
+      case 'start': {
+        const jetzt = Date.now();
         return {
           ...state,
           phase: 'running',
           category: pick(CATEGORIES),
+          armedAt: jetzt,
           // Zwischen 22 und 75 Sekunden – niemand kann mitzählen.
-          explodesAt: Date.now() + 22_000 + Math.random() * 53_000,
+          explodesAt: jetzt + 22_000 + Math.random() * 53_000,
         };
+      }
       case 'pass': {
         if (state.phase !== 'running') return state;
         const ids = new Set(players.map((p) => p.id));
@@ -128,21 +137,6 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
   const holder = players.find((p) => p.id === state.order[state.holderIndex]) ?? players[0];
   const isHolder = holder?.id === me.id;
   const send = (a: GameActionInput) => dispatch(a);
-  // 0 = gerade scharf gemacht, 1 = gleich knallt es. Treibt Puls und Vibration.
-  const [tension, setTension] = useState(0);
-
-  useEffect(() => {
-    if (state.phase !== 'running') {
-      setTension(0);
-      return;
-    }
-    const total = Math.max(1, state.explodesAt - Date.now());
-    const t = setInterval(() => {
-      const left = Math.max(0, state.explodesAt - Date.now());
-      setTension(1 - left / total);
-    }, 120);
-    return () => clearInterval(t);
-  }, [state.phase, state.explodesAt]);
 
   // Die Bombe zündet auf dem Gerät des Halters (und beim Host als Rückfall).
   useEffect(() => {
@@ -153,50 +147,57 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     };
     const t = setInterval(check, 250);
     return () => clearInterval(t);
+    // `send` gehört bewusst NICHT in die Abhängigkeiten: die Funktion ist bei
+    // jedem Rendern neu, und ein Intervall, das dabei jedes Mal von vorn
+    // startet, feuert nie. Genau daran hing das Ticken unten.
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
   /**
    * Wer die Bombe gerade hält – als Referenz, nicht als Abhängigkeit.
    *
    * Stünde `isHolder` in den Abhängigkeiten des Zünders, liefe der Effekt bei
-   * JEDER Weitergabe neu an: der Fortschritt fiele auf null zurück, der Takt
-   * spränge von 160 ms auf 900 ms, und nach dem Weitergeben wäre eine Sekunde
-   * Ruhe. Die Puls-Anzeige daneben hat diese Abhängigkeit nicht — beide
-   * Kanäle würden ab der ersten Weitergabe auseinanderlaufen: die Bombe glüht
-   * rot, während das Handy gemächlich klopft.
+   * JEDER Weitergabe neu an: der Takt spränge zurück auf den Anfangswert, und
+   * nach dem Weitergeben wäre eine Sekunde Ruhe. Die Bombe daneben hat diese
+   * Abhängigkeit nicht — beide Kanäle würden ab der ersten Weitergabe
+   * auseinanderlaufen: sie glüht rot, während das Handy gemächlich klopft.
    */
   const holderRef = useRef(isHolder);
   holderRef.current = isHolder;
 
   /**
-   * Ticken über Vibration und Ton – zieht an, je näher der Knall kommt.
+   * Der Zünder: Vibration und Ton, beide ziehen an, je näher der Knall kommt.
    *
-   * Als Kette einzelner Timeouts statt als Intervall: `tension` wird alle
-   * 120 ms neu gesetzt, und ein Intervall mit `tension` in den Abhängigkeiten
-   * startet dabei jedes Mal von vorn. Beim Takt von 160 ms feuerte es deshalb
-   * fast nie – bei der Vibration fiel das nicht auf, ein Klang würde hörbar
+   * Als Kette einzelner Timeouts statt als Intervall mit berechneter Länge.
+   * Die alte Fassung hing an einer Zustandsvariablen, die alle 120 ms neu
+   * gesetzt wurde, und verwarf ihr Intervall damit jedes Mal, bevor es feuern
+   * konnte — bei der Vibration fiel das nicht auf, ein Klang würde hörbar
    * stolpern.
    *
-   * Nur beim Halter. Die Zündschnur läuft 22 bis 75 Sekunden; auf jedem Handy
-   * mitzuklopfen hiesse anderthalb Minuten Dauervibration in jeder Hosentasche,
-   * und der einzige Ausweg wäre der globale Vibrationsschalter.
+   * Der Fortschritt kommt aus `armedAt`, nicht aus dem Zeitpunkt, an dem
+   * dieser Effekt startet: Ein Gerät, das später dazukommt, kennt die
+   * Gesamtdauer sonst nicht und finge wieder bei null an — obwohl die Bombe
+   * daneben schon glüht.
+   *
+   * Gespürt und gehört wird nur beim Halter. Die Zündschnur läuft 22 bis 75
+   * Sekunden; auf jedem Handy mitzuklopfen hiesse anderthalb Minuten
+   * Dauervibration in jeder Hosentasche, und der einzige Ausweg wäre der
+   * globale Schalter.
    */
   useEffect(() => {
     if (state.phase !== 'running') return;
-    const total = Math.max(1, state.explodesAt - Date.now());
+    const total = Math.max(1, state.explodesAt - state.armedAt);
     let timer = 0;
     const tick = () => {
-      const left = Math.max(0, state.explodesAt - Date.now());
-      const p = Math.max(0, Math.min(1, 1 - left / total));
+      const p = Math.max(0, Math.min(1, (Date.now() - state.armedAt) / total));
       if (!online || holderRef.current) {
-        haptic('tap');
+        hapticRamp(p);
         sound('tick');
       }
-      timer = window.setTimeout(tick, Math.max(160, 900 - p * 700));
+      timer = window.setTimeout(tick, Math.max(180, 880 - p * 700));
     };
-    timer = window.setTimeout(tick, 900);
+    timer = window.setTimeout(tick, 600);
     return () => clearTimeout(timer);
-  }, [state.phase, state.explodesAt, online]);
+  }, [state.phase, state.armedAt, state.explodesAt, online]);
 
   /**
    * Der Knall gehört auf jedes Gerät und genau einmal.
@@ -208,10 +209,15 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
    * Gespürt wird er überall — ein einzelner Schlag schadet niemandem. Gehört
    * nur dort, wo auch der Zünder klang: sechs versetzte Knalle sind kein
    * Ereignis, sondern ein Steinschlag.
+   *
+   * `boom` und nicht `error`: Der Schlag ist das Ereignis selbst, keine
+   * Fehlermeldung – und er muss sich vom letzten Tick des Zünders absetzen.
+   * Die Sperre in `haptic()` lässt ihn durch, weil sie nur Wiederholungen
+   * desselben Musters greift.
    */
   useEffect(() => {
     if (state.phase !== 'boom') return;
-    haptic('error');
+    haptic('boom');
     if (!online || holderRef.current) sound('boom');
   }, [state.phase, online]);
 
@@ -273,7 +279,13 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
               ? 'Die Bombe springt von Handy zu Handy. Wer sie hat, sagt ein Wort und tippt weiter.'
               : 'Legt das Handy in die Mitte. Es wird reihum weitergereicht.'}
           </div>
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'start' })}>
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            onClick={() => {
+              haptic('press');
+              send({ type: 'start' });
+            }}
+          >
             <Icon name="bomb" size={20} /> Bombe scharf machen
           </button>
         </>
@@ -281,12 +293,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
 
       {state.phase === 'running' && (
         <>
-          <div
-            className={`bomb-pulse ${tension > 0.7 ? 'bomb-pulse--hot' : ''}`}
-            style={{ ['--tension' as string]: tension.toFixed(2) }}
-          >
-            <Icon name="bomb" size={84} strokeWidth={1.2} />
-          </div>
+          <Bomb armedAt={state.armedAt} explodesAt={state.explodesAt} />
           <button
             className="btn btn--brand btn--block btn--lg"
             disabled={online && !isHolder}
@@ -307,7 +314,13 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
             {holder?.name} hatte die Bombe.
           </BigCard>
           <DrinkCall player={holder} baseSips={5} source="wortbombe" resetKey={state.round} />
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            onClick={() => {
+              haptic('press');
+              send({ type: 'next' });
+            }}
+          >
             {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Runde'}
           </button>
         </div>

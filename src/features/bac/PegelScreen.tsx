@@ -151,13 +151,25 @@ export function PegelScreen() {
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">Trink-Log</h2>
-            <button className="chip chip--shrink pressable" onClick={() => setPickerOpen(true)}>
+            <button
+              className="chip chip--shrink pressable"
+              onClick={() => {
+                haptic('tap');
+                setPickerOpen(true);
+              }}
+            >
               <Icon name={drink.icon} size={15} />
               <span className="chip__text">{drink.name}</span>
             </button>
           </div>
           <div className="grid-2">
-            <button className="btn btn--glass" onClick={() => setAddOpen(true)}>
+            <button
+              className="btn btn--glass"
+              onClick={() => {
+                haptic('tap');
+                setAddOpen(true);
+              }}
+            >
               <Icon name="plus" size={17} /> Selbst getrunken
             </button>
             <button className="btn btn--gray" disabled={!log.length} onClick={() => {
@@ -192,7 +204,13 @@ export function PegelScreen() {
             </div>
           )}
           {(log.length > 0 || nightStartedAt) && (
-            <button className="btn btn--glass btn--block" onClick={() => setReviewOpen(true)}>
+            <button
+              className="btn btn--glass btn--block"
+              onClick={() => {
+                haptic('press');
+                setReviewOpen(true);
+              }}
+            >
               <Icon name="trophy" size={18} /> Abend abschließen
             </button>
           )}

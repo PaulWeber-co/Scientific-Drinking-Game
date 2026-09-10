@@ -4,10 +4,12 @@ import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import type { Sex, StomachState } from '../../engine/types';
-import { ColorPicker, ListItem, NavBar, OptionalStepper, Segmented, Stepper, Toggle } from '../../components/ui';
-import { Avatar, type AvatarColor } from '../../components/ui/Avatar';
+import { ListItem, NavBar, OptionalStepper, Segmented, Slider, Stepper, Toggle } from '../../components/ui';
+import type { AvatarColor } from '../../components/ui/Avatar';
+import { AvatarPicker } from '../profile/AvatarPicker';
 import { Icon } from '../../components/icons';
 import { formatBac } from '../../lib/format';
+import { haptic } from '../../lib/haptics';
 import { DATABASE_URL } from '../../lib/firebase';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
@@ -29,17 +31,35 @@ export function ProfileScreen() {
 
   return (
     <div className="screen">
-      <NavBar title="Profil" left={<button className="btn btn--plain" onClick={() => nav(-1)}>Zurück</button>} />
+      <NavBar
+        title="Profil"
+        left={
+          <button
+            className="btn btn--plain"
+            onClick={() => {
+              haptic('tap');
+              nav(-1);
+            }}
+          >
+            Zurück
+          </button>
+        }
+      />
       <div className="stack-6">
-        <section className="stack-3" style={{ alignItems: 'center' }}>
-          <Avatar name={profile.name} color={profile.color} size="lg" />
+        <section className="stack-3">
+          <AvatarPicker
+            name={profile.name}
+            color={profile.color}
+            photo={profile.photo}
+            onColor={(color: AvatarColor) => patch({ color })}
+            onPhoto={(photo) => patch({ photo })}
+          />
           <input
             className="input input--center"
             value={profile.name}
             maxLength={16}
             onChange={(e) => patch({ name: e.target.value })}
           />
-          <ColorPicker value={profile.color} onChange={(color: AvatarColor) => patch({ color })} />
         </section>
 
         <section className="stack-3">
@@ -145,14 +165,13 @@ export function ProfileScreen() {
           <div className="targetpick">
             <div className="t-upper">Zielpegel</div>
             <div className="targetpick__value t-mono-num">{formatBac(profile.targetBac)}</div>
-            <input
-              className="slider"
-              type="range"
+            <Slider
               min={MIN_TARGET_BAC * 100}
               max={MAX_TARGET_BAC * 100}
               step={5}
               value={profile.targetBac * 100}
-              onChange={(e) => patch({ targetBac: Number(e.target.value) / 100 })}
+              onChange={(v) => patch({ targetBac: v / 100 })}
+              label="Zielpegel"
             />
           </div>
         </section>

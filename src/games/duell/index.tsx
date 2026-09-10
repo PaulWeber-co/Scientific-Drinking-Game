@@ -191,7 +191,10 @@ function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State
       }
     }, 30);
     return () => clearInterval(t);
-  }, [state.phase, state.goAt, isHost, send]);
+    // `send` ist bei jedem Rendern eine neue Funktion. Stünde sie hier, würde
+    // das 30-ms-Intervall bei jedem Rendern verworfen und der Startschuss
+    // käme im ungünstigen Fall nie.
+  }, [state.phase, state.goAt, isHost]);
 
   if (state.phase === 'over') {
     const ranking = players.map((p) => ({

@@ -38,6 +38,22 @@ export const DISPOSABLE: FilmLook = {
 };
 
 /**
+ * Dieselbe Optik, deutlich zurueckgenommen – fuer ein Portraet.
+ *
+ * Ein Profilbild muss auch als 26 Pixel grosser Punkt in einer Liste noch
+ * erkennbar sein. Die harten Werte von `DISPOSABLE` fressen dort genau das
+ * Gesicht weg: Der Blitzfleck sitzt mitten drauf und die Vignette frisst
+ * Haare und Schultern. Weniger Blitz, weniger Vignette, dafuer bleibt der
+ * warme Stich – der macht den Wiedererkennungswert aus.
+ */
+export const PORTRAIT: FilmLook = {
+  flash: 0.16,
+  vignette: 0.3,
+  warmth: 0.14,
+  grain: 7,
+};
+
+/**
  * Verfremdet ein Bild an Ort und Stelle.
  *
  * `rng` wird hereingereicht, damit ein Test dasselbe Korn zweimal erzeugen

@@ -74,7 +74,13 @@ export function GameFrame({
           >
             Beenden
           </button>
-          <button className="btn btn--glass btn--block" onClick={() => setAskQuit(false)}>
+          <button
+            className="btn btn--glass btn--block"
+            onClick={() => {
+              haptic('tap');
+              setAskQuit(false);
+            }}
+          >
             Weiterspielen
           </button>
         </div>

@@ -492,20 +492,169 @@
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-/* ---------- Wortbombe ---------- */
-.bomb-pulse {
+/* ---------- Wortbombe ----------
+   Ein Gegenstand, kein Symbol: Gehaeuse, Stutzen, Zuendschnur, Funke.
+   Der Fortschritt kommt als --t (0 = gerade scharf, 1 = jetzt) aus dem
+   Frame-Loop in Bomb.tsx. WICHTIG: keine animation-duration und kein
+   animation-delay haengt an --t. Beides wuerde die Animation bei jeder
+   Aenderung neu anstossen, und genau daran hat die alte Bombe gezuckt.
+   Es waechst nur die AMPLITUDE mit. */
+.bombe {
+  --t: 0;
   display: flex;
   justify-content: center;
-  color: var(--accent);
-  animation: bomb 0.9s var(--ease-out) infinite alternate;
-  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--red) 45%, transparent));
+  /* Ohne feste Hoehe springt das Layout, sobald der Funke nach aussen
+     wandert – die Bombe steht zwischen Kachel und Knopf. */
+  padding: var(--s-2) 0;
 }
-@keyframes bomb {
-  from {
-    transform: scale(1) rotate(-4deg);
+.bombe__svg {
+  width: min(62vw, 230px);
+  height: auto;
+  overflow: visible;
+  /* Zwei Hoefe: ein enger, harter (das Eisen selbst) und ein weiter, weicher
+     (die Luft drumherum). Einer allein sieht entweder nach Aufkleber oder
+     nach Nebel aus. */
+  filter:
+    drop-shadow(0 14px 26px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 calc(var(--t) * 16px) rgba(255, 90, 20, calc(var(--t) * 0.9)))
+    drop-shadow(0 0 calc(var(--t) * 60px) rgba(255, 40, 0, calc(var(--t) * 0.55)));
+}
+
+/* Gehaeuse zittert. Konstantes Tempo, wachsender Ausschlag. */
+.bombe__zittern {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bombe-zittern 150ms linear infinite;
+}
+@keyframes bombe-zittern {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(calc(var(--t) * -2.4px), calc(var(--t) * 1.4px)) rotate(calc(var(--t) * -0.7deg)); }
+  50% { transform: translate(calc(var(--t) * 2.2px), calc(var(--t) * -1.8px)) rotate(calc(var(--t) * 0.9deg)); }
+  75% { transform: translate(calc(var(--t) * -1.6px), calc(var(--t) * -1.2px)) rotate(calc(var(--t) * -0.5deg)); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Der Koerper atmet zusaetzlich – langsam und unabhaengig vom Zittern,
+   sonst entsteht ein einziger nervoeser Ruckler statt zweier Ebenen. */
+.bombe__koerper {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bombe-atmen 1.1s var(--ease-out) infinite alternate;
+}
+@keyframes bombe-atmen {
+  from { transform: scale(1); }
+  to { transform: scale(calc(1 + var(--t) * 0.05)); }
+}
+
+.bombe__schatten {
+  fill: rgba(0, 0, 0, 0.5);
+  filter: blur(6px);
+}
+.bombe__licht {
+  fill: rgba(255, 255, 255, 0.22);
+  filter: blur(7px);
+}
+.bombe__kante {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.13);
+  stroke-width: 5;
+  stroke-linecap: round;
+  filter: blur(2.5px);
+}
+.bombe__stutzen {
+  fill: #4c4c58;
+  stroke: #1a1a20;
+  stroke-width: 2;
+}
+.bombe__stutzenrand {
+  fill: #23232b;
+}
+
+/* Die Glut sitzt im Gehaeuse und waechst ueberproportional: die erste
+   Haelfte bleibt fast kalt, die letzte gluehte. */
+.bombe__glut {
+  /* Quadratisch: die erste Haelfte bleibt fast kaltes Eisen, die Glut kommt
+     erst danach – und dann schnell. */
+  opacity: calc(var(--t) * var(--t));
+  mix-blend-mode: screen;
+}
+
+/* Hitzerisse: gleiche Kurve wie die Glut, nur noch spaeter. */
+.bombe__risse {
+  fill: none;
+  stroke: #ffb03a;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: calc(var(--t) * var(--t) * var(--t) * var(--t));
+  filter: drop-shadow(0 0 5px rgba(255, 90, 20, 0.9));
+}
+.bombe--heiss .bombe__glut {
+  animation: bombe-flackern 620ms ease-in-out infinite alternate;
+}
+@keyframes bombe-flackern {
+  from { filter: brightness(0.85); }
+  to { filter: brightness(1.45); }
+}
+
+/* Zuendschnur. Sichtbar ist nur der Rest – die Laenge setzt der Frame-Loop
+   ueber stroke-dasharray. */
+.bombe__lunte {
+  fill: none;
+  stroke: #c39a63;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+/* Funke am Ende der Schnur. */
+.bombe__funke-kern,
+.bombe__funke-hof {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.bombe__funke-kern {
+  fill: #fffbe8;
+  animation: bombe-funke 220ms steps(2, jump-none) infinite alternate;
+}
+@keyframes bombe-funke {
+  from { transform: scale(0.72); }
+  to { transform: scale(1.15); }
+}
+.bombe__funke-hof {
+  animation: bombe-hof 480ms ease-in-out infinite alternate;
+}
+@keyframes bombe-hof {
+  from { transform: scale(0.86); opacity: 0.75; }
+  to { transform: scale(1.12); opacity: 1; }
+}
+
+/* Wegfliegende Funken: fest verteilte Winkel, versetzte Startzeiten. */
+.bombe__splitter {
+  fill: #ffcf6a;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bombe-splitter 640ms linear infinite;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes bombe-splitter {
+  0% { transform: rotate(var(--a)) translateX(2px); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(var(--d)); opacity: 0; }
+}
+
+/* Wer Bewegung reduziert hat, bekommt die Bombe als ruhiges Bild – die
+   abbrennende Schnur bleibt, sie IST die Information. */
+@media (prefers-reduced-motion: reduce) {
+  .bombe__zittern,
+  .bombe__koerper,
+  .bombe__glut,
+  .bombe__funke-kern,
+  .bombe__funke-hof,
+  .bombe__splitter {
+    animation: none;
   }
-  to {
-    transform: scale(1.16) rotate(4deg);
+  .bombe__splitter {
+    opacity: 0;
   }
 }
 
@@ -1002,6 +1151,63 @@
     opacity: 0;
   }
 }
+/* Feuerball: weissgluehender Kern, der nach aussen in Orange und dann ins
+   Russige kippt. Er waechst schneller, als er verblasst – erst dadurch liest
+   man ihn als Druck und nicht als Lichtkreis. */
+.boom__ball {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #fffdf2 0%,
+    #ffd76a 26%,
+    #ff7a18 48%,
+    rgba(120, 40, 10, 0.55) 72%,
+    transparent 78%
+  );
+  animation: boom-ball 620ms var(--ease-out) both;
+}
+@keyframes boom-ball {
+  from {
+    transform: scale(0.18);
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.85;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Rauch steht laenger als der Rest – das ist der Unterschied zwischen einer
+   Explosion und einem Lichteffekt. */
+.boom__rauch {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 50, 48, 0.75), rgba(30, 26, 26, 0) 68%);
+  animation: boom-rauch 1300ms var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes boom-rauch {
+  from {
+    transform: translate(var(--x, 0), 10px) scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  to {
+    transform: translate(calc(var(--x, 0) * 1.7), -90px) scale(var(--s, 1.2));
+    opacity: 0;
+  }
+}
+
 .boom__ring {
   position: absolute;
   width: 60px;
@@ -1048,6 +1254,19 @@
   }
 }
 
+/* Die globale Regel in global.css setzt jede Animationsdauer auf 0,01 ms.
+   Fuer Partikel heisst das: sie stehen im Endbild still herum statt zu
+   fliegen. Also gar nicht erst zeichnen – der rote Kartenhintergrund ist die
+   eigentliche Information, nicht der Effekt. */
+@media (prefers-reduced-motion: reduce) {
+  .boom__ball,
+  .boom__ring,
+  .boom__shard,
+  .boom__rauch {
+    display: none;
+  }
+}
+
 /* Bildschirm wackelt kurz mit */
 .shake {
   animation: shake 460ms var(--ease-out) both;
@@ -1059,22 +1278,6 @@
   44% { transform: translate3d(-6px, 3px, 0) rotate(-0.4deg); }
   62% { transform: translate3d(5px, -2px, 0); }
   80% { transform: translate3d(-3px, 1px, 0); }
-}
-
-/* Bombe: Anspannung steigt, je näher der Knall rückt */
-.bomb-pulse {
-  animation: bomb calc(900ms - var(--tension, 0) * 620ms) var(--ease-out) infinite alternate;
-}
-@keyframes bomb {
-  from {
-    transform: scale(1) rotate(-3deg);
-  }
-  to {
-    transform: scale(calc(1.08 + var(--tension, 0) * 0.16)) rotate(3deg);
-  }
-}
-.bomb-pulse--hot {
-  color: var(--red);
 }
 
 /* ---------- Mäxchen: Pasch hervorheben ---------- */
@@ -1235,6 +1438,65 @@
 .abzug__stempel--leer {
   color: color-mix(in srgb, var(--paper-ink) 35%, transparent);
   text-shadow: none;
+}
+
+/* Profilbild und Farbe.
+   Der Farbwaehler bleibt bewusst randlos (.scroll-x zieht sich mit negativen
+   Raendern bis an den Bildschirmrand). Steht er in einem zentrierten Kasten,
+   schrumpft er auf Inhaltsbreite und wird an BEIDEN Seiten angeschnitten –
+   die Auswahl beginnt dann irgendwo in der Mitte. Also: Die Spalte bleibt
+   voll breit, zentriert wird jedes Element fuer sich. */
+.avatarpick {
+  align-items: stretch;
+  width: 100%;
+}
+.avatarpick__aktionen {
+  justify-content: center;
+}
+
+/* Profilbild als Abzug.
+   Dasselbe Papier wie Spielkarte und Album – wer hier ein Bild einsetzt,
+   sieht sofort, dass es dieselbe Optik bekommt wie die Bilder des Abends. */
+.portrait {
+  width: min(58vw, 208px);
+  align-self: center;
+}
+.portrait__foto {
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  /* Ohne Bild traegt der Abzug das Monogramm – in der gewaehlten Farbe,
+     nicht in der Spielfarbe. Deshalb --accent lokal umbiegen. */
+  --accent: var(--avatar-color, var(--indigo));
+}
+/* Zwei Klassen, weil `.abzug__foto > *` sonst gewinnt und das Bild wieder
+   in den Fluss stellt (dieselbe Spezifitaet reicht nicht). */
+.portrait__foto > .portrait__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Unter Blitzfleck und Vignette (::before/::after des Abzugs), damit das
+     Papier auch ueber einem Foto seine Optik behaelt. */
+  z-index: 0;
+}
+.portrait__mono {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+/* Waehrend das Bild gerechnet wird: kurzer Entwickler-Moment. */
+.portrait--laedt .portrait__foto {
+  animation: portrait-entwickeln 900ms var(--ease-out) infinite alternate;
+}
+@keyframes portrait-entwickeln {
+  from { filter: brightness(0.7) saturate(0.5); }
+  to { filter: none; }
 }
 
 /* Korn ueber dem ganzen Bildschirm. Liegt ueber allem, faengt aber keine

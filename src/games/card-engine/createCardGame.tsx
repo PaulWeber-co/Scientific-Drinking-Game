@@ -405,7 +405,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                           className="pchip pchip--pick pressable"
                           onClick={() => send({ type: 'pickWinner', winner: p.id })}
                         >
-                          <Avatar name={p.name} color={p.color} size="sm" />
+                          <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
                           <span className="pchip__name">{p.name}</span>
                         </button>
                       ))}

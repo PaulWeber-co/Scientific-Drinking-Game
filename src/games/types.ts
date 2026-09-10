@@ -7,6 +7,16 @@ export interface GamePlayer {
   id: string;
   name: string;
   color: AvatarColor;
+  /**
+   * Profilbild als Data-URL. Gesetzt ist es nur für die eigene Person – nur
+   * die hat einen Bildwähler (Onboarding und Profil). Gäste im Pass-&-Play
+   * bekommen keins: ihr Formular fragt Name und Farbe.
+   *
+   * Aus einer Online-Lobby kommt es nie; dorthin gehen Spitzname, Farbe und
+   * Getränkesymbol. Für die eigene Zeile setzt `PartyContext` es aus dem
+   * lokalen Profil ein.
+   */
+  photo?: string;
   drinkIcon?: IconName;
   online?: boolean;
   isHost?: boolean;

@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { migrateApp } from './app';
+import { describe, expect, it, vi } from 'vitest';
+import { migrateApp, rehydrateApp, type AppState } from './app';
+
+vi.mock('../lib/haptics', () => ({ setHapticsEnabled: vi.fn() }));
+vi.mock('../lib/sound', () => ({ setSoundEnabled: vi.fn() }));
+
+const { setHapticsEnabled } = await import('../lib/haptics');
+const { setSoundEnabled } = await import('../lib/sound');
 
 /**
  * Die Migration ist der Pfad, den JEDE bestehende Installation nimmt. Fehlt
@@ -40,5 +46,36 @@ describe('Migration der App-Einstellungen', () => {
     expect(neu.taskOnSkip).toBe('aus');
     expect(neu.gameLength).toBe('kurz');
     expect(neu.sound).toBe(false);
+  });
+});
+
+/**
+ * Die Wiederherstellung ist der zweite Weg, auf dem ein fehlendes Feld
+ * durchschlägt – und der einzige, den die Migration NICHT abdeckt: Sie läuft
+ * nur beim Versionswechsel. Ein Eintrag, der die aktuelle Version trägt, aber
+ * unvollständig ist (halb geschrieben, von Hand beschnitten), geht ungeprüft
+ * durch und schaltete Ton und Vibration still ab.
+ */
+describe('Wiederherstellung der App-Einstellungen', () => {
+  it('schaltet nichts ab, was im Eintrag gar nicht steht', () => {
+    const zerrupft = { theme: 'dark' } as unknown as AppState;
+    rehydrateApp(zerrupft);
+    expect(zerrupft.sound).toBe(true);
+    expect(zerrupft.haptics).toBe(true);
+    expect(setSoundEnabled).toHaveBeenLastCalledWith(true);
+    expect(setHapticsEnabled).toHaveBeenLastCalledWith(true);
+  });
+
+  it('respektiert eine bewusste Abschaltung', () => {
+    // Gegenprobe: die Absicherung darf die Wahl des Nutzers nicht überschreiben.
+    const aus = { theme: 'dark', sound: false, haptics: false } as unknown as AppState;
+    rehydrateApp(aus);
+    expect(aus.sound).toBe(false);
+    expect(setSoundEnabled).toHaveBeenLastCalledWith(false);
+    expect(setHapticsEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it('verkraftet einen Speicher ganz ohne Eintrag', () => {
+    expect(() => rehydrateApp(undefined)).not.toThrow();
   });
 });
