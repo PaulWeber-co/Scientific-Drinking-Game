@@ -31,7 +31,12 @@ export function Onboarding() {
   const patch = (v: Partial<Profile>) => setP((prev) => ({ ...prev, ...v }));
 
   const next = () => {
-    if (current === 'alter' && gate === 'blocked') return;
+    if (current === 'alter' && gate === 'blocked') {
+      // Der Knopf ist nicht gesperrt, er tut nur nichts. Ohne Impuls sieht das
+      // aus wie ein verschluckter Tap statt wie eine Absage.
+      haptic('warn');
+      return;
+    }
     if (step === STEPS.length - 1) {
       // Der letzte Schritt schliesst etwas ab – das ist eine andere Ansage
       // als „einen Schritt weiter“ und bekommt darum das Erfolgsmuster.

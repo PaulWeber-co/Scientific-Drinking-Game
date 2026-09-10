@@ -125,12 +125,16 @@ Zwei Dinge, die von außen unsichtbar sind, aber den Unterschied machen:
   springt (Zeitzone, Zeitabgleich), und ein Rücksprung würde die Sperre sonst für die Dauer
   des Sprungs zumachen.
 
-> **Für die native Hülle:** `@capacitor/haptics` ist eine neue Abhängigkeit und braucht einmal
-> `npx cap sync`. Das JS-Paket liegt danach so oder so im Bundle — ob im nativen Projekt auch
-> der Plugin-Teil steckt, zeigt sich erst beim ersten Aufruf. Fehlt er, lehnt die Bridge ihn
-> ab („Haptics does not have an implementation"), und `haptic()` fällt für den Rest der
-> Sitzung auf `navigator.vibrate` zurück. Auf Android bleibt damit alles wie vorher, unter
-> iOS bleibt es still — aber nichts geht kaputt.
+> **Für die native Hülle:** `@capacitor/haptics` ist eine neue Abhängigkeit. Im Xcode-Projekt
+> steckt das Plugin bereits. Das JS-Paket liegt so oder so im Bundle — ob im nativen Projekt
+> auch der Plugin-Teil steckt, zeigt sich erst beim ersten Aufruf. Fehlt er, lehnt die Bridge
+> ihn ab („Haptics does not have an implementation"), und `haptic()` fällt für den Rest der
+> Sitzung auf `navigator.vibrate` zurück — nichts geht kaputt.
+
+Die Sperre greift **nur bei Wiederholungen desselben Musters**. Ein Musterwechsel kommt
+durch, und das ist keine Feinheit: In der Wortbombe laufen Zünder und Explosionsprüfung als
+zwei unabhängige Timer auf demselben Gerät. Eine musterblinde Sperre verschluckte den `boom`
+bei grob jedem fünften Knall — das Ticken hörte dann einfach auf, ohne dass etwas nachkommt.
 
 ## Ausfallsicherheit
 

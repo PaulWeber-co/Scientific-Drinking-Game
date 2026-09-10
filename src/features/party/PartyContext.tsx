@@ -193,6 +193,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         id: p.id,
         name: p.name,
         color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
+        // Die Online-Liste kommt aus dem Lobby-Abbild, und dort steht kein
+        // Bild – auch nicht das eigene, denn dorthin geht keins. Für die
+        // EIGENE Zeile kommt es deshalb hier aus dem lokalen Profil zurück:
+        // sonst wäre man auf dem eigenen Gerät der Einzige ohne Gesicht.
+        photo: p.id === myId ? profile?.photo : undefined,
         drinkIcon: p.drinkIcon,
         driver: p.driver === true,
         zone: p.zone,
@@ -200,7 +205,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
         isHost: snapshot?.meta?.host === p.id,
       }));
-  }, [mode, me, localPlayers, snapshot]);
+  }, [mode, me, localPlayers, snapshot, myId, profile?.photo]);
 
   const status: PartyStatus =
     mode === 'local' ? localStatus : (snapshot?.meta?.status ?? 'lobby');

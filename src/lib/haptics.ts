@@ -5,9 +5,10 @@
  *
  * - **Android** (Browser wie App-Hülle) kennt die API. Dort hat die Vibration
  *   schon immer funktioniert.
- * - **WebKit** kennt sie nicht – weder Safari noch der WKWebView. Auf einem
- *   iPhone lief deshalb keiner der Haptik-Aufrufe ins Ziel, in der Web- wie in
- *   der App-Fassung.
+ * - **WebKit** kennt sie nicht – weder Safari noch der WKWebView. Im Browser
+ *   lief unter iOS deshalb kein einziger Haptik-Aufruf ins Ziel. In der
+ *   App-Hülle hat das bisher eine eigene, schmalere Lösung aufgefangen; die
+ *   wird von hier abgelöst.
  *
  * Läuft die App nativ, geht die Haptik darum über `@capacitor/haptics` und
  * damit über die System-Haptik (Taptic Engine bzw. HapticFeedback). Das schließt
@@ -144,6 +145,17 @@ export function setHapticsEnabled(v: boolean) {
  * später ein Nachrattern. 40 ms sind kürzer als jede bewusste Doppelgeste und
  * lang genug, um das zu verhindern.
  *
+ * Sie greift NUR bei Wiederholungen desselben Musters. Das Rattern entsteht
+ * immer so – gehaltener Stepper, Liste unter dem Daumen, Regler –, und die
+ * Wiederholung ist auch das Einzige, was man nicht vermisst.
+ *
+ * Ein Musterwechsel kommt dagegen durch, und das ist keine Feinheit: In der
+ * Wortbombe laufen zwei unabhängige Timer auf demselben Gerät, der Zünder
+ * (`tick`/`press`/`heavy`) und die Prüfung auf `explodesAt` alle 250 ms. Am
+ * Ende liegen die Ticks 180–250 ms auseinander; fiele der `boom` in die 40 ms
+ * nach einem Tick, verschluckte ihn eine musterblinde Sperre – bei grob jedem
+ * fünften Knall. Das Ticken hörte dann einfach auf, ohne dass etwas nachkommt.
+ *
  * Gemessen mit `performance.now()` und nicht mit `Date.now()`: die Uhr eines
  * Telefons springt (Zeitzone, Zeitabgleich). Ein Rücksprung würde die Sperre
  * sonst für die Dauer des Sprungs zumachen — die Haptik wäre still, und
@@ -151,6 +163,7 @@ export function setHapticsEnabled(v: boolean) {
  */
 const MIN_GAP_MS = 40;
 let zuletzt = -Infinity;
+let zuletztMuster: Pattern | null = null;
 
 function jetzt(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -159,8 +172,9 @@ function jetzt(): number {
 export function haptic(pattern: Pattern = 'tap'): void {
   if (!enabled) return;
   const now = jetzt();
-  if (now - zuletzt < MIN_GAP_MS) return;
+  if (pattern === zuletztMuster && now - zuletzt < MIN_GAP_MS) return;
   zuletzt = now;
+  zuletztMuster = pattern;
 
   if (!plugin) initHaptics();
   if (plugin) {

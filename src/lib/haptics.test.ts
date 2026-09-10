@@ -60,6 +60,23 @@ describe('Haptik', () => {
     expect(vibrate).toHaveBeenCalledTimes(2);
   });
 
+  it('lässt einen Musterwechsel sofort durch', () => {
+    // Der Fall aus der Wortbombe: Zünder-Tick und Knall kommen aus zwei
+    // unabhängigen Timern und können dicht beieinander liegen. Eine
+    // musterblinde Sperre schluckte den Knall bei grob jedem fünften Mal.
+    haptic('tick');
+    vorspulen(5);
+    haptic('boom');
+    expect(vibrate).toHaveBeenCalledTimes(2);
+    // Und zwar wirklich der Knall, nicht noch einmal der Tick.
+    expect(vibrate.mock.calls[1][0]).not.toEqual(vibrate.mock.calls[0][0]);
+    expect(Array.isArray(vibrate.mock.calls[1][0])).toBe(true);
+    // Die Wiederholung DESSELBEN Musters bleibt gesperrt.
+    vorspulen(5);
+    haptic('boom');
+    expect(vibrate).toHaveBeenCalledTimes(2);
+  });
+
   it('wird härter, je näher der Knall kommt', () => {
     hapticRamp(0);
     vorspulen(100);

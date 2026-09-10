@@ -180,14 +180,14 @@ export const LEGAL: LegalConfig = {
         'Eine zufällige Zeichenfolge, damit dich eine Lobby nach einem Neuladen als denselben Spieler erkennt. Sie hängt an nichts anderem und sagt nichts über dich aus.',
       retention: 'Bleibt bis du die Browserdaten löschst.',
     },
+    {
+      key: 'sdg.local-players',
+      label: 'Mitspieler im Pass-&-Play',
+      content:
+        'Name, Farbe und die Körperdaten der Gäste, die du auf diesem Gerät angelegt hast: Alter, Geschlecht, Gewicht, optional Körpergröße, dazu Magenfüllung, Zielpegel, Getränk und die Schlucke des Abends. Das sind Gesundheitsdaten ANDERER Personen – trag sie nur mit deren Einverständnis ein.',
+      retention: 'Liegt im sessionStorage und verschwindet, sobald du den Tab schließt.',
+    },
   ],
-
-  /**
-   * Mitspieler im Pass-&-Play stehen bewusst NICHT in dieser Liste: sie leben
-   * nur im Arbeitsspeicher der laufenden Sitzung und werden nirgends abgelegt.
-   * (Bis 09/2026 stand hier ein Eintrag `sdg.local-players` – den Schlüssel
-   * hat es nie gegeben.)
-   */
 
   /**
    * Aufsichtsbehörde für Beschwerden nach Art. 77 DSGVO.
