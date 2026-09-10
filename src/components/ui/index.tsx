@@ -329,16 +329,21 @@ export function Toggle({
   checked,
   onChange,
   label,
+  describedBy,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: string;
+  /** Id eines erklaerenden Textes. Ohne ihn liest ein Screenreader nur
+   *  „Schalter, ein" vor und die Einschraenkung darunter faellt weg. */
+  describedBy?: string;
 }) {
   return (
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy}
       className={`toggle ${checked ? 'toggle--on' : ''}`}
       onClick={() => {
         haptic('select');

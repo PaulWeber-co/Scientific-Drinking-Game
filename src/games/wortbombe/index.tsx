@@ -1,6 +1,7 @@
 import { Icon } from '../../components/icons';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { haptic, hapticRamp } from '../../lib/haptics';
+import { sound, stopSounds } from '../../lib/sound';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
@@ -142,10 +143,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     if (state.phase !== 'running') return;
     if (online && !isHolder && !isHost) return;
     const check = () => {
-      if (Date.now() >= state.explodesAt) {
-        haptic('boom');
-        send({ type: 'boom' });
-      }
+      if (Date.now() >= state.explodesAt) send({ type: 'boom' });
     };
     const t = setInterval(check, 250);
     return () => clearInterval(t);
@@ -154,25 +152,78 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     // startet, feuert nie. Genau daran hing das Ticken unten.
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
-  // Ticken über die Haptik. Der Takt zieht an und der Schlag wird härter, je
-  // näher der Knall kommt.
-  //
-  // Als Kette einzelner Timeouts, nicht als Intervall mit berechneter Länge:
-  // Die alte Fassung hatte die Spannung in den Abhängigkeiten und hat das
-  // Intervall deshalb alle 120 ms verworfen – kürzer, als der erste Tick
-  // gebraucht hätte. Auf dem Gerät kam damit fast nie etwas an.
+  /**
+   * Wer die Bombe gerade hält – als Referenz, nicht als Abhängigkeit.
+   *
+   * Stünde `isHolder` in den Abhängigkeiten des Zünders, liefe der Effekt bei
+   * JEDER Weitergabe neu an: der Takt spränge zurück auf den Anfangswert, und
+   * nach dem Weitergeben wäre eine Sekunde Ruhe. Die Bombe daneben hat diese
+   * Abhängigkeit nicht — beide Kanäle würden ab der ersten Weitergabe
+   * auseinanderlaufen: sie glüht rot, während das Handy gemächlich klopft.
+   */
+  const holderRef = useRef(isHolder);
+  holderRef.current = isHolder;
+
+  /**
+   * Der Zünder: Vibration und Ton, beide ziehen an, je näher der Knall kommt.
+   *
+   * Als Kette einzelner Timeouts statt als Intervall mit berechneter Länge.
+   * Die alte Fassung hing an einer Zustandsvariablen, die alle 120 ms neu
+   * gesetzt wurde, und verwarf ihr Intervall damit jedes Mal, bevor es feuern
+   * konnte — bei der Vibration fiel das nicht auf, ein Klang würde hörbar
+   * stolpern.
+   *
+   * Der Fortschritt kommt aus `armedAt`, nicht aus dem Zeitpunkt, an dem
+   * dieser Effekt startet: Ein Gerät, das später dazukommt, kennt die
+   * Gesamtdauer sonst nicht und finge wieder bei null an — obwohl die Bombe
+   * daneben schon glüht.
+   *
+   * Gespürt und gehört wird nur beim Halter. Die Zündschnur läuft 22 bis 75
+   * Sekunden; auf jedem Handy mitzuklopfen hiesse anderthalb Minuten
+   * Dauervibration in jeder Hosentasche, und der einzige Ausweg wäre der
+   * globale Schalter.
+   */
   useEffect(() => {
-    if (state.phase !== 'running' || (online && !isHolder)) return;
+    if (state.phase !== 'running') return;
     const total = Math.max(1, state.explodesAt - state.armedAt);
     let timer = 0;
     const tick = () => {
       const p = Math.max(0, Math.min(1, (Date.now() - state.armedAt) / total));
-      hapticRamp(p);
-      timer = window.setTimeout(tick, 880 - p * 700);
+      if (!online || holderRef.current) {
+        hapticRamp(p);
+        sound('tick');
+      }
+      timer = window.setTimeout(tick, Math.max(180, 880 - p * 700));
     };
     timer = window.setTimeout(tick, 600);
     return () => clearTimeout(timer);
-  }, [state.phase, state.armedAt, state.explodesAt, isHolder, online]);
+  }, [state.phase, state.armedAt, state.explodesAt, online]);
+
+  /**
+   * Der Knall gehört auf jedes Gerät und genau einmal.
+   *
+   * Vorher hing er am Zünd-Timer, der beim Host als Rückfall mitläuft: auf
+   * einem Host-Gerät, das nicht Halter ist, schlug er ein zweites Mal zu, und
+   * ein reiner Gast bekam gar nichts.
+   *
+   * Gespürt wird er überall — ein einzelner Schlag schadet niemandem. Gehört
+   * nur dort, wo auch der Zünder klang: sechs versetzte Knalle sind kein
+   * Ereignis, sondern ein Steinschlag.
+   *
+   * `boom` und nicht `error`: Der Schlag ist das Ereignis selbst, keine
+   * Fehlermeldung – und er muss sich vom letzten Tick des Zünders absetzen.
+   * Die Sperre in `haptic()` lässt ihn durch, weil sie nur Wiederholungen
+   * desselben Musters greift.
+   */
+  useEffect(() => {
+    if (state.phase !== 'boom') return;
+    haptic('boom');
+    if (!online || holderRef.current) sound('boom');
+  }, [state.phase, online]);
+
+  // Ein Knall klingt eine halbe Sekunde nach und hängt am Klang-Kontext, nicht
+  // an React. Ohne das hier knallt es noch, wenn längst die Spieleliste steht.
+  useEffect(() => () => stopSounds(), []);
 
   if (state.phase === 'over') {
     const rows = players.map((p) => ({

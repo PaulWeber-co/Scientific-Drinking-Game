@@ -142,7 +142,7 @@ export const LEGAL: LegalConfig = {
       key: 'sdg.app',
       label: 'App-Einstellungen',
       content:
-        'Darstellung hell/dunkel, Vibration, Wasser-Erinnerung, bestätigter Hinweis beim Start, zuletzt gespielte Spiele, Spicy-Schalter je Spiel, Rundenlänge und Aufgaben-Häufigkeit',
+        'Darstellung hell/dunkel, Vibration, Töne, Wasser-Erinnerung, bestätigter Hinweis beim Start, zuletzt gespielte Spiele, Spicy-Schalter je Spiel, Rundenlänge und Aufgaben-Häufigkeit',
       retention: 'Bleibt bis du die Browserdaten löschst.',
     },
     {

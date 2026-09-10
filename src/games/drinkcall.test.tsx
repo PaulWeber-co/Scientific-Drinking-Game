@@ -132,7 +132,9 @@ describe('Trinkansage: Zustand pro Runde', () => {
     const einSchritt = () => {
       const chip = document.querySelector('.pchip--pick') as HTMLButtonElement | null;
       if (chip) return fireEvent.click(chip);
-      const draw = screen.queryByRole('button', { name: 'Karte ziehen' });
+      // Der Kranz hat den Knopf „Karte ziehen" abgeloest. Ein Klick darauf ist
+      // der Tastaturweg und zieht die naechste liegende Karte.
+      const draw = screen.queryByRole('button', { name: /Karte aus dem Kranz ziehen/ });
       if (draw) return fireEvent.click(draw);
       const next = screen.queryByRole('button', { name: 'Nächster' }) as HTMLButtonElement | null;
       if (next && !next.disabled) fireEvent.click(next);
