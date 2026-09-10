@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
-import { cardFromIndex, fullDeck } from '../shared/deck';
+import { cardFromIndex, cardLabel, fullDeck } from '../shared/deck';
+import { Becher, Kranz } from './Kranz';
+import { nearestFilled } from './geometrie';
 import { PlayingCard } from '../shared/PlayingCard';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
@@ -103,7 +105,18 @@ export function seatSplit(order: string[], actorId: string): { left: string[]; r
 interface State {
   order: string[];
   turnIndex: number;
-  deck: number[];
+  /**
+   * Der Kranz, nicht ein Stapel: 52 FESTE Plätze, `null` heißt „hier wurde
+   * gezogen". Platz `i` liegt bei `i * 360/52` Grad.
+   *
+   * Die verbleibenden Karten neu zu verteilen wäre einfacher, ließe aber den
+   * ganzen Kranz bei jedem Zug wandern — und die Lücke stünde nicht dort, wo
+   * der Finger war. Genau das ist der Punkt des Kranzes.
+   *
+   * Firebase wirft `null` aus Arrays; der Zustand geht aber als JSON-String
+   * raus (`encodeState`), deshalb überleben die Löcher.
+   */
+  deck: (number | null)[];
   drawn: number | null;
   kings: number;
   round: number;
@@ -135,6 +148,14 @@ interface State {
   ruleOpen: boolean;
   /** Wer Fragemeister ist. Löst sich mit der nächsten Dame ab. */
   questionMaster: string | null;
+  /**
+   * Wer in den Becher gegossen hat, älteste zuerst, höchstens drei. König
+   * 1–3 gießen, der vierte trinkt — deshalb drei und nicht vier.
+   *
+   * Der Becher zeigt damit WER, nie wie viel. Ein simulierter Füllstand
+   * widerspräche dem echten Becher auf dem Tisch.
+   */
+  pours: string[];
 }
 
 export const kingsCup: GameDefinition<State> = {
@@ -154,6 +175,7 @@ export const kingsCup: GameDefinition<State> = {
     rules: [],
     ruleOpen: false,
     questionMaster: null,
+    pours: [],
   }),
 
   reduce: (state, action, players) => {
@@ -164,23 +186,41 @@ export const kingsCup: GameDefinition<State> = {
         // neu aus sich selbst - war die erste der vierte Koenig, waere der
         // Becher-Moment lautlos weg.
         if (state.drawn != null) return state;
-        // Leerer Stapel: neu mischen UND sofort ziehen – sonst bleibt
-        // `drawn` null und der Tap wirkt folgenlos. Ein frischer Stapel ist
+        // Leerer Kranz: neu mischen UND sofort ziehen – sonst bleibt
+        // `drawn` null und der Tap wirkt folgenlos. Ein frischer Kranz ist
         // auch ein frischer Becher: der alte Königsstand darf nicht mit
         // hinüberlaufen (52 Karten enthalten immer genau 4 Könige neu).
-        const fresh = !state.deck.length;
+        const fresh = state.deck.every((c) => c == null);
         const deck = fresh ? shuffle(fullDeck()) : state.deck;
-        const [next, ...rest] = deck;
+        // Der Finger waehlt einen PLATZ. Eine verspaetete Aktion kann auf ein
+        // Loch zeigen – dann faellt sie auf den naechsten belegten Platz
+        // zurueck, statt still nichts zu tun. Ohne diese Pruefung zoege ein
+        // zweiter Tap aus einem gerade geleerten Platz `undefined`.
+        const platz = nearestFilled(deck, Number(action.slot));
+        if (platz < 0) return state;
+        const next = deck[platz] as number;
         const gezogen = cardFromIndex(next);
         const isKing = gezogen.rank === 12;
         const kings = (fresh ? 0 : state.kings) + (isKing ? 1 : 0);
+        const finalKing = isKing && kings >= 4;
+        // Frischer Kranz = frischer Becher: die Schichten der vorigen Runde
+        // laufen nicht hinueber.
+        const basisPours = fresh ? [] : state.pours;
+        const rest = deck.slice();
+        rest[platz] = null;
         return {
           ...state,
           drawn: next,
           deck: rest,
           kings,
-          finalKing: isKing && kings >= 4,
+          finalKing,
           target: null,
+          // König 1–3 giessen, der vierte trinkt. Deshalb hier `!finalKing`.
+          // Das Leeren beim frischen Kranz steht bewusst in EINEM Ausdruck:
+          // stand es in beiden Zweigen, traf eine Aenderung nur den Koenigs-
+          // Zweig, und der kommt in 4 von 52 Zuegen - eine Pruefung darauf
+          // haenge am Mischglueck statt am Verhalten.
+          pours: isKing && !finalKing ? [...basisPours, state.order[state.turnIndex]] : basisPours,
           // Die Dame loest den Fragemeister ab. Regeln ueberleben ein neues
           // Blatt: sie sind eine Abmachung am Tisch, kein Stapelzustand.
           questionMaster:
@@ -241,6 +281,8 @@ export const kingsCup: GameDefinition<State> = {
           target: null,
           round: turnIndex === 0 ? state.round + 1 : state.round,
           kings: state.finalKing ? 0 : state.kings,
+          // Der Becher ist ausgetrunken – die Schichten gehen mit.
+          pours: state.finalKing ? [] : state.pours,
           finalKing: false,
           ruleOpen: false,
           // Wer die Runde verlaesst, bleibt sonst als tote Kennung stehen:
@@ -268,8 +310,11 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
   const isMyTurn = actor?.id === me.id;
   const card = state.drawn != null ? cardFromIndex(state.drawn) : null;
   const rule = card ? RULES[card.rank] : null;
-  // Jede gezogene Karte ist eine eigene Ansage – der Stapelstand macht sie eindeutig.
-  const key = `${state.deck.length}-${state.drawn}`;
+  // `deck` ist jetzt der Kranz und immer 52 Plaetze lang – gezaehlt wird, was
+  // noch liegt.
+  const uebrig = state.deck.reduce<number>((n, c) => n + (c == null ? 0 : 1), 0);
+  // Jede gezogene Karte ist eine eigene Ansage – der Kranzstand macht sie eindeutig.
+  const key = `${uebrig}-${state.drawn}`;
 
   // 'pick' (Du, Partner): der Ziehende zeigt auf eine ANDERE Person – online
   // darf deshalb nur sein eigenes Gerät antippen. 'loser' (Boden, Himmel)
@@ -299,6 +344,40 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
     dispatch(a);
   };
 
+  // Wo die Karte im Kranz lag. Die Einblendung startet dort, damit der Blick
+  // ihr folgt statt sie in der Mitte zu suchen. Eine Ref, keine State: sie
+  // darf keinen Re-Render ausloesen, der Zustand kommt ohnehin gleich.
+  const zugVon = useRef<DOMRect | null>(null);
+  const flugRef = useRef<HTMLDivElement>(null);
+  const ziehen = (slot: number, von?: DOMRect) => {
+    zugVon.current = von ?? null;
+    send({ type: 'draw', slot });
+  };
+
+  /**
+   * Der Flug wird GEMESSEN, nicht geraten (FLIP): erst steht die Karte an
+   * ihrem Zielort, dann rechnen wir den Weg von ihrem alten Platz dorthin und
+   * lassen die Animation ihn ruecklaeufig fahren.
+   *
+   * Eine geratene Weite lag rund 90 px daneben, weil der Kranzmittelpunkt und
+   * die Mitte der Kartenzeile nicht uebereinanderliegen. Ohne Messwert - also
+   * auf jedem Geraet, das nicht selbst gezogen hat - fliegt bewusst nichts:
+   * ein Flug aus einem fremden Platz waere schlechter als keiner.
+   */
+  useLayoutEffect(() => {
+    const von = zugVon.current;
+    zugVon.current = null;
+    const feld = flugRef.current;
+    const karte = feld?.querySelector('.playcard');
+    if (!von || !feld || !karte) return;
+    const bis = karte.getBoundingClientRect();
+    if (!bis.width || !von.width) return;
+    feld.style.setProperty('--zug-x', `${von.left + von.width / 2 - (bis.left + bis.width / 2)}px`);
+    feld.style.setProperty('--zug-y', `${von.top + von.height / 2 - (bis.top + bis.height / 2)}px`);
+    feld.style.setProperty('--zug-s', `${von.width / bis.width}`);
+    feld.classList.add('kings-zug--los');
+  }, [state.drawn]);
+
   if (state.over) {
     return (
       <GameFrame
@@ -320,7 +399,9 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
     <GameFrame
       title={kingsCup.name}
       accent={kingsCup.accent}
-      subtitle={`${state.deck.length} Karten · ${state.kings}/4 Könige`}
+      // Der Tisch zeigt Kranz und Becher - dann sind die Zahlen daneben
+      // Doppelung. Erst wenn er eingeklappt ist, treten sie an seine Stelle.
+      subtitle={state.drawn == null ? undefined : `${uebrig} Karten · ${state.kings}/4 Könige`}
       onQuit={quit}
     >
       {/* Was ein Kartenstapel vergisst, sobald die Karte weiterwandert. Steht
@@ -347,25 +428,71 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
         <PlayerChip player={actor} note={isMyTurn ? 'du ziehst' : 'zieht'} />
       </div>
 
-      <div className="cardrow">
-        <PlayingCard index={state.drawn} hidden={state.drawn == null} />
-      </div>
-
-      {rule && card ? (
-        <BigCard kicker={state.finalKing ? 'Vierter König' : rule.title} animateKey={state.drawn ?? 0}>
-          {state.finalKing ? 'Du trinkst den Becher. Alles. Viel Erfolg.' : rule.text}
-        </BigCard>
+      {/* Zwei Zustaende, ein Bildschirm (User-Entscheid 2026-09-10): ohne
+          liegende Karte IST der Bildschirm der Tisch, danach gehoert er der
+          Karte. Beides gleichzeitig macht beides halb so gross. */}
+      {state.drawn == null ? (
+        <>
+          <Kranz
+            deck={state.deck}
+            pours={state.pours}
+            players={players}
+            canDraw={!online || isMyTurn}
+            onDraw={ziehen}
+          />
+          {/* Vorher stand hier ein grosser Markenknopf. `t-caption` waere mit
+              2,0:1 unter der Grenze von 1.4.3 - die einzige Anweisung auf dem
+              Bildschirm darf nicht die leiseste Zeile darauf sein. */}
+          <div className="t-center t-body">
+            {isMyTurn
+              ? 'Zieh dir eine Karte aus dem Kranz.'
+              : `${actor?.name} zieht gleich.`}
+          </div>
+        </>
       ) : (
-        <BigCard kicker="Ring of Fire">
-          {isMyTurn ? 'Du bist dran. Zieh eine Karte.' : `${actor?.name} zieht gleich.`}
-        </BigCard>
+        <>
+          <div className="cardrow kings-zug" key={key} ref={flugRef}>
+            <PlayingCard index={state.drawn} />
+            {/* Die echte Rueckseite liegt waehrend der Fahrt darueber und wird
+                erst in der Mitte abgeloest. Eine gestauchte Vorderseite waere
+                schon unterwegs lesbar gewesen. */}
+            <span className="kings-zug__ruecken" aria-hidden="true">
+              <PlayingCard index={null} />
+            </span>
+          </div>
+
+          {rule && card && (
+            <BigCard
+              kicker={state.finalKing ? 'Vierter König' : rule.title}
+              animateKey={state.drawn}
+            >
+              {state.finalKing ? 'Du trinkst den Becher. Alles. Viel Erfolg.' : rule.text}
+            </BigCard>
+          )}
+
+          {/* Beim Zustandswechsel wird der Kranz-Knopf ausgehaengt, der Fokus
+              faellt an den Dokumentanfang und ohne Sicht erfaehrt niemand,
+              dass ueberhaupt gezogen wurde. Diese Zeile sagt beides an:
+              welche Karte, und was sie bedeutet. */}
+          <p className="sr-only" role="status">
+            {card ? cardLabel(card) : ''}
+            {rule ? `. ${state.finalKing ? 'Vierter König' : rule.title}. ` : '. '}
+            {state.finalKing ? 'Du trinkst den Becher.' : (rule?.text ?? '')}
+          </p>
+
+          {/* Der Becher gehoert neben die Koenigskarte. Vorher klappte der
+              Tisch samt Becher weg, und „Du trinkst den Becher" stand auf
+              einem Bildschirm ohne Becher - der einzige Moment, fuer den er
+              gebaut ist, fand ohne ihn statt. */}
+          {card?.rank === 12 && (
+            <div className="bechertisch">
+              <Becher pours={state.pours} players={players} />
+            </div>
+          )}
+        </>
       )}
 
-      {state.drawn == null ? (
-        <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'draw' })}>
-          Karte ziehen
-        </button>
-      ) : (
+      {state.drawn == null ? null : (
         <div className="stack-3">
           {state.finalKing ? (
             <DrinkCall player={actor} baseSips={8} source="kings-cup" label="der Becher" resetKey={key} />

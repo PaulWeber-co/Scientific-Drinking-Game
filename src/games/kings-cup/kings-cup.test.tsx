@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { kingsCup, RULES, seatSplit } from './index';
+import { slotAngle } from './geometrie';
 import { cardFromIndex, fullDeck } from '../shared/deck';
+import { shuffle } from '../../lib/format';
 import { PartyCtx, decodeState, encodeState, type PartyValue } from '../../features/party/PartyContext';
 import { useApp } from '../../store/app';
 import { useSeen } from '../../store/seen';
@@ -10,6 +12,9 @@ import { usePlayer, defaultProfile } from '../../store/player';
 import type { GameAction, GameActionInput, GamePlayer } from '../types';
 
 type State = ReturnType<typeof kingsCup.createState>;
+
+/** Karten, die noch im Kranz liegen. `deck` hat feste Plaetze mit Loechern. */
+const uebrig = (s: State) => s.deck.filter((c) => c != null).length;
 
 /**
  * Vier Personen an einem Gerät (Pass & Play) – genau das Szenario aus dem
@@ -257,17 +262,34 @@ describe('Becher in der Mitte (vierter König)', () => {
     s = kingsCup.reduce(s, act('draw'), roster);
     // Vorher blieb `drawn` nach dem Reshuffle null – der Tap wirkte folgenlos.
     expect(s.drawn).not.toBeNull();
-    expect(s.deck.length).toBe(51);
+    // `deck` ist der Kranz und bleibt 52 Plaetze lang; gezaehlt wird, was noch
+    // liegt.
+    expect(uebrig(s)).toBe(51);
   });
 
   it('nimmt einen alten Königsstand nicht mit in einen frisch gemischten Stapel', () => {
-    let s: State = { ...kingsCup.createState(roster), deck: [], drawn: null, kings: 3 };
-    const act = (type: string): GameAction => ({ type, by: 'p0', at: Date.now() }) as GameAction;
-    s = kingsCup.reduce(s, act('draw'), roster);
-    // Frischer Stapel = frischer Becher: der Stand von der vorigen Runde
-    // darf nicht in den neuen Stapel hinüberlaufen.
-    const istKoenig = cardFromIndex(s.drawn!).rank === 12;
-    expect(s.kings).toBe(istKoenig ? 1 : 0);
+    // Fester Zufall, damit die Pruefung beide Faelle sicher trifft statt am
+    // Mischglueck zu haengen.
+    const w = vi.spyOn(Math, 'random').mockReturnValue(0.42);
+    try {
+      const gemischt = shuffle(fullDeck(), () => 0.42);
+      const basis: State = {
+        ...kingsCup.createState(roster),
+        deck: Array.from({ length: 52 }, () => null),
+        drawn: null,
+        kings: 3,
+      };
+      const act = (slot: number): GameAction =>
+        ({ type: 'draw', slot, by: 'p0', at: Date.now() }) as GameAction;
+      // Frischer Stapel = frischer Becher: der Stand von der vorigen Runde
+      // darf nicht in den neuen Stapel hinüberlaufen.
+      const koenig = gemischt.findIndex((i) => cardFromIndex(i).rank === 12);
+      expect(kingsCup.reduce(basis, act(koenig), roster).kings).toBe(1);
+      const rest = gemischt.findIndex((i) => cardFromIndex(i).rank !== 12);
+      expect(kingsCup.reduce(basis, act(rest), roster).kings).toBe(0);
+    } finally {
+      w.mockRestore();
+    }
   });
 });
 
@@ -308,6 +330,37 @@ describe('Zwei fast gleichzeitige Taps', () => {
     expect(nachZweitem.drawn).toBe(ersteKarte);
   });
 
+  it('zieht auch bei zwei Taps auf VERSCHIEDENE Plaetze nur einmal', () => {
+    // Neu mit dem Kranz: der zweite Tap traegt einen anderen Platz. Ohne
+    // Phasenschutz zoege er eine zweite Karte aus einem anderen Loch.
+    let s = kingsCup.createState(roster);
+    s = tun(s, 'draw', { slot: 4 });
+    const nachZweitem = tun(s, 'draw', { slot: 31 });
+    expect(nachZweitem).toBe(s);
+    expect(uebrig(nachZweitem)).toBe(51);
+  });
+
+  it('zieht aus dem Platz, den der Finger gewaehlt hat', () => {
+    const s = kingsCup.createState(roster);
+    const erwartet = s.deck[31];
+    const nachher = tun(s, 'draw', { slot: 31 });
+    expect(nachher.drawn).toBe(erwartet);
+    expect(nachher.deck[31]).toBeNull();
+    // Die Luecke steht dort und NUR dort.
+    expect(uebrig(nachher)).toBe(51);
+  });
+
+  it('faellt auf den naechsten belegten Platz, wenn die Aktion auf ein Loch zeigt', () => {
+    // Online kann eine verspaetete Aktion einen Platz nennen, der schon leer
+    // ist. Ohne Rueckfall zoege sie `undefined`.
+    let s = kingsCup.createState(roster);
+    s = tun(s, 'draw', { slot: 12 });
+    s = tun(s, 'next');
+    const nachher = tun(s, 'draw', { slot: 12 });
+    expect(nachher.drawn).not.toBeNull();
+    expect(uebrig(nachher)).toBe(50);
+  });
+
   it('überspringt niemanden, wenn zweimal weitergetippt wird', () => {
     let s = kingsCup.createState(roster);
     s = tun(s, 'draw');
@@ -317,6 +370,264 @@ describe('Zwei fast gleichzeitige Taps', () => {
     const nachZweitem = tun(s, 'next');
     expect(nachEinem, 'ein Tap muss weiterzaehlen').toBe((vorher + 1) % roster.length);
     expect(nachZweitem.turnIndex, 'zwei Taps zaehlten zwei Runden').toBe(nachEinem);
+  });
+});
+
+/**
+ * Zwei Zustaende, ein Bildschirm. BEIDE werden hier gezeichnet: ein Test, der
+ * nur eine Phase rendert, fuehrt die Effekte der anderen nie aus - genau so
+ * blieben in der Wortbombe zwei echte Fehler gruen.
+ */
+describe('Zwei Zustaende: Tisch und Karte', () => {
+  const FELD = 340;
+  beforeEach(() => {
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x: 0, y: 0, left: 0, top: 0, right: FELD, bottom: FELD,
+        width: FELD, height: FELD, toJSON: () => ({}),
+      }),
+    });
+  });
+  afterEach(() => Reflect.deleteProperty(HTMLElement.prototype, 'getBoundingClientRect'));
+
+  const zeichne = (s: State, dispatch = vi.fn()) => {
+    render(
+      <PartyCtx.Provider value={party(vi.fn())}>
+        <kingsCup.Component
+          state={s}
+          players={roster}
+          me={me}
+          isHost
+          online={false}
+          dispatch={dispatch}
+          quit={() => {}}
+        />
+      </PartyCtx.Provider>,
+    );
+    return dispatch;
+  };
+
+  it('zeigt ohne liegende Karte den Tisch und keine Karte', () => {
+    zeichne({ ...kingsCup.createState(roster), order: ORDER, turnIndex: 0, drawn: null });
+    expect(document.querySelector('.kranz')).not.toBeNull();
+    expect(document.querySelectorAll('.kranz__karte').length).toBe(52);
+    expect(document.querySelector('.playcard')).toBeNull();
+  });
+
+  it('klappt den Tisch weg, sobald eine Karte liegt', () => {
+    const s = kingsCup.reduce(
+      { ...kingsCup.createState(roster), order: ORDER, turnIndex: 0 },
+      { type: 'draw', slot: 9, by: 'p1', at: Date.now() } as GameAction,
+      roster,
+    );
+    zeichne(s);
+    expect(document.querySelector('.kranz')).toBeNull();
+    expect(document.querySelector('.playcard')).not.toBeNull();
+  });
+
+  it('schickt beim Ziehen den Platz mit, aus dem der Finger gezogen hat', () => {
+    const dispatch = zeichne({
+      ...kingsCup.createState(roster), order: ORDER, turnIndex: 0, drawn: null,
+    });
+    const feld = document.querySelector('.kranz') as HTMLElement;
+    const bogen = (slotAngle(21) * Math.PI) / 180;
+    const pos = {
+      clientX: FELD / 2 + Math.sin(bogen) * 149,
+      clientY: FELD / 2 - Math.cos(bogen) * 149,
+    };
+    fireEvent.pointerDown(feld, { pointerId: 1, ...pos });
+    fireEvent.pointerUp(feld, { pointerId: 1, ...pos });
+    expect(dispatch).toHaveBeenCalledWith({ type: 'draw', slot: 21 });
+  });
+
+  it('misst den Flug, statt ihn zu raten', () => {
+    // Der Flug startet dort, wo die Karte im Kranz lag. Gemessen wird beim
+    // Zustandswechsel, weil Kranzmitte und Kartenzeile rund 90 px
+    // auseinanderliegen - eine geratene Weite laesst die Karte daneben landen.
+    const dispatch = vi.fn();
+    const props = (s2: State) => (
+      <PartyCtx.Provider value={party(vi.fn())}>
+        <kingsCup.Component
+          state={s2}
+          players={roster} me={me} isHost online={false} dispatch={dispatch} quit={() => {}}
+        />
+      </PartyCtx.Provider>
+    );
+    const tisch: State = {
+      ...kingsCup.createState(roster), order: ORDER, turnIndex: 0, drawn: null,
+    };
+    const { rerender } = render(props(tisch));
+    const feld = document.querySelector('.kranz') as HTMLElement;
+    const bogen = (slotAngle(13, 52) * Math.PI) / 180;
+    const pos = {
+      clientX: FELD / 2 + Math.sin(bogen) * 149,
+      clientY: FELD / 2 - Math.cos(bogen) * 149,
+    };
+    fireEvent.pointerDown(feld, { pointerId: 1, ...pos });
+    fireEvent.pointerUp(feld, { pointerId: 1, ...pos });
+    expect(dispatch).toHaveBeenCalledWith({ type: 'draw', slot: 13 });
+
+    // MIT DERSELBEN Requisite erneut zeichnen, nicht abbauen: `rerender(<div/>)`
+    // waere kein zweiter Durchlauf, sondern das Ende.
+    const gezogen = kingsCup.reduce(
+      tisch,
+      { type: 'draw', slot: 13, by: 'p1', at: Date.now() } as GameAction,
+      roster,
+    );
+    rerender(props(gezogen));
+    const flug = document.querySelector('.kings-zug') as HTMLElement;
+    expect(flug).not.toBeNull();
+    expect(flug.classList.contains('kings-zug--los')).toBe(true);
+    expect(flug.style.getPropertyValue('--zug-s')).not.toBe('');
+    // Die echte Rueckseite liegt waehrend der Fahrt darueber.
+    expect(flug.querySelector('.kings-zug__ruecken .playcard--back')).not.toBeNull();
+  });
+
+  it('laesst gar nichts fliegen, wenn niemand hier gezogen hat', () => {
+    // Der Fall auf fremden Geraeten: ohne Messwert waere jeder Startpunkt
+    // geraten, und die Karte kaeme aus einem Platz, den dieser Finger nie
+    // beruehrt hat.
+    const gezogen = kingsCup.reduce(
+      { ...kingsCup.createState(roster), order: ORDER, turnIndex: 0 },
+      { type: 'draw', slot: 44, by: 'p1', at: Date.now() } as GameAction,
+      roster,
+    );
+    zeichne(gezogen);
+    const flug = document.querySelector('.kings-zug') as HTMLElement;
+    expect(flug.classList.contains('kings-zug--los')).toBe(false);
+  });
+
+  it('stellt den Becher neben die Koenigskarte', () => {
+    // Vorher klappte der Tisch samt Becher weg - „Du trinkst den Becher"
+    // stand auf einem Bildschirm ohne Becher.
+    const koenig = fullDeck().find((i) => cardFromIndex(i).rank === 12)!;
+    const s2: State = {
+      ...kingsCup.createState(roster), order: ORDER, turnIndex: 0,
+      drawn: koenig, kings: 3, pours: ['p1', 'p0'],
+    };
+    zeichne(s2);
+    expect(document.querySelector('.bechertisch')).not.toBeNull();
+    expect(document.querySelectorAll('.bechertisch .becher__guss').length).toBe(2);
+  });
+
+  it('zeigt die Zahlen erst, wenn Kranz und Becher weg sind', () => {
+    const tisch: State = {
+      ...kingsCup.createState(roster), order: ORDER, turnIndex: 0, drawn: null,
+    };
+    const { unmount } = render(
+      <PartyCtx.Provider value={party(vi.fn())}>
+        <kingsCup.Component
+          state={tisch} players={roster} me={me} isHost online={false}
+          dispatch={vi.fn()} quit={() => {}}
+        />
+      </PartyCtx.Provider>,
+    );
+    expect(document.body.textContent).not.toMatch(/\d+ Karten/);
+    unmount();
+    const gezogen = kingsCup.reduce(
+      tisch,
+      { type: 'draw', slot: 3, by: 'p1', at: Date.now() } as GameAction,
+      roster,
+    );
+    zeichne(gezogen);
+    expect(document.body.textContent).toMatch(/51 Karten/);
+  });
+});
+
+/**
+ * Der Becher in der Mitte: drei Guesse, nicht vier. Koenig 1 bis 3 giessen,
+ * der vierte trinkt.
+ */
+describe('Becher: die Schichten', () => {
+  const KOENIG = 12;
+  const tun = (s: State, type: string, extra: Record<string, unknown> = {}) =>
+    kingsCup.reduce(s, { type, by: 'p1', at: Date.now(), ...extra } as GameAction, roster);
+  /** Kranz, dessen Platz 0 sicher ein Koenig ist. */
+  const mitKoenig = (s: State): State => ({
+    ...s,
+    deck: [
+      fullDeck().find((i) => cardFromIndex(i).rank === KOENIG)!,
+      ...fullDeck().filter((i) => cardFromIndex(i).rank !== KOENIG).slice(0, 51),
+    ],
+  });
+
+  it('legt bei Koenig 1 bis 3 je eine Schicht, beim vierten keine mehr', () => {
+    let s: State = { ...kingsCup.createState(roster), order: ORDER, turnIndex: 0 };
+    // Aus der Quelle gezaehlt: vier Koenige, drei davon giessen.
+    for (const nr of [1, 2, 3, 4]) {
+      s = tun(mitKoenig(s), 'draw', { slot: 0 });
+      expect(s.kings, `Koenig ${nr}`).toBe(nr);
+      expect(s.pours.length, `nach Koenig ${nr}`).toBe(Math.min(nr, 3));
+      if (nr === 4) expect(s.finalKing).toBe(true);
+      s = tun({ ...s, endless: true }, 'next');
+    }
+  });
+
+  it('merkt sich, WER gegossen hat, nicht wie viel', () => {
+    let s: State = { ...kingsCup.createState(roster), order: ORDER, turnIndex: 0 };
+    s = tun(mitKoenig(s), 'draw', { slot: 0 });
+    expect(s.pours).toEqual(['p1']);
+    s = tun(s, 'next');
+    // Jetzt ist p0 dran (ORDER = p1, p0, ...).
+    s = tun(mitKoenig(s), 'draw', { slot: 0 });
+    expect(s.pours).toEqual(['p1', 'p0']);
+  });
+
+  it('leert den Becher, wenn der vierte Koenig ihn ausgetrunken hat', () => {
+    let s: State = {
+      ...kingsCup.createState(roster),
+      order: ORDER,
+      turnIndex: 0,
+      kings: 3,
+      pours: ['p1', 'p0', 'p2'],
+      endless: true,
+    };
+    s = tun(mitKoenig(s), 'draw', { slot: 0 });
+    expect(s.finalKing).toBe(true);
+    // Erst beim Weitergehen ist er ausgetrunken – vorher steht er noch voll da.
+    expect(s.pours.length).toBe(3);
+    s = tun(s, 'next');
+    expect(s.pours).toEqual([]);
+    expect(s.kings).toBe(0);
+  });
+
+  it('nimmt alte Schichten nicht in einen frisch gemischten Kranz mit', () => {
+    // Deterministisch: mit festem Zufall mischt der Reducer denselben Kranz,
+    // den der Test selbst berechnet. Sonst haengt die Pruefung am Mischglueck
+    // – ein Koenig liegt nur in 4 von 52 Zuegen oben, und der Fehler waere in
+    // den meisten Laeufen gruen durchgerutscht.
+    const w = vi.spyOn(Math, 'random').mockReturnValue(0.42);
+    try {
+      const gemischt = shuffle(fullDeck(), () => 0.42);
+      const koenigsPlatz = gemischt.findIndex((i) => cardFromIndex(i).rank === KOENIG);
+      const s: State = {
+        ...kingsCup.createState(roster),
+        // Sitzordnung festnageln: `createState` mischt sie, und wer giesst,
+        // steht auf `turnIndex`.
+        order: ORDER,
+        turnIndex: 0,
+        deck: Array.from({ length: 52 }, () => null),
+        drawn: null,
+        kings: 3,
+        pours: ['p1', 'p0', 'p2'],
+      };
+      // Erst der Koenig: giesst er, darf trotzdem nur SEINE Schicht dastehen.
+      const mitKoenigGezogen = tun(s, 'draw', { slot: koenigsPlatz });
+      expect(cardFromIndex(mitKoenigGezogen.drawn!).rank).toBe(KOENIG);
+      expect(mitKoenigGezogen.pours).toEqual([ORDER[0]]);
+      // Und ohne Koenig bleibt der Becher leer.
+      const andererPlatz = gemischt.findIndex((i) => cardFromIndex(i).rank !== KOENIG);
+      expect(tun(s, 'draw', { slot: andererPlatz }).pours).toEqual([]);
+    } finally {
+      w.mockRestore();
+    }
+  });
+
+  it('vergisst die Schichten beim Neustart', () => {
+    const s: State = { ...kingsCup.createState(roster), pours: ['p1', 'p0'] };
+    expect(tun(s, 'restart').pours).toEqual([]);
   });
 });
 
