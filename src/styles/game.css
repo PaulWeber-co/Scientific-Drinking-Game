@@ -366,6 +366,44 @@
   box-shadow: var(--shadow-md);
   animation: card-flip var(--dur) var(--ease-spring) both;
 }
+/* Merkzettel: was ein Kartenstapel vergisst. Steht ueber der Karte und
+   bleibt die ganze Partie stehen. Bewusst klein und ruhig - es ist ein
+   Randvermerk, keine Ansage. Nachgebaut nach `.chip` in global.css. */
+.merkzettel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.merkzettel__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  /* Nicht `--r-full`: ein langer Regeltext bricht im Chip um, und eine
+     vollrunde Pille wird dann zur zweizeiligen Blase. */
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--label) 10%, transparent);
+  color: var(--label-2);
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  line-height: 1.3;
+  /* Deckel: vier lange Regeln duerfen die Karte nicht vom Schirm draengen. */
+  max-width: min(100%, 260px);
+}
+.merkzettel__item--rolle {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  /* Die Spielfarbe traegt der Rand, nicht der Text: Rot auf hellem Grund
+     reisst bei dieser Schriftgroesse unter die Lesbarkeitsschwelle. */
+  color: var(--label);
+}
+.merkzettel__von {
+  color: var(--label-3);
+  font-weight: 600;
+}
+
 @keyframes card-flip {
   from {
     transform: rotateY(80deg) scale(0.9);
@@ -1239,4 +1277,216 @@
   background: var(--stamp);
   color: var(--paper-ink);
   border-radius: var(--r-xs);
+}
+
+/* ---------- Ring of Fire: Kranz und Becher ----------
+   `--kranz` MUSS eine aufgeloeste Laenge sein. Der erste Entwurf hatte hier
+   `min(100%, 340px)` stehen - in `translateY` bezieht sich `100 %` aber auf
+   die HOEHE DER KARTE, nicht auf das Feld. Der Radius kam damit auf 18,5 px
+   statt 149, alle 52 Karten lagen als Klumpen auf dem Becher, und weder
+   Typecheck noch Lint noch 432 Tests sahen etwas davon (2026-09-10).
+   Die zweite Grenze `52vh` haelt den Kranz auf kurzen Geraeten klein genug,
+   dass der Rest des Bildschirms erreichbar bleibt. */
+.kranzfeld {
+  --kranz: min(calc(100vw - 2 * var(--s-4)), 52vh, 340px);
+  --kranz-ch: calc(var(--kranz) * 0.124);
+  --kranz-cw: calc(var(--kranz-ch) * 0.71);
+  --kranz-r: calc((var(--kranz) - var(--kranz-ch)) / 2);
+  position: relative;
+  width: var(--kranz);
+  height: var(--kranz);
+  margin: 0 auto;
+}
+.kranz {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  /* Der Zeiger darf ueber den Rand hinaus ziehen, ohne dass iOS die Seite
+     scrollt oder zurueckwischt. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur) var(--ease-out);
+}
+/* Wer nicht dran ist, sieht denselben Kranz - er muss aber sehen, dass er
+   ihm nicht gehoert. Vorher aenderte sich nur der Mauszeiger, und auf den
+   anderen fuenf Handys wirkte der Tisch gleich lebendig und tat nichts. */
+.kranz:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+/* Eine Karte im Kranz. `rotate` dreht sie in ihren Platz, `translateY` schiebt
+   sie auf den Radius hinaus - dadurch zeigt sie automatisch nach aussen, wie
+   ein echter Kranz auf dem Tisch. `--kranz-zug` schreibt die Geste live.
+
+   Die dunkle Haarlinie ist nicht Schmuck: der Verlauf allein kommt im
+   Hellmodus nur auf 2,7:1 gegen den Grund (1.4.11 verlangt 3:1), und
+   zwischen zwei ueberlappenden Karten waere sonst keine Kante zu sehen -
+   eine fehlende Karte laese sich dann gar nicht als Luecke erkennen. */
+.kranz__karte {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--kranz-cw);
+  height: var(--kranz-ch);
+  margin: calc(var(--kranz-ch) / -2) 0 0 calc(var(--kranz-cw) / -2);
+  border-radius: calc(var(--kranz-cw) * 0.16);
+  background: linear-gradient(135deg, var(--brand-2), var(--brand));
+  /* Innen ein heller Saum, aussen eine dunkle Trennung: erst dadurch liest
+     sich der Kranz als STAPEL EINZELNER Karten. Ohne den Saum war es ein
+     durchgehender blauer Reifen mit Rillen - ein Zahnrad, kein Kranz. */
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    var(--shadow-sm);
+  --kranz-zug: 0px;
+  --kranz-dreh: 0deg;
+  --kranz-raus: 0;
+  /* `--kranz-dreh` und `--kranz-raus` sind die feste Unregelmaessigkeit aus
+     `slotJitter`: am Tisch legt niemand 52 Karten auf einen exakten Kreis. */
+  transform: rotate(calc(var(--kranz-winkel) + var(--kranz-dreh)))
+    translateY(
+      calc(-1 * (var(--kranz-r) * (1 + var(--kranz-raus)) + var(--kranz-zug)))
+    );
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+/* Die Karte unter dem Finger. Sie hebt sich, waechst und bekommt einen hellen
+   Ring - Groesse allein reicht bei Sehschwaeche nicht, und der Schlagschatten
+   ist auf schwarzem Grund unsichtbar. */
+.kranz__karte--auf {
+  z-index: 2;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.5),
+    0 0 0 2px var(--label),
+    var(--shadow-md);
+  transform: rotate(calc(var(--kranz-winkel) + var(--kranz-dreh)))
+    translateY(
+      calc(-1 * (var(--kranz-r) * (1 + var(--kranz-raus)) + var(--kranz-zug) + 8px))
+    )
+    scale(1.35);
+  transition: none;
+}
+/* Der Becher. Klein und ruhig: der Kranz ist der Held. Zeiger gehen hindurch,
+   die tote Zone im Zeiger-Code haelt den Finger ohnehin fern. */
+.becher {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--kranz) * 0.3);
+  height: calc(var(--kranz) * 0.34);
+  margin: calc(var(--kranz) * -0.17) 0 0 calc(var(--kranz) * -0.15);
+  pointer-events: none;
+  display: block;
+}
+/* Der leere Becher war mit 1,05:1 praktisch unsichtbar. Jetzt traegt er eine
+   sichtbare Kontur, und der Anschnitt sitzt auf dem Rahmen statt auf der
+   Fuellung - sonst schnitt `clip-path` die Seitenkanten der Kontur weg. */
+/* Ein Glas, kein Kasten: nach unten schmaler, oben ein Rand als Muendung.
+   Der Anschnitt sitzt auf einem eigenen Rahmen statt auf der Fuellung -
+   `clip-path` schnitt sonst die Seitenkanten der Kontur weg, und der leere
+   Becher stand mit 1,05:1 praktisch unsichtbar da. */
+.becher__glas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border: 2px solid var(--label-2);
+  border-top-width: 3px;
+  border-radius: 3px 3px calc(var(--r-xs) * 1.4) calc(var(--r-xs) * 1.4);
+  background: var(--surface-2);
+  clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+}
+/* Eine Schicht je Guss, in der Farbe der giessenden Person. Drei Guesse passen
+   hinein - Koenig 1 bis 3 giessen, der vierte trinkt. Die helle Trennlinie
+   traegt die Unterscheidung, nicht die Farbe: zwei Avatarfarben liegen
+   zueinander bei 1,03:1 und waeren sonst ein einziger Block. */
+.becher__guss {
+  flex: 1;
+  min-height: 0;
+  max-height: 26%;
+  background: var(--guss);
+}
+.becher__guss + .becher__guss {
+  border-bottom: 1px solid var(--label);
+}
+/* Der Becher neben der Koenigskarte. Er braucht ein eigenes `--kranz`: alle
+   Becher-Masse haengen daran, und ausserhalb des Kranzfeldes waere die
+   Variable leer - `calc()` faellt dann lautlos aus und der Becher haette gar
+   keine Groesse. Genau so eine stille Rueckfallebene hat in diesem Projekt
+   schon einmal Chips ohne Fuellung erzeugt. */
+.bechertisch {
+  --kranz: 200px;
+  position: relative;
+  width: calc(var(--kranz) * 0.25);
+  height: calc(var(--kranz) * 0.28);
+  margin: 0 auto;
+}
+/* ---- Der Zug: die Karte fliegt aus ihrem Platz in die Mitte ----
+   `--zug-x/-y/-s` misst die Oberflaeche beim Zustandswechsel selbst (FLIP),
+   statt eine Weite zu raten: der Kranzmittelpunkt und die Mitte der
+   Kartenzeile liegen rund 90 px auseinander, eine geratene Weite laesst die
+   Karte neben der Stelle landen, auf die der Blick zeigt.
+
+   Ohne Messwert bleibt die Klasse `--los` aus und es fliegt gar nichts. Das
+   ist der Fall auf fremden Geraeten: ein Flug aus einem Platz, den dieser
+   Finger nie beruehrt hat, waere schlechter als keiner. */
+.kings-zug {
+  position: relative;
+  perspective: 800px;
+  --zug-x: 0px;
+  --zug-y: 0px;
+  --zug-s: 1;
+}
+.kings-zug--los {
+  animation: kings-zug 380ms var(--ease-spring) both;
+}
+/* Waehrend der Fahrt liegt die ECHTE Rueckseite ueber der Karte und wird bei
+   55 % abgeloest. Das Umdrehen ist damit ein eigener Schlag, kein Mitdrehen
+   auf der Strecke (User-Entscheid 2026-09-10). Eine gestauchte Vorderseite
+   waere lesbar gewesen und haette den Schlag vorweggenommen. */
+.kings-zug__ruecken {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.kings-zug--los .kings-zug__ruecken {
+  animation: kings-ruecken 380ms linear both;
+}
+.kings-zug--los .playcard {
+  animation: card-flip 170ms var(--ease-spring) 210ms both;
+}
+@keyframes kings-zug {
+  0% {
+    transform: translate(var(--zug-x), var(--zug-y)) scale(var(--zug-s));
+  }
+  55%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes kings-ruecken {
+  0%,
+  54% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+/* `global.css` setzt bei reduzierter Bewegung bereits jede Animationsdauer auf
+   0,01 ms - die VERZOEGERUNG bleibt davon unberuehrt, und die Karte haenge
+   sonst 210 ms unsichtbar da. Nur deshalb steht hier ueberhaupt noch ein
+   Block; alles Weitere waere Doppelung. */
+@media (prefers-reduced-motion: reduce) {
+  .kings-zug--los .playcard {
+    animation-delay: 0ms;
+  }
 }

@@ -165,6 +165,22 @@ export function ProfileScreen() {
               <Toggle checked={app.haptics} onChange={() => app.toggleHaptics()} label="Vibration" />
             </div>
             <div className="list__item">
+              <span className="grow">
+                <span className="t-headline" style={{ display: 'block' }}>
+                  Töne
+                </span>
+                <span className="t-caption" id="ton-hinweis">
+                  Am iPhone still, solange der Klingelschalter auf lautlos steht.
+                </span>
+              </span>
+              <Toggle
+                checked={app.sound}
+                onChange={() => app.toggleSound()}
+                label="Töne"
+                describedBy="ton-hinweis"
+              />
+            </div>
+            <div className="list__item">
               <span className="grow t-headline">Wasser-Erinnerung</span>
               <Toggle checked={app.waterReminder} onChange={() => app.toggleWaterReminder()} label="Wasser-Erinnerung" />
             </div>

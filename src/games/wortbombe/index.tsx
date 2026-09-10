@@ -1,6 +1,7 @@
 import { Icon } from '../../components/icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { haptic } from '../../lib/haptics';
+import { sound, stopSounds } from '../../lib/sound';
 import { pick, shuffle } from '../../lib/format';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
@@ -148,22 +149,75 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     if (state.phase !== 'running') return;
     if (online && !isHolder && !isHost) return;
     const check = () => {
-      if (Date.now() >= state.explodesAt) {
-        haptic('error');
-        send({ type: 'boom' });
-      }
+      if (Date.now() >= state.explodesAt) send({ type: 'boom' });
     };
     const t = setInterval(check, 250);
     return () => clearInterval(t);
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
-  // Ticken über Vibration – wird schneller, je näher der Knall kommt.
+  /**
+   * Wer die Bombe gerade hält – als Referenz, nicht als Abhängigkeit.
+   *
+   * Stünde `isHolder` in den Abhängigkeiten des Zünders, liefe der Effekt bei
+   * JEDER Weitergabe neu an: der Fortschritt fiele auf null zurück, der Takt
+   * spränge von 160 ms auf 900 ms, und nach dem Weitergeben wäre eine Sekunde
+   * Ruhe. Die Puls-Anzeige daneben hat diese Abhängigkeit nicht — beide
+   * Kanäle würden ab der ersten Weitergabe auseinanderlaufen: die Bombe glüht
+   * rot, während das Handy gemächlich klopft.
+   */
+  const holderRef = useRef(isHolder);
+  holderRef.current = isHolder;
+
+  /**
+   * Ticken über Vibration und Ton – zieht an, je näher der Knall kommt.
+   *
+   * Als Kette einzelner Timeouts statt als Intervall: `tension` wird alle
+   * 120 ms neu gesetzt, und ein Intervall mit `tension` in den Abhängigkeiten
+   * startet dabei jedes Mal von vorn. Beim Takt von 160 ms feuerte es deshalb
+   * fast nie – bei der Vibration fiel das nicht auf, ein Klang würde hörbar
+   * stolpern.
+   *
+   * Nur beim Halter. Die Zündschnur läuft 22 bis 75 Sekunden; auf jedem Handy
+   * mitzuklopfen hiesse anderthalb Minuten Dauervibration in jeder Hosentasche,
+   * und der einzige Ausweg wäre der globale Vibrationsschalter.
+   */
   useEffect(() => {
-    if (state.phase !== 'running' || (online && !isHolder)) return;
-    const interval = Math.max(160, 900 - tension * 700);
-    const t = setInterval(() => haptic('tap'), interval);
-    return () => clearInterval(t);
-  }, [state.phase, isHolder, online, tension]);
+    if (state.phase !== 'running') return;
+    const total = Math.max(1, state.explodesAt - Date.now());
+    let timer = 0;
+    const tick = () => {
+      const left = Math.max(0, state.explodesAt - Date.now());
+      const p = Math.max(0, Math.min(1, 1 - left / total));
+      if (!online || holderRef.current) {
+        haptic('tap');
+        sound('tick');
+      }
+      timer = window.setTimeout(tick, Math.max(160, 900 - p * 700));
+    };
+    timer = window.setTimeout(tick, 900);
+    return () => clearTimeout(timer);
+  }, [state.phase, state.explodesAt, online]);
+
+  /**
+   * Der Knall gehört auf jedes Gerät und genau einmal.
+   *
+   * Vorher hing er am Zünd-Timer, der beim Host als Rückfall mitläuft: auf
+   * einem Host-Gerät, das nicht Halter ist, schlug er ein zweites Mal zu, und
+   * ein reiner Gast bekam gar nichts.
+   *
+   * Gespürt wird er überall — ein einzelner Schlag schadet niemandem. Gehört
+   * nur dort, wo auch der Zünder klang: sechs versetzte Knalle sind kein
+   * Ereignis, sondern ein Steinschlag.
+   */
+  useEffect(() => {
+    if (state.phase !== 'boom') return;
+    haptic('error');
+    if (!online || holderRef.current) sound('boom');
+  }, [state.phase, online]);
+
+  // Ein Knall klingt eine halbe Sekunde nach und hängt am Klang-Kontext, nicht
+  // an React. Ohne das hier knallt es noch, wenn längst die Spieleliste steht.
+  useEffect(() => () => stopSounds(), []);
 
   if (state.phase === 'over') {
     const rows = players.map((p) => ({

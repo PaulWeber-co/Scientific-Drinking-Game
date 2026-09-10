@@ -83,13 +83,13 @@ const VARIANTS: Record<string, unknown>[] = [
     text: 'Antwort', target: 'p1', mode: 'wahrheit', heat: 1, answer: 'rot',
     order: ['p1', 'p0'], winner: 'p1', value: 42, index: 0, side: 'left',
     lie: 0, statements: ['a', 'b', 'c'], id: 'p1', word: 'a', who: 'p1',
-    counts: { p1: 1 }, guesses: { p1: 0 },
+    counts: { p1: 1 }, guesses: { p1: 0 }, slot: 0,
   },
   {
     text: 'Zweite', target: 'p2', mode: 'pflicht', heat: 3, answer: 'hoch',
     order: ['p0', 'p1'], winner: 'p2', value: 7, index: 1, side: 'right',
     lie: 1, statements: ['x', 'y', 'z'], id: 'p2', word: 'b', who: 'p2',
-    counts: { p2: 2 }, guesses: { p2: 1 },
+    counts: { p2: 2 }, guesses: { p2: 1 }, slot: 31,
   },
   // Spielerbezuege ueber den GANZEN Kader, nicht nur p1/p2: Top Ten deckt
   // nacheinander jede Person auf und blieb mit zwei IDs nach zwei Schritten
@@ -102,6 +102,10 @@ const VARIANTS: Record<string, unknown>[] = [
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
   { outcome: 'refused' },
+  // Ring of Fire: der Finger waehlt einen Platz im Kranz. 51 prueft den Rand,
+  // 200 einen Platz, den es gar nicht gibt.
+  { slot: 51 },
+  { slot: 200 },
   { heat: 2, answer: 'aussen', value: 0 },
 ];
 
@@ -472,7 +476,12 @@ describe('Ring of Fire', () => {
       s = game.reduce(s, act('draw'), roster);
       s = game.reduce(s, act('next'), roster);
     }
-    expect(s.deck.length).toBeGreaterThan(0);
+    // NICHT `deck.length`: der Kranz hat fest 52 Plaetze, die
+    // Laenge ist konstant und die Zusicherung waere trivial wahr - sie haette
+    // den Neumisch-Pfad nicht mehr geprueft, egal was der Reducer tut.
+    expect(s.deck.some((c: number | null) => c != null), 'Kranz leer statt neu gemischt').toBe(
+      true,
+    );
   });
 
   it('hört mit Ziellinie beim vierten König auf zu ziehen', () => {
