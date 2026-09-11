@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { PartyProvider, useParty, type PartyValue } from './PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
+import { alcoholPerSip, createCustomDrink } from '../../engine/drinks';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn() }));
 
@@ -112,6 +113,22 @@ describe('logSipsFor', () => {
     expect(usePlayer.getState().log).toHaveLength(0);
   });
 
+  it('bucht einem Gast auch ein selbst angelegtes Getränk richtig', () => {
+    // Ein Gerät, eine Liste eigener Getränke. Ohne die Liste fiel der Gast
+    // still auf das erste Katalog-Getränk zurück – falscher Name, falsche
+    // Gramm, keine Fehlermeldung.
+    const eigenes = createCustomDrink({ name: 'Omas Likör', volumeMl: 40, abvPercent: 30 });
+    usePlayer.setState({ customDrinks: [eigenes] });
+    setup();
+    const gast = addGuest('Mia');
+    act(() => api.logSipsFor(gast.id, 1, 'glas', { drinkId: eigenes.id }));
+
+    const [ev] = api.players.find((p) => p.id === gast.id)?.local?.log ?? [];
+    expect(ev.drinkId).toBe(eigenes.id);
+    expect(ev.drinkName).toBe('Omas Likör');
+    expect(ev.alcoholGrams).toBeCloseTo(alcoholPerSip(eigenes), 2);
+  });
+
   it('ignoriert eine Menge von null oder weniger', () => {
     setup();
     const gast = addGuest('Nils');
@@ -166,5 +183,42 @@ describe('undoLastFor', () => {
 
     expect(api.players.find((p) => p.id === gast.id)?.local?.log).toHaveLength(0);
     expect(usePlayer.getState().log).toHaveLength(0);
+  });
+});
+
+describe('removeEventFor', () => {
+  it('nimmt einen bestimmten Eintrag von mir heraus, nicht den letzten', () => {
+    setup();
+    act(() => api.logSipsFor(api.me.id, 2, 'glas'));
+    act(() => api.logSipsFor(api.me.id, 5, 'glas'));
+    const [erster] = usePlayer.getState().log;
+    act(() => api.removeEventFor(api.me.id, erster.id));
+
+    const log = usePlayer.getState().log;
+    expect(log).toHaveLength(1);
+    expect(log[0].sips).toBe(5);
+  });
+
+  it('nimmt einen bestimmten Eintrag eines Gastes heraus', () => {
+    setup();
+    const gast = addGuest('Mia');
+    act(() => api.logSipsFor(gast.id, 2, 'glas'));
+    act(() => api.logSipsFor(gast.id, 5, 'glas'));
+    const erster = api.players.find((p) => p.id === gast.id)?.local?.log[0];
+    if (!erster) throw new Error('Gast hat keinen Eintrag');
+    act(() => api.removeEventFor(gast.id, erster.id));
+
+    const log = api.players.find((p) => p.id === gast.id)?.local?.log;
+    expect(log).toHaveLength(1);
+    expect(log?.[0].sips).toBe(5);
+    // Mein Log bleibt leer – der Gast-Eintrag war nie meiner.
+    expect(usePlayer.getState().log).toHaveLength(0);
+  });
+
+  it('lässt fremde Kennungen unberührt', () => {
+    setup();
+    act(() => api.logSipsFor(api.me.id, 2, 'glas'));
+    act(() => api.removeEventFor(api.me.id, 'gibt-es-nicht'));
+    expect(usePlayer.getState().log).toHaveLength(1);
   });
 });

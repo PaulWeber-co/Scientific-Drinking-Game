@@ -143,7 +143,7 @@ function PhotoSheet({ photo, onClose }: { photo: Photo | null; onClose: () => vo
           {/* Dasselbe Papier wie auf der Spielkarte: Was man sich ansieht,
               ist ein Abzug, kein Dateivorschaubild. */}
           {url && (
-            <figure className="abzug">
+            <figure className="abzug abzug--album">
               <img className="photofull" src={url} alt="" />
               <figcaption className="abzug__stempel">PEGEL</figcaption>
             </figure>

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/icons';
-import { Segmented, Sheet } from '../../components/ui';
+import { Sheet } from '../../components/ui';
 import { sipsPerServing } from '../../engine/drinks';
+import { formatEntry } from '../../engine/tally';
 import { haptic } from '../../lib/haptics';
 import { useCurrentDrink } from '../../store/player';
 import { useParty } from '../../features/party/PartyContext';
+import { LogDrinkSheet } from './LogDrinkSheet';
+import type { DrinkDefinition } from '../../engine/types';
 
 /** Ab hier gilt der Druck als lang und öffnet die Mengen. */
 const LONG_PRESS_MS = 450;
@@ -17,20 +20,13 @@ const LONG_PRESS_MS = 450;
  */
 const NOTE_MS = 8000;
 
-type Amount = 'half' | 'full' | 'double';
-
-const AMOUNTS: { value: Amount; label: string }[] = [
-  { value: 'half', label: 'Halbes' },
-  { value: 'full', label: 'Ganzes' },
-  { value: 'double', label: 'Zwei' },
-];
-
 /**
  * Ein Glas eintragen, ohne das Spiel zu verlassen.
  *
  * Ein Tap ist ein volles Glas des eingestellten Getränks, langer Druck öffnet
- * die Mengen. Danach steht acht Sekunden ein Rückgängig darunter — ein
- * Fehlgriff im Dunkeln darf den Abend nicht verfälschen.
+ * das volle Eintragen: anderes Getränk, andere Menge, vorhin statt jetzt.
+ * Danach steht acht Sekunden ein Rückgängig darunter — ein Fehlgriff im
+ * Dunkeln darf den Abend nicht verfälschen.
  *
  * Die Schluckzahl kommt aus `sipsPerServing()`, nie aus einer eigenen Zahl:
  * ein Glas ist je Getränk verschieden viele Schlucke, ein Shot ist einer.
@@ -38,8 +34,7 @@ const AMOUNTS: { value: Amount; label: string }[] = [
 export function GlassButton() {
   const { players, me, mode, logSipsFor, undoLastFor } = useParty();
   const drink = useCurrentDrink();
-  const [sheet, setSheet] = useState<null | 'who' | 'amount'>(null);
-  const [amount, setAmount] = useState<Amount>('full');
+  const [sheet, setSheet] = useState<null | 'who' | 'more'>(null);
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<number | undefined>(undefined);
   const pressTimer = useRef<number | undefined>(undefined);
@@ -63,21 +58,32 @@ export function GlassButton() {
     noteTimer.current = window.setTimeout(() => setNote(null), NOTE_MS);
   }, []);
 
-  const log = useCallback(
-    (playerId: string, which: Amount) => {
-      const per = sipsPerServing(drink);
-      const sips =
-        which === 'half' ? Math.max(1, Math.round(per / 2)) : which === 'double' ? per * 2 : per;
+  const whoLabel = useCallback(
+    (playerId: string) =>
+      playerId === me.id ? '' : ` für ${players.find((p) => p.id === playerId)?.name}`,
+    [me.id, players],
+  );
+
+  /** Der schnelle Weg: ein volles Glas des eingestellten Getränks, jetzt. */
+  const logGlass = useCallback(
+    (playerId: string) => {
       haptic('success');
-      logSipsFor(playerId, sips, 'glas');
+      logSipsFor(playerId, sipsPerServing(drink), 'glas');
       lastTarget.current = playerId;
-      const who = playerId === me.id ? '' : ` für ${players.find((p) => p.id === playerId)?.name}`;
-      const label = which === 'half' ? 'Halbes Glas' : which === 'double' ? 'Zwei Gläser' : 'Glas';
-      showNote(`${label}${who} eingetragen`);
+      showNote(`Glas${whoLabel(playerId)} eingetragen`);
       setSheet(null);
-      setAmount('full');
     },
-    [drink, logSipsFor, me.id, players, showNote],
+    [drink, logSipsFor, showNote, whoLabel],
+  );
+
+  /** Der volle Weg aus dem Sheet: Getränk, Menge und Zeitpunkt frei. */
+  const logAny = useCallback(
+    (playerId: string, d: DrinkDefinition, sips: number, at: number) => {
+      logSipsFor(playerId, sips, 'glas', { drinkId: d.id, at });
+      lastTarget.current = playerId;
+      showNote(`${formatEntry(d, sips)}${whoLabel(playerId)} eingetragen`);
+    },
+    [logSipsFor, showNote, whoLabel],
   );
 
   const onPressStart = () => {
@@ -85,7 +91,7 @@ export function GlassButton() {
     pressTimer.current = window.setTimeout(() => {
       wasLong.current = true;
       haptic('tap');
-      setSheet('amount');
+      setSheet('more');
     }, LONG_PRESS_MS);
   };
 
@@ -97,7 +103,7 @@ export function GlassButton() {
       setSheet('who');
       return;
     }
-    log(me.id, 'full');
+    logGlass(me.id);
   };
 
   return (
@@ -129,30 +135,14 @@ export function GlassButton() {
         </div>
       )}
 
-      <Sheet
-        open={sheet !== null}
-        onClose={() => {
-          setSheet(null);
-          setAmount('full');
-        }}
-        title={sheet === 'who' ? 'Wer hat ausgetrunken?' : `${drink.name} eintragen`}
-      >
+      <Sheet open={sheet === 'who'} onClose={() => setSheet(null)} title="Wer hat ausgetrunken?">
         <div className="stack-3">
-          {sheet === 'amount' && (
-            <>
-              <Segmented value={amount} options={AMOUNTS} onChange={setAmount} />
-              <div className="t-caption">
-                Ein ganzes Glas sind {sipsPerServing(drink)} Schlucke {drink.name}. Ein anderes
-                Getränk stellst du im Zahnrad daneben ein.
-              </div>
-            </>
-          )}
           <div className="list">
-            {(guests.length ? [me, ...guests] : [me]).map((p) => (
+            {[me, ...guests].map((p) => (
               <button
                 key={p.id}
                 className="list__item row pressable"
-                onClick={() => log(p.id, sheet === 'amount' ? amount : 'full')}
+                onClick={() => logGlass(p.id)}
               >
                 <span className="listicon">
                   <Icon name={drink.icon} size={19} />
@@ -164,8 +154,21 @@ export function GlassButton() {
               </button>
             ))}
           </div>
+          {/* Zweiter Weg zu Menge und Getränk – der lange Druck ist nicht
+              für jede Hand und jeden Zustand der richtige. */}
+          <button className="btn btn--plain btn--block" onClick={() => setSheet('more')}>
+            Anderes Getränk oder andere Menge …
+          </button>
         </div>
       </Sheet>
+
+      <LogDrinkSheet
+        open={sheet === 'more'}
+        onClose={() => setSheet(null)}
+        players={[me, ...guests]}
+        meId={me.id}
+        onLog={logAny}
+      />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
@@ -6,6 +6,7 @@ import { plural } from '../../lib/format';
 import { uid } from '../../lib/id';
 import { useFilm } from '../../store/film';
 import { developFrame } from './develop';
+import { photoFormat } from './filmLook';
 import { savePhoto } from './photoStore';
 import { scheduleDevelopNotice } from './notify';
 import { useFilmStatus } from './useFilmStatus';
@@ -20,10 +21,19 @@ const FLASH_LEAD_MS = 220;
  * Man sieht, worauf man zielt – aber nie, was dabei herauskommt. Genau
  * dieser Unterschied ist das Feature: der Ausschnitt ist versetzt wie bei
  * einem optischen Sucher, und die Verfremdung passiert erst danach.
+ *
+ * Der Sucher ist ein Fenster im Format des Fotos, nicht der ganze
+ * Bildschirm: Was im Fenster steht, kommt aufs Bild. Ein Vollbild-Sucher
+ * mit einem anders geschnittenen Foto dahinter hatte oben und unten
+ * abgeschnitten, was man beim Zielen noch gesehen hat.
  */
 export default function CameraScreen() {
   const nav = useNavigate();
-  const { videoRef, state, hasTorch, setTorch } = useViewfinder();
+  const { videoRef, state, hasTorch, setTorch, streamSize } = useViewfinder();
+  // Bis der Stream steht, ein hohes Fenster: so hält man das Handy.
+  const format = streamSize ? photoFormat(streamSize.w, streamSize.h) : photoFormat(1, 2);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const frame = useFit(stageRef, format.w / format.h);
   const { mineLeft, remaining, developsAt } = useFilmStatus();
   const addPhoto = useFilm((s) => s.addPhoto);
   const [busy, setBusy] = useState(false);
@@ -60,15 +70,6 @@ export default function CameraScreen() {
 
   return (
     <div className="viewfinder">
-      <video
-        ref={videoRef}
-        className="viewfinder__video"
-        playsInline
-        muted
-        autoPlay
-        aria-label="Sucher"
-      />
-
       {blitz && <div className="viewfinder__flash" aria-hidden />}
 
       <div className="viewfinder__top">
@@ -92,6 +93,23 @@ export default function CameraScreen() {
           <span />
         )}
         <span className="t-mono-num t-headline">{remaining}</span>
+      </div>
+
+      <div className="viewfinder__stage" ref={stageRef}>
+        <div
+          className="viewfinder__frame"
+          data-format={format.w < format.h ? 'hoch' : 'quer'}
+          style={frame ? { width: frame.w, height: frame.h } : undefined}
+        >
+          <video
+            ref={videoRef}
+            className="viewfinder__video"
+            playsInline
+            muted
+            autoPlay
+            aria-label="Sucher"
+          />
+        </div>
       </div>
 
       {state === 'live' ? (
@@ -134,4 +152,32 @@ export default function CameraScreen() {
       )}
     </div>
   );
+}
+
+/**
+ * Größtes Rechteck im Seitenverhältnis `ratio`, das in den Bereich passt.
+ *
+ * CSS allein kann das nicht: `aspect-ratio` mit `max-height` UND `max-width`
+ * bricht das Verhältnis, sobald die Höhe bindet – und genau dann zeigte das
+ * Fenster mehr, als aufs Bild kommt.
+ */
+function useFit(
+  ref: React.RefObject<HTMLElement | null>,
+  ratio: number,
+): { w: number; h: number } | null {
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const messen = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    messen();
+    const ro = new ResizeObserver(messen);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+
+  if (!box || !box.w || !box.h) return null;
+  const w = Math.min(box.w, box.h * ratio);
+  return { w: Math.floor(w), h: Math.floor(w / ratio) };
 }

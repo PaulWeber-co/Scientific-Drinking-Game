@@ -136,6 +136,8 @@ export interface PartyValue {
   ) => void;
   /** Nimmt den letzten Eintrag dieser Person zurück – auch bei Gästen. */
   undoLastFor: (playerId: string) => void;
+  /** Nimmt einen bestimmten Eintrag dieser Person heraus – auch bei Gästen. */
+  removeEventFor: (playerId: string, eventId: string) => void;
 }
 
 /** Exportiert, damit Tests eine Runde ohne Firebase nachstellen können. */
@@ -153,6 +155,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const customDrinks = usePlayer((s) => s.customDrinks);
   const logEvent = usePlayer((s) => s.logEvent);
   const undoLast = usePlayer((s) => s.undoLast);
+  const removeEvent = usePlayer((s) => s.removeEvent);
   const log = usePlayer((s) => s.log);
   const setLastLobbyCode = useApp((s) => s.setLastLobbyCode);
 
@@ -698,7 +701,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setLocalPlayers((prev) =>
         prev.map((p) => {
           if (p.id !== playerId || !p.local) return p;
-          const drink = findDrink(opts?.drinkId ?? p.local.drinkId);
+          // Pass & Play ist EIN Gerät: die eigenen Getränke gelten auch für Gäste.
+          const drink = findDrink(opts?.drinkId ?? p.local.drinkId, customDrinks);
           const ev: DrinkEvent = makeDrinkEvent(drink, sips, source, opts?.at);
           return { ...p, local: { ...p.local, log: [...p.local.log, ev] } };
         }),
@@ -725,6 +729,23 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       );
     },
     [myId, undoLast],
+  );
+
+  const removeEventFor = useCallback(
+    (playerId: string, eventId: string) => {
+      if (playerId === myId) {
+        removeEvent(eventId);
+        return;
+      }
+      setLocalPlayers((prev) =>
+        prev.map((p) =>
+          p.id === playerId && p.local
+            ? { ...p, local: { ...p.local, log: p.local.log.filter((e) => e.id !== eventId) } }
+            : p,
+        ),
+      );
+    },
+    [myId, removeEvent],
   );
 
   const value: PartyValue = {
@@ -754,6 +775,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     dispatch,
     logSipsFor,
     undoLastFor,
+    removeEventFor,
   };
 
   return <PartyCtx.Provider value={value}>{children}</PartyCtx.Provider>;

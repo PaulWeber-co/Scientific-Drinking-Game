@@ -23,6 +23,8 @@ import { useParty } from '../party/PartyContext';
 import { useApp } from '../../store/app';
 import { usePlayer } from '../../store/player';
 import { PreloadSheet } from '../drinks/PreloadSheet';
+import { LogDrinkSheet } from '../../games/shared/LogDrinkSheet';
+import { TableTally } from '../drinks/TableTally';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -33,6 +35,7 @@ export function LobbyScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [preloadOpen, setPreloadOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const preloadAskedAt = usePlayer((s) => s.preloadAskedAt);
   const alcoholFree = usePlayer((s) => s.profile?.alcoholFree ?? false);
   const lastCode = useApp((s) => s.lastLobbyCode);
@@ -226,6 +229,12 @@ export function LobbyScreen() {
               </div>
             ))}
           </div>
+          {/* Wer wie viel hat – erst, wenn jemand etwas eingetragen hat; eine
+              frische Runde bleibt so aufgeräumt wie vorher. */}
+          <TableTally hideEmpty />
+          <button className="btn btn--glass btn--block" onClick={() => setLogOpen(true)}>
+            <Icon name="plus" size={17} /> Getrunken eintragen
+          </button>
           {players.length < 3 && (
             <div className="notice notice--neutral">
               Die meisten Spiele brauchen mindestens 3 Personen. Für 4-16 Spieler ist die App
@@ -280,6 +289,15 @@ export function LobbyScreen() {
       <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} />
       <AddPlayerSheet open={editing !== null} onClose={() => setEditing(null)} edit={editing} />
       <PreloadSheet open={preloadOpen} onClose={() => setPreloadOpen(false)} />
+      <LogDrinkSheet
+        open={logOpen}
+        onClose={() => setLogOpen(false)}
+        players={online ? [party.me] : players}
+        meId={party.me.id}
+        onLog={(playerId, d, sips, at) =>
+          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
+        }
+      />
     </div>
   );
 }

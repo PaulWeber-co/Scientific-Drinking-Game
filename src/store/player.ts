@@ -35,6 +35,8 @@ interface PlayerState {
   logSips: (sips: number, source?: string, drink?: DrinkDefinition) => void;
   logEvent: (e: DrinkEvent) => void;
   undoLast: () => void;
+  /** Nimmt einen bestimmten Eintrag heraus – nicht nur den letzten. */
+  removeEvent: (id: string) => void;
   addWater: () => void;
   /** Merkt, dass die Frage nach dem Vorglühen gestellt wurde. */
   markPreloadAsked: () => void;
@@ -85,6 +87,7 @@ export const usePlayer = create<PlayerState>()(
           nightStartedAt: s.nightStartedAt ?? e.at,
         })),
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
+      removeEvent: (id) => set((s) => ({ log: s.log.filter((e) => e.id !== id) })),
       addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
       markPreloadAsked: () => set({ preloadAskedAt: Date.now() }),
       beginNight: () =>

@@ -95,6 +95,22 @@ function clamp(v: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v;
 }
 
+/** Lange und kurze Kante eines Abzugs, Kleinbild 3:2 in Abzugsgröße. */
+const LONG_EDGE = 1620;
+const SHORT_EDGE = 1080;
+
+/**
+ * Format des Fotos, das aus einem Stream dieser Größe wird.
+ *
+ * Es folgt der Haltung des Geräts: aufrecht liefert die Kamera ein hohes
+ * Bild, dann wird auch das Foto hoch. Ein Querstreifen aus einem hohen
+ * Sucherbild wäre genau das, was eine echte Kamera nie tut – sie belichtet
+ * den Film so herum, wie man sie hält.
+ */
+export function photoFormat(width: number, height: number): { w: number; h: number } {
+  return width < height ? { w: SHORT_EDGE, h: LONG_EDGE } : { w: LONG_EDGE, h: SHORT_EDGE };
+}
+
 /**
  * Zuschnitt vom Sucherbild auf das, was wirklich belichtet wird.
  *
@@ -103,14 +119,17 @@ function clamp(v: number): number {
  * absichtlich nachgebaut: er ist der Grund, warum man das Ergebnis nicht
  * vorhersagen kann, ohne dass man den Leuten den Sucher wegnehmen müsste.
  *
- * Seitenverhältnis 3:2 wie Kleinbild.
+ * Seitenverhältnis wie Kleinbild, 3:2 oder 2:3 – je nachdem, wie herum der
+ * Stream kommt (siehe `photoFormat`). Der Sucher zeigt denselben Ausschnitt
+ * als Fenster, nur ohne Zoom und Versatz.
  */
 export function viewfinderCrop(
   width: number,
   height: number,
 ): { x: number; y: number; w: number; h: number } {
-  const targetRatio = 3 / 2;
-  // Erst auf 3:2 beschneiden, dann leicht hineinzoomen: der Sucher zeigt
+  const format = photoFormat(width, height);
+  const targetRatio = format.w / format.h;
+  // Erst aufs Format beschneiden, dann leicht hineinzoomen: der Sucher zeigt
   // etwas mehr Rand, als am Ende drauf ist.
   const zoom = 0.94;
   let w = width;
