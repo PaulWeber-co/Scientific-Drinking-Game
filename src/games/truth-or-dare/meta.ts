@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Der Klassiker. Mit Notausgang.',
   icon: 'fork',
   accent: 'var(--purple)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '15-40 Min',
   intensity: 2,

@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Würfeln, ansagen, lügen. Oder aufdecken.',
   icon: 'games',
   accent: 'var(--yellow)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 12,
   duration: '15-30 Min',
   intensity: 3,

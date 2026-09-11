@@ -18,6 +18,12 @@ export interface CardDef {
   custom?: boolean;
   /** Liegt nur im Stapel, wenn der Spicy-Modus an ist. */
   spicy?: boolean;
+  /**
+   * Kleinste Runde, in der die Karte noch Sinn ergibt. Ohne Angabe: jede.
+   * Für Karten, die auf die Gruppe zeigen („alle zeigen gleichzeitig auf…",
+   * „reihum, bis jemand hängt", „die Person gegenüber").
+   */
+  minPlayers?: number;
 }
 
 export interface CardGameConfig {

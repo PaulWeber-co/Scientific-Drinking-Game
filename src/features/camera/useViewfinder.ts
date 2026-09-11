@@ -19,6 +19,9 @@ export function useViewfinder() {
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<ViewfinderState>('starting');
   const [hasTorch, setHasTorch] = useState(false);
+  // Maße des Streams, wie die Kamera ihn liefert: aufrecht gehalten hoch,
+  // quer gehalten breit. Daraus folgt das Format des Fotos.
+  const [streamSize, setStreamSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     let abgebrochen = false;
@@ -62,6 +65,24 @@ export function useViewfinder() {
     };
   }, []);
 
+  // Die Maße stehen erst, wenn der Stream läuft – und ändern sich, wenn das
+  // Gerät gedreht wird. Beides meldet das Videoelement selbst.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const lesen = () => {
+      if (video.videoWidth && video.videoHeight) {
+        setStreamSize({ w: video.videoWidth, h: video.videoHeight });
+      }
+    };
+    video.addEventListener('loadedmetadata', lesen);
+    video.addEventListener('resize', lesen);
+    return () => {
+      video.removeEventListener('loadedmetadata', lesen);
+      video.removeEventListener('resize', lesen);
+    };
+  }, []);
+
   // WKWebView pausiert den Stream im Hintergrund und startet ihn nicht von
   // selbst wieder – ohne das steht der Sucher nach jedem Wegschauen still.
   useEffect(() => {
@@ -80,7 +101,7 @@ export function useViewfinder() {
     await track.applyConstraints(constraints).catch(() => {});
   }, []);
 
-  return { videoRef, state, hasTorch, setTorch };
+  return { videoRef, state, hasTorch, setTorch, streamSize };
 }
 
 /** `torch` steht nicht im Standard-Typ, WebKit und Chromium kennen es trotzdem. */

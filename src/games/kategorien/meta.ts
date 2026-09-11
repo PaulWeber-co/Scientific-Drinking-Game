@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Reihum ein Beispiel. Wer hängt, trinkt.',
   icon: 'brackets',
   accent: 'var(--mint)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '5-15 Min',
   intensity: 1,

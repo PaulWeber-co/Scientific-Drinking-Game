@@ -80,7 +80,7 @@ export const memeBattle: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => {
-    const deck = spicyDeck(PROMPTS, 'meme-battle', (p) => p.text);
+    const deck = spicyDeck(PROMPTS, 'meme-battle', (p) => p.text, players.length);
     return {
       phase: 'writing',
       prompt: deck[0],
@@ -127,7 +127,7 @@ export const memeBattle: GameDefinition<State> = {
         if (state.phase === 'over') return state;
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
-        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle', (p) => p.text);
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle', (p) => p.text, players.length);
         return {
           ...state,
           phase: 'writing',

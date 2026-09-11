@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Aufgaben für die Runde. Handys bleiben liegen.',
   icon: 'shuffle',
   accent: 'var(--orange)',
-  minPlayers: 4,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '10-30 Min',
   intensity: 2,

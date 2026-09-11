@@ -84,8 +84,8 @@ interface State {
 export const mostLikely: GameDefinition<State> = {
   ...meta,
 
-  createState: () => {
-    const deck = spicyDeck(PROMPTS, 'most-likely', (p) => p.text);
+  createState: (players) => {
+    const deck = spicyDeck(PROMPTS, 'most-likely', (p) => p.text, players.length);
     return {
       phase: 'vote',
       prompt: deck[0],
@@ -135,7 +135,7 @@ export const mostLikely: GameDefinition<State> = {
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
         // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
         if (state.phase !== 'result') return state;
-        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely', (p) => p.text);
+        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'most-likely', (p) => p.text, players.length);
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         return {

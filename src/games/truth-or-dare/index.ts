@@ -56,7 +56,7 @@ const PFLICHT: CardDef[] = [
   { text: 'Sprich die nächsten drei Runden nur im Flüsterton.', heat: 1 },
   { text: 'Mach eine überzeugende Wettervorhersage für morgen – live und mit Gesten.', heat: 1 },
   { text: 'Lass die Person links von dir deine nächste Nachricht schreiben.', heat: 1 },
-  { text: 'Imitiere jemanden aus der Runde. Wer sich erkennt, trinkt.', heat: 1 },
+  { text: 'Imitiere jemanden aus der Runde. Wer sich erkennt, trinkt.', minPlayers: 3, heat: 1 },
   { text: 'Halte 30 Sekunden lang Blickkontakt mit der Person gegenüber. Wer zuerst lacht, trinkt.', heat: 1 },
   { text: 'Erfinde einen Werbespot für den Gegenstand, der dir am nächsten liegt.', heat: 1 },
   { text: 'Sing den Refrain des letzten Songs, den du gehört hast.', heat: 1 },
@@ -84,7 +84,7 @@ const PFLICHT: CardDef[] = [
 
 const PFLICHT_SPICY: CardDef[] = [
   { text: 'Mach der Person rechts von dir ein Kompliment, das du sonst nie aussprechen würdest.' },
-  { text: 'Beschreib deinen Typ so genau, dass die Runde rät, wen aus dem Raum du meinst.' },
+  { text: 'Beschreib deinen Typ so genau, dass die Runde rät, wen aus dem Raum du meinst.', minPlayers: 3 },
   { text: 'Flüstere einer Person deiner Wahl etwas ins Ohr, das sonst niemand hören darf.' },
   { text: 'Nenne drei Dinge, die dich an einem Menschen sofort anziehen.' },
   { text: 'Such dir eine Person aus: 30 Sekunden Blickkontakt, kein Wort. Wer wegschaut, trinkt.' },

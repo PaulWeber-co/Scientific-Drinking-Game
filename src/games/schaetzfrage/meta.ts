@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Alle tippen eine Zahl. Am weitesten daneben trinkt.',
   icon: 'target',
   accent: 'var(--teal)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '10-20 Min',
   intensity: 1,

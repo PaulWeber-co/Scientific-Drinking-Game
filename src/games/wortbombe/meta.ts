@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Ein Wort sagen, weitergeben, nicht explodieren.',
   icon: 'bomb',
   accent: 'var(--pink)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '5-20 Min',
   intensity: 2,

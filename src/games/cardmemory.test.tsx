@@ -214,7 +214,7 @@ describe('Karten wiederholen sich nicht', () => {
       { text: 'c' },
     ];
     markTextsSeen(['a']);
-    const stapel = spicyDeck(items, 'test-gedaechtnis', (i) => i.text);
+    const stapel = spicyDeck(items, 'test-gedaechtnis', (i) => i.text, 4);
     expect(stapel).toHaveLength(items.length);
     expect(items[stapel[2]].text, 'Gesehenes liegt nicht hinten').toBe('a');
   });

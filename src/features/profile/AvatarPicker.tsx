@@ -84,7 +84,7 @@ export function AvatarPicker({
           className="btn btn--glass"
           disabled={lädt}
           onClick={() => {
-            haptic('select');
+            haptic('tap');
             datei.current?.click();
           }}
         >

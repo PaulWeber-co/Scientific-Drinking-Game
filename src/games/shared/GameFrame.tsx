@@ -4,6 +4,7 @@ import { Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { keepScreenAwake } from '../../lib/wakelock';
 import { GameSettings, type HeatControl, type SpicyControl } from './GameSettings';
+import { GlassButton } from './GlassButton';
 
 interface Props {
   title: string;
@@ -52,6 +53,7 @@ export function GameFrame({
         </div>
         <div className="game__action">
           {action}
+          <GlassButton />
           <GameSettings heat={heat} spicy={spicy} />
         </div>
       </header>
