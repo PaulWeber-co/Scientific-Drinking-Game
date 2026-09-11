@@ -67,7 +67,7 @@ export function GlassButton() {
   /** Der schnelle Weg: ein volles Glas des eingestellten Getränks, jetzt. */
   const logGlass = useCallback(
     (playerId: string) => {
-      haptic('success');
+      haptic('sip');
       logSipsFor(playerId, sipsPerServing(drink), 'glas');
       lastTarget.current = playerId;
       showNote(`Glas${whoLabel(playerId)} eingetragen`);

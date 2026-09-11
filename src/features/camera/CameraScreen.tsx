@@ -74,7 +74,7 @@ export default function CameraScreen() {
 
       <div className="viewfinder__top">
         <button
-          className="viewfinder__ico pressable"
+          className="viewfinder__ico hit pressable"
           onClick={() => {
             haptic('tap');
             nav(-1);

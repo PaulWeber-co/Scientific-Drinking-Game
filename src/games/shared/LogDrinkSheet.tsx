@@ -97,7 +97,7 @@ export function LogDrinkSheet({
   const pick = (drink: DrinkDefinition) => {
     const sips = sipsForGlasses(drink, GLASSES[amount]);
     const at = Date.now() - Number(ago) * HOUR_MS;
-    haptic('success');
+    haptic('sip');
     onLog(playerId, drink, sips, at);
     close();
   };
