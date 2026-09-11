@@ -258,6 +258,8 @@ function de(value: number, digits: number): string {
 function sourceLabel(source?: string): string | null {
   if (!source) return null;
   if (source === 'manuell') return 'Selbst eingetragen';
+  if (source === 'glas') return 'Glas ausgetrunken';
+  if (source === 'vorher') return 'Vor dem Start';
   return GAMES.find((g) => g.id === source)?.name ?? null;
 }
 

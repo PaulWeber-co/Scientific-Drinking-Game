@@ -123,7 +123,19 @@ export interface PartyValue {
   /** Setzt Filmlänge und Entwicklungszeit für die ganze Runde (nur der Host). */
   setFilm: (patch: { rolls?: number; developAfterH?: number }) => void;
   dispatch: (action: GameActionInput) => void;
-  logSipsFor: (playerId: string, sips: number, source?: string) => void;
+  /**
+   * `at` datiert zurück (Nachtrag „ich hatte schon zwei"), `drinkId` bucht
+   * auf ein anderes Getränk als das eingestellte (halbes Glas, Shot
+   * zwischendurch). Ohne beides bleibt es der Weg, den die Spiele nutzen.
+   */
+  logSipsFor: (
+    playerId: string,
+    sips: number,
+    source?: string,
+    opts?: { at?: number; drinkId?: string },
+  ) => void;
+  /** Nimmt den letzten Eintrag dieser Person zurück – auch bei Gästen. */
+  undoLastFor: (playerId: string) => void;
 }
 
 /** Exportiert, damit Tests eine Runde ohne Firebase nachstellen können. */
@@ -140,6 +152,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const currentDrinkId = usePlayer((s) => s.currentDrinkId);
   const customDrinks = usePlayer((s) => s.customDrinks);
   const logEvent = usePlayer((s) => s.logEvent);
+  const undoLast = usePlayer((s) => s.undoLast);
   const log = usePlayer((s) => s.log);
   const setLastLobbyCode = useApp((s) => s.setLastLobbyCode);
 
@@ -675,22 +688,43 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }, [localPlayers]);
 
   const logSipsFor = useCallback(
-    (playerId: string, sips: number, source?: string) => {
+    (playerId: string, sips: number, source?: string, opts?: { at?: number; drinkId?: string }) => {
       if (sips <= 0) return;
       if (playerId === myId) {
-        logEvent(makeDrinkEvent(findDrink(currentDrinkId, customDrinks), sips, source));
+        const drink = findDrink(opts?.drinkId ?? currentDrinkId, customDrinks);
+        logEvent(makeDrinkEvent(drink, sips, source, opts?.at));
         return;
       }
       setLocalPlayers((prev) =>
         prev.map((p) => {
           if (p.id !== playerId || !p.local) return p;
-          const drink = findDrink(p.local.drinkId);
-          const ev: DrinkEvent = makeDrinkEvent(drink, sips, source);
+          const drink = findDrink(opts?.drinkId ?? p.local.drinkId);
+          const ev: DrinkEvent = makeDrinkEvent(drink, sips, source, opts?.at);
           return { ...p, local: { ...p.local, log: [...p.local.log, ev] } };
         }),
       );
     },
     [myId, logEvent, currentDrinkId, customDrinks],
+  );
+
+  // Gäste hatten bisher keinen Rückweg: `undoLast` im Store kennt nur das
+  // eigene Log. Ohne diesen Zweig ist ein Fehlgriff bei einem Gast nicht
+  // mehr zu korrigieren.
+  const undoLastFor = useCallback(
+    (playerId: string) => {
+      if (playerId === myId) {
+        undoLast();
+        return;
+      }
+      setLocalPlayers((prev) =>
+        prev.map((p) =>
+          p.id === playerId && p.local
+            ? { ...p, local: { ...p.local, log: p.local.log.slice(0, -1) } }
+            : p,
+        ),
+      );
+    },
+    [myId, undoLast],
   );
 
   const value: PartyValue = {
@@ -719,6 +753,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setFilm,
     dispatch,
     logSipsFor,
+    undoLastFor,
   };
 
   return <PartyCtx.Provider value={value}>{children}</PartyCtx.Provider>;

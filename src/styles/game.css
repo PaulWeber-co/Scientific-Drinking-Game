@@ -58,6 +58,50 @@
 .game__settings:active {
   transform: scale(0.88);
 }
+.sipbtn {
+  /* Gleiche Zielflaeche wie Zahnrad und Beenden-Knopf gegenueber. */
+  width: 44px;
+  height: 44px;
+  border: 5px solid transparent;
+  background-clip: padding-box;
+  border-radius: 50%;
+  /* Eingefaerbt, nicht grau: der Knopf steht zwischen Zahnrad und
+     Beenden-Kreuz, und drei gleiche Kreise sind im dunklen Raum nicht zu
+     unterscheiden. Ein Fehlgriff auf das Kreuz beendet die Runde fuer alle. */
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-2));
+  color: var(--label);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease-spring);
+  /* Ohne beides zieht iOS beim langen Druck die Lupe und das Kopieren-Menue
+     hoch, und die Mengen-Auswahl kommt nie an. */
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sipbtn:active {
+  transform: scale(0.88);
+}
+.sipnote {
+  /* Haengt unter der Kopfzeile, statt das Spielfeld zu verschieben. */
+  position: absolute;
+  top: 100%;
+  left: var(--s-3);
+  right: var(--s-3);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--label);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+}
+.sipnote__undo {
+  color: var(--accent);
+  flex-shrink: 0;
+}
 .game__close {
   /* Sichtbar 34 px, Zielfläche 44 px: transparenter Rand. */
   width: 44px;

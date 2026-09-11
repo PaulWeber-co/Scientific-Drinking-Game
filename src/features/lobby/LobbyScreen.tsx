@@ -21,6 +21,8 @@ import type { GamePlayer } from '../../games/types';
 import { GameCard } from '../games/GameCard';
 import { useParty } from '../party/PartyContext';
 import { useApp } from '../../store/app';
+import { usePlayer } from '../../store/player';
+import { PreloadSheet } from '../drinks/PreloadSheet';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -30,11 +32,26 @@ export function LobbyScreen() {
   const [editing, setEditing] = useState<GamePlayer | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [preloadOpen, setPreloadOpen] = useState(false);
+  const preloadAskedAt = usePlayer((s) => s.preloadAskedAt);
+  const alcoholFree = usePlayer((s) => s.profile?.alcoholFree ?? false);
   const lastCode = useApp((s) => s.lastLobbyCode);
   const markGamePlayed = useApp((s) => s.markGamePlayed);
 
   const online = party.mode === 'online' && !!party.code;
   const players = party.players;
+
+  // Von selbst fragt die App nur beim Beitreten einer ONLINE-Lobby – das ist
+  // der eine klare Moment, an dem der Abend für diese Person beginnt.
+  //
+  // Im Pass-&-Play-Modus gibt es diesen Moment nicht: dort ist das Anlegen der
+  // Gäste der Einstieg, und ein Sheet, das nach dem ersten Gast aufspringt,
+  // unterbricht genau dabei. Deshalb steht die Frage dort als Zeile in der
+  // Lobby statt als Fenster davor.
+  const fragenOffen = preloadAskedAt === null && !alcoholFree;
+  useEffect(() => {
+    if (online && fragenOffen) setPreloadOpen(true);
+  }, [online, fragenOffen]);
   const suitable = gamesForGroup(players.length, online);
 
   // Wer wartet, schaut nicht dauernd aufs Display. Ein Beitritt ist die
@@ -155,6 +172,17 @@ export function LobbyScreen() {
 
         <GroupLevel players={players} />
 
+        {!online && fragenOffen && players.length > 1 && (
+          <button
+            className="notice notice--orange row"
+            style={{ textAlign: 'left', width: '100%' }}
+            onClick={() => setPreloadOpen(true)}
+          >
+            <span className="grow">Schon was getrunken, bevor es losging?</span>
+            <Icon name="chevronRight" size={17} />
+          </button>
+        )}
+
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">
@@ -251,6 +279,7 @@ export function LobbyScreen() {
       />
       <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} />
       <AddPlayerSheet open={editing !== null} onClose={() => setEditing(null)} edit={editing} />
+      <PreloadSheet open={preloadOpen} onClose={() => setPreloadOpen(false)} />
     </div>
   );
 }

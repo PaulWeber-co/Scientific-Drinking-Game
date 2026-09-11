@@ -19,6 +19,12 @@ interface PlayerState {
   nightStartedAt: number | null;
   /** Gläser Wasser heute Abend – zählt nur, wer will. */
   waterCount: number;
+  /**
+   * Wann zuletzt gefragt wurde, was vor dem Start schon getrunken war.
+   * `null` heißt: diesen Abend noch nicht gefragt. Ohne diesen Startwert
+   * rechnet die Promille-Schätzung mit einem Nullpunkt, den es nie gab.
+   */
+  preloadAskedAt: number | null;
 
   setProfile: (p: Profile) => void;
   patchProfile: (p: Partial<Profile>) => void;
@@ -30,6 +36,8 @@ interface PlayerState {
   logEvent: (e: DrinkEvent) => void;
   undoLast: () => void;
   addWater: () => void;
+  /** Merkt, dass die Frage nach dem Vorglühen gestellt wurde. */
+  markPreloadAsked: () => void;
   /** Startet den Abend ohne Trink-Ereignis – etwa wenn ein Spiel losgeht. */
   beginNight: () => void;
   endNight: () => void;
@@ -49,6 +57,7 @@ export const usePlayer = create<PlayerState>()(
       log: [],
       nightStartedAt: null,
       waterCount: 0,
+      preloadAskedAt: null,
 
       setProfile: (profile) => set({ profile }),
       patchProfile: (patch) =>
@@ -77,6 +86,7 @@ export const usePlayer = create<PlayerState>()(
         })),
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
       addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
+      markPreloadAsked: () => set({ preloadAskedAt: Date.now() }),
       beginNight: () =>
         set((s) => (s.nightStartedAt ? s : { nightStartedAt: Date.now() })),
 
@@ -103,7 +113,7 @@ export const usePlayer = create<PlayerState>()(
           useFilm.getState().assignNight(nightId);
           useFilm.getState().resetRoll();
         }
-        set({ log: [], nightStartedAt: null, waterCount: 0 });
+        set({ log: [], nightStartedAt: null, waterCount: 0, preloadAskedAt: null });
       },
       resetAll: () => {
         useNights.getState().clearAll();
@@ -114,6 +124,7 @@ export const usePlayer = create<PlayerState>()(
           log: [],
           nightStartedAt: null,
           waterCount: 0,
+          preloadAskedAt: null,
           customDrinks: [],
           currentDrinkId: 'beer-pils',
         });
