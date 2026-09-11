@@ -28,12 +28,15 @@ export interface PrintLayout {
  * Papierformat für ein Bild dieser Größe.
  *
  * Die Ränder wachsen mit dem Bild, damit ein Abzug bei jeder Auflösung
- * gleich aussieht: 2,3 % an den Seiten, 8,6 % unten – dasselbe Verhältnis
- * wie `--paper-pad` zu `--paper-pad-b` auf dem Bildschirm.
+ * gleich aussieht: 2,3 % der langen Kante an den Seiten, 8,6 % unten –
+ * dasselbe Verhältnis wie `--paper-pad` zu `--paper-pad-b` auf dem
+ * Bildschirm. Die LANGE Kante, damit ein hoher und ein querer Abzug
+ * denselben Rand tragen: das Labor schnitt beide vom selben Papier.
  */
 export function printLayout(imageW: number, imageH: number): PrintLayout {
-  const pad = Math.round(imageW * 0.023);
-  const padBottom = Math.round(imageW * 0.086);
+  const edge = Math.max(imageW, imageH);
+  const pad = Math.round(edge * 0.023);
+  const padBottom = Math.round(edge * 0.086);
   return {
     width: imageW + pad * 2,
     height: imageH + pad + padBottom,

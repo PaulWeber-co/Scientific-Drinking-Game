@@ -8,7 +8,7 @@ import {
   myShotsLeft,
   type Photo,
 } from '../../store/film';
-import { DISPOSABLE, applyFilmLook, viewfinderCrop } from './filmLook';
+import { DISPOSABLE, applyFilmLook, photoFormat, viewfinderCrop } from './filmLook';
 import { printLayout } from './print';
 
 describe('Anteil am Film', () => {
@@ -120,10 +120,52 @@ describe('Einwegkamera-Look', () => {
   });
 });
 
+describe('Fotoformat', () => {
+  it('belichtet hoch, wenn die Kamera hoch liefert', () => {
+    // Aufrecht gehalten liefert das Handy einen hohen Stream. Das Foto war
+    // trotzdem 3:2 quer – ein Streifen aus der Mitte, oben und unten weg.
+    expect(photoFormat(1080, 1920)).toEqual({ w: 1080, h: 1620 });
+  });
+
+  it('belichtet quer, wenn die Kamera quer liefert', () => {
+    expect(photoFormat(1920, 1080)).toEqual({ w: 1620, h: 1080 });
+  });
+});
+
 describe('Sucher-Versatz', () => {
-  it('schneidet auf 3:2 zu', () => {
-    const { w, h } = viewfinderCrop(1200, 1600);
+  it('schneidet einen hohen Stream auf 2:3 zu', () => {
+    const { w, h } = viewfinderCrop(1080, 1920);
+    expect(w / h).toBeCloseTo(2 / 3, 5);
+  });
+
+  it('schneidet einen queren Stream auf 3:2 zu', () => {
+    const { w, h } = viewfinderCrop(1200, 800);
     expect(w / h).toBeCloseTo(3 / 2, 5);
+  });
+
+  it('bleibt innerhalb des Streams', () => {
+    // Ein Ausschnitt ausserhalb der Quelle liefert schwarze Raender –
+    // genau das saehe nach „abgeschnitten" aus.
+    for (const [sw, sh] of [
+      [1080, 1920],
+      [1920, 1080],
+      [640, 480],
+      [1440, 1920],
+    ]) {
+      const { x, y, w, h } = viewfinderCrop(sw, sh);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(x + w).toBeLessThanOrEqual(sw);
+      expect(y + h).toBeLessThanOrEqual(sh);
+    }
+  });
+
+  it('nimmt fast den ganzen Stream mit', () => {
+    // Der Sucher ist ein Fenster im selben Format: Der Ausschnitt muss den
+    // Grossteil davon decken, sonst fehlt wieder, was man beim Zielen sah.
+    const { w, h } = viewfinderCrop(1080, 1920);
+    expect(w / 1080).toBeGreaterThan(0.9);
+    expect(h / 1620).toBeGreaterThan(0.9);
   });
 
   it('zeigt weniger, als der Sucher zeigte, und verschoben', () => {
@@ -228,6 +270,17 @@ describe('Abzug', () => {
     expect(l.height).toBe(1080 + l.pad + l.padBottom);
     // Der breite Rand unten ist das ganze Erkennungszeichen eines Abzugs.
     expect(l.padBottom).toBeGreaterThan(l.pad * 2);
+  });
+
+  it('gibt einem hohen Abzug denselben Rand wie einem queren', () => {
+    // Beide kommen vom selben Papier – ein schmalerer Rand am hohen Bild
+    // saehe nach einem anderen Labor aus.
+    const hoch = printLayout(1080, 1620);
+    const quer = printLayout(1620, 1080);
+    expect(hoch.pad).toBe(quer.pad);
+    expect(hoch.padBottom).toBe(quer.padBottom);
+    expect(hoch.width).toBe(1080 + hoch.pad * 2);
+    expect(hoch.height).toBe(1620 + hoch.pad + hoch.padBottom);
   });
 
   it('haelt die Raender im Verhaeltnis zum Bild', () => {

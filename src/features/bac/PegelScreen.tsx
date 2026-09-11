@@ -6,13 +6,17 @@ import {
   BETA_TYPICAL,
 } from '../../engine/constants';
 import { ZONE_META, bacZone, drivingLight, estimateBac, residualBac, soberAt } from '../../engine/bac';
-import { alcoholPerSip } from '../../engine/drinks';
+import { findDrink } from '../../engine/drinks';
+import { formatEntry } from '../../engine/tally';
 import { formatBac, formatDuration, formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
-import { NavBar, Sheet, Stepper } from '../../components/ui';
+import { NavBar, Stepper } from '../../components/ui';
 import { BacGauge } from './BacGauge';
 import { useLiveBac } from './useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
+import { TableTally } from '../drinks/TableTally';
+import { LogDrinkSheet } from '../../games/shared/LogDrinkSheet';
+import { useParty } from '../party/PartyContext';
 import { NightReview } from './NightReview';
 import { NightsList } from './NightsList';
 import { Stat } from './Stat';
@@ -24,15 +28,16 @@ const HOUR = 3_600_000;
 export function PegelScreen() {
   const profile = usePlayer((s) => s.profile);
   const log = usePlayer((s) => s.log);
-  const logSips = usePlayer((s) => s.logSips);
+  const customs = usePlayer((s) => s.customDrinks);
   const undoLast = usePlayer((s) => s.undoLast);
+  const removeEvent = usePlayer((s) => s.removeEvent);
+  const party = useParty();
   const endNight = usePlayer((s) => s.endNight);
   const nightStartedAt = usePlayer((s) => s.nightStartedAt);
   const drink = useCurrentDrink();
   const { estimate, now } = useLiveBac();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [manualSips, setManualSips] = useState(4);
   const [driveHour, setDriveHour] = useState(8);
   const [reviewOpen, setReviewOpen] = useState(false);
 
@@ -148,6 +153,8 @@ export function PegelScreen() {
           </div>
         </section>
 
+        <TableTally />
+
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">Trink-Log</h2>
@@ -181,20 +188,35 @@ export function PegelScreen() {
           </div>
           {log.length ? (
             <div className="list">
+              {/* Nach Uhrzeit, nicht nach Eingabe: ein nachgetragener
+                  Eintrag von vorhin gehört nach unten, nicht nach oben. */}
               {[...log]
-                .reverse()
+                .sort((a, b) => b.at - a.at)
                 .slice(0, 20)
                 .map((e) => (
                   <div key={e.id} className="list__item">
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
-                        {e.sips}× {e.drinkName}
+                        {formatEntry(findDrink(e.drinkId, customs), e.sips, e.drinkName)}
                       </span>
                       <span className="t-caption">
                         {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
                         {sourceLabel(e.source) ? ` · ${sourceLabel(e.source)}` : ''}
                       </span>
                     </span>
+                    {/* Jeder Eintrag einzeln, nicht nur der letzte: der
+                        Fehlgriff von vor einer Stunde ist sonst nicht mehr
+                        zu korrigieren. */}
+                    <button
+                      className="btn btn--plain"
+                      aria-label={`Eintrag ${formatTime(e.at)} entfernen`}
+                      onClick={() => {
+                        haptic('warn');
+                        removeEvent(e.id);
+                      }}
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
                   </div>
                 ))}
             </div>
@@ -221,30 +243,17 @@ export function PegelScreen() {
 
       <NightReview open={reviewOpen} onClose={() => setReviewOpen(false)} onEnd={endNight} />
       <DrinkPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
-      <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Selbst getrunken">
-        <div className="stack">
-          <p className="t-sub row">
-            <Icon name={drink.icon} size={17} />
-            {drink.name} · {alcoholPerSip(drink).toFixed(1).replace('.', ',')} g pro{' '}
-            {drink.sipIsUnit ? 'Shot' : 'Schluck'}
-          </p>
-          <Stepper value={manualSips} onChange={setManualSips} min={1} max={40} unit={drink.sipIsUnit ? ' Shots' : ' Schlucke'} />
-          <div className="t-caption t-center">
-            entspricht {(manualSips * alcoholPerSip(drink)).toFixed(1).replace('.', ',')} g reinem
-            Alkohol
-          </div>
-          <button
-            className="btn btn--brand btn--block btn--lg"
-            onClick={() => {
-              haptic('success');
-              logSips(manualSips, 'manuell');
-              setAddOpen(false);
-            }}
-          >
-            Eintragen
-          </button>
-        </div>
-      </Sheet>
+      {/* Auf einem geteilten Handy kann hier auch für die Gäste eingetragen
+          werden – online gehört das Handy genau einer Person. */}
+      <LogDrinkSheet
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        players={party.mode === 'local' ? party.players : [party.me]}
+        meId={party.me.id}
+        onLog={(playerId, d, sips, at) =>
+          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
+        }
+      />
     </div>
   );
 }
@@ -258,6 +267,8 @@ function de(value: number, digits: number): string {
 function sourceLabel(source?: string): string | null {
   if (!source) return null;
   if (source === 'manuell') return 'Selbst eingetragen';
+  if (source === 'glas') return 'Glas ausgetrunken';
+  if (source === 'vorher') return 'Vor dem Start';
   return GAMES.find((g) => g.id === source)?.name ?? null;
 }
 

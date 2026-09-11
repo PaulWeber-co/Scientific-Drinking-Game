@@ -64,6 +64,18 @@ beforeEach(() => {
   vi.mocked(stopSounds).mockClear();
 });
 
+describe('Wortbombe: scharf machen', () => {
+  it('lässt einen zweiten Start die laufende Zündschnur nicht zurücksetzen', () => {
+    // Online steht der Knopf auf jedem Handy; zwei schnelle Taps kommen als
+    // zwei Aktionen beim Host an. Der zweite darf nichts mehr ändern.
+    const start = wortbombe.createState(spieler);
+    const scharf = wortbombe.reduce(start, { type: 'start', by: 'p0', at: 1 }, spieler);
+    expect(scharf.phase).toBe('running');
+    const nochmal = wortbombe.reduce(scharf, { type: 'start', by: 'p1', at: 2 }, spieler);
+    expect(nochmal).toBe(scharf);
+  });
+});
+
 describe('Wortbombe: der Knall', () => {
   // Reihenfolge festnageln: `createState` mischt, sonst waere der „Nicht-Halter"
   // mal doch der Halter und der Lauf nur manchmal rot.

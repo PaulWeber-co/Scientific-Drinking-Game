@@ -102,6 +102,10 @@ const VARIANTS: Record<string, unknown>[] = [
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
   { outcome: 'refused' },
+  // Nur der NAME. Eine gueltige Handkarte ist ein Index in einen gemischten
+  // Stapel von 600 – den trifft kein fester Wert. Die echten Werte liefert
+  // `handVariants()` aus dem Zustand.
+  { cards: [] },
   // Ring of Fire: der Finger waehlt einen Platz im Kranz. 51 prueft den Rand,
   // 200 einen Platz, den es gar nicht gibt.
   { slot: 51 },
@@ -151,7 +155,29 @@ function personVariants(roster: GamePlayer[]): Record<string, unknown>[] {
   return roster.map((p) => ({ id: p.id, target: p.id, winner: p.id, who: p.id }));
 }
 
-const variantsFor = (roster: GamePlayer[]) => [...VARIANTS, ...personVariants(roster)];
+/**
+ * Kartenbezuege aus dem ZUSTAND erzeugt, nicht geraten: eine Handkarte ist ein
+ * Index in einen gemischten Stapel von 600 Karten. Ein fester Wert trifft ihn
+ * praktisch nie, und der Sackgassen-Test meldet dann ein gesundes Spiel als
+ * kaputt – genau der Fall, den `personVariants` fuer IDs schon loest.
+ */
+function handVariants(state: unknown): Record<string, unknown>[] {
+  const hands = (state as { hands?: Record<string, number[]> } | null)?.hands;
+  if (!hands) return [];
+  const out: Record<string, unknown>[] = [];
+  for (const cards of Object.values(hands)) {
+    if (!Array.isArray(cards) || !cards.length) continue;
+    out.push({ cards: cards.slice(0, 1) });
+    if (cards.length > 1) out.push({ cards: cards.slice(0, 2) });
+  }
+  return out;
+}
+
+const variantsFor = (roster: GamePlayer[], state?: unknown) => [
+  ...VARIANTS,
+  ...personVariants(roster),
+  ...handVariants(state),
+];
 
 function hasEscape(
   game: { reduce: (s: unknown, a: GameAction, p: GamePlayer[]) => unknown },
@@ -160,7 +186,7 @@ function hasEscape(
 ): boolean {
   for (const type of ACTION_TYPES) {
     if (ESCAPE_HATCHES.has(type)) continue;
-    for (const extra of variantsFor(roster)) {
+    for (const extra of variantsFor(roster, state)) {
       for (const by of roster) {
         if (game.reduce(state, act(type, by.id, extra), roster) !== state) return true;
       }
@@ -257,7 +283,7 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
             // Auch die Parameter durchrotieren: sonst wird `announce` immer
             // mit demselben Rang probiert und der Lauf erreicht nie den
             // Zustand „Maexchen steht", in dem die Sackgasse lag.
-            const alle = variantsFor(roster);
+            const alle = variantsFor(roster, state);
             for (let v = 0; v < alle.length && !moved; v++) {
               const extra = alle[(i + rot + v) % alle.length];
               const by = roster[(i + k) % roster.length].id;
