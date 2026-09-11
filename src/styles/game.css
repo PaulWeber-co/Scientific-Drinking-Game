@@ -1796,3 +1796,86 @@
     animation-delay: 0ms;
   }
 }
+
+/* --- Lückenfüller ---------------------------------------------------- */
+
+/* Die Hand liegt als waagerechte Reihe am Daumen, nicht als Liste. Bei
+   390 px sind zweieinhalb Karten sichtbar; die angeschnittene dritte sagt,
+   dass es weitergeht. Muster: Evil Apples. */
+.lf-hand {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: var(--s-2) var(--s-3);
+  margin: 0 calc(-1 * var(--s-3));
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.lf-hand::-webkit-scrollbar {
+  display: none;
+}
+.lf-card {
+  /* Weiß in beiden Themes – eine Spielkarte ist Papier, wie `.playcard`. */
+  flex: 0 0 auto;
+  width: 148px;
+  min-height: 190px;
+  scroll-snap-align: center;
+  border-radius: 14px;
+  background: #fff;
+  color: #111;
+  text-align: left;
+  padding: 14px;
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.lf-card--picked {
+  transform: translateY(-10px);
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.lf-card__no {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  /* Schwarz auf der weissen Karte statt Akzentfarbe: auf hellem Lila traegt
+     weisse Schrift den Kontrast nicht, und die Zahl ist bei zwei Luecken die
+     Reihenfolge – sie MUSS lesbar sein. */
+  background: #111;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.lf-answer {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--r-md);
+  background: #fff;
+  color: #111;
+  padding: var(--s-3);
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  animation: card-flip var(--dur) var(--ease-spring) both;
+}
+.lf-answer:disabled {
+  opacity: 1;
+}
+.lf-clock {
+  font-variant-numeric: tabular-nums;
+}
+.lf-clock--warn {
+  color: var(--red);
+  font-weight: 700;
+}
