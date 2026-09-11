@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Singen statt streamen. Die Runde rät.',
   icon: 'activity',
   accent: 'var(--pink)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '10-20 Min',
   intensity: 1,

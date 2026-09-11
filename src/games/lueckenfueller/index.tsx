@@ -50,10 +50,11 @@ export interface State {
   scores: Record<string, number>;
 }
 
-const blackDeckOf = () => spicyDeck(BLACK, 'lueckenfueller', (c) => c.text);
+const blackDeckOf = (playerCount: number) =>
+  spicyDeck(BLACK, 'lueckenfueller', (c) => c.text, playerCount);
 
-function whiteDeckOf(custom: string[]): Ref[] {
-  const eingebaut = spicyDeck(WHITE, 'lueckenfueller', (c) => c.text);
+function whiteDeckOf(custom: string[], playerCount: number): Ref[] {
+  const eingebaut = spicyDeck(WHITE, 'lueckenfueller', (c) => c.text, playerCount);
   return shuffle([...eingebaut, ...custom.map((_, i) => -i - 1)]);
 }
 
@@ -90,7 +91,7 @@ function nextJudge(players: GamePlayer[], currentId: string): string {
  */
 function startRound(state: State, players: GamePlayer[], round: number): State {
   const judgeId = nextJudge(players, state.judgeId);
-  const blackDeck = state.blackDeck.length ? state.blackDeck : blackDeckOf();
+  const blackDeck = state.blackDeck.length ? state.blackDeck : blackDeckOf(players.length);
   const black = blackDeck[0];
 
   let whiteDeck = state.whiteDeck;
@@ -100,7 +101,7 @@ function startRound(state: State, players: GamePlayer[], round: number): State {
     const hand = hands[p.id] ?? [];
     const fehlt = HAND - hand.length;
     if (fehlt <= 0) continue;
-    if (whiteDeck.length < fehlt) whiteDeck = [...whiteDeck, ...whiteDeckOf(state.custom)];
+    if (whiteDeck.length < fehlt) whiteDeck = [...whiteDeck, ...whiteDeckOf(state.custom, players.length)];
     hands[p.id] = [...hand, ...whiteDeck.slice(0, fehlt)];
     whiteDeck = whiteDeck.slice(fehlt);
   }
@@ -136,8 +137,8 @@ export const lueckenfueller: GameDefinition<State> = {
       judgeId: players[players.length - 1]?.id ?? '',
       black: 0,
       pick: 1,
-      blackDeck: blackDeckOf(),
-      whiteDeck: whiteDeckOf(custom),
+      blackDeck: blackDeckOf(players.length),
+      whiteDeck: whiteDeckOf(custom, players.length),
       custom,
       hands: {},
       played: {},

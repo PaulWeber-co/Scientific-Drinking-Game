@@ -104,8 +104,9 @@ const VARIANTS: Record<string, unknown>[] = [
   { outcome: 'refused' },
   // Nur der NAME. Eine gueltige Handkarte ist ein Index in einen gemischten
   // Stapel von 600 – den trifft kein fester Wert. Die echten Werte liefert
-  // `handVariants()` aus dem Zustand.
-  { cards: [] },
+  // `handVariants()` aus dem Zustand. `card` ist dasselbe fuer die einzelne
+  // Karte, die im Busfahrer auf die Pyramide gelegt wird.
+  { cards: [], card: -1, to: '' },
   // Ring of Fire: der Finger waehlt einen Platz im Kranz. 51 prueft den Rand,
   // 200 einen Platz, den es gar nicht gibt.
   { slot: 51 },
@@ -152,7 +153,7 @@ function readActionFields(): string[] {
  * Sackgassen-Test bei groesseren Runden ein gesundes Spiel als kaputt melden.
  */
 function personVariants(roster: GamePlayer[]): Record<string, unknown>[] {
-  return roster.map((p) => ({ id: p.id, target: p.id, winner: p.id, who: p.id }));
+  return roster.map((p) => ({ id: p.id, target: p.id, winner: p.id, who: p.id, to: p.id }));
 }
 
 /**
@@ -167,8 +168,11 @@ function handVariants(state: unknown): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];
   for (const cards of Object.values(hands)) {
     if (!Array.isArray(cards) || !cards.length) continue;
-    out.push({ cards: cards.slice(0, 1) });
-    if (cards.length > 1) out.push({ cards: cards.slice(0, 2) });
+    // `cards` fuer Lueckenfueller (eine Abgabe), `card` fuer Busfahrer (eine
+    // einzelne Handkarte in der Pyramide). Beide Werte stammen aus dem
+    // Zustand, nicht aus einer Liste geratener Zahlen.
+    out.push({ cards: cards.slice(0, 1), card: cards[0] });
+    if (cards.length > 1) out.push({ cards: cards.slice(0, 2), card: cards[1] });
   }
   return out;
 }
@@ -270,7 +274,11 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
     // drei Personen oder erst ab neun entsteht (etwa ein Modulo ueber
     // `order.length`), saehe ein Lauf mit fester Funferbesetzung strukturell nie.
     for (const g of DEFS) {
-      for (const groesse of [3, 5, 9]) {
+      // Zwei nur fuer die Spiele, die zu zweit ueberhaupt erlaubt sind – die
+      // uebrigen sind dort gesperrt, eine Sackgasse bei n=2 waere fuer sie
+      // kein Befund, sondern ein falsch rotes Ergebnis.
+      const groessen = g.minPlayers <= 2 ? [2, 3, 5, 9] : [3, 5, 9];
+      for (const groesse of groessen) {
         const rot = groesse % VARIANTS.length;
         const roster = players(groesse);
         let state: unknown = g.createState(roster);
@@ -299,7 +307,12 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
         }
       }
     }
-  });
+    // Eigenes Zeitlimit: 18 Spiele mal bis zu vier Rundengroessen mal 120
+    // Schritte mal alle Parametervarianten. Isoliert sind das rund 3 s, unter
+    // der vollen Suite auf dieser Maschine ueber 5 – und 5 s ist der
+    // Standardwert von Vitest. Ohne das Limit wird der Test flakig, sobald
+    // eine Gruppengroesse dazukommt.
+  }, 30_000);
 
   it('deckt jedes Feld ab, das ein Reducer aus der Aktion liest', () => {
     // Ohne diesen Test faellt eine fehlende Parametervariante als
@@ -345,7 +358,7 @@ describe('Registry', () => {
       expect(g.name.length).toBeGreaterThan(2);
       expect(g.tagline.length).toBeGreaterThan(5);
       expect(g.howTo.length).toBeGreaterThanOrEqual(2);
-      expect(g.minPlayers).toBeGreaterThanOrEqual(3);
+      expect(g.minPlayers).toBeGreaterThanOrEqual(2);
       expect(g.maxPlayers).toBeGreaterThan(g.minPlayers);
       expect(g.tags.length).toBeGreaterThan(0);
       expect(g.accent).toMatch(/^var\(--/);
@@ -353,10 +366,43 @@ describe('Registry', () => {
     }
   });
 
-  it('deckt die Zielgruppe von 4 bis 16 Spielern ab', () => {
-    for (let n = 4; n <= 16; n++) {
+  it('deckt die Zielgruppe von 2 bis 16 Spielern ab', () => {
+    for (let n = 2; n <= 16; n++) {
       expect(gamesForGroup(n, true).length, `${n} Spieler`).toBeGreaterThan(0);
       expect(gamesForGroup(n, false).length, `${n} Spieler ohne Lobby`).toBeGreaterThan(0);
+    }
+  });
+
+  // Die Untergrenze allein bindet nicht: sobald EIN Spiel auf zwei steht, ist
+  // sie wahr. Diese beiden Zeilen halten die getroffene AUSWAHL fest – welche
+  // Spiele zu zweit laufen und welche es aus Mechanikgründen nicht tun.
+  it('laesst genau die Spiele zu zweit zu, deren Mechanik das traegt', () => {
+    const zuZweit = gamesForGroup(2, true).map((g) => g.id).sort();
+    expect(zuZweit).toEqual(
+      [
+        'busfahrer',
+        'chaos-roulette',
+        'duell',
+        'erste-zeile',
+        'kategorien',
+        'kings-cup',
+        'maexchen',
+        'most-likely',
+        'never-have-i-ever',
+        'schaetzfrage',
+        'truth-or-dare',
+        'wortbombe',
+        'zwei-wahrheiten',
+      ].sort(),
+    );
+  });
+
+  it('haelt die fuenf Spiele draussen, die mehr Leute brauchen', () => {
+    // Undercover braucht Verdaechtige, Meme Battle und Lueckenfueller eine
+    // Jury, Tabu zwei Teams, und Top Ten waere bei zwei Eintraegen immer
+    // "perfekt". Sie stehen bewusst hoeher.
+    for (const id of ['undercover', 'meme-battle', 'lueckenfueller', 'tabu', 'top-ten']) {
+      expect(getGame(id)!.minPlayers, id).toBeGreaterThanOrEqual(3);
     }
   });
 
@@ -529,7 +575,7 @@ describe('Ring of Fire', () => {
 describe('Busfahrer', () => {
   const game = getLoadedGame('busfahrer')!;
 
-  it('durchlaeuft vier Fragen pro Spieler und bestimmt dann den Fahrer', () => {
+  it('durchlaeuft Fragerunde und Pyramide und bestimmt dann den Fahrer', () => {
     const roster = players(3);
     let s = game.createState(roster);
     for (let p = 0; p < 3; p++) {
@@ -538,6 +584,15 @@ describe('Busfahrer', () => {
         expect(s.lastResult).not.toBeNull();
         s = game.reduce(s, act('continue'), roster);
       }
+    }
+    expect(s.phase, 'nach den Fragen kommt die Pyramide').toBe('pyramid');
+    for (const id of roster.map((r) => r.id)) {
+      expect(s.hands[id], `${id} behaelt seine vier Karten`).toHaveLength(4);
+    }
+    // Zehn Karten aufdecken, ohne dass jemand ablegt.
+    for (let i = 0; i < 10; i++) {
+      s = game.reduce(s, act('pyFlip'), roster);
+      s = game.reduce(s, act('pyPass'), roster);
     }
     expect(s.phase).toBe('bus');
     expect(s.driverId).toBeTruthy();

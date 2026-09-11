@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Alle zeigen gleichzeitig. Wer gezeigt wird, trinkt.',
   icon: 'people',
   accent: 'var(--orange)',
-  minPlayers: 4,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '10-20 Min',
   intensity: 2,

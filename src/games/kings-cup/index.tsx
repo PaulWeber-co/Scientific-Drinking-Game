@@ -95,6 +95,11 @@ export function seatSplit(order: string[], actorId: string): { left: string[]; r
   const i = order.indexOf(actorId);
   const others = order.filter((id) => id !== actorId);
   if (i === -1 || !others.length) return { left: [], right: [] };
+  // Zu zweit sitzt die andere Person links UND rechts von dir. Ohne diesen
+  // Fall bekäme „rechts" sie und „links" niemanden – die Karte „Links" träfe
+  // dann niemanden und würde STUMM nichts anzeigen (`DrinkCallList` rendert
+  // bei leerer Liste nichts). Ein toter Zug, kein Fehler, den man sieht.
+  if (others.length === 1) return { left: others, right: others };
   const n = order.length;
   const rightCount = Math.ceil(others.length / 2);
   const right = Array.from({ length: rightCount }, (_, k) => order[(i + k + 1) % n]);

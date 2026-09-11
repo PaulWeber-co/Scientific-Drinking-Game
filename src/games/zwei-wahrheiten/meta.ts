@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Drei Aussagen. Eine stimmt nicht.',
   icon: 'quotes',
   accent: 'var(--green)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 12,
   duration: '15-30 Min',
   intensity: 1,
