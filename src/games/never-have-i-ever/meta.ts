@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Handy weg. Karte lesen. Ehrlich sein.',
   icon: 'eyeOff',
   accent: 'var(--teal)',
-  minPlayers: 4,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '10-25 Min',
   intensity: 2,

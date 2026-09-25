@@ -235,10 +235,10 @@ export function LobbyScreen() {
           <button className="btn btn--glass btn--block" onClick={() => setLogOpen(true)}>
             <Icon name="plus" size={17} /> Getrunken eintragen
           </button>
-          {players.length < 3 && (
+          {players.length < 2 && (
             <div className="notice notice--neutral">
-              Die meisten Spiele brauchen mindestens 3 Personen. Für 4-16 Spieler ist die App
-              gebaut.
+              Allein geht noch nichts. Ab zwei Personen sind Spiele dabei, die volle Auswahl
+              gibt es ab vier.
             </div>
           )}
         </section>

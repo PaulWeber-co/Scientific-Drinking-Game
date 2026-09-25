@@ -11,6 +11,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
+import { fitsGroup } from '../shared/prompts';
 import type { GameAction, GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 
@@ -25,7 +26,7 @@ export type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 export function createCardGame(config: CardGameConfig): GameDefinition<CardGameState> {
   /** Alle Karten inklusive der selbst angelegten, gefiltert nach Härte, Modus
    *  und Spicy-Einstellung. */
-  const pool = (heat: Heat, mode: string | null): CardDef[] => {
+  const pool = (heat: Heat, mode: string | null, playerCount: number): CardDef[] => {
     const all = config.allowCustomCards
       ? [...config.cards, ...customCardsFor(config.id)]
       : config.cards;
@@ -37,7 +38,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       // die Ausnahme fielen sie durch den Härtefilter, weil sie alle heat 3
       // tragen, und der Schalter täte sichtbar nichts.
       .filter((c) => c.spicy || (c.heat ?? 1) <= heat)
-      .filter((c) => !mode || !c.mode || c.mode === mode);
+      .filter((c) => !mode || !c.mode || c.mode === mode)
+      // Karten, die auf die Gruppe zeigen, fallen in kleinen Runden raus.
+      .filter((c) => fitsGroup(c, playerCount));
 
     // Gleicher Text = dieselbe Karte. Sie lägen sonst doppelt im Stapel und
     // wären fürs Gedächtnis nicht unterscheidbar, weil es über den Text geht.
@@ -62,8 +65,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
    *
    * Läuft nur beim Host, wie alles im Reducer.
    */
-  const freshDeck = (heat: Heat, mode: string | null): CardDef[] =>
-    orderByFreshness(shuffle(pool(heat, mode)), (card) => card.text);
+  const freshDeck = (heat: Heat, mode: string | null, playerCount: number): CardDef[] =>
+    orderByFreshness(shuffle(pool(heat, mode, playerCount)), (card) => card.text);
 
   const startsWithChoice = Boolean(config.modes) && config.actor === 'turn';
 
@@ -72,7 +75,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
   const ROUND_BASE = baseFor(config.id);
 
   const createState = (players: GamePlayer[]): CardGameState => {
-    const deck = freshDeck(config.intensity, null);
+    const deck = freshDeck(config.intensity, null, players.length);
     return {
       order: shuffle(players.map((p) => p.id)),
       turnIndex: 0,
@@ -98,7 +101,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
-        const deck = freshDeck(heat, state.mode);
+        const deck = freshDeck(heat, state.mode, players.length);
         // Solange die Karte nur daliegt, wird sie mitgetauscht: sonst wirkt
         // der Regler tot, weil die neue Härte erst eine Karte später sichtbar
         // wird. Ist die Karte schon aufgelöst, bleibt sie stehen – dort hängt
@@ -108,7 +111,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       }
       case 'pickMode': {
         const mode = String(action.mode);
-        const deck = freshDeck(state.heat, mode);
+        const deck = freshDeck(state.heat, mode, players.length);
         return {
           ...state,
           mode,
@@ -118,7 +121,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         };
       }
       case 'draw': {
-        const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode);
+        const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
         return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card' };
       }
       case 'resolve':
@@ -141,7 +144,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         // Die Ziellinie liegt am Ende eines vollen Durchlaufs, damit niemand
         // mittendrin aussteigt, während andere schon dran waren.
         if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
-        const deck = state.deck.length ? state.deck : freshDeck(state.heat, null);
+        const deck = state.deck.length ? state.deck : freshDeck(state.heat, null, players.length);
         return {
           ...state,
           order,

@@ -115,7 +115,7 @@ export const topTen: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => {
-    const deck = spicyDeck(CATEGORIES, 'top-ten', (c) => c.title);
+    const deck = spicyDeck(CATEGORIES, 'top-ten', (c) => c.title, players.length);
     const ids = players.map((p) => p.id);
     return {
       phase: 'writing',
@@ -171,7 +171,7 @@ export const topTen: GameDefinition<State> = {
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
         // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
         if (state.phase !== 'results') return state;
-        const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten', (c) => c.title);
+        const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten', (c) => c.title, players.length);
         const ids = players.map((p) => p.id);
         const round = state.round + 1;
         const perfect = scoreCaptain(state, players);

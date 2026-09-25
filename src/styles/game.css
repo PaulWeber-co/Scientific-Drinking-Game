@@ -489,6 +489,47 @@
 .playcard__mid {
   margin: 0 auto;
 }
+/* Zwei kleinere Maße derselben Karte. `lg` (oben) bleibt unangetastet – Ring
+   of Fire zeigt genau eine Karte und braucht sie groß. Alle drei liegen auf
+   5:7, dem Maß einer echten Spielkarte. */
+.playcard--md {
+  width: 76px;
+  height: 106px;
+  border-radius: 11px;
+  padding: 7px 8px;
+}
+.playcard--md .playcard__rank {
+  font-size: 15px;
+}
+.playcard--sm {
+  width: 60px;
+  height: 84px;
+  border-radius: 9px;
+  padding: 5px 6px;
+}
+.playcard--sm .playcard__rank {
+  font-size: 12px;
+}
+/* Der Platz, der als Nächstes dran ist. Muster: „Added Glow To Unturned
+   Card" (Ride The Bus – Party Game, 2.1). Der Schein steht auch ohne
+   Bewegung – der Puls verstärkt ihn nur, damit bei reduzierter Bewegung
+   nicht die Markierung selbst verschwindet. */
+.playcard--glow {
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 2px var(--accent),
+    0 0 14px 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: playcard-glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes playcard-glow {
+  to {
+    box-shadow:
+      var(--shadow-md),
+      0 0 0 2px var(--accent),
+      0 0 22px 6px color-mix(in srgb, var(--accent) 75%, transparent);
+  }
+}
+
 .cardrow {
   display: flex;
   gap: var(--s-2);
@@ -1878,4 +1919,66 @@
 .lf-clock--warn {
   color: var(--red);
   font-weight: 700;
+}
+
+/* --- Busfahrer: Pyramide und Hände ----------------------------------- */
+
+/* Eine Karte, die selbst der Knopf ist. Vorbild: `RideTheBusRN` legt ein
+   `TouchableWithoutFeedback` um das Kartenbild, statt eine Schaltfläche
+   darunter zu setzen. Kein eigener Rahmen, kein eigener Grund – die Karte
+   IST die Fläche. Trefferfläche: `sm` misst 60x84, `md` 76x106. */
+.cardbtn {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  border-radius: 9px;
+}
+.cardbtn:disabled {
+  opacity: 0.55;
+}
+
+.pyramide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+}
+/* 12 px sind 20 % der 60-px-Karte – dasselbe Verhältnis wie im Vorbild.
+   Vier Karten plus drei Lücken machen 276 px und passen bei 390 px. */
+.pyramide__reihe {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Wer wie viele Karten hält. Nur die ANZAHL, nie die Karten: sonst sieht
+   jeder sofort, wer bluffen muss. */
+.pyhands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-1) var(--s-3);
+}
+.pyhands__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pyhands__name {
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  color: var(--label-2);
+}
+.pyhands__cards {
+  display: inline-flex;
+  gap: 2px;
+}
+.pyhands__pip {
+  display: block;
+  width: 7px;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--brand-2), var(--brand));
 }

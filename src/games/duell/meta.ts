@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   tagline: 'Handy in die Mitte. Wer zu langsam tippt, trinkt.',
   icon: 'bolt',
   accent: 'var(--red)',
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 16,
   duration: '5-15 Min',
   intensity: 2,

@@ -309,6 +309,28 @@ describe('seatSplit', () => {
     // Realer Dreierkreis: jede Person hat genau einen Nachbarn je Seite.
     expect(seatSplit(['a', 'b', 'c'], 'a')).toEqual({ left: ['c'], right: ['b'] });
   });
+
+  it('setzt die eine andere Person zu zweit auf BEIDE Seiten', () => {
+    // Zu zweit sitzt der Gegenueber links und rechts von dir. Ohne diesen
+    // Fall bekaeme "rechts" ihn und "links" niemanden – die Karte "Links"
+    // traefe dann niemanden und `DrinkCallList` rendert bei leerer Liste
+    // STUMM nichts. Ein toter Zug, den man nicht sieht.
+    expect(seatSplit(['a', 'b'], 'a')).toEqual({ left: ['b'], right: ['b'] });
+    expect(seatSplit(['a', 'b'], 'b')).toEqual({ left: ['a'], right: ['a'] });
+  });
+
+  it('laesst zu zweit keine Regel ins Leere laufen', () => {
+    // Jede der 13 Regeln muss jemanden treffen oder bewusst niemanden
+    // ansprechen (`none`). Eine Regel, die bei zwei Personen eine LEERE
+    // Trinkliste erzeugt, ist der stille Ausfall von oben.
+    const order = ['a', 'b'];
+    const { left, right } = seatSplit(order, 'a');
+    for (const regel of RULES) {
+      if (regel.drink === 'left') expect(left, regel.title).not.toHaveLength(0);
+      if (regel.drink === 'right') expect(right, regel.title).not.toHaveLength(0);
+    }
+    expect(RULES.filter((r) => r.drink === 'left' || r.drink === 'right')).toHaveLength(2);
+  });
 });
 
 describe('Zwei fast gleichzeitige Taps', () => {
