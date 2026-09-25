@@ -1664,9 +1664,11 @@ button.chip--outline {
   gap: var(--s-2);
 }
 /* Auch hier ein Abzug – dieselbe Sprache wie die Spielkarte, nur kleiner:
-   im Dreierraster wären 8/30 px Papierrand größer als das Bild. */
+   im Dreierraster wären 8/30 px Papierrand größer als das Bild.
+   Quadratisch wie das Raster in iOS Fotos: hohe und quere Bilder liegen
+   nebeneinander, und die Vollansicht zeigt das echte Format. */
 .photoframe {
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 1;
   overflow: hidden;
   background: var(--paper);
   border: 0;
@@ -1713,6 +1715,18 @@ button.chip--outline {
   width: 100%;
   display: block;
 }
+/* Im Album passt sich das Papier dem Bild an: ein hohes Foto wird nicht
+   breiter als der Bogen hoch ist, sonst raegte es aus dem Sheet. */
+.abzug--album {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.abzug--album .photofull {
+  width: auto;
+  max-width: 100%;
+  max-height: 62vh;
+}
 
 .viewfinder {
   position: fixed;
@@ -1721,6 +1735,30 @@ button.chip--outline {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+/* Der Bereich zwischen den Leisten; darin liegt das Sucherfenster. */
+.viewfinder__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+/* Das Fenster hat exakt das Format des Fotos (2:3 hoch, 3:2 quer); die
+   Groesse setzt CameraScreen, damit das Verhaeltnis auch dann haelt, wenn
+   die Hoehe bindet. Was hier zu sehen ist, kommt aufs Bild. */
+.viewfinder__frame {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+  /* Leuchtrahmen: die Fensterkante bleibt auch vor dunkler Szene sichtbar. */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+  aspect-ratio: 2 / 3;
+  max-width: 100%;
+  max-height: 100%;
+}
+.viewfinder__frame[data-format='quer'] {
+  aspect-ratio: 3 / 2;
 }
 .viewfinder__video {
   position: absolute;

@@ -1,8 +1,4 @@
-import { DISPOSABLE, applyFilmLook, viewfinderCrop } from './filmLook';
-
-/** Kleinbild-Format, in der Größe eines ordentlichen Abzugs. */
-const W = 1620;
-const H = 1080;
+import { DISPOSABLE, applyFilmLook, photoFormat, viewfinderCrop } from './filmLook';
 
 /**
  * Macht aus einem Sucherbild ein belichtetes Foto.
@@ -11,6 +7,8 @@ const H = 1080;
  * Filter und einem Einwegkamera-Bild ausmacht: der versetzte Ausschnitt des
  * optischen Suchers, der harte Blitz-Abfall zum Rand, Korn, warmer Stich –
  * und das eingebrannte Datum, das jede Kamera mit Datenrückwand hatte.
+ *
+ * Das Format kommt aus der Quelle: ein hoher Stream wird ein hohes Foto.
  */
 export async function developFrame(
   source: CanvasImageSource,
@@ -18,6 +16,7 @@ export async function developFrame(
   sourceH: number,
   at: number = Date.now(),
 ): Promise<Blob | null> {
+  const { w: W, h: H } = photoFormat(sourceW, sourceH);
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -31,7 +30,7 @@ export async function developFrame(
   applyFilmLook(image.data, W, H, DISPOSABLE);
   ctx.putImageData(image, 0, 0);
 
-  burnInDate(ctx, at);
+  burnInDate(ctx, W, H, at);
 
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
 }
@@ -48,7 +47,7 @@ export async function developFrame(
  * ist das gelernte Zeichen dafür, und ein Foto ohne die Zahlen wirkt neben
  * einem mit sofort wie das schlechtere.
  */
-function burnInDate(ctx: CanvasRenderingContext2D, at: number): void {
+function burnInDate(ctx: CanvasRenderingContext2D, W: number, H: number, at: number): void {
   const d = new Date(at);
   const zz = (n: number) => String(n).padStart(2, '0');
   const text = `${zz(d.getDate())}.${zz(d.getMonth() + 1)}.${d.getFullYear()} ${zz(d.getHours())}:${zz(d.getMinutes())}`;

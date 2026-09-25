@@ -36,6 +36,7 @@ export const ROUND_BASES: Record<string, number> = {
   kategorien: 4,
   'erste-zeile': 4,
   'zwei-wahrheiten': 5,
+  lueckenfueller: 6,
   'meme-battle': 5,
   duell: 6,
   'most-likely': 6,

@@ -8,6 +8,7 @@ import { meta as chaosRoulette } from './chaos-roulette/meta';
 import { meta as wortbombe } from './wortbombe/meta';
 import { meta as duell } from './duell/meta';
 import { meta as tabu } from './tabu/meta';
+import { meta as lueckenfueller } from './lueckenfueller/meta';
 import { meta as memeBattle } from './meme-battle/meta';
 import { meta as schaetzfrage } from './schaetzfrage/meta';
 import { meta as zweiWahrheiten } from './zwei-wahrheiten/meta';
@@ -46,6 +47,7 @@ export const GAMES: GameMeta[] = [
   duell,
   tabu,
   memeBattle,
+  lueckenfueller,
   schaetzfrage,
   zweiWahrheiten,
   topTen,
@@ -66,6 +68,7 @@ const LOADERS: Record<string, () => Promise<GameDefinition>> = {
   'wortbombe': () => import('./wortbombe').then((m) => m.wortbombe),
   'duell': () => import('./duell').then((m) => m.duell),
   'tabu': () => import('./tabu').then((m) => m.tabu),
+  lueckenfueller: () => import('./lueckenfueller').then((m) => m.lueckenfueller),
   'meme-battle': () => import('./meme-battle').then((m) => m.memeBattle),
   'schaetzfrage': () => import('./schaetzfrage').then((m) => m.schaetzfrage),
   'zwei-wahrheiten': () => import('./zwei-wahrheiten').then((m) => m.zweiWahrheiten),

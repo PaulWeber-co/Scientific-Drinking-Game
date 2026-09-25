@@ -13,7 +13,8 @@ import { PORTRAIT, applyFilmLook } from '../camera/filmLook';
  * Warum als Data-URL im Profil und nicht als Datei im Foto-Verzeichnis wie die
  * Album-Bilder: Der Avatar erscheint in Listen, Chips und Ranglisten hundertfach
  * und muss beim ersten Bild sofort da sein. Eine Datei müsste jedes Mal
- * asynchron geladen werden. Bei ~250 × 250 Pixeln sind das rund 20 KB — für
+ * asynchron geladen werden. Bei 256 × 256 Pixeln sind das meist 20–40 KB,
+ * die Obergrenze liegt bei 120.000 Zeichen Data-URL (rund 90 KB JPEG) — für
  * EIN Bild pro Gerät ist das im Speicherbudget kein Thema, für 27 Abendbilder
  * wäre es das sehr wohl.
  */

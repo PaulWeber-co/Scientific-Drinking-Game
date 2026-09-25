@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '../../components/icons';
-import { Sheet, Toggle } from '../../components/ui';
+import { Sheet, Slider, Toggle } from '../../components/ui';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
 import { DRINK_CATALOG } from '../../engine/drinks';
 import { formatBac } from '../../lib/format';
@@ -113,15 +113,13 @@ function SettingsBody({ heat, spicy }: Props) {
           <div className="targetpick">
             <div className="t-upper">Zielpegel</div>
             <div className="targetpick__value t-mono-num">{formatBac(profile.targetBac)}</div>
-            <input
-              className="slider"
-              type="range"
-              aria-label="Zielpegel"
+            <Slider
               min={MIN_TARGET_BAC * 100}
               max={MAX_TARGET_BAC * 100}
               step={5}
               value={profile.targetBac * 100}
-              onChange={(e) => patch({ targetBac: Number(e.target.value) / 100 })}
+              onChange={(v) => patch({ targetBac: v / 100 })}
+              label="Zielpegel"
             />
           </div>
         </>

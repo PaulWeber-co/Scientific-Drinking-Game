@@ -81,6 +81,10 @@ export const wortbombe: GameDefinition<State> = {
   reduce: (state, action, players) => {
     switch (action.type) {
       case 'start': {
+        // Der Knopf steht online auf jedem Handy. Tippen zwei Leute kurz
+        // nacheinander, käme der zweite Start mitten in der laufenden Runde
+        // an und setzte Zündschnur und Kategorie zurück.
+        if (state.phase !== 'ready') return state;
         const jetzt = Date.now();
         return {
           ...state,
