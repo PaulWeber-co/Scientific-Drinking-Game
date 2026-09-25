@@ -20,7 +20,7 @@ const uebrig = (s: State) => s.deck.filter((c) => c != null).length;
  * Vier Personen an einem Gerät (Pass & Play) – genau das Szenario aus dem
  * Fehlerbericht. Jede Mitperson hat ein eigenes lokales Profil, sonst kann
  * `useSipsForPlayer` für sie keine Schluckzahl berechnen und jede Ansage
- * würde als "sieht seine Menge auf dem eigenen Handy" enden, egal an wen
+ * würde als "sieht die Menge auf dem eigenen Handy" enden, egal an wen
  * sie eigentlich adressiert ist.
  */
 const me: GamePlayer = { id: 'p0', name: 'Mira', color: 'blue', online: true };

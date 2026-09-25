@@ -6,8 +6,8 @@ Eine mobile-first Webapp für Trinkspiele auf Partys. Statt pauschaler „Trink 
 rechnet die App jede Spielansage auf **Körperdaten und Getränk der einzelnen Person** um —
 mit dem Ziel, einen angenehmen Pegel zu erreichen und zu **halten**, statt ihn zu überschreiten.
 
-Ausgelegt auf **4–16 Spieler**, entweder mit einem geteilten Handy oder mit einer Lobby,
-in der jede Person ihr eigenes Gerät benutzt.
+Ausgelegt auf **2–16 Spieler** (die volle Auswahl ab vier), entweder mit einem geteilten
+Handy oder mit einer Lobby, in der jede Person ihr eigenes Gerät benutzt.
 
 ---
 
@@ -22,7 +22,7 @@ in der jede Person ihr eigenes Gerät benutzt.
 | Verlaufs- und Prognosegrafik des Pegels | fertig |
 | Lobby über 4-stelligen Code (Firebase Realtime Database) | fertig |
 | Pass-&-Play auf einem Handy, inkl. Körperdaten der Mitspieler | fertig |
-| 17 Spiele, davon 8 mit „Handy weglegen" | fertig |
+| 18 Spiele, davon 10 mit „Handy weglegen" | fertig |
 | Plugin-System für neue Spiele | fertig |
 | Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
 | Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
@@ -42,17 +42,18 @@ in der jede Person ihr eigenes Gerät benutzt.
 |:--|:--|:--|
 | Wahrheit oder Pflicht | Klassiker mit drei Härtegraden und Notausgang | 1 reicht |
 | Ich hab noch nie | Handy in die Mitte, alle anderen weg | 1 reicht |
-| Wer aus der Runde | Alle zeigen gleichzeitig, meiste Stimmen trinkt | eigene nötig |
-| Undercover | Alle kennen dasselbe Wort – eine Person nicht | eigene nötig |
+| Wer aus der Runde | Alle zeigen gleichzeitig, meiste Stimmen trinkt | 1 reicht |
+| Undercover | Alle kennen dasselbe Wort – eine Person nicht | 1 reicht |
 | Ring of Fire | Kings Cup mit virtuellem Kartendeck | 1 reicht |
 | Chaos-Roulette | Gruppenaufgaben, Duelle, Bewegung | 1 reicht |
 | Wortbombe | Kategorie nennen und weitergeben, bevor es knallt | 1 reicht |
 | Reaktions-Duell | Handy in die Mitte, wer langsamer tippt, trinkt | 1 reicht |
 | Tabu Rush | Zwei Teams, 60 Sekunden, verbotene Wörter | 1 reicht |
 | Meme Battle | Prompt, Pointe tippen, anonym abstimmen | eigene nötig |
+| Lückenfüller | Lückentext, Karte legen, der Richter kürt die beste | eigene nötig |
 | Schätzfrage | Alle tippen eine Zahl, am weitesten daneben trinkt | eigene nötig |
-| Zwei Wahrheiten, eine Lüge | Drei Aussagen, eine stimmt nicht | eigene nötig |
-| Top Ten | Geheime Zahl 1–10, Antworten sortieren | eigene nötig |
+| Zwei Wahrheiten, eine Lüge | Drei Aussagen, eine stimmt nicht | 1 reicht |
+| Top Ten | Geheime Zahl 1–10, Antworten sortieren | 1 reicht |
 | Mäxchen | Würfeln, ansagen, lügen – oder aufdecken | 1 reicht |
 | Busfahrer | Vier Fragen, dann die lange Fahrt | 1 reicht |
 | Kategorien | Reihum ein Beispiel, wer hängt trinkt | 1 reicht |
@@ -121,7 +122,7 @@ Pegel *inklusive* dessen, was noch im Magen liegt.
 
 ## Spicy-Modus
 
-Sieben Spiele haben zusätzliche, deutlich freizügigere Inhalte. Sie liegen bewusst
+Acht Spiele haben zusätzliche, deutlich freizügigere Inhalte. Sie liegen bewusst
 hinter einem eigenen Schalter im Spieldetail und nicht hinter einem vierten Härtegrad:
 das ist eine Frage des Inhalts, nicht der Menge. Der Schalter ist erst ab 18 sichtbar,
 gilt pro Spiel und bleibt aus, bis ihn jemand umlegt. Kneifen bleibt in jedem Fall möglich.

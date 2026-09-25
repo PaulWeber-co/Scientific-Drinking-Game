@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
-import { ZONE_META } from '../../engine/bac';
 import { findDrink } from '../../engine/drinks';
 import { formatEntry, formatGlasses, tally } from '../../engine/tally';
 import { formatTime } from '../../lib/format';
@@ -16,8 +15,13 @@ import type { DrinkEvent } from '../../engine/types';
  * Lokal (Pass & Play) liegen alle Logs auf diesem Handy, dann steht hier
  * jede Person mit ihren Getränken; ein Tipp auf die Zeile klappt die
  * einzelnen Einträge auf, jeder mit Papierkorb. Online zählt jedes Handy
- * für sich; von den anderen kommt nur die grobe Zone, wie in der Lobby
- * versprochen.
+ * für sich.
+ *
+ * Die Pegel-Zone der anderen steht hier bewusst NICHT neben ihrem Namen.
+ * Der Gruppenpegel direkt darüber verspricht „keine Promillewerte, keine
+ * Namen" – die Zone je Person hätte das eine Karte tiefer gebrochen und aus
+ * dem Sicherheitsfeature genau den Gruppenzwang gemacht, den es vermeiden
+ * soll. Die Verteilung der Zonen steht anonym im Gruppenpegel.
  */
 export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
   const { players, me, mode, removeEventFor } = useParty();
@@ -67,9 +71,7 @@ export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
                       <span className="t-caption">noch nichts eingetragen</span>
                     )
                   ) : (
-                    <span className="t-caption">
-                      {p.zone ? ZONE_META[p.zone].label : 'zählt auf dem eigenen Handy'}
-                    </span>
+                    <span className="t-caption">zählt auf dem eigenen Handy</span>
                   )}
                 </span>
               </span>
@@ -109,7 +111,8 @@ export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
       </div>
       {mode === 'online' && (
         <p className="t-caption t-balance">
-          Trinkmengen bleiben auf jedem Handy. Von den anderen siehst du nur die Zone.
+          Trinkmengen bleiben auf jedem Handy. Wie die Runde insgesamt steht, zeigt der
+          Gruppenpegel – ohne Namen.
         </p>
       )}
     </section>
