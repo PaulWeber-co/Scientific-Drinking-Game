@@ -194,6 +194,7 @@ function DuellGame({ state, players, isHost, dispatch, quit }: GameRuntime<State
     // `send` ist bei jedem Rendern eine neue Funktion. Stünde sie hier, würde
     // das 30-ms-Intervall bei jedem Rendern verworfen und der Startschuss
     // käme im ungünstigen Fall nie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.goAt, isHost]);
 
   if (state.phase === 'over') {

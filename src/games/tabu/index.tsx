@@ -147,6 +147,9 @@ function TabuGame({ state, players, me, isHost, dispatch, quit, online }: GameRu
       }
     }, 250);
     return () => clearInterval(t);
+    // `send` ist bei jedem Rendern neu – als Abhängigkeit startete das
+    // Intervall ständig von vorn (wie in Wortbombe und Duell).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.endsAt, canExplain, isHost]);
 
   const scoreLine = `${state.score.A} : ${state.score.B}`;
