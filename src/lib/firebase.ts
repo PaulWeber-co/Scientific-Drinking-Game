@@ -34,10 +34,11 @@ export const HEARTBEAT_MS = 20_000;
 export const NETWORK_TIMEOUT_MS = 12_000;
 
 export function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), NETWORK_TIMEOUT_MS),
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), NETWORK_TIMEOUT_MS);
+  });
+  // Der Wecker wird abgeräumt, sobald die Antwort da ist – sonst lief nach
+  // jedem erfolgreichen Aufruf noch zwölf Sekunden ein toter Timer mit.
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
