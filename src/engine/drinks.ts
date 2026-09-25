@@ -80,8 +80,13 @@ export function createCustomDrink(input: {
 }): DrinkDefinition {
   const abv = clamp(input.abvPercent, 0, 60);
   const volume = clamp(input.volumeMl, 10, 1000);
+  // Ein kleines Glas Hochprozentiges ist EIN Shot – und ein Shot ist das
+  // ganze Glas. Vorher war der Shot auf 20 ml gedeckelt: bei einem 4-cl-Glas
+  // hieß „1 Shot" dann nur die Hälfte davon, verbucht wurde halb so viel
+  // Alkohol wie getrunken, und die nächste Ansage fiel entsprechend zu hoch aus.
+  const unitShot = abv >= 25 && volume <= 40;
   // Starke Sachen trinkt man in kleinen Schlucken, Bier in großen.
-  const sipSize = abv >= 25 ? Math.min(volume, 20) : abv >= 15 ? 25 : abv >= 8 ? 30 : 40;
+  const sipSize = unitShot ? volume : abv >= 25 ? 20 : abv >= 15 ? 25 : abv >= 8 ? 30 : 40;
   return {
     id: `custom-${Date.now().toString(36)}`,
     name: input.name.trim() || 'Eigenes Getränk',
@@ -90,7 +95,7 @@ export function createCustomDrink(input: {
     defaultVolumeMl: volume,
     abvPercent: abv,
     sipSizeMl: sipSize,
-    sipIsUnit: abv >= 25 && volume <= 40,
+    sipIsUnit: unitShot,
     custom: true,
   };
 }

@@ -27,7 +27,13 @@ export function Onboarding() {
   const [drinkId, setDrinkId] = useState('beer-pils');
 
   const gate = ageGate(p.age);
-  const current: Step = STEPS[step];
+  // Unter 18 sind die Alkoholfunktionen aus. Getränkewahl und „bis zu deinem
+  // Pegel sind es etwa X Schlucke" hätten einer minderjährigen Person dann
+  // genau das vorgerechnet, was die App ihr gerade verweigert.
+  const steps: readonly Step[] =
+    gate === 'full' ? STEPS : STEPS.filter((s) => s !== 'drink' && s !== 'ziel');
+  const last = steps.length - 1;
+  const current: Step = steps[Math.min(step, last)];
   const patch = (v: Partial<Profile>) => setP((prev) => ({ ...prev, ...v }));
 
   const next = () => {
@@ -37,12 +43,15 @@ export function Onboarding() {
       haptic('warn');
       return;
     }
-    if (step === STEPS.length - 1) {
+    if (step >= last) {
       // Der letzte Schritt schliesst etwas ab – das ist eine andere Ansage
       // als „einen Schritt weiter“ und bekommt darum das Erfolgsmuster.
       haptic('success');
       acceptDisclaimer();
-      complete({ ...p, alcoholFree: p.alcoholFree || gate !== 'full' }, drinkId);
+      complete(
+        { ...p, alcoholFree: p.alcoholFree || gate !== 'full' },
+        gate === 'full' ? drinkId : 'soft',
+      );
       nav('/', { replace: true });
       return;
     }
@@ -60,7 +69,7 @@ export function Onboarding() {
   return (
     <div className="screen screen--full onboarding">
       <div className="onboarding__progress" aria-hidden>
-        <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        <span style={{ width: `${((Math.min(step, last) + 1) / steps.length) * 100}%` }} />
       </div>
 
       <div className="onboarding__body">
@@ -201,7 +210,7 @@ export function Onboarding() {
           </button>
         )}
         <button className="btn btn--brand btn--block btn--lg" disabled={!canContinue} onClick={next}>
-          {step === STEPS.length - 1 ? "Los geht's" : step === 0 ? 'Verstanden' : 'Weiter'}
+          {step >= last ? "Los geht's" : step === 0 ? 'Verstanden' : 'Weiter'}
         </button>
       </div>
     </div>
