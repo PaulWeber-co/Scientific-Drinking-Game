@@ -143,13 +143,6 @@ export function personalSips(ctx: SipContext): SipResult {
   };
 }
 
-/**
- * Ansage oberhalb des Ziels: vier Stufen nach absolutem Pegel, in den
- * ersten beiden mit der Zeit, bis der Pegel wieder am Ziel ist (Abstand
- * durch Abbaurate – das „ZeroLine"-Muster der Promille-Apps). Liegt noch
- * Alkohol im Magen, steht das dabei, damit niemand nachlegt. Sachlich,
- * kurz, ohne Tadel; die letzte Stufe nennt die Erste-Hilfe-Regel.
- */
 /** „35 Minuten", „1 Stunde 50 Minuten", „2 Stunden" – für die Ansage. */
 function formatWait(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -159,6 +152,13 @@ function formatWait(minutes: number): string {
   return m ? `${hours} ${m} Minuten` : hours;
 }
 
+/**
+ * Ansage oberhalb des Ziels: vier Stufen nach absolutem Pegel, in den
+ * ersten beiden mit der Zeit, bis der Pegel wieder am Ziel ist (Abstand
+ * durch Abbaurate – das „ZeroLine"-Muster der Promille-Apps). Liegt noch
+ * Alkohol im Magen, steht das dabei, damit niemand nachlegt. Sachlich,
+ * kurz, ohne Tadel; die letzte Stufe nennt die Erste-Hilfe-Regel.
+ */
 export function overTargetCall(
   est: BacEstimate,
   target: number,

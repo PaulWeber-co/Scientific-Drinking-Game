@@ -11,7 +11,11 @@ export default tseslint.config(
     languageOptions: { ecmaVersion: 2022, globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // Ab eslint-plugin-react-hooks 6 ist `configs.recommended` eine Flat-
+      // Config (ein Array) – `.rules` davon ist `undefined`, und der Spread
+      // schaltete beide Regeln still ab. Deshalb hier ausdrücklich.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },

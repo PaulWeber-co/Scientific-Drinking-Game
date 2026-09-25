@@ -60,15 +60,23 @@ wenn dem Host das Handy ausgeht.
 
 Die Realtime Database kennt kein TTL. Deshalb:
 
-- Jede Lobby trägt `expiresAt` (jetzt + 8 Stunden), das der Host bei jedem Heartbeat
+- Jede Lobby trägt `expiresAt` (jetzt + 8 Stunden), das der Host alle 40 Sekunden
   verlängert.
-- Die Security Rules verbieten Schreibzugriffe auf abgelaufene Lobbys. Der Code wird damit
-  wieder frei, ohne dass jemand aufräumen muss.
-- Spieler, die drei Heartbeat-Intervalle (~90 s) still sind, entfernt der Host aus der
-  Spielerliste.
+- Die Security Rules verbieten Schreibzugriffe auf abgelaufene Lobbys – auch das Löschen
+  und das Neuanlegen unter demselben Code. Eine abgelaufene Lobby bleibt also samt Namen
+  und Spielstand liegen, und ihr Code bleibt belegt. `createOnline` behandelt deshalb
+  jeden vorhandenen Code als vergeben und würfelt neu.
+- Spieler, die länger als drei `PLAYER_STALE_MS` (~4,5 Minuten) still sind, entfernt der
+  Host aus der Spielerliste. Kommt das Gerät zurück, trägt es der nächste Heartbeat
+  vollständig wieder ein.
+- Wer eine Lobby verlässt, nimmt seinen Eintrag mit. Geht die letzte aktive Person, wird
+  die ganze Lobby gelöscht.
 
-Wer die Datenbank wirklich leer haben will, kann einen [Cloud-Function-Cronjob][cf] auf
-`expiresAt` setzen — das braucht allerdings den Blaze-Tarif.
+Lobbys, die niemand verlässt (App einfach zugemacht), bleiben damit dauerhaft in der
+Datenbank. Wirklich leer wird sie nur mit einem [Cloud-Function-Cronjob][cf] auf
+`expiresAt` (Blaze-Tarif) oder einem geplanten Skript mit Admin-Zugang – der Admin-Zugang
+umgeht die Rules und darf auch abgelaufene Lobbys löschen. Dafür lohnt ein Index:
+`"lobbies": { ".indexOn": ["meta/expiresAt"] }`.
 
 [cf]: https://firebase.google.com/docs/functions/schedule-functions
 
@@ -90,8 +98,8 @@ Alternativ in der Firebase-Konsole unter **Realtime Database → Regeln** den In
 - Schreiben ist gesperrt, sobald `meta/expiresAt` in der Vergangenheit liegt.
 - `expiresAt` darf höchstens 12 Stunden in der Zukunft liegen — niemand kann eine Lobby
   dauerhaft blockieren.
-- Feldweise Validierung: Namen maximal 24 Zeichen, Emojis maximal 8, keine unbekannten
-  Felder (`$other: false`).
+- Feldweise Validierung: Namen maximal 24 Zeichen, Getränke-Symbol maximal 24, Zone
+  maximal 12, keine unbekannten Felder (`$other: false`).
 
 ### Was die Rules bewusst nicht tun
 

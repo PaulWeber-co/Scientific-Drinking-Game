@@ -94,11 +94,15 @@ describe('Der Tisch', () => {
     expect(screen.getByText('1 Omas Likör')).toBeTruthy();
   });
 
-  it('zeigt online von anderen nur die Zone', () => {
+  it('zeigt online von anderen weder Mengen noch die Zone neben dem Namen', () => {
+    // Der Gruppenpegel darüber verspricht „keine Namen". Die Zone je Person
+    // stand hier trotzdem neben dem Namen.
     const anderer: GamePlayer = { id: 'p2', name: 'Nils', color: 'teal', online: true, zone: 'sweet' };
     mount([me, anderer], 'online');
     expect(screen.queryByText('noch nichts eingetragen')).toBeTruthy(); // ich
     expect(screen.queryByRole('button', { name: 'Einträge von Nils' })).toBeNull();
+    expect(screen.queryByText('Sweet Spot')).toBeNull();
+    expect(screen.getByText('zählt auf dem eigenen Handy')).toBeTruthy();
     expect(screen.getByText(/Trinkmengen bleiben auf jedem Handy/)).toBeTruthy();
   });
 });
