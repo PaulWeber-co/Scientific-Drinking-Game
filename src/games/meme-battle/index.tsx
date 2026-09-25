@@ -123,8 +123,11 @@ export const memeBattle: GameDefinition<State> = {
         return { ...state, votes, scores, phase: 'results' };
       }
       case 'next': {
-        // Ein zurückgebliebenes Gerät darf die beendete Partie nicht weiterzählen.
-        if (state.phase === 'over') return state;
+        // Nur aus der Auflösung heraus – wie in allen anderen Spielen. Vorher
+        // galt nur „nicht nach dem Ende": zwei fast gleichzeitige Taps auf
+        // „Weiter" zählten zwei Runden, und der zweite übersprang einen
+        // Prompt mitten in der Schreibphase.
+        if (state.phase !== 'results') return state;
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
         const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle', (p) => p.text, players.length);

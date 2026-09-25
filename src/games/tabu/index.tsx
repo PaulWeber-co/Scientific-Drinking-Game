@@ -66,6 +66,11 @@ export const tabu: GameDefinition<State> = {
     };
     switch (action.type) {
       case 'start': {
+        // Nur aus der Bereitschaft heraus. Ohne diese Prüfung setzte ein
+        // zweiter Tap (oder ein zweites Handy) eine laufende Runde samt
+        // Treffern und Uhr zurück – und aus `result` heraus begann eine neue
+        // Runde, ohne dass das andere Team drankam.
+        if (state.phase !== 'ready') return state;
         const { word, deck } = draw(state.deck);
         return {
           ...state,

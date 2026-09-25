@@ -78,7 +78,7 @@ describe('Undercover auf einem geteilten Handy', () => {
     expect(s.phase).toBe('describe');
   });
 
-  it('läuft am Gerät von der Übergabe bis zum Beschreiben durch', () => {
+  it('läuft am Gerät von der Übergabe bis durch die Abstimmung', () => {
     const players = runde(4);
     function Harness() {
       const [state, setState] = useState(() => undercover.createState(players));
@@ -112,6 +112,65 @@ describe('Undercover auf einem geteilten Handy', () => {
       players.length,
     );
     expect(screen.getByRole('button', { name: /Gesagt/ })).toBeTruthy();
+
+    // Und durch die Abstimmung hindurch – dort hing das Spiel am geteilten
+    // Handy, weil jede Stimme dieselbe Geräte-ID trug.
+    for (let i = 0; i < players.length; i++) {
+      fireEvent.click(screen.getByRole('button', { name: /Gesagt/ }));
+    }
+    const aufdecken = screen.getByRole('button', { name: 'Aufdecken' }) as HTMLButtonElement;
+    expect(aufdecken.disabled, 'ohne Finger ließ sich aufdecken').toBe(true);
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Mehr Finger bei Gast 1' }));
+    }
+    fireEvent.click(aufdecken);
+    expect(screen.queryByRole('button', { name: 'Aufdecken' })).toBeNull();
+  });
+});
+
+describe('Undercover: Abstimmung auf einem geteilten Handy', () => {
+  it('kommt über gezählte Finger aus der Abstimmung heraus', () => {
+    // Über `vote` trug am geteilten Handy JEDE Stimme `by = Gerätebesitzer`.
+    // Es kam nie mehr als ein Eintrag zustande, und die Runde hing für immer.
+    const players = runde(5);
+    const start = { ...bisVote(players), undercoverId: 'p4' };
+    const offline = abstimmen(start, players, {
+      p0: 'p1',
+      p1: 'p1',
+      p2: 'p1',
+      p3: 'p2',
+      p4: 'p2',
+    });
+    expect(offline.phase).toBe('result');
+
+    const s = tun(start, { type: 'countVotes', counts: { p1: 3, p2: 2 } }, players);
+    expect(s.phase).toBe('result');
+    expect(s.lastOut).toBe('p1');
+    expect(s.eliminated).toEqual(['p1']);
+    expect(s.tie).toBe(false);
+  });
+
+  it('führt einen enttarnten Undercover auch hier zum Rateversuch', () => {
+    const players = runde(4);
+    const start = bisVote(players);
+    const s = tun(start, { type: 'countVotes', counts: { [start.undercoverId]: 4 } }, players);
+    expect(s.phase).toBe('guess');
+    expect(s.lastOut).toBe(start.undercoverId);
+  });
+
+  it('wertet ohne einen einzigen Finger nichts aus', () => {
+    const players = runde(4);
+    const start = bisVote(players);
+    expect(tun(start, { type: 'countVotes', counts: {} }, players)).toBe(start);
+  });
+
+  it('zählt keine Finger für bereits Ausgeschiedene und deckelt je Person', () => {
+    const players = runde(5);
+    const start = { ...bisVote(players), eliminated: ['p3'], undercoverId: 'p4' };
+    const s = tun(start, { type: 'countVotes', counts: { p3: 4, p1: 99 } }, players);
+    expect(s.lastOut).toBe('p1');
+    // Vier lebende Personen zeigen – mehr Finger kann niemand abbekommen.
+    expect(Object.keys(s.votes)).toHaveLength(4);
   });
 });
 

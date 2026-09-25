@@ -667,6 +667,12 @@ function Pyramid({
   const passt = claimPasst(state);
   /** Wer noch Karten hat, kann ablegen. */
   const mitKarten = players.filter((p) => (state.hands[p.id]?.length ?? 0) > 0);
+  // Online meldet und zweifelt jede Person nur für sich selbst. Der Reducer
+  // nimmt die Person aus der Aktion (am geteilten Handy tippt einer für alle),
+  // und mit allen Namen zur Auswahl konnte man online jemand anderen zum
+  // Ablegenden machen – oder zum Zweifler, der dann doppelt trinkt.
+  const nurIchOnline = (liste: GamePlayer[]) =>
+    online ? liste.filter((p) => p.id === me.id) : liste;
   const darfIch = !online || state.pyClaimBy === me.id;
 
   return (
@@ -734,9 +740,8 @@ function Pyramid({
             wer legt ab?
           </BigCard>
           <VoteGrid
-            players={mitKarten}
+            players={nurIchOnline(mitKarten)}
             onVote={(id) => send({ type: 'pyClaim', who: id })}
-            disabled={online && !mitKarten.some((p) => p.id === me.id)}
           />
           <button
             className="btn btn--glass btn--block"
@@ -788,9 +793,8 @@ function Pyramid({
           </button>
           <div className="t-center t-sub">oder aufdecken lassen:</div>
           <VoteGrid
-            players={players.filter((p) => p.id !== claimer.id)}
+            players={nurIchOnline(players.filter((p) => p.id !== claimer.id))}
             onVote={(id) => reveal({ type: 'pyDoubt', who: id })}
-            disabled={online && me.id === claimer.id}
           />
         </div>
       )}
