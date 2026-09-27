@@ -14,6 +14,7 @@ import { DATABASE_URL } from '../../lib/firebase';
 import { useCurrentDrink, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 import { DrinkPicker } from '../drinks/DrinkPicker';
+import { usePartyOptional } from '../party/PartyContext';
 
 export function ProfileScreen() {
   const nav = useNavigate();
@@ -22,6 +23,7 @@ export function ProfileScreen() {
   const resetAll = usePlayer((s) => s.resetAll);
   const drink = useCurrentDrink();
   const app = useApp();
+  const party = usePartyOptional();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (!profile) return null;
@@ -245,7 +247,16 @@ export function ProfileScreen() {
           <button
             className="btn btn--danger btn--block"
             onClick={() => {
-              if (confirm('Profil und alle lokalen Daten löschen?')) {
+              if (
+                confirm(
+                  'Profil, Trink-Log, Rückblicke, Fotos, eigene Karten und die Mitspieler auf diesem Handy löschen?',
+                )
+              ) {
+                // Die Gäste im Pass-&-Play tragen Körperdaten anderer Leute.
+                // Die blieben sonst bis zum Schließen des Tabs stehen – und
+                // tauchten nach dem neuen Onboarding wieder in der Runde auf.
+                party?.leave();
+                party?.clearLocalPlayers();
                 resetAll();
                 nav('/onboarding', { replace: true });
               }

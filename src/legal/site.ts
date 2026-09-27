@@ -195,7 +195,7 @@ export const LEGAL: LegalConfig = {
    * eigene Bundesland anpassen.
    */
   supervisoryAuthority: {
-    name: 'Unabhängige Landeszentrum für Datenschutz Schleswig-Holstein',
+    name: 'Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein',
     url: 'https://www.datenschutzzentrum.de',
   },
 };

@@ -32,10 +32,15 @@ export function CustomCards({ game }: { game: GameMeta }) {
 
   if (!game.allowCustomCards) return null;
 
+  // Die Auswahl zeigt ohne Antippen die erste Kategorie als gewählt – also
+  // wird auch genau die gespeichert. Vorher ging die Karte dann ohne
+  // Kategorie in den Stapel und tauchte bei Wahrheit UND Pflicht auf.
+  const chosenMode = game.modes ? (mode ?? game.modes[0].id) : undefined;
+
   const submit = () => {
     if (!text.trim()) return;
     haptic('success');
-    add(game.id, { text: text.trim(), heat, mode });
+    add(game.id, { text: text.trim(), heat, mode: chosenMode });
     setText('');
   };
 
@@ -75,7 +80,7 @@ export function CustomCards({ game }: { game: GameMeta }) {
               <div className="field">
                 <span className="field__label">Kategorie</span>
                 <Segmented<string>
-                  value={mode ?? game.modes[0].id}
+                  value={chosenMode ?? game.modes[0].id}
                   onChange={setMode}
                   options={game.modes.map((m) => ({ value: m.id, label: m.label }))}
                 />

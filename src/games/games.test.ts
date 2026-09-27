@@ -659,6 +659,24 @@ describe('Meme Battle', () => {
     s = game.reduce(s, act('submit', 'p0', { text: '   ' }), roster);
     expect(Object.keys(s.answers)).toHaveLength(0);
   });
+
+  it('zählt ein doppeltes „Weiter" nicht als zweite Runde', () => {
+    // Vorher prüfte `next` nur auf das Ende der Partie. Der zweite Tap kam in
+    // der Schreibphase der nächsten Runde an und übersprang ihren Prompt.
+    const roster = players(3);
+    let s = game.createState(roster);
+    for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: p.id }), roster);
+    s = game.reduce(s, act('vote', 'p0', { target: 'p1' }), roster);
+    s = game.reduce(s, act('vote', 'p1', { target: 'p2' }), roster);
+    s = game.reduce(s, act('vote', 'p2', { target: 'p1' }), roster);
+    expect(s.phase).toBe('results');
+    s = game.reduce(s, act('next'), roster);
+    const prompt = s.prompt;
+    const doppelt = game.reduce(s, act('next'), roster);
+    expect(doppelt.round).toBe(2);
+    expect(doppelt.prompt).toBe(prompt);
+    expect(doppelt.phase).toBe('writing');
+  });
 });
 
 describe('Top Ten', () => {
@@ -731,6 +749,24 @@ describe('Tabu Rush', () => {
       s = game.reduce(s, act('next'), roster);
     }
     expect(s.phase).toBe('final');
+  });
+
+  it('setzt eine laufende Runde durch einen zweiten Start nicht zurück', () => {
+    const roster = players(4);
+    let s = game.reduce(game.createState(roster), act('start'), roster);
+    s = game.reduce(s, act('hit'), roster);
+    const uhr = s.endsAt;
+    const nochmal = game.reduce(s, act('start'), roster);
+    expect(nochmal.hits).toBe(1);
+    expect(nochmal.endsAt).toBe(uhr);
+  });
+
+  it('startet aus der Auswertung heraus keine Runde am anderen Team vorbei', () => {
+    const roster = players(4);
+    let s = game.reduce(game.createState(roster), act('start'), roster);
+    s = game.reduce(s, act('timeUp'), roster);
+    expect(s.phase).toBe('result');
+    expect(game.reduce(s, act('start'), roster).phase).toBe('result');
   });
 });
 

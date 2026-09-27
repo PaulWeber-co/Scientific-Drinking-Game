@@ -117,6 +117,8 @@ export interface PartyValue {
   addLocalPlayer: (input: { name: string; color: AvatarColor; profile: Profile; drinkId: string }) => void;
   updateLocalPlayer: (id: string, patch: Partial<GamePlayer['local']> & { name?: string; color?: AvatarColor }) => void;
   removeLocalPlayer: (id: string) => void;
+  /** Entfernt alle Gäste dieses Geräts samt ihrer Körperdaten und Logs. */
+  clearLocalPlayers: () => void;
   /** Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'. */
   startGame: (gameId: string) => Promise<void>;
   endGame: () => void;
@@ -147,6 +149,11 @@ export function useParty(): PartyValue {
   const ctx = useContext(PartyCtx);
   if (!ctx) throw new Error('useParty muss innerhalb von <PartyProvider> benutzt werden');
   return ctx;
+}
+
+/** Wie `useParty`, aber ohne Provider `null` statt eines Fehlers. */
+export function usePartyOptional(): PartyValue | null {
+  return useContext(PartyCtx);
 }
 
 export function PartyProvider({ children }: { children: ReactNode }) {
@@ -195,7 +202,16 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       online: true,
       isHost: mode === 'local' ? true : snapshot?.meta?.host === myId,
     }),
-    [myId, profile?.name, profile?.color, profile?.photo, myDrink.icon, mode, snapshot?.meta?.host],
+    [
+      myId,
+      profile?.name,
+      profile?.color,
+      profile?.photo,
+      profile?.designatedDriver,
+      myDrink.icon,
+      mode,
+      snapshot?.meta?.host,
+    ],
   );
 
   const isHost = mode === 'local' ? true : snapshot?.meta?.host === myId;
@@ -254,7 +270,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         ...extra,
       });
     },
-    [lobbyRef, myId, profile?.name, profile?.color, myDrink.icon],
+    [lobbyRef, myId, profile?.name, profile?.color, profile?.designatedDriver, myDrink.icon],
   );
 
   const createOnline = useCallback(async (): Promise<string> => {
@@ -262,11 +278,17 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       let c = lobbyCode();
-      for (let attempt = 0; attempt < 6; attempt++) {
+      let free = false;
+      for (let attempt = 0; attempt < 6 && !free; attempt++) {
+        if (attempt > 0) c = lobbyCode();
         const existing = await withTimeout(get(lobbyRef(c, '/meta')), OFFLINE_MSG);
-        if (!existing.exists() || (existing.val()?.expiresAt ?? 0) < Date.now()) break;
-        c = lobbyCode();
+        // Auch eine abgelaufene Lobby ist belegt: die Security Rules sperren
+        // jeden Schreibzugriff auf sie, ein `set` darauf endete in
+        // permission_denied. Nach sechs belegten Codes wurde vorher außerdem
+        // ein siebter ungeprüft benutzt.
+        free = !existing.exists();
       }
+      if (!free) throw new Error('Gerade ist kein freier Lobby-Code zu finden. Versuch es gleich noch einmal.');
       const now = Date.now();
       await withTimeout(set(lobbyRef(c), {
         meta: {
@@ -299,7 +321,15 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setError(describe(e));
       throw e;
     }
-  }, [lobbyRef, myId, profile?.name, profile?.color, myDrink.icon, setLastLobbyCode]);
+  }, [
+    lobbyRef,
+    myId,
+    profile?.name,
+    profile?.color,
+    profile?.designatedDriver,
+    myDrink.icon,
+    setLastLobbyCode,
+  ]);
 
   const joinOnline = useCallback(
     async (raw: string) => {
@@ -307,6 +337,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setConnection('connecting');
       setError(null);
       try {
+        // Der Code landet im Datenbankpfad. Ohne diese Prüfung liefe ein
+        // kaputter Einladungslink in einen Pfadfehler des SDK oder in die
+        // irreführende Meldung, die Security Rules fehlten.
+        if (!LOBBY_CODE_RE.test(c)) throw new Error('Diese Lobby gibt es nicht (mehr).');
         const metaSnap = await withTimeout(get(lobbyRef(c, '/meta')), OFFLINE_MSG);
         if (!metaSnap.exists()) throw new Error('Diese Lobby gibt es nicht (mehr).');
         if ((metaSnap.val()?.expiresAt ?? 0) < Date.now())
@@ -368,7 +402,22 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       const { profile: p, log: l, drink, shots } = liveRef.current;
       // Es geht nur die grobe Zone raus – kein Promillewert, kein Gewicht.
       const zone = p ? bacZone(estimateBac(l, p).bac) : 'sober';
+      // Lag das Handy länger gesperrt, hat der Host den Eintrag als inaktiv
+      // entfernt. Ein reines Teil-Update scheitert dann an den Security Rules
+      // (id und name fehlen) – man wäre still aus der Runde verschwunden,
+      // obwohl die App weiterläuft. Deshalb kommt der Eintrag vollständig zurück.
+      const snap = snapshotRef.current;
+      const identity =
+        snap && !snap.players?.[myId]
+          ? {
+              id: myId,
+              name: (p?.name || 'Spieler').slice(0, 24),
+              color: p?.color ?? 'indigo',
+              joinedAt: Date.now(),
+            }
+          : {};
       update(meRef, {
+        ...identity,
         lastSeen: Date.now(),
         online: true,
         zone,
@@ -407,9 +456,16 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [mode, code, isHost, myId, lobbyRef]);
 
-  // Host-Uebernahme, wenn der Host verschwunden ist
+  // Host-Uebernahme, wenn der Host verschwunden ist.
+  //
+  // Abhängig nur davon, OB es Metadaten gibt – nicht vom Objekt selbst. Jeder
+  // Herzschlag irgendeines Geräts liefert ein neues Abbild und damit ein neues
+  // `meta`-Objekt; als Abhängigkeit setzte das den 20-Sekunden-Takt bei jedem
+  // Herzschlag zurück, und ab zwei verbliebenen Geräten kam er nie zum Zug.
+  // Gelesen wird ohnehin frisch aus `snapshotRef`.
+  const hasMeta = Boolean(snapshot?.meta);
   useEffect(() => {
-    if (mode !== 'online' || !code || isHost || !snapshot?.meta) return;
+    if (mode !== 'online' || !code || isHost || !hasMeta) return;
     const t = setInterval(() => {
       const snap = snapshotRef.current;
       if (!snap?.meta) return;
@@ -425,7 +481,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       ).catch(() => {});
     }, HEARTBEAT_MS);
     return () => clearInterval(t);
-  }, [mode, code, isHost, myId, lobbyRef, snapshot?.meta]);
+  }, [mode, code, isHost, myId, lobbyRef, hasMeta]);
 
   const snapshotRef = useRef<LobbySnapshot | null>(null);
   snapshotRef.current = snapshot;
@@ -528,12 +584,24 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   const leave = useCallback(() => {
     if (mode === 'online' && code) {
-      remove(lobbyRef(code, `/players/${myId}`)).catch(() => {});
+      const meRef = lobbyRef(code, `/players/${myId}`);
+      // Sonst meldet der Server beim nächsten Verbindungsabbruch noch
+      // `online: false` für einen Eintrag, den es nicht mehr gibt.
+      onDisconnect(meRef).cancel().catch(() => {});
+      // Wer als Letzter geht, nimmt die Lobby mit: sonst bliebe sie samt
+      // Namen und Spielstand in der Datenbank liegen. Als „noch da" zählt,
+      // wen auch der Host noch nicht als inaktiv entfernen würde.
+      const now = Date.now();
+      const othersLeft = Object.values(snapshotRef.current?.players ?? {}).some(
+        (p) => p.id !== myId && now - p.lastSeen <= PLAYER_STALE_MS * 3,
+      );
+      remove(othersLeft ? meRef : lobbyRef(code)).catch(() => {});
     }
     setMode('local');
     setCode(null);
     setSnapshot(null);
     setConnection('idle');
+    setError(null);
     setLocalStatus('lobby');
     setLocalGameId(null);
     setLocalGameState(null);
@@ -578,6 +646,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const removeLocalPlayer = useCallback((id: string) => {
     setLocalPlayers((prev) => prev.filter((p) => p.id !== id));
   }, []);
+
+  const clearLocalPlayers = useCallback(() => setLocalPlayers([]), []);
 
   const startGame = useCallback(
     async (id: string) => {
@@ -769,6 +839,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     addLocalPlayer,
     updateLocalPlayer,
     removeLocalPlayer,
+    clearLocalPlayers,
     startGame,
     endGame,
     setFilm,
@@ -822,6 +893,9 @@ export function decodeState(raw: unknown): unknown {
     return null;
   }
 }
+
+/** Wie `lobbyCode()` sie erzeugt und die Security Rules sie zulassen. */
+const LOBBY_CODE_RE = /^[A-Z0-9]{4,6}$/;
 
 const OFFLINE_MSG =
   'Keine Verbindung zur Datenbank. Prüf dein Netz – oder spielt so lange auf einem Handy weiter.';

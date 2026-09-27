@@ -35,7 +35,10 @@ export function useSipsForPlayer(player: GamePlayer | null, baseSips: number): S
     if (player.local) {
       return personalSips({
         profile: player.local.profile,
-        drink: findDrink(player.local.drinkId),
+        // Dieselbe Getränkeliste wie beim Eintragen (`logSipsFor`): ein Gerät,
+        // eine Liste eigener Getränke. Ohne sie rechnete die Ansage für ein
+        // eigenes Getränk still mit dem ersten Katalog-Getränk (Pils).
+        drink: findDrink(player.local.drinkId, customDrinks),
         events: player.local.log,
         baseSips,
       });

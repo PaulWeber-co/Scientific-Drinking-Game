@@ -6,6 +6,8 @@ import { nightPeak, soberAt } from '../engine/bac';
 import { makeDrinkEvent } from '../engine/sips';
 import { useNights } from './nights';
 import { useFilm } from './film';
+import { useCustomCards } from './cards';
+import { useSeen } from './seen';
 import { colorFor } from '../components/ui/Avatar';
 import type { DrinkDefinition, DrinkEvent, Profile } from '../engine/types';
 
@@ -121,6 +123,10 @@ export const usePlayer = create<PlayerState>()(
       resetAll: () => {
         useNights.getState().clearAll();
         useFilm.getState().clearAll();
+        // „Alles" heißt auch die eigenen Karten und das Kartengedächtnis –
+        // der Knopf verspricht, alle lokalen Daten zu löschen.
+        useCustomCards.setState({ byGame: {} });
+        useSeen.setState({ seen: {}, cursor: 0 });
         set({
           profile: null,
           onboarded: false,
@@ -135,24 +141,44 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'sdg.player',
-      version: 3,
-      // v1 speicherte ein Emoji als Avatar. Ab v2 sind es Initialen auf einer
-      // Farbe – bestehende Profile bekommen eine aus dem Namen abgeleitete.
-      migrate: (persisted, version) => {
-        const state = persisted as { profile?: (Profile & { emoji?: string }) | null };
-        if (version < 2 && state?.profile) {
-          const { emoji: _emoji, ...rest } = state.profile;
-          state.profile = { ...rest, color: rest.color ?? colorFor(rest.name || 'x') };
-        }
-        if (version < 3 && state?.profile) {
-          state.profile = { ...state.profile, designatedDriver: false };
-        }
-        return state;
-      },
+      version: 4,
+      migrate: (persisted, version) => migratePlayer(persisted, version) as PlayerState,
       onRehydrateStorage: () => (state) => closeStaleNight(state),
     },
   ),
 );
+
+/**
+ * Hebt ältere Speicherstände auf den aktuellen Aufbau.
+ *
+ * Exportiert, damit ein Test die Migration ohne localStorage prüfen kann –
+ * wie `migrateApp` im App-Store.
+ */
+export function migratePlayer(persisted: unknown, version: number): unknown {
+  const state = persisted as {
+    profile?: (Profile & { emoji?: string }) | null;
+    customDrinks?: DrinkDefinition[];
+  };
+  // v1 speicherte ein Emoji als Avatar. Ab v2 sind es Initialen auf einer
+  // Farbe – bestehende Profile bekommen eine aus dem Namen abgeleitete.
+  if (version < 2 && state?.profile) {
+    const { emoji: _emoji, ...rest } = state.profile;
+    state.profile = { ...rest, color: rest.color ?? colorFor(rest.name || 'x') };
+  }
+  if (version < 3 && state?.profile) {
+    state.profile = { ...state.profile, designatedDriver: false };
+  }
+  // Bis v3 war ein selbst angelegter Shot auf 20 ml gedeckelt, auch wenn das
+  // Glas 4 cl hatte: „1 Shot" verbuchte dann die Hälfte. Ein Shot ist das
+  // ganze Glas. Alte Einträge im Log bleiben, wie sie sind – sie beschreiben,
+  // was damals verbucht wurde.
+  if (version < 4 && Array.isArray(state?.customDrinks)) {
+    state.customDrinks = state.customDrinks.map((d) =>
+      d.sipIsUnit && d.sipSizeMl < d.defaultVolumeMl ? { ...d, sipSizeMl: d.defaultVolumeMl } : d,
+    );
+  }
+  return state;
+}
 
 /**
  * Schließt eine abgelaufene Nacht beim Start der App.

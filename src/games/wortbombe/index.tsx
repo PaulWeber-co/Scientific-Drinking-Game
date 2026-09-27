@@ -154,6 +154,7 @@ function WortbombeGame({ state, players, me, isHost, dispatch, quit, online }: G
     // `send` gehört bewusst NICHT in die Abhängigkeiten: die Funktion ist bei
     // jedem Rendern neu, und ein Intervall, das dabei jedes Mal von vorn
     // startet, feuert nie. Genau daran hing das Ticken unten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.explodesAt, isHolder, isHost, online]);
 
   /**

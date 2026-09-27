@@ -328,6 +328,9 @@ function LueckenfuellerGame({
       if (Date.now() >= state.deadline!) send({ type: 'timeout' });
     }, 250);
     return () => clearInterval(t);
+    // `send` ist bei jedem Rendern neu – als Abhängigkeit startete das
+    // Intervall ständig von vorn (wie in Wortbombe und Duell).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, state.phase, state.deadline]);
 
   // Verschwindet der Richter, verwirft der Host die Runde. Ohne diesen
@@ -339,6 +342,7 @@ function LueckenfuellerGame({
       if (!r || r.online === false) send({ type: 'judge-left' });
     }, 2000);
     return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`, s. oben
   }, [isHost, state.phase, state.judgeId, players]);
 
   useEffect(() => {

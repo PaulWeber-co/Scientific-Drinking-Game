@@ -1,6 +1,7 @@
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
 import { formatStamp } from '../../lib/format';
+import { haptic } from '../../lib/haptics';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GamePlayer } from '../types';
 
@@ -198,6 +199,83 @@ export function VoteResult({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Abstimmen auf einem geteilten Handy: alle zeigen auf drei gleichzeitig,
+ * danach trägt die Person mit dem Handy ein, wie viele Finger wer bekam.
+ *
+ * Eine Zeile pro Person mit einem Zähler statt Texteingabe. Ein Stepper
+ * braucht kein Zahlenfeld samt Tastatur und lässt sich nicht vertippen – auf
+ * einem Handy, das gerade herumgereicht oder in der Mitte liegt, ist Tippen
+ * auf +/- schneller als eine Zahl einzutippen.
+ *
+ * Steht hier und nicht in einem Spiel, weil jede Abstimmung über `action.by`
+ * am geteilten Handy nur EINE Stimme kennt: alle Aktionen tragen dort die
+ * Kennung des Gerätebesitzers.
+ */
+export function FingerTally({
+  players,
+  onSubmit,
+  voters = players.length,
+  requireVote = false,
+}: {
+  /** Wer Finger abbekommen kann. */
+  players: GamePlayer[];
+  onSubmit: (counts: Record<string, number>) => void;
+  /** Wie viele Leute zeigen – Obergrenze je Zeile. Standard: alle in `players`. */
+  voters?: number;
+  /** true = ohne einen einzigen Finger lässt sich nicht aufdecken. */
+  requireVote?: boolean;
+}) {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const bump = (id: string, delta: number) => {
+    haptic('select');
+    setCounts((c) => ({
+      ...c,
+      [id]: Math.max(0, Math.min(voters, (c[id] ?? 0) + delta)),
+    }));
+  };
+  return (
+    <div className="stack-3">
+      <div className="stack-2">
+        {players.map((p, i) => (
+          <div key={p.id} className="result-row" style={{ ['--i' as string]: i }}>
+            <PlayerChip player={p} />
+            <span className="grow" />
+            <button
+              className="btn btn--gray btn--sm"
+              aria-label={`Weniger Finger bei ${p.name}`}
+              onClick={() => bump(p.id, -1)}
+            >
+              <Icon name="minus" size={15} strokeWidth={2.2} />
+            </button>
+            <span className="t-mono-num" style={{ minWidth: 22, textAlign: 'center' }}>
+              {counts[p.id] ?? 0}
+            </span>
+            <button
+              className="btn btn--gray btn--sm"
+              aria-label={`Mehr Finger bei ${p.name}`}
+              onClick={() => bump(p.id, 1)}
+            >
+              <Icon name="plus" size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="t-caption t-center">
+        Insgesamt eingetragen: {total} von {voters}
+      </p>
+      <button
+        className="btn btn--brand btn--block btn--lg"
+        disabled={requireVote && total === 0}
+        onClick={() => onSubmit(counts)}
+      >
+        Aufdecken
+      </button>
     </div>
   );
 }

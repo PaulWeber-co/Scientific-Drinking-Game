@@ -176,15 +176,16 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     }, [state.order, state.turnIndex, players]);
 
     const card = state.drawn;
+    const cardText = card?.text;
     // Wechselt die Karte unter einer schon getroffenen Entscheidung weg (etwa
     // weil jemand den Härtegrad verstellt), gilt die Entscheidung nicht mehr.
-    useEffect(() => setDeclared(null), [card?.text]);
+    useEffect(() => setDeclared(null), [cardText]);
     // Jedes Geraet merkt sich, was es gezeigt bekommen hat. Online sehen alle
     // dieselbe Karte, der Stapel entsteht aber beim Host - dessen Gedaechtnis
     // ist deshalb das der Runde.
     useEffect(() => {
-      if (card) markTextsSeen([card.text]);
-    }, [card?.text]);
+      if (cardText) markTextsSeen([cardText]);
+    }, [cardText]);
     const isMyTurn = !actor || actor.id === me.id;
     // Pass & Play: ein Gerät, also darf es auch für den Spieler am Zug tippen.
     const canAct = !online || isMyTurn;

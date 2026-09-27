@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { uid } from '../lib/id';
 import type { CardDef, Heat } from '../games/card-engine/types';
 
 export interface CustomCard extends CardDef {
@@ -24,7 +25,10 @@ export const useCustomCards = create<CardsState>()(
             ...s.byGame,
             [gameId]: [
               ...(s.byGame[gameId] ?? []),
-              { ...card, id: `c_${Date.now().toString(36)}` },
+              // Zufällig statt Zeitstempel: zwei Karten in derselben
+              // Millisekunde bekamen sonst dieselbe Kennung, und „Löschen"
+              // nahm beide mit.
+              { ...card, id: uid('c_') },
             ],
           },
         })),

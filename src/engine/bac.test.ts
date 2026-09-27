@@ -9,7 +9,7 @@ import {
   soberAt,
   widmarkFactor,
 } from './bac';
-import { alcoholPerSip, createCustomDrink, DRINK_CATALOG, findDrink } from './drinks';
+import { alcoholPerSip, createCustomDrink, DRINK_CATALOG, findDrink, sipsPerServing } from './drinks';
 import { makeDrinkEvent, personalSips, sipsToTarget } from './sips';
 import { ageGate } from './age';
 import type { DrinkEvent, Profile } from './types';
@@ -300,6 +300,17 @@ describe('Getränke-Katalog', () => {
     expect(gin.custom).toBe(true);
     const strong = createCustomDrink({ name: 'Absinth', volumeMl: 20, abvPercent: 55 });
     expect(strong.sipIsUnit).toBe(true);
+  });
+  it('rechnet einen eigenen Shot als ganzes Glas, auch bei 4 cl', () => {
+    // Vorher: 40 ml, aber „1 Shot" = 20 ml. Verbucht wurde die Hälfte.
+    const doppelt = createCustomDrink({ name: 'Tequila doppelt', volumeMl: 40, abvPercent: 38 });
+    expect(doppelt.sipIsUnit).toBe(true);
+    expect(doppelt.sipSizeMl).toBe(40);
+    expect(sipsPerServing(doppelt)).toBe(1);
+    // Größere Mengen bleiben Schlucke zu 20 ml.
+    const flasche = createCustomDrink({ name: 'Rum', volumeMl: 200, abvPercent: 40 });
+    expect(flasche.sipIsUnit).toBe(false);
+    expect(flasche.sipSizeMl).toBe(20);
   });
   it('deckelt unmögliche Eingaben', () => {
     const weird = createCustomDrink({ name: 'X', volumeMl: 99999, abvPercent: 999 });

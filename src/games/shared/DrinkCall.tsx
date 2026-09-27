@@ -121,7 +121,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
         <div className="call__who">
           <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" /> {player.name}
         </div>
-        <div className="t-sub">sieht seine Menge auf dem eigenen Handy</div>
+        <div className="t-sub">sieht die Menge auf dem eigenen Handy</div>
       </div>
     );
   }

@@ -15,6 +15,7 @@ const GRAMS_TRIGGER = 24;
 export function WaterReminder() {
   const enabled = useApp((s) => s.waterReminder);
   const log = usePlayer((s) => s.log);
+  const addWater = usePlayer((s) => s.addWater);
   const [dismissedAt, setDismissedAt] = useState(0);
   const [now, setNow] = useState(Date.now());
 
@@ -38,6 +39,9 @@ export function WaterReminder() {
         className="btn btn--sm btn--gray"
         onClick={() => {
           haptic('success');
+          // „Erledigt" heißt: das Glas ist getrunken. Es zählt deshalb im
+          // Rückblick mit – vorher stand dort für alle außer Fahrern immer 0.
+          addWater();
           setDismissedAt(Date.now());
         }}
       >

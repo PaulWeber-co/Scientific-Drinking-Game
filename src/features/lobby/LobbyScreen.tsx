@@ -15,6 +15,8 @@ import { AVATAR_COLORS, Avatar, type AvatarColor } from '../../components/ui/Ava
 import { Icon } from '../../components/icons';
 import { QrCode } from '../../components/ui/QrCode';
 import { haptic } from '../../lib/haptics';
+import { isNativeApp } from '../../lib/platform';
+import { LEGAL } from '../../legal/site';
 import { formatBac } from '../../lib/format';
 import { gamesForGroup } from '../../games/registry';
 import type { GamePlayer } from '../../games/types';
@@ -65,7 +67,11 @@ export function LobbyScreen() {
     zuletzt.current = players.length;
   }, [players.length]);
 
-  const inviteUrl = `${location.origin}${location.pathname}#/lobby?code=${party.code}`;
+  // In der nativen Hülle ist `location.origin` capacitor://localhost bzw.
+  // http://localhost – ein Link oder QR-Code dorthin führt beim Empfänger ins
+  // Nichts (siehe `lib/platform.ts`). Dann gilt die öffentliche Adresse.
+  const appUrl = isNativeApp() ? LEGAL.url : `${location.origin}${location.pathname}`;
+  const inviteUrl = `${appUrl}#/lobby?code=${party.code}`;
 
   const shareLink = () => {
     const url = inviteUrl;
@@ -189,7 +195,7 @@ export function LobbyScreen() {
         <section className="stack-3">
           <div className="row-between">
             <h2 className="t-title2">
-              {players.length} {players.length === 1 ? 'Spieler' : 'Spieler'}
+              {players.length} Spieler
             </h2>
             {!online && (
               <button className="btn btn--plain" onClick={() => setAddOpen(true)}>

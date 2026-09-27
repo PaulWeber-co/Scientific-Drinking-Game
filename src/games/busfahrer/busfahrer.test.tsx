@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { busfahrer } from './index';
+import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { cardFromIndex } from '../shared/deck';
 import type { GameAction, GamePlayer } from '../types';
+
+vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
 
 type State = ReturnType<typeof busfahrer.createState>;
 
@@ -360,5 +364,42 @@ describe('Busfahrer: Phasen halten dicht', () => {
     const nochmal = busfahrer.reduce(s, act('answer', s.order[0], { answer: 'schwarz' }), roster);
     expect(nochmal, 'zwei schnelle Taps ziehen nicht zwei Karten').toBe(s);
     expect(s.hand).toHaveLength(1);
+  });
+});
+
+describe('Busfahrer: Pyramide online', () => {
+  function zeigen(online: boolean) {
+    const state = busfahrer.reduce(gestellt(), act('pyFlip'), roster);
+    const Game = busfahrer.Component;
+    const me = roster[0];
+    render(
+      <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+        <Game
+          state={state}
+          players={roster}
+          me={me}
+          isHost
+          online={online}
+          dispatch={() => {}}
+          quit={() => {}}
+        />
+      </PartyCtx.Provider>,
+    );
+  }
+
+  it('lässt online nur für sich selbst ablegen', () => {
+    // Vorher standen alle mit Karten zur Auswahl: online konnte man eine
+    // andere Person zur Ablegenden machen.
+    zeigen(true);
+    expect(screen.getByRole('button', { name: /Mira/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Ben/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Cem/ })).toBeNull();
+  });
+
+  it('bietet am geteilten Handy weiter alle mit Karten an', () => {
+    zeigen(false);
+    for (const name of [/Mira/, /Ben/, /Cem/]) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    }
   });
 });

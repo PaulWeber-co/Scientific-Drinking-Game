@@ -5,7 +5,15 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, Choice, PlayerChip, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
+import {
+  BigCard,
+  Choice,
+  FingerTally,
+  PlayerChip,
+  VoteGrid,
+  VoteResult,
+  WaitingFor,
+} from '../shared/pieces';
 import { PeekCard } from '../shared/PeekCard';
 import { PassDevice } from '../shared/PassDevice';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
@@ -89,6 +97,52 @@ function newRound(players: GamePlayer[], round: number, carry: Carry): State {
   };
 }
 
+/**
+ * Wertet eine vollständige Abstimmung aus: wer fliegt raus, und ist die
+ * Runde damit entschieden? Gemeinsam für Online-Stimmen und die Finger am
+ * geteilten Handy.
+ */
+function resolveVotes(state: State, votes: Record<string, string>, players: GamePlayer[]): State {
+  const counts: Record<string, number> = {};
+  for (const t of Object.values(votes)) counts[t] = (counts[t] ?? 0) + 1;
+  const max = Math.max(...Object.values(counts));
+  // Bei Gleichstand entschied vorher `Object.keys(...).find(...)`, also
+  // die Reihenfolge der Stimmabgabe. Fuer die Runde sah das wie Zufall
+  // aus, war aber die Eingangsreihenfolge der Inbox. Jetzt entscheidet
+  // wirklich das Los – und die Runde erfaehrt es.
+  const tied = Object.keys(counts).filter((id) => counts[id] === max);
+  const tie = tied.length > 1;
+  const out = tied.length ? pick(tied) : null;
+  const eliminated = out ? [...state.eliminated, out] : state.eliminated;
+  const remaining = players.filter((p) => !eliminated.includes(p.id));
+  const undercoverOut = out === state.undercoverId;
+  // Der Enttarnte bekommt einen letzten Rateversuch auf das Wort der
+  // Gruppe. Trifft er, dreht die Runde noch. Das ist der dramatischste
+  // Moment des Vorbilds und fehlte hier ganz.
+  if (undercoverOut) {
+    return {
+      ...state,
+      votes,
+      eliminated,
+      lastOut: out,
+      tie,
+      phase: 'guess',
+      guessOptions: guessChoices(state.words[0]),
+    };
+  }
+  const undercoverWins = remaining.length <= 2;
+  return {
+    ...state,
+    votes,
+    eliminated,
+    lastOut: out,
+    tie,
+    phase: undercoverWins ? 'over' : 'result',
+    winner: undercoverWins ? 'undercover' : null,
+    agentWins: state.agentWins + (undercoverWins ? 1 : 0),
+  };
+}
+
 export const undercover: GameDefinition<State> = {
   ...meta,
 
@@ -125,46 +179,29 @@ export const undercover: GameDefinition<State> = {
       case 'vote': {
         if (state.phase !== 'vote') return state;
         const votes = { ...state.votes, [action.by]: String(action.target) };
-        const done = alive.every((p) => votes[p.id]);
+        // Wer gerade offline ist, hält die Abstimmung nicht auf – wie in den
+        // anderen Abstimmungsspielen.
+        const done = alive.filter((p) => p.online !== false).every((p) => votes[p.id]);
         if (!done) return { ...state, votes };
-        const counts: Record<string, number> = {};
-        for (const t of Object.values(votes)) counts[t] = (counts[t] ?? 0) + 1;
-        const max = Math.max(...Object.values(counts));
-        // Bei Gleichstand entschied vorher `Object.keys(...).find(...)`, also
-        // die Reihenfolge der Stimmabgabe. Fuer die Runde sah das wie Zufall
-        // aus, war aber die Eingangsreihenfolge der Inbox. Jetzt entscheidet
-        // wirklich das Los – und die Runde erfaehrt es.
-        const tied = Object.keys(counts).filter((id) => counts[id] === max);
-        const tie = tied.length > 1;
-        const out = tied.length ? pick(tied) : null;
-        const eliminated = out ? [...state.eliminated, out] : state.eliminated;
-        const remaining = players.filter((p) => !eliminated.includes(p.id));
-        const undercoverOut = out === state.undercoverId;
-        // Der Enttarnte bekommt einen letzten Rateversuch auf das Wort der
-        // Gruppe. Trifft er, dreht die Runde noch. Das ist der dramatischste
-        // Moment des Vorbilds und fehlte hier ganz.
-        if (undercoverOut) {
-          return {
-            ...state,
-            votes,
-            eliminated,
-            lastOut: out,
-            tie,
-            phase: 'guess',
-            guessOptions: guessChoices(state.words[0]),
-          };
+        return resolveVotes(state, votes, players);
+      }
+      case 'countVotes': {
+        // Ein geteiltes Handy. Über `vote` kam dort nie mehr als EINE Stimme
+        // an – jede Aktion trägt die Kennung des Gerätebesitzers –, und die
+        // Runde hing für immer in der Abstimmung. Hier zeigen alle auf drei
+        // gleichzeitig, danach trägt die Person mit dem Handy die Finger ein.
+        // Jeder Finger wird eine Stimme unter erfundenem Schlüssel, damit
+        // Auszählung und Gleichstand dieselbe Rechnung sind wie online.
+        if (state.phase !== 'vote') return state;
+        const raw = (action.counts as Record<string, number>) ?? {};
+        const votes: Record<string, string> = {};
+        let n = 0;
+        for (const p of alive) {
+          const count = Math.min(alive.length, Math.max(0, Math.floor(Number(raw[p.id]) || 0)));
+          for (let i = 0; i < count; i++) votes[`@${n++}`] = p.id;
         }
-        const undercoverWins = remaining.length <= 2;
-        return {
-          ...state,
-          votes,
-          eliminated,
-          lastOut: out,
-          tie,
-          phase: undercoverWins ? 'over' : 'result',
-          winner: undercoverWins ? 'undercover' : null,
-          agentWins: state.agentWins + (undercoverWins ? 1 : 0),
-        };
+        if (!n) return state;
+        return resolveVotes(state, votes, players);
       }
       case 'guess': {
         if (state.phase !== 'guess') return state;
@@ -356,20 +393,42 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
   }
 
   if (state.phase === 'vote') {
-    const waiting = alive.filter((p) => !state.votes[p.id]).map((p) => p.name);
+    const waiting = alive
+      .filter((p) => p.online !== false && !state.votes[p.id])
+      .map((p) => p.name);
     return (
       <GameFrame title={undercover.name} accent={undercover.accent} subtitle="Abstimmen" onQuit={quit}>
         <BigCard kicker="Wer ist Undercover?">Alle stimmen gleichzeitig ab.</BigCard>
-        <VoteGrid
-          players={alive}
-          myVote={state.votes[me.id]}
-          onVote={(id) => {
-            haptic('select');
-            send({ type: 'vote', target: id });
-          }}
-          disabled={state.eliminated.includes(me.id)}
-        />
-        {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+        {online ? (
+          <>
+            <VoteGrid
+              players={alive}
+              myVote={state.votes[me.id]}
+              onVote={(id) => {
+                haptic('select');
+                send({ type: 'vote', target: id });
+              }}
+              disabled={state.eliminated.includes(me.id)}
+            />
+            {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+          </>
+        ) : (
+          <>
+            <p className="t-sub t-center t-balance">
+              Auf drei zeigen alle, die noch dabei sind, gleichzeitig auf eine Person. Trag danach
+              ein, wie viele Finger jede Person abbekommen hat.
+            </p>
+            <FingerTally
+              players={alive}
+              voters={alive.length}
+              requireVote
+              onSubmit={(counts) => {
+                haptic('success');
+                send({ type: 'countVotes', counts });
+              }}
+            />
+          </>
+        )}
       </GameFrame>
     );
   }
