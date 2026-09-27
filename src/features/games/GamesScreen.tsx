@@ -152,7 +152,12 @@ export function GameDetail() {
   const count = party.players.length;
   const tooFew = count < game.minPlayers;
   const needsDevices = game.requiresOwnDevice && party.mode !== 'online';
-  const rounds = roundGoal(baseFor(game.id), gameLength);
+  // Manche Spiele rechnen ihre Runden aus der Gruppengröße (Stichmagie: das
+  // Deck gibt sie vor). Die fragen wir selbst, alle anderen wie bisher.
+  const rounds = game.rounds
+    ? game.rounds(Math.max(count, game.minPlayers), gameLength)
+    : roundGoal(baseFor(game.id), gameLength);
+  const endless = gameLength === 'endlos' && !game.rounds;
 
   const start = async () => {
     markGamePlayed(game.id);
@@ -199,7 +204,7 @@ export function GameDetail() {
           {tooFew ? `${count} von ${game.minPlayers} Spielern` : `${count} Spieler`}
         </button>
         <button className="chip pressable" onClick={() => setSheet('laenge')}>
-          {gameLength === 'endlos' ? 'Endlos' : `${rounds} Runden`}
+          {endless ? 'Endlos' : `${rounds} Runden`}
         </button>
         {game.allowSpicy && <SpicyToggle game={game} />}
         {game.allowCustomCards && (
@@ -259,7 +264,7 @@ export function GameDetail() {
       </Sheet>
 
       <Sheet open={sheet === 'laenge'} onClose={() => setSheet(null)} title="Spiellänge">
-        <LengthPicker gameId={game.id} />
+        <LengthPicker gameId={game.id} deckRounds={game.rounds ? rounds : null} />
       </Sheet>
 
       <Sheet open={sheet === 'karten'} onClose={() => setSheet(null)} title="Eigene Karten">
@@ -274,7 +279,7 @@ export function GameDetail() {
  * Wer einen kurzen Abend hat, will nicht in jedem Spiel neu entscheiden.
  * Jedes Spiel rechnet die Stufe in seine eigene Rundenzahl um.
  */
-function LengthPicker({ gameId }: { gameId: string }) {
+function LengthPicker({ gameId, deckRounds }: { gameId: string; deckRounds: number | null }) {
   const value = useApp((s) => s.gameLength);
   const setValue = useApp((s) => s.setGameLength);
   const basis = baseFor(gameId);
@@ -301,7 +306,11 @@ function LengthPicker({ gameId }: { gameId: string }) {
         ]}
       />
       <span className="t-caption">
-        {value === 'endlos'
+        {deckRounds !== null
+          ? value === 'kurz'
+            ? `Hier sind das ${deckRounds} Runden – bis zur Hälfte des Decks. Die Einstellung gilt für alle Spiele.`
+            : `Hier sind das ${deckRounds} Runden, mehr Karten gibt das Deck nicht her. Am Tisch lässt sich auch „rauf und runter" wählen.`
+          : value === 'endlos'
           ? basis === 0
             ? 'Auch der vierte König beendet dieses Spiel dann nicht mehr. Läuft, bis ihr selbst Schluss macht.'
             : 'Läuft, bis ihr selbst Schluss macht. Gilt für alle Spiele.'

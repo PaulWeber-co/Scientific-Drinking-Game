@@ -21,7 +21,7 @@ export type IconName =
   // Spiel-Kategorien
   | 'phoneOff' | 'cards' | 'chat' | 'brush' | 'bolt' | 'team' | 'activity' | 'eyeOff'
   // Spiele
-  | 'fork' | 'crown' | 'shuffle' | 'bomb' | 'ban' | 'quotes' | 'ranking' | 'bus' | 'burst'
+  | 'fork' | 'crown' | 'shuffle' | 'bomb' | 'ban' | 'quotes' | 'ranking' | 'bus' | 'burst' | 'wand'
   // Getränke
   | 'beerMug' | 'beerBottle' | 'wine' | 'flute' | 'cocktail' | 'tumbler' | 'tallGlass'
   | 'shot' | 'water'
@@ -86,6 +86,7 @@ const P: Record<IconName, ReactNode> = {
   ranking: <><path d="M4 20.4v-5.6h4v5.6M10 20.4V9.4h4v11M16 20.4V4.6h4v15.8" /></>,
   bus: <><rect x="4.2" y="3.6" width="15.6" height="13.4" rx="2.6" /><path d="M4.2 10.6h15.6M9.4 3.6v7" /><path d="M7 17v2.2M17 17v2.2" /><circle cx="8" cy="14" r=".9" fill="currentColor" stroke="none" /><circle cx="16" cy="14" r=".9" fill="currentColor" stroke="none" /></>,
   burst: <path d="M12 2.6 14.2 8l5.6-2.2-2.6 5.4 4.6 3.4-5.8.9 1 5.9-4.6-3.6-4.6 3.6 1-5.9-5.8-.9L8.6 11 6 5.8 11.6 8Z" />,
+  wand: <><path d="M4.4 19.6 14.2 9.8" /><path d="m12.6 8.2 3.2 3.2" /><path d="M17.8 2.8l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8Z" /><path d="M8 4.2l.5 1.3 1.3.5-1.3.5L8 7.8l-.5-1.3-1.3-.5 1.3-.5Z" /><path d="M19.4 13.4l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4Z" /></>,
 
   beerMug: <><path d="M5.8 7.6h9.4v11.6a1.8 1.8 0 0 1-1.8 1.8H7.6a1.8 1.8 0 0 1-1.8-1.8Z" /><path d="M15.2 10.4h2.2a2.4 2.4 0 0 1 0 4.8h-2.2" /><path d="M5.8 11.4h9.4" /><path d="M5.8 7.6c0-2.1 2.1-3.6 4.7-3.6s4.7 1.5 4.7 3.6" /></>,
   beerBottle: <><path d="M9.4 2.8h5.2v3.4l1.8 2.8v10.4a1.8 1.8 0 0 1-1.8 1.8H9.4a1.8 1.8 0 0 1-1.8-1.8V9l1.8-2.8Z" /><path d="M7.6 12.4h8.8" /></>,

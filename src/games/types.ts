@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { IconName } from '../components/icons';
 import type { AvatarColor } from '../components/ui/Avatar';
 import type { BacZone, DrinkEvent, Profile } from '../engine/types';
+import type { GameLength } from '../store/app';
 
 export interface GamePlayer {
   id: string;
@@ -132,6 +133,12 @@ export interface GameMeta {
   allowCustomCards?: boolean;
   /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */
   allowSpicy?: boolean;
+  /**
+   * Rundenzahl, wenn sie nicht aus `ROUND_BASES` folgt, sondern aus der
+   * Gruppengröße – etwa bei einem Stichspiel, in dem das Deck die Runden
+   * vorgibt. Fehlt die Funktion, rechnet die Spielseite wie bisher.
+   */
+  rounds?: (playerCount: number, length: GameLength) => number | null;
   /** Kategorien des Spiels, falls es welche hat (für eigene Karten). */
   modes?: { id: string; label: string; icon?: IconName; tone?: string }[];
   howTo: string[];
