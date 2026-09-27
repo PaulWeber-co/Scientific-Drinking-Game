@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/busfahrer.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Vier Fragen, eine Pyramide, eine lange Fahrt.',
   icon: 'bus',
   accent: 'var(--yellow)',
+  image,
   minPlayers: 2,
   maxPlayers: 12,
   duration: '20-35 Min',

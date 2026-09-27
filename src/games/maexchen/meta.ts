@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/maexchen.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Würfeln, ansagen, lügen. Oder aufdecken.',
   icon: 'games',
   accent: 'var(--yellow)',
+  image,
   minPlayers: 2,
   maxPlayers: 12,
   duration: '15-30 Min',

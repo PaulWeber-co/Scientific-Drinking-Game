@@ -168,6 +168,19 @@ export const meinSpiel: GameDefinition<State> = {
 
 ---
 
+## Kachelmotiv
+
+Jedes Spiel hat ein Bild im Spieleraster (3:4, 1080 × 1440 WebP, unter 60 kB) –
+`image` in `meta.ts`. Ohne Bild zeigt die Kachel den Verlauf der Akzentfarbe.
+
+- **Foto:** `scripts/filmize.mjs` schneidet zu und legt den Einwegkamera-Look darüber.
+- **Illustration:** die Motive der meisten Spiele sind Vektorbilder aus
+  `scripts/thumbnails/scenes.tsx`. Neues Motiv dort als Szene anlegen, bei laufendem
+  `npx vite` in `/scripts/thumbnails/index.html` ansehen und mit
+  `node scripts/thumbnails/render.mjs <spiel-id>` nach `src/assets/games/` belichten.
+  Das Motiv gehört ins mittlere Band (y 120–360 von 480): die Spielseite zeigt es
+  als 3:2-Ausschnitt.
+
 ## Checkliste vor dem Commit
 
 - [ ] `id` ist eindeutig und identisch mit dem Ordnernamen

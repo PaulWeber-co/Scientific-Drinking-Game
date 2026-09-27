@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/wortbombe.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Ein Wort sagen, weitergeben, nicht explodieren.',
   icon: 'bomb',
   accent: 'var(--pink)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '5-20 Min',

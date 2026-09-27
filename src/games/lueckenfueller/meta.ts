@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/lueckenfueller.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik, Komponente und Kartenstapel lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Lücke lesen, Karte legen, der Richter kürt.',
   icon: 'cards',
   accent: 'var(--purple)',
+  image,
   minPlayers: 3,
   maxPlayers: 10,
   duration: '20-40 Min',

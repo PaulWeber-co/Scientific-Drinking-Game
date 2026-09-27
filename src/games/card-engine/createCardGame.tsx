@@ -389,7 +389,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                   player={actor}
                   baseSips={config.refuseSips ?? sips + 2}
                   source={config.id}
-                  label="gekniffen"
+                  label={config.refuseCallLabel ?? 'gekniffen'}
                   resetKey={callKey}
                 />
               )
@@ -453,7 +453,12 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             )}
             <button
               className="btn btn--brand btn--block btn--lg"
-              disabled={Boolean(config.pickWinner) && state.winner === null}
+              // Nach dem Kneifen gibt es keine Gewinnerwahl – dort darf der
+              // Knopf nicht auf sie warten, sonst hängt die Runde (Erste
+              // Zeile nach „Keiner wusste es").
+              disabled={
+                Boolean(config.pickWinner) && state.outcome !== 'refused' && state.winner === null
+              }
               onClick={() => {
                 setDeclared(null);
                 send({ type: 'next' });
@@ -473,6 +478,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     tagline: config.tagline,
     icon: config.icon,
     accent: config.accent,
+    image: config.image,
     minPlayers: config.minPlayers,
     maxPlayers: config.maxPlayers,
     duration: config.duration,

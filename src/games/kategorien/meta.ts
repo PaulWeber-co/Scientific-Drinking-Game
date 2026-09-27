@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/kategorien.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Reihum ein Beispiel. Wer hängt, trinkt.',
   icon: 'brackets',
   accent: 'var(--mint)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '5-15 Min',

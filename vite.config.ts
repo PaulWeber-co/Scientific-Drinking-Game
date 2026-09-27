@@ -50,8 +50,8 @@ export default defineConfig({
           },
           {
             // Die Kachel-Motive liegen als eigene Dateien neben dem Paket und
-            // stehen bewusst NICHT im Precache: 17 Motive sind rund zwei
-            // Megabyte, die beim ersten Start niemand braucht. Wer ein Spiel
+            // stehen bewusst NICHT im Precache: 19 Motive sind knapp ein
+            // Megabyte, das beim ersten Start niemand braucht. Wer ein Spiel
             // einmal gesehen hat, sieht sein Bild danach auch ohne Netz.
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',

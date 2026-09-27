@@ -1980,6 +1980,13 @@ button.chip--outline {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.45s var(--ease-out);
+}
+/* Beim Antippen rückt das Motiv ein Stück näher – die Kachel selbst gibt
+   über .pressable schon nach, zusammen fühlt es sich an wie ein Abzug, den
+   man in die Hand nimmt. */
+.gametile:active .gametile__img {
+  transform: scale(1.06);
 }
 /* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
 .gametile__mark {
@@ -2076,6 +2083,19 @@ button.chip--outline {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Langsamer Schwenk über das Motiv: die Seite wirkt lebendig, ohne dass
+     sich etwas Lesbares bewegt. Reduzierte Bewegung schaltet ihn ab. */
+  animation: detail-schwenk 16s ease-in-out infinite alternate;
+}
+@keyframes detail-schwenk {
+  to {
+    transform: scale(1.08) translate3d(0, -2%, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detailbild__foto img {
+    animation: none;
+  }
 }
 /* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
 .detailbild__mark {

@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/duell.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Handy in die Mitte. Wer zu langsam tippt, trinkt.',
   icon: 'bolt',
   accent: 'var(--red)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '5-15 Min',

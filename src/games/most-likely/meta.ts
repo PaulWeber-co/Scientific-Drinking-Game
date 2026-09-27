@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/most-likely.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Alle zeigen gleichzeitig. Wer gezeigt wird, trinkt.',
   icon: 'people',
   accent: 'var(--orange)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '10-20 Min',

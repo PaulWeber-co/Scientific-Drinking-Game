@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/tabu.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Erklären ohne die verbotenen Wörter. Zwei Teams, 60 Sekunden.',
   icon: 'ban',
   accent: 'var(--indigo)',
+  image,
   minPlayers: 4,
   maxPlayers: 16,
   duration: '15-25 Min',
