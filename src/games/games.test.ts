@@ -112,6 +112,12 @@ const VARIANTS: Record<string, unknown>[] = [
   { slot: 51 },
   { slot: 200 },
   { heat: 2, answer: 'aussen', value: 0 },
+  // Stichmagie: Einrichten (Sonderkarte, Voreinstellung, Regel, Länge) und
+  // die Wahl beim Ausspielen (Farbe, Gestalt). `take` ist wie `card` eine
+  // Kartennummer – die echten Werte liefert `turnVariants()` aus dem Zustand.
+  { special: 'bombe', preset: 'alle', rule: 'noEvenBids', on: true, length: 'kurz', suit: 0 },
+  { special: 'hexe', preset: 'klassisch', rule: 'forehead', on: false, length: 'voll', suit: -1 },
+  { suit: 2, shape: 'magier', take: -1, value: -1 },
 ];
 
 /**
@@ -177,10 +183,36 @@ function handVariants(state: unknown): Record<string, unknown>[] {
   return out;
 }
 
+/**
+ * Züge der Person, die gerade dran ist – aus dem ZUSTAND, nicht geraten.
+ *
+ * Ein Stichspiel prüft beim Ansagen, WER dran ist (`who`), und beim Legen,
+ * ob die Karte gerade erlaubt ist (Farbe bedienen). Die ersten zwei Karten
+ * aus `handVariants` sind oft nicht erlaubt; ohne alle Karten der Person am
+ * Zug fände der Sackgassen-Test keinen Ausweg und meldete ein gesundes Spiel.
+ * Greift nur, wenn es eine Hand zu `state.turn` gibt.
+ */
+function turnVariants(state: unknown): Record<string, unknown>[] {
+  const s = state as {
+    turn?: unknown;
+    hands?: Record<string, number[]>;
+    trick?: { card?: unknown }[];
+  } | null;
+  if (!s || typeof s.turn !== 'string' || !Array.isArray(s.hands?.[s.turn])) return [];
+  const hand = s.hands![s.turn];
+  const out: Record<string, unknown>[] = [0, 1, -1].map((value) => ({ who: s.turn, value }));
+  for (const card of hand) out.push({ card });
+  for (const t of s.trick ?? []) {
+    if (typeof t?.card === 'number' && hand.length) out.push({ card: hand[0], take: t.card });
+  }
+  return out;
+}
+
 const variantsFor = (roster: GamePlayer[], state?: unknown) => [
   ...VARIANTS,
   ...personVariants(roster),
   ...handVariants(state),
+  ...turnVariants(state),
 ];
 
 function hasEscape(

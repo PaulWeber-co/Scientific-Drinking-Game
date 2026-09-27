@@ -45,6 +45,9 @@ export const ROUND_BASES: Record<string, number> = {
   maexchen: 8,
   wortbombe: 8,
   'kings-cup': 0,
+  // Die Rundenzahl gibt das Deck vor (siehe `rounds` in stichmagie/meta.ts).
+  // Der Wert hier greift nur, wo jemand die Funktion nicht fragt.
+  stichmagie: 10,
 };
 
 /** Basis eines Spiels; 0 heisst: das Spiel endet nicht ueber Runden. */

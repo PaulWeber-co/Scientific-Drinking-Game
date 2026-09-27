@@ -22,7 +22,7 @@ Handy oder mit einer Lobby, in der jede Person ihr eigenes Gerät benutzt.
 | Verlaufs- und Prognosegrafik des Pegels | fertig |
 | Lobby über 4-stelligen Code (Firebase Realtime Database) | fertig |
 | Pass-&-Play auf einem Handy, inkl. Körperdaten der Mitspieler | fertig |
-| 18 Spiele, davon 10 mit „Handy weglegen" | fertig |
+| 19 Spiele, davon 10 mit „Handy weglegen" | fertig |
 | Plugin-System für neue Spiele | fertig |
 | Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
 | Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
@@ -58,6 +58,7 @@ Handy oder mit einer Lobby, in der jede Person ihr eigenes Gerät benutzt.
 | Busfahrer | Vier Fragen, dann die lange Fahrt | 1 reicht |
 | Kategorien | Reihum ein Beispiel, wer hängt trinkt | 1 reicht |
 | Erste Zeile | Singen statt streamen, die Runde rät | 1 reicht |
+| Stichmagie | Stiche ansagen und treffen – mit Magier, Narr, Drache, Fee, Bombe & Co. | eigene nötig |
 
 ---
 

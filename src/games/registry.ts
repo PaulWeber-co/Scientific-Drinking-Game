@@ -17,6 +17,7 @@ import { meta as maexchen } from './maexchen/meta';
 import { meta as busfahrer } from './busfahrer/meta';
 import { meta as kategorien } from './kategorien/meta';
 import { meta as ersteZeile } from './erste-zeile/meta';
+import { meta as stichmagie } from './stichmagie/meta';
 
 /**
  * Zentrale Spiele-Registry.
@@ -55,6 +56,7 @@ export const GAMES: GameMeta[] = [
   busfahrer,
   kategorien,
   ersteZeile,
+  stichmagie,
 ];
 
 /** Ein literaler import() je Spiel, damit Vite je Spiel einen Chunk baut. */
@@ -77,6 +79,7 @@ const LOADERS: Record<string, () => Promise<GameDefinition>> = {
   'busfahrer': () => import('./busfahrer').then((m) => m.busfahrer),
   'kategorien': () => import('./kategorien').then((m) => m.kategorien),
   'erste-zeile': () => import('./erste-zeile').then((m) => m.ersteZeile),
+  stichmagie: () => import('./stichmagie').then((m) => m.stichmagie),
 };
 
 const INDEX = new Map(GAMES.map((g) => [g.id, g]));
