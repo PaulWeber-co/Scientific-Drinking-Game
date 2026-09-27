@@ -776,7 +776,9 @@
   border-radius: var(--r-md);
   background: var(--surface);
   border: 1px solid var(--hairline);
-  animation: rise var(--dur) var(--ease-emph) both;
+  /* `backwards`, nicht `both`: eine gefüllte Animation hält `transform`
+     fest, und das Eindrücken (.pressable:active) sprang dann ohne Feder. */
+  animation: rise var(--dur) var(--ease-emph) backwards;
   animation-delay: calc(var(--i, 0) * 35ms);
 }
 .votecard__name {

@@ -449,9 +449,13 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
               2,0:1 unter der Grenze von 1.4.3 - die einzige Anweisung auf dem
               Bildschirm darf nicht die leiseste Zeile darauf sein. */}
           <div className="t-center t-body">
+            {/* Am geteilten Handy zieht, wer das Handy hält – dort ist „zieht
+                gleich" eine Aufforderung zum Warten, die niemand befolgen kann. */}
             {isMyTurn
               ? 'Zieh dir eine Karte aus dem Kranz.'
-              : `${actor?.name} zieht gleich.`}
+              : !online
+                ? `${actor?.name}, zieh dir eine Karte aus dem Kranz.`
+                : `${actor?.name} zieht gleich.`}
           </div>
         </>
       ) : (

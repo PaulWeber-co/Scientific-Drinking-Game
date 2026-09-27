@@ -108,12 +108,27 @@ export function Table({ state, players, me, dispatch, quit }: GameRuntime<State>
     // eslint-disable-next-line react-hooks/exhaustive-deps -- einmal je Stich
   }, [state.phase, state.seq]);
 
+  // Rundenbeginn: kurz groß die Rundennummer. Nur für frische Runden – wer
+  // mitten in der Ansage neu lädt, bekommt keine Einblendung ins Gesicht.
+  const [splash, setSplash] = useState<string | null>(null);
+  const roundKey = `${state.round}:${state.dealer}:${state.plan.length}`;
+  useEffect(() => {
+    if (!['trump', 'werwolf', 'bid'].includes(state.phase)) return;
+    if (Object.keys(state.bids).length) return;
+    setSplash(roundKey);
+    const t = setTimeout(() => setSplash(null), 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur je neuer Runde
+  }, [roundKey]);
+
   // Der Stich fliegt zum Gewinner, kurz bevor der Host ihn einsammelt.
   const [gone, setGone] = useState(false);
   useEffect(() => {
     setGone(false);
     if (state.phase !== 'trick' || state.queue.length) return;
-    const t = setTimeout(() => setGone(true), SHOW_TRICK_MS - 500);
+    // Früh genug, dass auch bei zehn Karten der letzte Flug fertig ist,
+    // bevor der Host den Stich einsammelt.
+    const t = setTimeout(() => setGone(true), SHOW_TRICK_MS - 700);
     return () => clearTimeout(t);
   }, [state.phase, state.seq, state.queue.length]);
 
@@ -169,6 +184,24 @@ export function Table({ state, players, me, dispatch, quit }: GameRuntime<State>
       }
     >
       <div className="sm-table">
+        {splash === roundKey && (
+          <div className="sm-splash" key={splash} aria-hidden>
+            <span className="t-upper">Runde</span>
+            <strong>{state.round + 1}</strong>
+            <span className="sm-splash__sub">
+              {cards} {cards === 1 ? 'Karte' : 'Karten'} ·{' '}
+              {state.phase !== 'bid' ? (
+                'Trumpf wird gewählt'
+              ) : state.trump == null ? (
+                'kein Trumpf'
+              ) : (
+                <>
+                  <SuitMark suit={state.trump} size={14} /> {suitName(state.trump)} ist Trumpf
+                </>
+              )}
+            </span>
+          </div>
+        )}
         <SeatStrip state={state} players={players} me={me} actors={actors} forehead={forehead} />
 
         <div className="sm-infobar">
@@ -267,6 +300,29 @@ function Felt({
   const result = state.result;
   const takeable = state.phase === 'hexe' && state.turn === me.id ? hexeTakeable(state) : [];
 
+  // Der Stich fliegt dorthin, wo der Gewinner sitzt: zu seinem Platz oben
+  // oder – beim eigenen Stich – hinunter zur eigenen Hand. Gemessen wird erst
+  // im Moment des Abflugs, dann liegt alles an seinem Platz.
+  const feltRef = useRef<HTMLDivElement>(null);
+  const winnerId = result?.winner ?? null;
+  useLayoutEffect(() => {
+    const felt = feltRef.current;
+    if (!gone || !felt || !winnerId) return;
+    const target =
+      winnerId === me.id
+        ? document.querySelector('.sm-handbox')
+        : document.querySelector(`[data-seat="${winnerId}"]`);
+    if (!target) return;
+    const t = target.getBoundingClientRect();
+    const tx = t.left + t.width / 2;
+    const ty = winnerId === me.id ? t.top + 40 : t.top + t.height / 2;
+    felt.querySelectorAll<HTMLElement>('.sm-play').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--dx', `${Math.round(tx - (r.left + r.width / 2))}px`);
+      el.style.setProperty('--dy', `${Math.round(ty - (r.top + r.height / 2))}px`);
+    });
+  }, [gone, winnerId, me.id]);
+
   if (bidding) {
     const wolf = state.werwolfBy;
     return (
@@ -304,10 +360,12 @@ function Felt({
     ? state.trick.findIndex((p) => p.by === (result.winner ?? result.lead))
     : -1;
   const winnerIsMe = result?.winner === me.id;
+  const poof = gone && !!result?.bomb;
 
   return (
     <div
-      className={`sm-felt ${gone ? 'sm-felt--gone' : ''}`}
+      ref={feltRef}
+      className={`sm-felt ${gone ? (poof ? 'sm-felt--poof' : 'sm-felt--gone') : ''}`}
       style={{ ['--to' as string]: winnerIsMe ? '180px' : '-190px' }}
     >
       {result?.bomb && state.phase === 'trick' && <Explosion key={state.seq} />}
@@ -355,6 +413,13 @@ function Felt({
                 />
               )}
               <span className="sm-play__who">{seatName(p.by)}</span>
+              {won && winnerIsMe && state.phase === 'trick' && (
+                <span className="sm-burst" aria-hidden>
+                  {Array.from({ length: 12 }, (_, k) => (
+                    <i key={k} style={{ ['--a' as string]: `${k * 30 + (k % 2) * 12}deg` }} />
+                  ))}
+                </span>
+              )}
             </div>
           );
         })}
@@ -806,55 +871,83 @@ function Hand({
     return () => ro.disconnect();
   }, []);
 
+  // Welche Karten schon beim Geben da waren: nur die werden gestaffelt
+  // ausgeteilt. Was später kommt (Jongleur, Hexe), fliegt einzeln herein.
+  const dealt = useRef<{ round: number; cards: Set<number> }>({ round: -1, cards: new Set() });
+  if (dealt.current.round !== state.round) {
+    dealt.current = { round: state.round, cards: new Set(hand) };
+  }
+
   // Ab elf Karten zwei Reihen – sonst sieht man pro Karte nur noch einen Strich.
   const rows =
     hand.length > 10
       ? [hand.slice(0, Math.ceil(hand.length / 2)), hand.slice(Math.ceil(hand.length / 2))]
       : [hand];
   const cw = 62;
+  const ch = Math.round(cw * 1.4);
   const avail = width - 12;
+  const rowGap = ch - 34;
+  const single = rows.length === 1;
+  const maxDip = single ? Math.pow((rows[0].length - 1) / 2, 2) * 0.6 : 0;
+
+  // Jede Karte liegt absolut. So gleiten die übrigen in die Lücke, wenn eine
+  // gespielt wird – und eine Karte, die von der zweiten in die erste Reihe
+  // rückt, bleibt dieselbe Karte, statt neu ausgeteilt zu werden.
+  const placed = rows.flatMap((row, r) => {
+    const step = row.length > 1 ? Math.min(cw + 6, (avail - cw) / (row.length - 1)) : 0;
+    const x0 = (width - (cw + step * (row.length - 1))) / 2;
+    const mid = (row.length - 1) / 2;
+    return row.map((card, i) => {
+      const offset = i - mid;
+      return {
+        card,
+        left: x0 + i * step,
+        top: r * rowGap,
+        rot: single ? offset * Math.min(3, 18 / row.length) : 0,
+        dip: single ? offset * offset * 0.6 : 0,
+        z: r * 20 + i + 1,
+        order: r * 10 + i,
+      };
+    });
+  });
 
   return (
     <div className="sm-handbox" ref={box}>
       {hand.length > 0 && (
         <div className={`sm-hand ${active ? 'sm-hand--active' : ''}`} key={`deal-${state.round}`}>
-          {rows.map((row, r) => {
-            const step = row.length > 1 ? Math.min(cw + 6, (avail - cw) / (row.length - 1)) : 0;
-            const mid = (row.length - 1) / 2;
-            return (
-              <div className="sm-hand__row" key={r}>
-                {row.map((card, i) => {
-                  const ok = !legal || legal.has(card);
-                  const offset = i - mid;
-                  return (
-                    <button
-                      key={card}
-                      className={[
-                        'sm-hand__card',
-                        legal && !ok && 'sm-hand__card--no',
-                        sel === card && 'sm-hand__card--sel',
-                        shake === card && 'sm-hand__card--shake',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={{
-                        ['--ov' as string]: `${i === 0 ? 0 : step - cw}px`,
-                        ['--i' as string]: r * 10 + i,
-                        ['--rot' as string]: `${rows.length === 1 ? offset * Math.min(3, 18 / row.length) : 0}deg`,
-                        ['--dip' as string]: `${rows.length === 1 ? Math.abs(offset) * Math.abs(offset) * 0.6 : 0}px`,
-                        zIndex: sel === card ? 40 : i + 1,
-                      }}
-                      aria-label={hidden ? 'deine verdeckte Karte' : cardName(card)}
-                      aria-pressed={sel === card}
-                      onClick={() => onTap(card)}
-                    >
-                      <MagicCard id={hidden ? null : card} size="md" />
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+          <div className="sm-hand__area" style={{ height: single ? ch + maxDip : ch + rowGap }}>
+            {placed.map((p) => {
+              const ok = !legal || legal.has(p.card);
+              const fresh = !dealt.current.cards.has(p.card);
+              return (
+                <button
+                  key={p.card}
+                  className={[
+                    'sm-hand__card',
+                    fresh && 'sm-hand__card--fresh',
+                    legal && !ok && 'sm-hand__card--no',
+                    sel === p.card && 'sm-hand__card--sel',
+                    shake === p.card && 'sm-hand__card--shake',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{
+                    left: p.left,
+                    top: p.top,
+                    ['--i' as string]: p.order,
+                    ['--rot' as string]: `${p.rot}deg`,
+                    ['--dip' as string]: `${p.dip}px`,
+                    zIndex: sel === p.card ? 60 : p.z,
+                  }}
+                  aria-label={hidden ? 'deine verdeckte Karte' : cardName(p.card)}
+                  aria-pressed={sel === p.card}
+                  onClick={() => onTap(p.card)}
+                >
+                  <MagicCard id={hidden ? null : p.card} size="md" />
+                </button>
+              );
+            })}
+          </div>
           {hidden && (
             <p className="t-caption t-center sm-hand__note">Deine Karte klebt an deiner Stirn.</p>
           )}
@@ -867,6 +960,33 @@ function Hand({
 // ---------------------------------------------------------------------------
 // Rundenende
 // ---------------------------------------------------------------------------
+
+/**
+ * Zählt vom alten zum neuen Punktestand – auch ins Minus. `CountUp` aus den
+ * Bausteinen kann nur ab null aufwärts und zeigte negative Stände als 0.
+ */
+function Tally({ from, to }: { from: number; to: number }) {
+  const [value, setValue] = useState(from);
+  useEffect(() => {
+    const still =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (from === to || still || typeof requestAnimationFrame === 'undefined') {
+      setValue(to);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 900);
+      setValue(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return <>{value}</>;
+}
 
 function Score({
   state,
@@ -943,7 +1063,9 @@ function Score({
             >
               {r.delta > 0 ? `+${r.delta}` : r.delta}
             </span>
-            <span className="sm-row__total t-mono-num">{r.total}</span>
+            <span className="sm-row__total t-mono-num">
+              <Tally from={r.total - r.delta} to={r.total} />
+            </span>
           </div>
         ))}
       </div>

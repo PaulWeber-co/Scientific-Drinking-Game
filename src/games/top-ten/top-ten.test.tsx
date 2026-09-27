@@ -105,6 +105,53 @@ describe('Top Ten auf einem geteilten Handy', () => {
     expect(screen.getByRole('button', { name: /^Ich bin / })).toBeTruthy();
   });
 
+  it('lässt am geteilten Handy auch einen Gast als Kapitän aufdecken', () => {
+    // Ab Runde zwei ist ein Gast Kapitän. Vorher zeigte das Handy dann nur
+    // „Nur Gast 1 deckt gerade auf." – ohne Knopf, die Partie hing.
+    const players = runde(3);
+    let spiel!: State;
+    function Harness() {
+      const [state, setState] = useState<State>(() => topTen.createState(players));
+      spiel = state;
+      const Game = topTen.Component;
+      return (
+        <PartyCtx.Provider value={{ me, players } as unknown as PartyValue}>
+          <Game
+            state={state}
+            players={players}
+            me={me}
+            isHost
+            online={false}
+            dispatch={(a: GameActionInput) => setState((s) => tun(s, a, players))}
+            quit={() => {}}
+          />
+        </PartyCtx.Provider>
+      );
+    }
+    render(<Harness />);
+
+    const runde1 = () => {
+      const gesehen: { name: string; zahl: number }[] = [];
+      for (const p of players) {
+        fireEvent.click(screen.getByRole('button', { name: `Ich bin ${p.name}` }));
+        tippeKarteAuf();
+        gesehen.push({ name: p.name, zahl: Number(document.querySelector('.secret__num')!.textContent) });
+        fireEvent.click(screen.getByRole('button', { name: 'Habe ich gesehen' }));
+      }
+      for (const p of [...gesehen].sort((a, b) => a.zahl - b.zahl)) {
+        fireEvent.click(screen.getByRole('button', { name: p.name }));
+      }
+    };
+
+    runde1();
+    fireEvent.click(screen.getByRole('button', { name: 'Nächste Runde' }));
+    runde1();
+    const kapitaen = players[spiel.captainIndex % players.length];
+    expect(kapitaen.id).not.toBe(me.id);
+    expect(screen.queryByText(/deckt gerade auf/)).toBeNull();
+    expect(spiel.phase).toBe('results');
+  });
+
   it('online: sammelt getippte Antworten, bevor das Aufdecken beginnt', () => {
     // Die Online-Fassung tippt weiter, statt laut zu sagen – das darf der
     // Umbau auf das geteilte Handy nicht anfassen.

@@ -91,6 +91,7 @@ export function SeatStrip({
         return (
           <div
             key={seat.id}
+            data-seat={seat.id}
             role="listitem"
             className={[
               'sm-seat',

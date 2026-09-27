@@ -237,6 +237,10 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
 
   const captain = players[state.captainIndex % Math.max(1, players.length)];
   const isCaptain = captain?.id === me.id;
+  // Am geteilten Handy deckt auf, wer das Handy hält – auch für einen Gast
+  // als Kapitän. Vorher standen dort ab Runde zwei keine Knöpfe mehr, und die
+  // Partie hing: der Kapitän rotiert weiter, das Handy nicht.
+  const canReveal = isCaptain || !online;
 
   const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
 
@@ -349,9 +353,11 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
             ))}
           </div>
         )}
-        {isCaptain ? (
+        {canReveal ? (
           <div className="stack-2">
-            <div className="t-caption t-center">Wer hat die nächsthöhere Zahl?</div>
+            <div className="t-caption t-center">
+              {isCaptain ? 'Wer hat die nächsthöhere Zahl?' : `${captain?.name}: Wer hat die nächsthöhere Zahl?`}
+            </div>
             <Choice
               options={remaining.map((id) => ({ id, label: byId(id)?.name ?? '' }))}
               onPick={(id) => send({ type: 'reveal', id })}

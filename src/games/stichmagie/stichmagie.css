@@ -221,7 +221,7 @@
 }
 .sm-seat__forehead {
   margin-top: 3px;
-  animation: sm-deal 0.5s var(--ease-out) both;
+  animation: sm-deal 0.5s var(--ease-out) backwards;
 }
 
 /* ---------- Infozeile ---------- */
@@ -354,7 +354,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  animation: sm-in 0.45s var(--ease-out) both;
+  animation: sm-in 0.45s var(--ease-out) backwards;
   transition:
     transform 0.55s cubic-bezier(0.55, 0, 0.9, 0.4),
     opacity 0.55s ease-in;
@@ -415,10 +415,35 @@
     transform: translateY(-3px);
   }
 }
+.sm-felt--gone,
+.sm-felt--poof {
+  /* Die Karten verlassen den Filz – dafür darf er sie nicht abschneiden. */
+  overflow: visible;
+  z-index: 6;
+}
 .sm-felt--gone .sm-play {
-  transform: translateY(var(--to)) scale(0.35);
+  /* Ziel kommt aus Table.tsx (--dx/--dy, gemessen am Sitz des Gewinners);
+     ohne Messung fliegen sie nach oben bzw. zu mir. */
+  transform: translate(var(--dx, 0px), var(--dy, var(--to))) scale(0.22)
+    rotate(calc(var(--i) * 9deg - 20deg));
   opacity: 0;
-  transition-delay: calc(var(--i) * 30ms);
+  transition:
+    transform 0.46s cubic-bezier(0.55, 0, 0.85, 0.35),
+    opacity 0.46s cubic-bezier(0.7, 0, 1, 0.6);
+  transition-delay: calc(var(--i) * 24ms);
+}
+.sm-felt--poof .sm-play {
+  /* Bombe: der Stich gehört niemandem – er verpufft. */
+  transform: scale(1.25);
+  filter: blur(6px) brightness(1.8);
+  opacity: 0;
+  transition:
+    transform 0.4s ease-out,
+    filter 0.4s ease-out,
+    opacity 0.4s ease-out;
+}
+.sm-felt--poof .sm-banner {
+  opacity: 0;
 }
 .sm-felt--gone .sm-banner {
   opacity: 0;
@@ -440,7 +465,7 @@
   max-width: calc(100% - 20px);
   text-align: center;
   text-wrap: balance;
-  animation: sm-pop 0.45s var(--ease-peek-latch) both;
+  animation: sm-pop 0.45s var(--ease-peek-latch) backwards;
   transition:
     opacity 0.3s,
     transform 0.3s;
@@ -458,6 +483,113 @@
   from {
     transform: translate(-50%, 12px) scale(0.7);
     opacity: 0;
+  }
+}
+
+/* Funken um die eigene Gewinnkarte */
+.sm-burst {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.sm-burst i {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd24a;
+  box-shadow: 0 0 8px #ffd24a;
+  transform: rotate(var(--a)) translateY(0);
+  opacity: 0;
+  animation: sm-spark 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) 0.15s;
+}
+.sm-burst i:nth-child(3n) {
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+}
+.sm-burst i:nth-child(4n) {
+  background: #ff8ad1;
+  box-shadow: 0 0 8px #ff8ad1;
+}
+@keyframes sm-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(-20px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-78px) scale(0.3);
+  }
+}
+
+/* Rundenbeginn: groß die Nummer, darunter Kartenzahl und Trumpf */
+.sm-table {
+  position: relative;
+}
+.sm-splash {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 18px 34px 16px;
+  border-radius: 24px;
+  background: rgba(10, 8, 30, 0.86);
+  border: 1px solid rgba(255, 233, 184, 0.35);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 50px rgba(94, 92, 230, 0.45);
+  color: #ffe9b8;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: sm-splash 1.9s var(--ease-out) forwards;
+}
+.sm-splash strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 64px;
+  line-height: 1;
+  color: #fff;
+}
+.sm-splash .t-upper {
+  color: #ffe9b8;
+}
+.sm-splash__sub {
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+@keyframes sm-splash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.96);
   }
 }
 
@@ -502,7 +634,7 @@
   padding: 6px;
 }
 .sm-flip {
-  animation: sm-flip 0.7s var(--ease-out) both;
+  animation: sm-flip 0.7s var(--ease-out) backwards;
   animation-delay: 0.35s;
 }
 @keyframes sm-flip {
@@ -641,7 +773,7 @@
   gap: 12px;
 }
 .sm-howl {
-  animation: sm-howl 1.2s var(--ease-out) both;
+  animation: sm-howl 1.2s var(--ease-out) backwards;
 }
 @keyframes sm-howl {
   0% {
@@ -670,7 +802,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  animation: sm-pop-in 0.4s var(--ease-out) both;
+  animation: sm-pop-in 0.4s var(--ease-out) backwards;
 }
 @keyframes sm-pop-in {
   from {
@@ -694,13 +826,28 @@
 .sm-hand--empty {
   min-height: 20px;
 }
-.sm-hand__row {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
+/* Die Karten liegen absolut (Position aus Table.tsx). So gleiten sie in
+   die Lücke, wenn eine gespielt wird, statt zu springen. */
+.sm-hand__area {
+  position: relative;
+  width: 100%;
 }
-.sm-hand__row + .sm-hand__row {
-  margin-top: -34px;
+.sm-hand--active .sm-hand__area::before {
+  /* Ein warmer Schein unter der Hand: Du bist dran – auch aus dem
+     Augenwinkel, wenn das Handy auf dem Tisch liegt. */
+  content: '';
+  position: absolute;
+  inset: 18% 6% -18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 60%, rgba(255, 210, 74, 0.32), transparent 70%);
+  filter: blur(8px);
+  animation: sm-breathe 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes sm-breathe {
+  50% {
+    opacity: 0.45;
+  }
 }
 .sm-hand__card,
 .sm-play__btn {
@@ -709,20 +856,39 @@
   padding: 0;
 }
 .sm-hand__card {
-  position: relative;
-  margin-left: var(--ov);
+  position: absolute;
   border-radius: 8px;
   transform: translateY(var(--dip)) rotate(var(--rot));
   transform-origin: 50% 120%;
   transition:
-    transform 0.22s var(--ease-spring),
+    left 0.3s var(--ease-spring),
+    top 0.3s var(--ease-spring),
+    transform 0.24s var(--ease-spring),
     filter 0.22s;
-  animation: sm-deal 0.55s var(--ease-out) both;
+  animation: sm-deal 0.55s var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 45ms);
   -webkit-tap-highlight-color: transparent;
 }
-.sm-hand__card:first-child {
-  margin-left: 0;
+.sm-hand__card--fresh {
+  /* Später gekommen (Jongleur, Hexe): fliegt einzeln herein und leuchtet. */
+  animation: sm-arrive 0.6s var(--ease-out) backwards;
+}
+.sm-hand__card--fresh .smcard {
+  animation: sm-newglow 1.6s ease-out;
+}
+@keyframes sm-arrive {
+  from {
+    transform: translate(-80px, -40px) rotate(-20deg) scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes sm-newglow {
+  0%,
+  40% {
+    box-shadow:
+      0 0 0 2px var(--mint),
+      0 0 22px rgba(102, 212, 207, 0.7);
+  }
 }
 .sm-hand--active .sm-hand__card {
   transform: translateY(calc(var(--dip) - 4px)) rotate(var(--rot));
@@ -770,7 +936,7 @@
   padding: 14px;
   border-radius: 18px;
   background: var(--surface);
-  animation: sm-pop-in 0.4s var(--ease-out) both;
+  animation: sm-pop-in 0.4s var(--ease-out) backwards;
 }
 .sm-score__head--hit {
   background: linear-gradient(
@@ -803,7 +969,7 @@
   padding: 9px 12px;
   border-radius: 12px;
   background: var(--surface);
-  animation: sm-pop-in 0.35s var(--ease-out) both;
+  animation: sm-pop-in 0.35s var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 50ms);
 }
 .sm-row--head {
@@ -989,6 +1155,10 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.sm-option--locked .toggle {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .sm-option {
   display: flex;
   align-items: center;
@@ -1065,7 +1235,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  animation: sm-rise 0.8s var(--ease-out) both;
+  animation: sm-rise 0.8s var(--ease-out) backwards;
 }
 .sm-podium__place--1 {
   animation-delay: 0.5s;
@@ -1146,11 +1316,23 @@
   .sm-podium__crown,
   .sm-banner,
   .sm-row,
-  .sm-play--takeable .smcard {
+  .sm-play--takeable .smcard,
+  .sm-burst,
+  .sm-hand--active .sm-hand__area::before,
+  .sm-hand__card--fresh .smcard {
     animation: none !important;
   }
-  .sm-felt--gone .sm-play {
+  .sm-splash {
+    animation-duration: 0.01s !important;
+    animation-delay: 1.4s !important;
+  }
+  .sm-hand__card {
+    transition: none;
+  }
+  .sm-felt--gone .sm-play,
+  .sm-felt--poof .sm-play {
     transition: opacity 0.2s;
     transform: none;
+    filter: none;
   }
 }
