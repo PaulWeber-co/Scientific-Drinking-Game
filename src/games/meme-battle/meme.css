@@ -371,69 +371,6 @@
   opacity: 0.6;
 }
 
-/* ---------- Hauptknopf ----------
-   Mint statt Stempel-Orange: dieselbe Farbe wie das aktive Feld im Editor
-   und das Spiel in der Übersicht. Erhaben wie eine Taste, mit Glanzkante
-   oben – und ein Lichtstreif läuft einmal durch, sobald der Knopf bereit
-   ist. Deaktiviert neutral statt eines matten Orange-Brauns. */
-.game .btn.md-go,
-.md-finale .btn.btn--brand {
-  --go: var(--mint);
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: var(--r-xs);
-  color: #04221f;
-  font-weight: 750;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--go) 62%, #fff) 0%,
-    var(--go) 46%,
-    color-mix(in srgb, var(--go) 84%, #000) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.16),
-    0 10px 26px -14px var(--go);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition:
-    transform var(--dur-fast) var(--ease-spring),
-    filter var(--dur-fast) linear,
-    background-color var(--dur-fast) linear,
-    color var(--dur-fast) linear;
-}
-.game .btn.md-go::after,
-.md-finale .btn.btn--brand::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.6) 48%,
-    transparent 66%
-  );
-  transform: translate3d(-110%, 0, 0);
-  pointer-events: none;
-}
-.game .btn.md-go:not(:disabled)::after,
-.md-finale .btn.btn--brand::after {
-  animation: md-shine 1100ms var(--ease-out) 250ms both;
-}
-@keyframes md-shine {
-  to {
-    transform: translate3d(110%, 0, 0);
-  }
-}
-.game .btn.md-go:disabled {
-  opacity: 1;
-  color: var(--label-3);
-  text-shadow: none;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-}
-
 /* ---------- Uhr ---------- */
 .md-timer {
   display: flex;
@@ -675,7 +612,7 @@
   --tone: #9a9aa6;
 }
 .md-votebtn--up {
-  --tone: var(--orange);
+  --tone: var(--mint);
 }
 .md-votebtn[aria-pressed='true'] {
   color: #fff;
@@ -688,6 +625,11 @@
 }
 .md-votebtn[aria-pressed='true'] svg {
   color: #fff;
+}
+/* Auf Mint liest sich Weiß nicht – dunkle Schrift wie auf dem Hauptknopf. */
+.md-votebtn--up[aria-pressed='true'],
+.md-votebtn--up[aria-pressed='true'] svg {
+  color: #04221f;
 }
 @keyframes md-pop {
   40% {
@@ -964,7 +906,7 @@
   gap: 3px;
 }
 .md-tally__up {
-  color: var(--orange);
+  color: var(--mint);
 }
 .md-tally__meh {
   color: var(--label-3);
@@ -1228,7 +1170,7 @@
   font-size: 22px;
 }
 .md-gallery__title svg {
-  color: var(--orange);
+  color: var(--mint);
 }
 .md-gallery {
   display: grid;
@@ -1281,9 +1223,7 @@
   .md-hero__kicker,
   .md-gallery__title,
   .md-votebtn[aria-pressed='true'],
-  .md-timer--hot .md-timer__s,
-  .game .btn.md-go::after,
-  .md-finale .btn.btn--brand::after {
+  .md-timer--hot .md-timer__s {
     animation: none;
   }
   .md-print--develop .md-print__foto::after,

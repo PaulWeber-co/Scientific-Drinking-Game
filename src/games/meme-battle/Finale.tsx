@@ -66,7 +66,7 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
   const podium = rows.slice(0, 3);
 
   return (
-    <div className="md-finale stack">
+    <div className="stack">
       {!relaxed && podium.length > 0 && (
         <div className="md-podium" aria-label="Podest">
           {[podium[1], podium[0], podium[2]].map((r, i) => {

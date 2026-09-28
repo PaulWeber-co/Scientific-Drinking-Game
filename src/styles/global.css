@@ -998,6 +998,13 @@ button.chip--outline {
   background: color-mix(in srgb, var(--green) 14%, transparent);
   color: var(--green);
 }
+/* Für Hinweise, die man antippen kann: in der Farbe der Hauptknöpfe statt
+   im Warn-Orange – eine Einladung, keine Warnung. */
+.notice--mint {
+  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+  color: var(--mint);
+}
 .notice--neutral {
   color: var(--label-2);
 }

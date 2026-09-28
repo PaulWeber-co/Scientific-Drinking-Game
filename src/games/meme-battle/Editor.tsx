@@ -216,7 +216,7 @@ export function Editor({
               </>
             )}
             <button
-              className="btn btn--brand btn--lg grow md-go"
+              className="btn btn--brand btn--lg grow"
               disabled={!hasText}
               onClick={() => {
                 haptic('success');

@@ -61,7 +61,7 @@ export function Results({
 
   const next = (
     <button
-      className="btn btn--brand btn--block btn--lg md-go md-rise"
+      className="btn btn--brand btn--block btn--lg md-rise"
       style={{ ['--i' as string]: 6 }}
       onClick={() => {
         haptic('press');

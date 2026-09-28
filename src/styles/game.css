@@ -1674,13 +1674,65 @@
   letter-spacing: 0.005em;
 }
 
-/* Im Spiel ist der Hauptknopf orange wie der Datumsstempel – das Blau der
-   App gehoert zur Navigation, nicht auf den Abzug. Eckig statt rund: Es
-   ist ein Auslöser, kein Systemknopf. */
+/* Der Hauptknopf im Spiel: Mint. Das Blau der App gehoert zur Navigation,
+   nicht auf den Abzug – und Orange auf Schwarz sah nach der falschen Seite
+   aus. Eckig statt rund: Es ist ein Auslöser, kein Systemknopf. Erhaben wie
+   eine Taste, mit Glanzkante oben; ein Lichtstreif läuft einmal durch,
+   sobald der Knopf bereit ist. Deaktiviert neutral statt blass-bunt. */
 .game .btn--brand {
-  background: var(--stamp);
-  color: var(--paper-ink);
+  --go: var(--mint);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border-radius: var(--r-xs);
+  color: #04221f;
+  font-weight: 750;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--go) 62%, #fff) 0%,
+    var(--go) 46%,
+    color-mix(in srgb, var(--go) 84%, #000) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.16),
+    0 10px 26px -14px var(--go);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.game .btn--brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.6) 48%,
+    transparent 66%
+  );
+  transform: translate3d(-110%, 0, 0);
+  pointer-events: none;
+}
+.game .btn--brand:not(:disabled)::after {
+  animation: go-shine 1100ms var(--ease-out) 250ms both;
+}
+@keyframes go-shine {
+  to {
+    transform: translate3d(110%, 0, 0);
+  }
+}
+.game .btn--brand:disabled {
+  opacity: 1;
+  color: var(--label-3);
+  text-shadow: none;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game .btn--brand::after {
+    animation: none !important;
+    display: none;
+  }
 }
 
 /* ---------- Ring of Fire: Kranz und Becher ----------

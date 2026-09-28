@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   name: 'Wer aus der Runde',
   tagline: 'Alle zeigen gleichzeitig. Wer gezeigt wird, trinkt.',
   icon: 'people',
-  accent: 'var(--orange)',
+  accent: 'var(--purple)',
   image,
   minPlayers: 2,
   maxPlayers: 16,

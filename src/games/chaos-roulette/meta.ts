@@ -8,7 +8,7 @@ export const meta: GameMeta = {
   name: 'Chaos-Roulette',
   tagline: 'Aufgaben für die Runde. Handys bleiben liegen.',
   icon: 'shuffle',
-  accent: 'var(--orange)',
+  accent: 'var(--pink)',
   image,
   minPlayers: 2,
   maxPlayers: 16,
