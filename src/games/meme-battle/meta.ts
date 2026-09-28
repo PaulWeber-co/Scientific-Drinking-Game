@@ -23,9 +23,9 @@ export const meta: GameMeta = {
   allowSpicy: true,
   allowCustomCards: true,
   howTo: [
-    'Jede Person braucht ein eigenes Handy. Alle bekommen eine Meme-Vorlage und schreiben ihre Texte hinein – die Uhr läuft. Passt die Vorlage nicht, darfst du fünfmal pro Partie neu würfeln.',
-    'Danach kommen die Memes einzeln und anonym auf alle Handys: Feuer, geht so oder lahm. Einstimmig Feuer bringt 1000 Punkte, jedes „lahm" zieht ab – auch ins Minus.',
-    'Einmal pro Runde darfst du aufs Trittbrett eines fremden Memes springen und bekommst die Hälfte seiner Punkte. Das schwächste Meme der Runde trinkt.',
-    'Vier Modi: Klassisch, Gleiches Meme (alle dieselbe Vorlage), Themen (eigene Karten werden zu Themen) und Entspannt ohne Punkte.',
+    'Jede Person braucht ein eigenes Handy. Alle bekommen eine Meme-Vorlage und schreiben ihre Texte hinein – die Uhr läuft. Passt die Vorlage nicht: neu würfeln (fünfmal pro Partie) oder zurück zur vorigen.',
+    'Danach kommen die Memes einzeln und anonym auf alle Handys: Feuer, geht so oder lahm, dazu Reaktionen, die bei allen übers Bild fliegen. Einstimmig Feuer bringt 1000 Punkte, jedes „lahm" zieht ab – auch ins Minus.',
+    'Einmal pro Runde darfst du aufs Trittbrett eines fremden Memes springen: die Hälfte seiner Punkte geht an dich, das Meme bekommt +10. Das schwächste Meme der Runde trinkt.',
+    'Vier Modi: Klassisch, Gleiches Meme (alle dieselbe Vorlage), Themen (eigene Karten werden zu Themen) und Entspannt ohne Punkte. Am Ende: Podest und alle Memes von Feuer bis Lahm.',
   ],
 };

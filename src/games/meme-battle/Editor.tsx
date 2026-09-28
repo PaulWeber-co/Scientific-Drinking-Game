@@ -33,7 +33,9 @@ export function Editor({
   const template = templateOf(templateId);
   const mine = state.memes[me.id];
   const submitted = !!mine;
-  const [drafts, setDrafts] = useState<{ id: string; texts: string[] }>({ id: '', texts: [] });
+  // Entwürfe je Vorlage: wer würfelt und mit „Zurück" wiederkommt, findet
+  // seinen Text noch vor.
+  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
   const [active, setActive] = useState(0);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const autoSent = useRef<string>('');
@@ -41,14 +43,15 @@ export function Editor({
   // Neue Vorlage (Würfeln, neue Runde) = leerer Entwurf. Beim „Nochmal
   // ändern" kommt der abgeschickte Text zurück in die Felder.
   const texts = useMemo(
-    () => (drafts.id === templateId ? drafts.texts : mine && mine.t === templateId ? mine.x : []),
+    () => drafts[templateId] ?? (mine && mine.t === templateId ? mine.x : []),
     [drafts, templateId, mine],
   );
   const setText = (i: number, value: string) => {
     const next = [...texts];
     next[i] = value.slice(0, MAX_CHARS);
-    setDrafts({ id: templateId, texts: next });
+    setDrafts((d) => ({ ...d, [templateId]: next }));
   };
+  useEffect(() => setDrafts({}), [state.round]);
   const hasText = texts.some((t) => t?.trim());
 
   // Wer mitten in der Runde dazukommt, holt sich seine Vorlage selbst.
@@ -149,18 +152,33 @@ export function Editor({
             ))}
           </div>
           <div className="md-actions">
-            <button
-              className="btn btn--glass md-actions__reroll"
-              disabled={same || left <= 0}
-              onClick={() => {
-                haptic('select');
-                dispatch({ type: 'reroll' });
-              }}
-              aria-label={`Neue Vorlage, noch ${left}`}
-            >
-              <Icon name="shuffle" size={18} />
-              {same ? 'Alle gleich' : `Neu · ${left}`}
-            </button>
+            {!same && state.options.rerolls > 0 && (
+              <>
+                <button
+                  className="btn btn--glass md-actions__back"
+                  disabled={!state.prev[me.id]}
+                  onClick={() => {
+                    haptic('select');
+                    dispatch({ type: 'back' });
+                  }}
+                  aria-label="Vorige Vorlage"
+                >
+                  <Icon name="undo" size={20} />
+                </button>
+                <button
+                  className="btn btn--glass md-actions__reroll"
+                  disabled={left <= 0}
+                  onClick={() => {
+                    haptic('select');
+                    dispatch({ type: 'reroll' });
+                  }}
+                  aria-label={`Neue Vorlage, noch ${left}`}
+                >
+                  <Icon name="shuffle" size={18} />
+                  Neu · {left}
+                </button>
+              </>
+            )}
             <button
               className="btn btn--brand btn--lg grow"
               disabled={!hasText}
@@ -179,7 +197,7 @@ export function Editor({
             className="btn btn--glass btn--block"
             onClick={() => {
               haptic('tap');
-              setDrafts({ id: templateId, texts: mine.x });
+              setDrafts((d) => ({ ...d, [templateId]: mine.x }));
               dispatch({ type: 'edit' });
             }}
           >

@@ -84,15 +84,19 @@ export function SaveMeme({
   meme,
   caption,
   label = 'Speichern',
+  compact,
 }: {
   meme: { t: string; x: string[] };
   caption: string;
   label?: string;
+  /** Nur das Symbol – für Galerien, in denen zwanzig Knöpfe stünden. */
+  compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   return (
     <button
-      className="btn btn--sm btn--glass md-save"
+      className={`btn btn--sm btn--glass md-save ${compact ? 'md-save--icon' : ''}`}
+      aria-label={compact ? `${label}: ${caption}` : undefined}
       disabled={busy}
       onClick={async () => {
         const template = templateOf(meme.t);
@@ -109,7 +113,8 @@ export function SaveMeme({
         }
       }}
     >
-      <Icon name="share" size={16} /> {busy ? 'Einen Moment …' : label}
+      <Icon name="share" size={16} />
+      {!compact && (busy ? 'Einen Moment …' : label)}
     </button>
   );
 }

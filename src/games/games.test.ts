@@ -121,8 +121,8 @@ const VARIANTS: Record<string, unknown>[] = [
   // Meme-Duell: Texte fürs Meme, Bastelzeit und ein Modus, den es dort gibt.
   // Die Stimme selbst hängt am gerade gezeigten Meme – die liefert
   // `memeVariants()` aus dem Zustand.
-  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich' },
-  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen' },
+  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich', kind: 'lachen', rounds: 3, count: 8 },
+  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen', kind: 'herz', rounds: 0, count: 0 },
 ];
 
 /**

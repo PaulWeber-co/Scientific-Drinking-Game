@@ -11,11 +11,11 @@ eigenen deutschen Themen und Trinkregeln.
 
 | Phase | Was passiert |
 |:--|:--|
-| **Einrichten** | Der Host wählt Modus, Bastelzeit (45/60/90/120 s) und ob es das Trittbrett gibt. Alle sehen die Einstellung live. |
-| **Basteln** | Jede Person bekommt eine Vorlage im Polaroid, die Textfelder sitzen direkt im Bild. Tippen aufs Feld im Bild springt ins passende Eingabefeld. **Fünfmal pro Partie** darf man neu würfeln. „Fertig" lässt sich bis zum Ablauf der Uhr zurücknehmen. Läuft die Uhr ab, schickt das Handy ab, was getippt ist. |
-| **Abstimmen** | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Feuer** (+), **Geht so** (0), **Lahm** (−). Wer das Meme gebaut hat, sieht „Pokerface" und keine Knöpfe. |
-| **Auflösung** | Das Meme der Runde groß mit Gold-Aufkleber, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Dann Punktestand und Trinkansagen. |
-| **Finale** | Ruhmeshalle mit dem besten Meme jeder Runde, jedes als Bild speicherbar, dann Endstand. |
+| **Einrichten** | Der Host wählt Modus, Bastelzeit (45/60/90/120 s), Runden (3/5/8/ohne Ende), Würfe (aus/3/5/8) und ob es das Trittbrett gibt. Alle sehen die Einstellung live. |
+| **Basteln** | Jede Person bekommt eine Vorlage im Polaroid, die Textfelder sitzen direkt im Bild und zeigen „Text 1", „Text 2", solange sie leer sind. Tippen aufs Feld im Bild springt ins passende Eingabefeld. **Neu würfeln** (Standard fünfmal pro Partie) und **Zurück** zur vorigen Vorlage, das kostet keinen Wurf, der Text bleibt erhalten. „Fertig" lässt sich bis zum Ablauf der Uhr zurücknehmen. Läuft die Uhr ab, schickt das Handy ab, was getippt ist. Keine Vorlage kommt in einer Partie zweimal. |
+| **Abstimmen** | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Feuer** (+), **Geht so** (0), **Lahm** (−). Dazu vier **Reaktionen** (Lachen, Tot gelacht, Liebe, Cringe), die anonym auf allen Handys übers Bild fliegen, und oben rechts **Speichern**. Wer das Meme gebaut hat, sieht „Pokerface" und keine Abstimmknöpfe. |
+| **Auflösung** | Das Meme der Runde groß mit Gold-Aufkleber, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Dann Punktestand (Meme, Trittbrett, Mitfahrer) und Trinkansagen. |
+| **Finale** | Podest für die ersten drei, Endstand mit Aufschlüsselung der Punkte, Trinkansage, und ganz unten **„Von Feuer bis Lahm"**: jedes Meme der Partie vom besten zum schwächsten, jedes als Bild speicherbar. |
 
 ### Punkte
 
@@ -23,6 +23,7 @@ eigenen deutschen Themen und Trinkregeln.
   Formel: `1000 × (hoch − runter) / Abstimmende`. Ein Meme kann ins Minus rutschen.
 - **Trittbrett:** Einmal pro Runde springst du auf ein fremdes Meme auf, **während** es gezeigt
   wird, und bekommst die Hälfte seiner Punkte, auch die Hälfte eines Minus.
+- **Mitfahrer-Bonus:** Das Meme bekommt **+10 je Person**, die darauf mitfährt.
 - Wer nicht abstimmt, zählt wie „Geht so".
 
 ### Modi
@@ -32,7 +33,7 @@ eigenen deutschen Themen und Trinkregeln.
 | Klassisch | Jede Person zieht ihre eigene Vorlage. |
 | Gleiches Meme | Alle bekommen dieselbe Vorlage, kein Würfeln. Nur die Pointe entscheidet. |
 | Themen | Jede Runde ein Thema als Zettel über dem Bild („Der Kater morgen früh"). **Eigene Karten** aus dem Spieldetail werden hier zu Themen, Spicy-Themen kommen mit dem Spicy-Schalter dazu. |
-| Entspannt | Keine Punkte, keine Trinkansagen, nur Memes und Ruhmeshalle. |
+| Entspannt | Keine Punkte, kein Trittbrett, keine Trinkansagen, nur Memes und „Von Feuer bis Lahm". |
 
 ### Wer trinkt
 
@@ -74,11 +75,16 @@ neue Vorlage auf einem Handy mit neuerer App nicht auf allen anderen ein falsche
 ### Was die Datenbank pro Partie aushält
 
 Gemessen mit acht Leuten und fünf Runden (jede Person würfelt einmal pro Runde, alle stimmen
-über alles ab): Der Spielstand ist zu Beginn 2,4 KB groß und im Schnitt 4 KB, es gibt rund
-400 Schreibvorgänge, und jeder geht an acht Geräte. Das sind etwa 13 MB Download je Partie.
-Das kostenlose Kontingent von 10 GB/Monat reicht damit für gut 700 Partien im Monat, dazu
-kommen alle anderen Spiele. Engpass bleibt wie bisher die
-Grenze von 100 gleichzeitigen Verbindungen (siehe `docs/FIREBASE-VS-SUPABASE.md`).
+über alles ab): Der Spielstand ist im Schnitt 5,5 KB groß, am Ende knapp 10 KB, weil alle
+Memes der Partie fürs Finale mitreisen. Es gibt rund 400 Schreibvorgänge, und jeder geht an
+acht Geräte. Das sind etwa **18 MB** Download je Partie, mit zwei Reaktionen je Meme etwa
+**22 MB**. Das kostenlose Kontingent von 10 GB/Monat reicht damit für rund 450–550 Partien im
+Monat, dazu kommen alle anderen Spiele. Engpass bleibt wie bisher die Grenze von 100
+gleichzeitigen Verbindungen (siehe `docs/FIREBASE-VS-SUPABASE.md`).
+
+Damit das so bleibt, trägt der Spielstand nur die nächsten 24 gemischten Vorlagen statt aller
+186 (1,5 KB weniger bei jedem Zug), Reaktionen sind auf die letzten acht begrenzt und pro
+Handy höchstens eine alle 0,6 s.
 
 ### Offline und Ladezeit
 
@@ -104,7 +110,8 @@ src/games/meme-battle/          (ID bleibt meme-battle, siehe unten)
   Editor.tsx       Basteln
   Vote.tsx         Abstimmen, Trittbrett
   Results.tsx      Auflösung einer Runde
-  Finale.tsx       Ruhmeshalle + Endstand
+  Finale.tsx       Podest, Endstand, „Von Feuer bis Lahm"
+  Reactions.tsx    Reaktionen: Knöpfe und die fliegenden Symbole
   Setup.tsx        Einrichten
   render.ts        Brennt ein Meme als JPEG mit Papierrand (Speichern/Teilen)
   meme.css         Alles Optische, auf Basis von .abzug
@@ -215,8 +222,12 @@ Gestaltung schon. Deshalb:
 | Dort | Hier |
 |:--|:--|
 | Name „Make it Meme" (Marke) | **Meme-Duell**, der Name taucht nirgends in der App auf |
-| „Meme-Buddy" | **Trittbrett**, mit Bus-Symbol aus dem eigenen Icon-Set |
+| „Meme-Buddy" und dessen Punkte | **Trittbrett** und **Mitfahrer-Bonus**, mit Bus-Symbol aus dem eigenen Icon-Set |
 | Hoch/Runter-Knöpfe in deren Farben | **Feuer / Geht so / Lahm** mit eigenen Symbolen |
+| Emoji-Reaktionen | vier eigene SVG-Symbole (die App verwendet bewusst keine Emojis) |
+| „Change meme" / „Go back" gegen Münzen | **Neu würfeln** und **Zurück**, ohne Münzen oder Konto |
+| „From dank to stank" | **Von Feuer bis Lahm** |
+| Chat, Münzen, Ränge, Konten | nicht nötig: alle sitzen im selben Raum |
 | Deren Oberfläche und Grafiken | Polaroid-Abzüge, Klebeband-Zettel, Aufkleber aus dem Design der App |
 | Englische Themen | eigene deutsche Themen, eigene Spicy-Themen |
 | Nur Punkte | Trinkregeln, Pegel-Rechnung, Einwegkamera-Optik beim Speichern |

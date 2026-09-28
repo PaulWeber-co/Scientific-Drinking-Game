@@ -179,7 +179,9 @@
     0 -0.05em 0 #000;
 }
 .md-box--comic .md-box__text {
-  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', cursive;
+  /* Ohne Comic Sans (Android) lieber schlicht als eine Serifenschrift aus
+     „cursive" – die sah auf dem Testgerät aus wie ein Brief vom Amt. */
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', 'Marker Felt', var(--font);
   font-weight: 700;
   line-height: 1.12;
 }
@@ -203,20 +205,9 @@
   outline: 2px solid var(--accent) !important;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-.md-box__no {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 19px;
-  height: 19px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: 800;
-  color: #062321;
-  background: var(--accent);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+/* Platzhalter „Text 1" im leeren Feld: dieselbe Schrift, nur blass. */
+.md-box--empty .md-box__text {
+  opacity: 0.6;
 }
 
 /* ---------- Uhr ---------- */
@@ -637,39 +628,289 @@
   pointer-events: none;
 }
 
+/* Runden und Würfe nebeneinander – je vier kurze Knöpfe passen in eine Hälfte. */
+.md-setup__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.md-setup__pair .segmented__opt {
+  padding: 0 4px;
+  min-width: 0;
+}
+
+/* ---------- Reaktionen ---------- */
+.md-vote__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.md-flights {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 5;
+}
+.md-flight {
+  position: absolute;
+  bottom: 8%;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-left: -27px;
+  border-radius: 50%;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 22%, rgba(0, 0, 0, 0.55));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: md-fly 2.4s var(--ease-out) forwards;
+}
+.md-flight--lachen,
+.md-reactbtn--lachen {
+  --tone: var(--yellow);
+}
+.md-flight--tot,
+.md-reactbtn--tot {
+  --tone: #f2ece2;
+}
+.md-flight--herz,
+.md-reactbtn--herz {
+  --tone: var(--pink);
+}
+.md-flight--cringe,
+.md-reactbtn--cringe {
+  --tone: var(--mint);
+}
+@keyframes md-fly {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 0), -260px, 0) scale(0.9) rotate(12deg);
+  }
+}
+.md-reactbar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.md-reactbtn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.md-reactbtn:active {
+  transform: scale(0.84) rotate(-8deg);
+}
+[data-theme='light'] .md-reactbtn--tot {
+  --tone: #6b6258;
+}
+.md-save--icon {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+}
+
 /* ---------- Finale ---------- */
-.md-hall__title {
+.md-podium {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: end;
+  gap: 10px;
+  padding: 26px 8px 0;
+}
+.md-podium__place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  animation: md-rise 0.8s var(--ease-out) backwards;
+}
+.md-podium__place--1 {
+  animation-delay: 0.45s;
+}
+.md-podium__place--2 {
+  animation-delay: 0.2s;
+}
+@keyframes md-rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+.md-podium__crown {
+  color: var(--yellow);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--yellow) 70%, transparent));
+  animation: md-crown 1.8s ease-in-out infinite;
+}
+@keyframes md-crown {
+  50% {
+    transform: translateY(-4px) rotate(-6deg);
+  }
+}
+.md-podium__print {
+  --paper-pad: 5px;
+  --paper-pad-b: 18px;
+  position: relative;
+  width: 84%;
+  transform: rotate(var(--tilt, 0deg));
+}
+.md-podium__foto {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    ellipse 120% 90% at 50% 20%,
+    color-mix(in srgb, var(--accent) 60%, white 10%),
+    color-mix(in srgb, var(--accent) 25%, black 75%)
+  );
+}
+.md-podium__no {
+  position: absolute;
+  bottom: -12px;
+  right: -10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: #2b1f00;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.45);
+  transform: rotate(8deg);
+}
+.md-podium__no--1 {
+  background: radial-gradient(circle at 34% 28%, #fff3a8, #ffd60a 55%, #d9a800);
+}
+.md-podium__no--2 {
+  background: radial-gradient(circle at 34% 28%, #ffffff, #cfd5dc 55%, #9aa3ad);
+}
+.md-podium__no--3 {
+  background: radial-gradient(circle at 34% 28%, #ffd9b0, #d9924f 55%, #a8662e);
+}
+.md-podium__name {
+  margin-top: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 750;
+  font-size: 14px;
+}
+.md-podium__pts {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--yellow);
+}
+.md-podium__block {
+  width: 100%;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, var(--surface-3), var(--surface));
+}
+.md-podium__place--1 .md-podium__block {
+  height: 64px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--yellow) 55%, var(--surface)),
+    var(--surface)
+  );
+}
+.md-podium__place--2 .md-podium__block {
+  height: 42px;
+}
+.md-podium__place--3 .md-podium__block {
+  height: 26px;
+}
+[data-theme='light'] .md-podium__pts {
+  color: #a87900;
+}
+.md-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: var(--label-3);
+}
+.md-gallery__title {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding-top: 8px;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 22px;
   text-transform: uppercase;
-  color: var(--yellow);
+  color: var(--orange);
 }
-.md-hall {
-  padding-top: 18px;
-  padding-bottom: 8px;
+.md-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 26px 16px;
+  padding: 12px 6px 0;
 }
-.md-hall__item {
-  width: 74%;
+.md-gallery__item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  scroll-snap-align: center;
+  min-width: 0;
 }
-.md-hall__item .md-print {
+.md-gallery__item .md-print {
   width: 100%;
+  --paper-pad: 5px;
 }
+.md-gallery__item .md-badge {
+  min-width: 44px;
+  height: 44px;
+  font-size: 14px;
+  top: -12px;
+  right: -8px;
+}
+.md-gallery__item .md-save--icon {
+  position: absolute;
+  left: -6px;
+  top: -10px;
+  z-index: 4;
+}
+.md-gallery__item--top {
+  grid-column: 1 / -1;
+  gap: 12px;
+}
+.md-gallery__item--top .md-print {
+  --maxh: 46dvh;
+  --paper-pad: 8px;
+  width: min(100%, calc(var(--maxh) * var(--ar) + 2 * var(--paper-pad)));
+}
+.md-gallery__item--top .md-badge {
+  min-width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
 .md-save {
   flex-shrink: 0;
 }
 
 /* Gelb auf hellem Grund ist kaum lesbar – dort ein dunkleres Gold. */
-[data-theme='light'] .md-hero__kicker,
-[data-theme='light'] .md-hall__title {
+[data-theme='light'] .md-hero__kicker {
   color: #a87900;
   text-shadow: none;
 }

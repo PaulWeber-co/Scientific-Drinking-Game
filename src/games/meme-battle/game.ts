@@ -21,7 +21,8 @@ import { TOPICS } from './topics';
  * Punkte: Einstimmig hoch sind 1000, jede Stimme runter zieht im selben Maß
  * ab. Meh zählt null. Ein Meme kann also ins Minus rutschen. Wer auf dem
  * Trittbrett mitfährt, bekommt die Hälfte der Punkte des Memes dazu – auch
- * die Hälfte eines Minus.
+ * die Hälfte eines Minus. Das Meme selbst bekommt je Mitfahrer +10: wer
+ * andere überzeugt, verdient daran mit.
  */
 
 export type Mode = 'klassisch' | 'gleich' | 'themen' | 'entspannt';
@@ -35,15 +36,30 @@ export interface Meme {
   x: string[];
 }
 
-export interface HallEntry {
-  round: number;
+/**
+ * Jedes Meme der Partie – fürs Finale „Von Feuer bis Lahm". Kurze Schlüssel,
+ * weil die Liste mit jedem Spielzug über die Leitung geht.
+ */
+export interface Played extends Meme {
+  /** Runde */
+  r: number;
   by: string;
-  /** Der Name reist mit – wer bis zum Finale gegangen ist, fehlt in `players`. */
-  name: string;
-  meme: Meme;
-  points: number;
-  topic: string | null;
+  /** Punkte aus der Abstimmung */
+  p: number;
 }
+
+/** Woher die Punkte einer Person kommen – wie im Endstand aufgeschlüsselt. */
+export interface Tally {
+  /** Punkte der eigenen Memes. */
+  meme: number;
+  /** Hälfte der Memes, auf denen man mitgefahren ist. */
+  ride: number;
+  /** +10 je Person, die auf den eigenen Memes mitgefahren ist. */
+  riders: number;
+}
+
+export type Reaction = 'lachen' | 'tot' | 'herz' | 'cringe';
+export const REACTIONS: Reaction[] = ['lachen', 'tot', 'herz', 'cringe'];
 
 export interface Options {
   mode: Mode;
@@ -51,6 +67,8 @@ export interface Options {
   seconds: number;
   /** Trittbrett (Mitfahren auf einem fremden Meme) an oder aus. */
   trittbrett: boolean;
+  /** Würfe je Person für die ganze Partie. */
+  rerolls: number;
 }
 
 export interface State {
@@ -69,6 +87,8 @@ export interface State {
   drawn: Record<string, string>;
   /** Übrige Würfe je Person – für die ganze Partie, nicht je Runde. */
   rerolls: Record<string, number>;
+  /** Die Vorlage vor dem letzten Würfeln – „Zurück" holt sie wieder. */
+  prev: Record<string, string>;
   memes: Record<string, Meme>;
   /** Frist der laufenden Phase (Basteln oder aktuelles Meme). */
   deadline: number | null;
@@ -84,13 +104,28 @@ export interface State {
   /** Punkte der Runde je Meme und Bonus je Mitfahrer – ab `results` gesetzt. */
   points: Record<string, number>;
   bonus: Record<string, number>;
+  /** +10 je Mitfahrer, für die Person, die das Meme gebaut hat. */
+  riderPts: Record<string, number>;
   scores: Record<string, number>;
-  hall: HallEntry[];
+  totals: Record<string, Tally>;
+  history: Played[];
+  /** Namen der Autorinnen und Autoren – wer bis zum Finale geht, fehlt in `players`. */
+  names: Record<string, string>;
+  /** Die letzten Reaktionen, fliegen auf allen Handys übers Bild. */
+  reactions: { n: number; by: string; k: Reaction }[];
+  reactSeq: number;
 }
 
-/** Würfe für die ganze Partie – wie im Vorbild fünf. */
+/** Würfe für die ganze Partie – wie im Vorbild fünf, einstellbar. */
 export const REROLLS = 5;
+export const REROLL_OPTIONS = [0, 3, 5, 8] as const;
+/** Rundenzahl; 0 heißt ohne Ende. */
+export const ROUND_OPTIONS = [3, 5, 8, 0] as const;
 export const TIMER_OPTIONS = [45, 60, 90, 120] as const;
+/** Bonus fürs eigene Meme je Person, die darauf mitfährt. */
+export const RIDER_BONUS = 10;
+/** So viele Reaktionen hält der Spielstand vor – ältere sind längst verflogen. */
+const MAX_REACTIONS = 8;
 const DEFAULT_SECONDS = 90;
 /** Höchstens so lange steht ein Meme zur Abstimmung. */
 export const VOTE_MS = 15_000;
@@ -107,6 +142,18 @@ export const MAX_POINTS = 1000;
 const ROUND_BASE = baseFor('meme-battle');
 
 const isMode = (v: unknown): v is Mode => MODES.includes(v as Mode);
+const isReaction = (v: unknown): v is Reaction => REACTIONS.includes(v as Reaction);
+const NO_TALLY: Tally = { meme: 0, ride: 0, riders: 0 };
+
+/** Das beste Meme jeder Runde (für Auswertungen und Tests). */
+export function bestPerRound(history: Played[]): Played[] {
+  const best = new Map<number, Played>();
+  for (const h of history) {
+    const cur = best.get(h.r);
+    if (!cur || h.p > cur.p) best.set(h.r, h);
+  }
+  return [...best.values()].sort((a, b) => a.r - b.r);
+}
 const present = (players: GamePlayer[]) => players.filter((p) => p.online !== false);
 
 /**
@@ -155,8 +202,22 @@ export function topicText(state: Pick<State, 'topic' | 'customTopics'>): string 
 }
 
 /** Frisch gemischte Vorlagen, Ungesehenes zuerst. */
-function freshDeck(): string[] {
-  return orderByFreshness(shuffle(TEMPLATES.map((t) => t.id)), (id) => `meme:${id}`);
+/**
+ * So viele Vorlagen trägt der Spielstand im Voraus. Alle 186 wären 1,5 KB mehr
+ * bei JEDER Aktion – und jede Stimme geht an alle Handys.
+ */
+const DECK_WINDOW = 24;
+
+function freshDeck(exclude: Set<string> = new Set()): string[] {
+  let ids = TEMPLATES.map((t) => t.id).filter((id) => !exclude.has(id));
+  // Alles schon gespielt (sehr lange Partie): dann eben wieder von vorn.
+  if (ids.length < DECK_WINDOW) ids = TEMPLATES.map((t) => t.id);
+  return orderByFreshness(shuffle(ids), (id) => `meme:${id}`).slice(0, DECK_WINDOW);
+}
+
+/** Was in dieser Partie schon als Meme gespielt wurde – kommt nicht wieder. */
+function usedIds(state: Pick<State, 'history' | 'memes'>): Set<string> {
+  return new Set([...state.history.map((h) => h.t), ...Object.values(state.memes).map((m) => m.t)]);
 }
 
 function topicDeckOf(custom: string[], playerCount: number): number[] {
@@ -165,15 +226,20 @@ function topicDeckOf(custom: string[], playerCount: number): number[] {
 }
 
 /** Zieht eine Vorlage, die gerade niemand vor sich hat. */
-function draw(deck: string[], taken: Set<string>): [string, string[]] {
+function draw(deck: string[], taken: Set<string>, used: Set<string>): [string, string[]] {
   let rest = deck;
   for (let pass = 0; pass < 2; pass++) {
     const i = rest.findIndex((id) => !taken.has(id));
     if (i >= 0) return [rest[i], [...rest.slice(0, i), ...rest.slice(i + 1)]];
-    rest = freshDeck();
+    rest = freshDeck(new Set([...taken, ...used]));
   }
   // Mehr Leute als Vorlagen – dann eben doppelt.
   return [rest[0], rest.slice(1)];
+}
+
+/** Was gerade vergeben ist – auch die Vorlagen, zu denen jemand zurück kann. */
+function taken(state: Pick<State, 'drawn' | 'prev'>): Set<string> {
+  return new Set([...Object.values(state.drawn), ...Object.values(state.prev)]);
 }
 
 function newRound(state: State, players: GamePlayer[], round: number): State {
@@ -182,17 +248,17 @@ function newRound(state: State, players: GamePlayer[], round: number): State {
   const rerolls = { ...state.rerolls };
   const who = present(players);
   if (state.options.mode === 'gleich') {
-    const [t, rest] = draw(deck, new Set());
+    const [t, rest] = draw(deck, new Set(), usedIds(state));
     deck = rest;
     for (const p of who) drawn[p.id] = t;
   } else {
     for (const p of who) {
-      const [t, rest] = draw(deck, new Set(Object.values(drawn)));
+      const [t, rest] = draw(deck, new Set(Object.values(drawn)), usedIds(state));
       deck = rest;
       drawn[p.id] = t;
     }
   }
-  for (const p of who) rerolls[p.id] ??= REROLLS;
+  for (const p of who) rerolls[p.id] ??= state.options.rerolls;
 
   let topic: number | null = null;
   let topicDeck = state.topicDeck;
@@ -209,6 +275,7 @@ function newRound(state: State, players: GamePlayer[], round: number): State {
     deck,
     drawn,
     rerolls,
+    prev: {},
     topic,
     topicDeck,
     memes: {},
@@ -219,6 +286,8 @@ function newRound(state: State, players: GamePlayer[], round: number): State {
     riders: {},
     points: {},
     bonus: {},
+    riderPts: {},
+    reactions: [],
     // Die Uhr läuft auf dem Host – er ist es auch, der sie prüft.
     deadline: Date.now() + state.options.seconds * 1000,
   };
@@ -247,39 +316,52 @@ function finishRound(state: State, players: GamePlayer[]): State {
   }
   const relaxed = state.options.mode === 'entspannt';
   const bonus: Record<string, number> = {};
+  const riderPts: Record<string, number> = {};
   if (!relaxed && state.options.trittbrett) {
     for (const [rider, author] of Object.entries(state.riders)) {
-      if (points[author] !== undefined) bonus[rider] = Math.round(points[author] / 2);
+      if (points[author] === undefined) continue;
+      bonus[rider] = Math.round(points[author] / 2);
+      riderPts[author] = (riderPts[author] ?? 0) + RIDER_BONUS;
     }
   }
+  const totals = { ...state.totals };
   const scores = { ...state.scores };
   if (!relaxed) {
-    for (const [id, p] of Object.entries(points)) scores[id] = (scores[id] ?? 0) + p;
-    for (const [id, b] of Object.entries(bonus)) scores[id] = (scores[id] ?? 0) + b;
+    const add = (id: string, key: keyof Tally, n: number) => {
+      const t = { ...(totals[id] ?? NO_TALLY) };
+      t[key] += n;
+      totals[id] = t;
+      scores[id] = t.meme + t.ride + t.riders;
+    };
+    for (const [id, n] of Object.entries(points)) add(id, 'meme', n);
+    for (const [id, n] of Object.entries(bonus)) add(id, 'ride', n);
+    for (const [id, n] of Object.entries(riderPts)) add(id, 'riders', n);
   }
 
-  // Das Meme der Runde. Bei Gleichstand gewinnt, wer früher gezeigt wurde –
-  // die Reihenfolge war Zufall, also ist es der Entscheid auch.
-  let best: string | null = null;
+  const names = { ...state.names };
   for (const author of state.order) {
-    if (best === null || points[author] > points[best]) best = author;
+    const name = players.find((p) => p.id === author)?.name;
+    if (name) names[author] = name;
   }
-  const hall =
-    best !== null && state.memes[best]
-      ? [
-          ...state.hall,
-          {
-            round: state.round,
-            by: best,
-            name: players.find((p) => p.id === best)?.name ?? '',
-            meme: state.memes[best],
-            points: points[best],
-            topic: topicText(state),
-          },
-        ]
-      : state.hall;
+  const history = [
+    ...state.history,
+    ...state.order
+      .filter((author) => state.memes[author])
+      .map((author) => ({ r: state.round, by: author, p: points[author], ...state.memes[author] })),
+  ];
 
-  return { ...state, phase: 'results', points, bonus, scores, hall, deadline: null };
+  return {
+    ...state,
+    phase: 'results',
+    points,
+    bonus,
+    riderPts,
+    scores,
+    totals,
+    names,
+    history,
+    deadline: null,
+  };
 }
 
 /** Texte aus einer Aktion – nie mehr Felder, als die Vorlage hat, nie zu lang. */
@@ -296,7 +378,12 @@ export function createState(players: GamePlayer[], options?: Options): State {
   const customTopics = customCardsFor('meme-battle').map((c) => c.text);
   return {
     phase: 'setup',
-    options: options ?? { mode: 'klassisch', seconds: DEFAULT_SECONDS, trittbrett: true },
+    options: options ?? {
+      mode: 'klassisch',
+      seconds: DEFAULT_SECONDS,
+      trittbrett: true,
+      rerolls: REROLLS,
+    },
     round: 1,
     goal: roundGoal(ROUND_BASE),
     deck: freshDeck(),
@@ -304,7 +391,9 @@ export function createState(players: GamePlayer[], options?: Options): State {
     customTopics,
     topic: null,
     drawn: {},
-    rerolls: Object.fromEntries(players.map((p) => [p.id, REROLLS])),
+    // Gesetzt wird beim Austeilen – erst dann steht die Zahl der Würfe fest.
+    rerolls: {},
+    prev: {},
     memes: {},
     deadline: null,
     order: [],
@@ -314,8 +403,13 @@ export function createState(players: GamePlayer[], options?: Options): State {
     riders: {},
     points: {},
     bonus: {},
+    riderPts: {},
     scores: Object.fromEntries(players.map((p) => [p.id, 0])),
-    hall: [],
+    totals: {},
+    history: [],
+    names: {},
+    reactions: [],
+    reactSeq: 0,
   };
 }
 
@@ -334,6 +428,18 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
       if (state.options.seconds === seconds) return state;
       return { ...state, options: { ...state.options, seconds } };
     }
+    case 'rounds': {
+      const rounds = Number(action.rounds);
+      if (state.phase !== 'setup' || !ROUND_OPTIONS.includes(rounds as never)) return state;
+      const goal = rounds === 0 ? null : rounds;
+      return state.goal === goal ? state : { ...state, goal };
+    }
+    case 'rerolls': {
+      const count = Number(action.count);
+      if (state.phase !== 'setup' || !REROLL_OPTIONS.includes(count as never)) return state;
+      if (state.options.rerolls === count) return state;
+      return { ...state, options: { ...state.options, rerolls: count } };
+    }
     case 'trittbrett': {
       if (state.phase !== 'setup' || typeof action.on !== 'boolean') return state;
       if (state.options.trittbrett === action.on) return state;
@@ -341,7 +447,10 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     }
     case 'start': {
       if (state.phase !== 'setup' || present(players).length < 2) return state;
-      return newRound(state, players, 1);
+      const rerolls = Object.fromEntries(
+        present(players).map((p) => [p.id, state.options.rerolls]),
+      );
+      return newRound({ ...state, rerolls }, players, 1);
     }
 
     // ---------- Basteln ----------
@@ -351,24 +460,41 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
       const shared = state.options.mode === 'gleich' ? Object.values(state.drawn)[0] : undefined;
       const [t, deck] = shared
         ? [shared, state.deck]
-        : draw(state.deck, new Set(Object.values(state.drawn)));
+        : draw(state.deck, taken(state), usedIds(state));
       return {
         ...state,
         deck,
         drawn: { ...state.drawn, [action.by]: t },
-        rerolls: { ...state.rerolls, [action.by]: state.rerolls[action.by] ?? REROLLS },
+        rerolls: {
+          ...state.rerolls,
+          [action.by]: state.rerolls[action.by] ?? state.options.rerolls,
+        },
       };
     }
     case 'reroll': {
       if (state.phase !== 'create' || state.options.mode === 'gleich') return state;
       const left = state.rerolls[action.by] ?? 0;
       if (!state.drawn[action.by] || state.memes[action.by] || left <= 0) return state;
-      const [t, deck] = draw(state.deck, new Set(Object.values(state.drawn)));
+      const [t, deck] = draw(state.deck, taken(state), usedIds(state));
       return {
         ...state,
         deck,
         drawn: { ...state.drawn, [action.by]: t },
+        prev: { ...state.prev, [action.by]: state.drawn[action.by] },
         rerolls: { ...state.rerolls, [action.by]: left - 1 },
+      };
+    }
+    case 'back': {
+      // Die vorige Vorlage zurückholen, ohne einen Wurf zu kosten. Zweimal
+      // „Zurück" pendelt zwischen den beiden letzten.
+      if (state.phase !== 'create') return state;
+      const before = state.prev[action.by];
+      const now = state.drawn[action.by];
+      if (!before || !now || state.memes[action.by]) return state;
+      return {
+        ...state,
+        drawn: { ...state.drawn, [action.by]: before },
+        prev: { ...state.prev, [action.by]: now },
       };
     }
     case 'submit': {
@@ -415,6 +541,18 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
       if (state.riders[action.by]) return state;
       return { ...state, riders: { ...state.riders, [action.by]: author } };
     }
+    case 'react': {
+      if (state.phase !== 'vote' || !isReaction(action.kind)) return state;
+      const reactSeq = state.reactSeq + 1;
+      return {
+        ...state,
+        reactSeq,
+        reactions: [
+          ...state.reactions.slice(-(MAX_REACTIONS - 1)),
+          { n: reactSeq, by: action.by, k: action.kind },
+        ],
+      };
+    }
     case 'advance': {
       const author = currentAuthor(state);
       // Auch hier die Kennung des Memes: schicken zwei Geräte gleichzeitig
@@ -439,7 +577,12 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     case 'restart': {
       // Zurück an den Tisch – mit denselben Einstellungen, aber frischem Stand.
       const fresh = createState(players, state.options);
-      return { ...fresh, deck: state.deck.length > 40 ? state.deck : fresh.deck };
+      return {
+        ...fresh,
+        // Nur Stände dieser Fassung tragen eine Ziellinie; eine Runde aus der
+        // alten Fassung bekommt die aus der Einstellung.
+        goal: state.options ? state.goal : fresh.goal,
+      };
     }
     default:
       return state;

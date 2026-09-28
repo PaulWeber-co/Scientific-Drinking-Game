@@ -38,6 +38,7 @@ export function MemeImage({
           key={i}
           box={box}
           text={texts[i] ?? ''}
+          placeholder={template.boxes.length === 1 ? 'Dein Text' : `Text ${i + 1}`}
           index={i}
           editing={editing}
           active={active === i}
@@ -51,6 +52,7 @@ export function MemeImage({
 function MemeText({
   box,
   text,
+  placeholder,
   index,
   editing,
   active,
@@ -58,6 +60,7 @@ function MemeText({
 }: {
   box: MemeBox;
   text: string;
+  placeholder: string;
   index: number;
   editing?: boolean;
   active?: boolean;
@@ -65,7 +68,11 @@ function MemeText({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const upper = box.s !== 'none';
-  const shown = upper ? text.toLocaleUpperCase('de-DE') : text;
+  // Im Editor steht in leeren Feldern „Text 1", „Text 2" – wie auf dem
+  // Eingabefeld darunter, damit klar ist, welches Feld wohin gehört.
+  const isPlaceholder = !text && !!editing;
+  const raw = isPlaceholder ? placeholder : text;
+  const shown = upper ? raw.toLocaleUpperCase('de-DE') : raw;
 
   // Die größte Schrift, die ins Feld passt. Direkt am Element gesetzt statt
   // über State: ein Rendern je Messschritt wären zwölf pro Tastendruck.
@@ -78,7 +85,8 @@ function MemeText({
       const h = frame.clientHeight;
       if (!w || !h || !el.textContent) return;
       let lo = 5;
-      let hi = Math.max(lo, Math.min(h, w * 0.5));
+      // Der Platzhalter bleibt klein – sonst füllt „TEXT 1" ein großes Feld aus.
+      let hi = Math.max(lo, Math.min(h, w * 0.5, isPlaceholder ? Math.max(12, h * 0.4) : h));
       for (let i = 0; i < 12; i++) {
         const mid = (lo + hi) / 2;
         el.style.fontSize = `${mid}px`;
@@ -98,7 +106,7 @@ function MemeText({
       alive = false;
       ro?.disconnect();
     };
-  }, [shown, box.f]);
+  }, [shown, box.f, isPlaceholder]);
 
   const style: CSSProperties = {
     left: `${box.x * 100}%`,
@@ -135,7 +143,6 @@ function MemeText({
         onClick={onTap}
         aria-label={`Feld ${index + 1}`}
       >
-        {editing && !text && <span className="md-box__no">{index + 1}</span>}
         {inner}
       </button>
     );

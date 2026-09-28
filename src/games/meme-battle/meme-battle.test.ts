@@ -3,11 +3,13 @@ import { decodeState, encodeState } from '../../features/party/PartyContext';
 import { useCustomCards } from '../../store/cards';
 import type { GameAction, GamePlayer } from '../types';
 import {
+  bestPerRound,
   createState,
   MIN_SHOW_MS,
   pointsFor,
   reduce,
   REROLLS,
+  RIDER_BONUS,
   SUBMIT_GRACE_MS,
   topicText,
   VOTE_MS,
@@ -93,7 +95,7 @@ describe('Meme-Duell: Einrichten', () => {
   it('startet am Tisch mit Standardwerten und überlebt die Datenbank', () => {
     const s = createState(players(4));
     expect(s.phase).toBe('setup');
-    expect(s.options).toEqual({ mode: 'klassisch', seconds: 90, trittbrett: true });
+    expect(s.options).toEqual({ mode: 'klassisch', seconds: 90, trittbrett: true, rerolls: 5 });
     expect(decodeState(encodeState(s))).toEqual(s);
   });
 
@@ -103,7 +105,7 @@ describe('Meme-Duell: Einrichten', () => {
     s = reduce(s, act('mode', 'p0', { mode: 'gleich' }), roster);
     s = reduce(s, act('timer', 'p0', { seconds: 60 }), roster);
     s = reduce(s, act('trittbrett', 'p0', { on: false }), roster);
-    expect(s.options).toEqual({ mode: 'gleich', seconds: 60, trittbrett: false });
+    expect(s.options).toEqual({ mode: 'gleich', seconds: 60, trittbrett: false, rerolls: 5 });
     const vorher = s;
     expect(reduce(s, act('mode', 'p0', { mode: 'wahrheit' }), roster)).toBe(vorher);
     expect(reduce(s, act('timer', 'p0', { seconds: 7 }), roster)).toBe(vorher);
@@ -154,6 +156,32 @@ describe('Meme-Duell: Basteln', () => {
     expect(s.rerolls.p0).toBe(0);
     expect(gesehen.size).toBe(REROLLS + 1);
     expect(reduce(s, act('reroll', 'p0'), roster)).toBe(s);
+  });
+
+  it('holt mit „Zurück" die vorige Vorlage, ohne einen Wurf zu kosten', () => {
+    const { roster, s: s0 } = started(3);
+    const erste = s0.drawn.p0;
+    expect(reduce(s0, act('back', 'p0'), roster)).toBe(s0);
+    const s1 = reduce(s0, act('reroll', 'p0'), roster);
+    const zweite = s1.drawn.p0;
+    const s2 = reduce(s1, act('back', 'p0'), roster);
+    expect(s2.drawn.p0).toBe(erste);
+    expect(s2.rerolls.p0).toBe(REROLLS - 1);
+    // Noch einmal: zurück zur gewürfelten.
+    expect(reduce(s2, act('back', 'p0'), roster).drawn.p0).toBe(zweite);
+  });
+
+  it('gibt niemandem die Vorlage, zu der jemand zurück kann', () => {
+    const roster = players(3);
+    let s = createState(roster);
+    s = reduce(s, act('rerolls', 'p0', { count: 8 }), roster);
+    s = reduce(s, act('start'), roster);
+    const vorher = s.drawn.p0;
+    s = reduce(s, act('reroll', 'p0'), roster);
+    for (let i = 0; i < 8; i++) {
+      s = reduce(s, act('reroll', 'p1'), roster);
+      expect(s.drawn.p1).not.toBe(vorher);
+    }
   });
 
   it('lässt bei „Gleiches Meme" nicht würfeln', () => {
@@ -297,6 +325,18 @@ describe('Meme-Duell: Abstimmen', () => {
   });
 });
 
+describe('Meme-Duell: Reaktionen', () => {
+  it('nimmt Reaktionen nur beim Abstimmen an und hält nur die letzten', () => {
+    const { roster, s: s0 } = started(3);
+    expect(reduce(s0, act('react', 'p0', { kind: 'lachen' }), roster)).toBe(s0);
+    let s = allSubmit(s0, roster);
+    expect(reduce(s, act('react', 'p0', { kind: 'kotzen' }), roster)).toBe(s);
+    for (let i = 0; i < 12; i++) s = reduce(s, act('react', 'p1', { kind: 'herz' }), roster);
+    expect(s.reactions).toHaveLength(8);
+    expect(s.reactions.at(-1)).toMatchObject({ n: 12, k: 'herz' });
+  });
+});
+
 describe('Meme-Duell: Punkte', () => {
   it('rechnet auf 1000 bei einstimmig hoch, anteilig bis ins Minus', () => {
     expect(pointsFor({ a: 1, b: 1, c: 1 }, 3)).toBe(1000);
@@ -308,7 +348,7 @@ describe('Meme-Duell: Punkte', () => {
     expect(pointsFor({ a: 1, b: 1, c: 1 }, 2)).toBe(1000);
   });
 
-  it('verteilt Punkte, Trittbrett-Bonus und das Meme der Runde', () => {
+  it('verteilt Punkte, Trittbrett- und Mitfahrer-Bonus', () => {
     const { roster, s: s0 } = started(3);
     let s = allSubmit(s0, roster);
     // p0s Meme bekommt Feuer von allen, alle anderen Memes „lahm".
@@ -322,10 +362,15 @@ describe('Meme-Duell: Punkte', () => {
     }
     expect(s.phase).toBe('results');
     expect(s.points).toEqual({ p0: 1000, p1: -1000, p2: -1000 });
+    // Wer mitfährt, bekommt die Hälfte …
     expect(s.bonus).toEqual({ p1: 500, p2: -500 });
-    expect(s.scores).toEqual({ p0: 1000, p1: -500, p2: -1500 });
-    expect(s.hall).toHaveLength(1);
-    expect(s.hall[0]).toMatchObject({ round: 1, by: 'p0', name: 'Spieler 0', points: 1000 });
+    // … und das Meme je Mitfahrer +10.
+    expect(s.riderPts).toEqual({ p0: RIDER_BONUS, p1: RIDER_BONUS });
+    expect(s.scores).toEqual({ p0: 1010, p1: -490, p2: -1500 });
+    expect(s.totals.p1).toEqual({ meme: -1000, ride: 500, riders: RIDER_BONUS });
+    expect(s.history).toHaveLength(3);
+    expect(s.names.p0).toBe('Spieler 0');
+    expect(bestPerRound(s.history)[0]).toMatchObject({ r: 1, by: 'p0', p: 1000 });
   });
 
   it('zählt im Modus „Entspannt" keine Punkte', () => {
@@ -335,7 +380,7 @@ describe('Meme-Duell: Punkte', () => {
     for (let i = 0; i < 3; i++) s = voteAndAdvance(s, roster, () => 1);
     expect(s.phase).toBe('results');
     expect(s.scores).toEqual({ p0: 0, p1: 0, p2: 0 });
-    expect(s.hall).toHaveLength(1);
+    expect(s.history).toHaveLength(3);
   });
 });
 
@@ -360,18 +405,52 @@ describe('Meme-Duell: Runden', () => {
     s = playRound(s, roster);
     s = reduce(s, act('next'), roster);
     expect(s.phase).toBe('over');
-    expect(s.hall).toHaveLength(2);
+    expect(s.history).toHaveLength(6);
+    expect(bestPerRound(s.history).map((h) => h.r)).toEqual([1, 2]);
+  });
+
+  it('zeigt in einer Partie keine Vorlage zweimal', () => {
+    const roster = players(8);
+    let s = createState(roster);
+    s = reduce(s, act('rounds', 'p0', { rounds: 8 }), roster);
+    s = reduce(s, act('start'), roster);
+    for (let r = 0; r < 8; r++) {
+      for (const p of roster) s = reduce(s, act('reroll', p.id), roster);
+      s = playRound(s, roster);
+      s = reduce(s, act('next'), roster);
+    }
+    const vorlagen = s.history.map((h) => h.t);
+    expect(vorlagen).toHaveLength(64);
+    expect(new Set(vorlagen).size).toBe(64);
+    // Der Spielstand trägt nie den ganzen Katalog mit sich herum.
+    expect(s.deck.length).toBeLessThanOrEqual(24);
   });
 
   it('startet mit denselben Einstellungen neu', () => {
     const roster = players(3);
     let s = createState(roster);
     s = reduce(s, act('mode', 'p0', { mode: 'themen' }), roster);
+    s = reduce(s, act('rounds', 'p0', { rounds: 8 }), roster);
     s = reduce(s, act('start'), roster);
     s = reduce(s, act('restart'), roster);
     expect(s.phase).toBe('setup');
     expect(s.options.mode).toBe('themen');
-    expect(s.hall).toEqual([]);
+    expect(s.goal).toBe(8);
+    expect(s.history).toEqual([]);
+  });
+
+  it('lässt Rundenzahl und Würfe einstellen', () => {
+    const roster = players(3);
+    let s = createState(roster);
+    s = reduce(s, act('rounds', 'p0', { rounds: 0 }), roster);
+    expect(s.goal).toBeNull();
+    s = reduce(s, act('rounds', 'p0', { rounds: 3 }), roster);
+    expect(s.goal).toBe(3);
+    expect(reduce(s, act('rounds', 'p0', { rounds: 7 }), roster)).toBe(s);
+    s = reduce(s, act('rerolls', 'p0', { count: 8 }), roster);
+    expect(reduce(s, act('rerolls', 'p0', { count: 2 }), roster)).toBe(s);
+    s = reduce(s, act('start'), roster);
+    expect(s.rerolls).toEqual({ p0: 8, p1: 8, p2: 8 });
   });
 });
 

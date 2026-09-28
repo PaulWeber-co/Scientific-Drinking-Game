@@ -35,7 +35,7 @@ Handy oder mit einer Lobby, in der jede Person ihr eigenes Gerät benutzt.
 | Eigene Karten pro Spiel, anonyme Gruppen-Pegelanzeige | fertig |
 | Spieleinladung: startet jemand, fragt die App „mitspielen?" | fertig |
 | Spicy-Modus je Spiel (ab 18, zuschaltbar) | fertig |
-| Meme-Duell: Vorlagen mit Textfeldern, Trittbrett, Ruhmeshalle, Speichern als Abzug | fertig |
+| Meme-Duell: Vorlagen mit Textfeldern, Trittbrett, Reaktionen, Podest, Speichern als Abzug | fertig |
 
 ### Die Spiele
 

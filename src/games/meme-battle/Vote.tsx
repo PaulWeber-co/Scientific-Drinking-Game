@@ -4,7 +4,8 @@ import { haptic } from '../../lib/haptics';
 import type { GameActionInput, GamePlayer } from '../types';
 import { currentAuthor, votersFor, VOTE_MS, type State, type Vote } from './game';
 import { MemeImage, MemePrint } from './Meme';
-import { TimerBar, TopicNote, tiltFor } from './parts';
+import { SaveMeme, TimerBar, TopicNote, tiltFor } from './parts';
+import { ReactionBar, ReactionLayer } from './Reactions';
 import { templateOf } from './templates';
 
 const CHOICES: {
@@ -59,32 +60,36 @@ export function VoteView({
           Meme {state.showing + 1} von {state.order.length}
         </span>
         {state.deadline !== null && <TimerBar until={state.deadline} total={VOTE_MS} />}
+        <SaveMeme meme={meme} caption={`Meme-Duell · Runde ${state.round}`} compact />
       </div>
 
       {topic && <TopicNote text={topic} />}
 
-      <MemePrint
-        key={`${state.round}-${state.showing}`}
-        className="md-print--develop"
-        tilt={tiltFor(author + state.round, 2)}
-        ar={template ? template.w / template.h : undefined}
-        caption={
-          mineIsUp ? 'Dein Meme · Pokerface' : riding === author ? 'Du fährst mit' : 'Anonym'
-        }
-        badge={
-          riding === author ? (
-            <span className="md-ticket" aria-hidden>
-              <Icon name="bus" size={16} />
-            </span>
-          ) : undefined
-        }
-      >
-        {template ? (
-          <MemeImage template={template} texts={meme.x} />
-        ) : (
-          <div className="md-missing">{meme.x.filter(Boolean).join(' / ')}</div>
-        )}
-      </MemePrint>
+      <div className="md-vote__stage">
+        <MemePrint
+          key={`${state.round}-${state.showing}`}
+          className="md-print--develop"
+          tilt={tiltFor(author + state.round, 2)}
+          ar={template ? template.w / template.h : undefined}
+          caption={
+            mineIsUp ? 'Dein Meme · Pokerface' : riding === author ? 'Du fährst mit' : 'Anonym'
+          }
+          badge={
+            riding === author ? (
+              <span className="md-ticket" aria-hidden>
+                <Icon name="bus" size={16} />
+              </span>
+            ) : undefined
+          }
+        >
+          {template ? (
+            <MemeImage template={template} texts={meme.x} />
+          ) : (
+            <div className="md-missing">{meme.x.filter(Boolean).join(' / ')}</div>
+          )}
+        </MemePrint>
+        <ReactionLayer key={`fx-${state.round}-${state.showing}`} reactions={state.reactions} />
+      </div>
 
       {mineIsUp ? (
         <div className="notice notice--neutral t-center">
@@ -108,6 +113,8 @@ export function VoteView({
           ))}
         </div>
       )}
+
+      <ReactionBar dispatch={dispatch} />
 
       {state.options.trittbrett && state.options.mode !== 'entspannt' && !mineIsUp && (
         <button

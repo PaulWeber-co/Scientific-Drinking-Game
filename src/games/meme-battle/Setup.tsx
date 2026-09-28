@@ -3,7 +3,14 @@ import { Segmented, Toggle } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GamePlayer } from '../types';
-import { REROLLS, TIMER_OPTIONS, type Mode, type State } from './game';
+import {
+  REROLL_OPTIONS,
+  RIDER_BONUS,
+  ROUND_OPTIONS,
+  TIMER_OPTIONS,
+  type Mode,
+  type State,
+} from './game';
 import { MemeImage, MemePrint } from './Meme';
 import { TEMPLATES, templateOf } from './templates';
 
@@ -55,7 +62,7 @@ export function Setup({
   const count = players.filter((p) => p.online !== false).length;
   const enough = count >= 3;
   const host = players.find((p) => p.isHost);
-  const { mode, seconds, trittbrett } = state.options;
+  const { mode, seconds, trittbrett, rerolls } = state.options;
 
   return (
     <div className="md-setup stack">
@@ -113,6 +120,38 @@ export function Setup({
         )}
       </section>
 
+      <div className="md-setup__pair">
+        <section className="stack-3">
+          <span className="t-upper">Runden</span>
+          {isHost ? (
+            <Segmented<string>
+              value={String(state.goal ?? 0)}
+              onChange={(v) => dispatch({ type: 'rounds', rounds: Number(v) })}
+              options={ROUND_OPTIONS.map((r) => ({ value: String(r), label: r ? String(r) : '∞' }))}
+            />
+          ) : (
+            <div className="t-sub">{state.goal ?? 'Ohne Ende'}</div>
+          )}
+        </section>
+        {mode !== 'gleich' && (
+          <section className="stack-3">
+            <span className="t-upper">Neu würfeln</span>
+            {isHost ? (
+              <Segmented<string>
+                value={String(rerolls)}
+                onChange={(v) => dispatch({ type: 'rerolls', count: Number(v) })}
+                options={REROLL_OPTIONS.map((r) => ({
+                  value: String(r),
+                  label: r ? String(r) : 'Aus',
+                }))}
+              />
+            ) : (
+              <div className="t-sub">{rerolls ? `${rerolls}× pro Partie` : 'Aus'}</div>
+            )}
+          </section>
+        )}
+      </div>
+
       {mode !== 'entspannt' && (
         <div className={`md-option ${isHost ? '' : 'md-option--locked'}`}>
           <Icon name="bus" size={22} />
@@ -120,7 +159,7 @@ export function Setup({
             <div className="t-headline">Trittbrett</div>
             <div className="t-caption" id="md-rule-ride">
               Einmal je Runde auf ein fremdes Meme aufspringen: die Hälfte seiner Punkte geht an
-              dich. Auch die Hälfte eines Minus.
+              dich, auch die Hälfte eines Minus. Das Meme bekommt +{RIDER_BONUS} je Mitfahrer.
             </div>
           </div>
           <Toggle
@@ -134,8 +173,8 @@ export function Setup({
 
       <p className="t-caption t-center">
         {state.goal ? `${state.goal} Runden` : 'Ohne Ende'} ·{' '}
-        {mode === 'gleich' ? 'ohne Würfeln' : `${REROLLS}× neu würfeln`} · {TEMPLATES.length}{' '}
-        Vorlagen
+        {mode === 'gleich' || !rerolls ? 'ohne Würfeln' : `${rerolls}× neu würfeln`} ·{' '}
+        {TEMPLATES.length} Vorlagen
       </p>
 
       {!enough && (

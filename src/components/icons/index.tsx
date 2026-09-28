@@ -28,7 +28,9 @@ export type IconName =
   // Kartenfarben
   | 'spade' | 'heart' | 'diamond' | 'club'
   // Sonstiges
-  | 'arrowUp' | 'arrowDown' | 'swap' | 'target' | 'logo' | 'brackets' | 'outward';
+  | 'arrowUp' | 'arrowDown' | 'swap' | 'target' | 'logo' | 'brackets' | 'outward'
+  // Reaktionen (Meme-Duell)
+  | 'laugh' | 'skull' | 'cringe';
 
 const P: Record<IconName, ReactNode> = {
   home: <><path d="M3.2 10.6 12 3.4l8.8 7.2" /><path d="M5.6 9.4V20a.8.8 0 0 0 .8.8h11.2a.8.8 0 0 0 .8-.8V9.4" /><path d="M9.8 20.8v-5.4h4.4v5.4" /></>,
@@ -109,6 +111,9 @@ const P: Record<IconName, ReactNode> = {
   swap: <><path d="M4 8.4h13.2M13.6 4.8 17.2 8.4l-3.6 3.6" /><path d="M20 15.6H6.8M10.4 12 6.8 15.6l3.6 3.6" /></>,
   target: <><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="12" r="4.8" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /></>,
   logo: <><path d="M5 4.6h14l-1.6 6.6A5.8 5.8 0 0 1 11.8 15 5.8 5.8 0 0 1 6.6 11.2Z" /><path d="M12 15.4v3.8M8.2 19.4h7.6" /></>,
+  laugh: <><circle cx="12" cy="12" r="8.8" /><path d="M7.9 10.3c.7-1.1 2-1.1 2.7 0M13.4 10.3c.7-1.1 2-1.1 2.7 0" /><path d="M7.6 13.4h8.8c0 2.6-2 4.5-4.4 4.5s-4.4-1.9-4.4-4.5Z" fill="currentColor" fillOpacity={0.25} /></>,
+  skull: <><path d="M12 3.2c-4.6 0-7.8 3.1-7.8 7.3 0 2.4 1.1 4 2.6 5v2.6c0 .8.6 1.4 1.4 1.4h7.6c.8 0 1.4-.6 1.4-1.4v-2.6c1.5-1 2.6-2.6 2.6-5 0-4.2-3.2-7.3-7.8-7.3Z" /><circle cx="9" cy="11" r="1.8" fill="currentColor" stroke="none" /><circle cx="15" cy="11" r="1.8" fill="currentColor" stroke="none" /><path d="M11.1 15.2 12 13.8l.9 1.4M10.4 19.5v-2.2M13.6 19.5v-2.2" /></>,
+  cringe: <><circle cx="12" cy="12" r="8.8" /><path d="M8.2 9.4l2.2 1M15.8 9.4l-2.2 1" /><rect x="7.6" y="13.2" width="8.8" height="3.6" rx="1.2" /><path d="M7.6 15h8.8M10.5 13.2v3.6M13.5 13.2v3.6" /></>,
 };
 
 export interface IconProps {

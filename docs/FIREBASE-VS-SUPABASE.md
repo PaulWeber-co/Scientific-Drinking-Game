@@ -41,13 +41,13 @@ behalten und Supabase nur für das Neue dazunehmen** (siehe Abschnitt 4).
 
 ## 2. Nachgerechnet für diese App
 
-Messung am Meme-Duell (acht Leute, fünf Runden): rund **400 Spielzüge**, Spielstand im Schnitt
-**4 KB**, jede Änderung geht an acht Geräte.
+Messung am Meme-Duell (acht Leute, fünf Runden, zwei Reaktionen je Meme): rund **480
+Spielzüge**, Spielstand im Schnitt **5,7 KB**, jede Änderung geht an acht Geräte.
 
 | | Firebase heute | Supabase (Broadcast-Aufbau, Abschnitt 5) |
 |:--|:--|:--|
-| Was zählt | Bytes: 400 × 4 KB × 8 ≈ **13 MB** | Nachrichten: je Zug Aktion + Stand ≈ 2 × 9 = 18, also ≈ **7 200** |
-| Partien pro Monat kostenlos | 10 GB / 13 MB ≈ **750** | 2 Mio. / 7 200 ≈ **270** (und 5 GB Egress ≈ 380) |
+| Was zählt | Bytes: 480 × 5,7 KB × 8 ≈ **22 MB** | Nachrichten: je Zug Aktion + Stand ≈ 2 × 9 = 18, also ≈ **8 700** |
+| Partien pro Monat kostenlos | 10 GB / 22 MB ≈ **450** | 2 Mio. / 8 700 ≈ **230** (und 5 GB Egress ≈ 230) |
 | Partys gleichzeitig | 100 / 16 ≈ **6** | 200 / 16 ≈ **12** |
 
 Heißt: Supabase erlaubt mehr Partys **gleichzeitig**, Firebase mehr Partien **im Monat**. Für
@@ -56,7 +56,7 @@ Engpass. Der lässt sich bei Firebase aber für praktisch null Euro lösen:
 
 > **Firebase auf Blaze umstellen und ein Budget-Limit setzen** (Google Cloud Console →
 > Abrechnung → Budgets & Benachrichtigungen, z. B. 5 €). Die ersten 10 GB bleiben frei, danach
-> kostet 1 GB rund 1 $. 1 000 Meme-Duelle im Monat kämen auf etwa 3 $. Die Grenze von 100
+> kostet 1 GB rund 1 $. 1 000 Meme-Duelle im Monat kämen auf etwa 12 $. Die Grenze von 100
 > Verbindungen fällt weg. Kein Code ändert sich.
 
 ## 3. Wann was

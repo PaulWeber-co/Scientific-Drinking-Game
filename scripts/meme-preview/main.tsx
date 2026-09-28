@@ -68,6 +68,15 @@ function Preview() {
       });
     }
   };
+  const botsReact = () => {
+    const kinds = ['lachen', 'tot', 'herz', 'cringe'];
+    bots.forEach((p, i) =>
+      setTimeout(
+        () => run(p.id, { type: 'react', kind: kinds[Math.floor(Math.random() * kinds.length)] }),
+        i * 250,
+      ),
+    );
+  };
   const skip = () => {
     const far = Date.now() + 3_600_000;
     if (state.phase === 'create') run('p0', { type: 'timeout', at: far });
@@ -83,6 +92,9 @@ function Preview() {
         </button>
         <button className="btn btn--sm btn--glass" onClick={botsVote}>
           Bots stimmen ab
+        </button>
+        <button className="btn btn--sm btn--glass" onClick={botsReact}>
+          Bots reagieren
         </button>
         <button className="btn btn--sm btn--glass" onClick={skip}>
           Uhr vorspulen

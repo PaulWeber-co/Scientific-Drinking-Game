@@ -18,7 +18,7 @@ const EDGE = 1080;
 const FONT: Record<NonNullable<MemeBox['f']> | 'thick', string> = {
   thick: `'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow', sans-serif`,
   thin: `-apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', sans-serif`,
-  comic: `'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', cursive`,
+  comic: `'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', 'Marker Felt', system-ui, sans-serif`,
 };
 const WEIGHT: Record<NonNullable<MemeBox['f']> | 'thick', number> = {
   thick: 400,
