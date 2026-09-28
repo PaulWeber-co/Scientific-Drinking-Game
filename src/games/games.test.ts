@@ -118,6 +118,11 @@ const VARIANTS: Record<string, unknown>[] = [
   { special: 'bombe', preset: 'alle', rule: 'noEvenBids', on: true, length: 'kurz', suit: 0 },
   { special: 'hexe', preset: 'klassisch', rule: 'forehead', on: false, length: 'voll', suit: -1 },
   { suit: 2, shape: 'magier', take: -1, value: -1 },
+  // Meme-Duell: Texte fürs Meme, Bastelzeit und ein Modus, den es dort gibt.
+  // Die Stimme selbst hängt am gerade gezeigten Meme – die liefert
+  // `memeVariants()` aus dem Zustand.
+  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich' },
+  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen' },
 ];
 
 /**
@@ -208,11 +213,24 @@ function turnVariants(state: unknown): Record<string, unknown>[] {
   return out;
 }
 
+/**
+ * Stimmen fürs Meme-Duell – aus dem ZUSTAND. Eine Stimme gilt nur für das
+ * Meme, das gerade läuft (`target` = Autor), und nur mit -1, 0 oder 1. Eine
+ * geratene Kombination aus Person und Wert trifft das selten.
+ */
+function memeVariants(state: unknown): Record<string, unknown>[] {
+  const s = state as { phase?: string; order?: unknown; showing?: unknown } | null;
+  if (s?.phase !== 'vote' || !Array.isArray(s.order) || typeof s.showing !== 'number') return [];
+  const target = s.order[s.showing];
+  return [1, 0, -1].map((value) => ({ target, value }));
+}
+
 const variantsFor = (roster: GamePlayer[], state?: unknown) => [
   ...VARIANTS,
   ...personVariants(roster),
   ...handVariants(state),
   ...turnVariants(state),
+  ...memeVariants(state),
 ];
 
 function hasEscape(
@@ -430,7 +448,7 @@ describe('Registry', () => {
   });
 
   it('haelt die fuenf Spiele draussen, die mehr Leute brauchen', () => {
-    // Undercover braucht Verdaechtige, Meme Battle und Lueckenfueller eine
+    // Undercover braucht Verdaechtige, Meme-Duell und Lueckenfueller eine
     // Jury, Tabu zwei Teams, und Top Ten waere bei zwei Eintraegen immer
     // "perfekt". Sie stehen bewusst hoeher.
     for (const id of ['undercover', 'meme-battle', 'lueckenfueller', 'tabu', 'top-ten']) {
@@ -651,65 +669,7 @@ describe('Busfahrer', () => {
   });
 });
 
-describe('Meme Battle', () => {
-  const game = getLoadedGame('meme-battle')!;
-
-  it('wechselt erst zur Abstimmung, wenn alle geschrieben haben', () => {
-    const roster = players(3);
-    let s = game.createState(roster);
-    s = game.reduce(s, act('submit', 'p0', { text: 'A' }), roster);
-    expect(s.phase).toBe('writing');
-    s = game.reduce(s, act('submit', 'p1', { text: 'B' }), roster);
-    s = game.reduce(s, act('submit', 'p2', { text: 'C' }), roster);
-    expect(s.phase).toBe('voting');
-    expect(s.reveal).toHaveLength(3);
-  });
-
-  it('verhindert Stimmen fuer die eigene Antwort', () => {
-    const roster = players(3);
-    let s = game.createState(roster);
-    for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: p.id }), roster);
-    const before = { ...s.votes };
-    s = game.reduce(s, act('vote', 'p0', { target: 'p0' }), roster);
-    expect(s.votes).toEqual(before);
-  });
-
-  it('zaehlt Stimmen und geht ins Ergebnis', () => {
-    const roster = players(3);
-    let s = game.createState(roster);
-    for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: p.id }), roster);
-    s = game.reduce(s, act('vote', 'p0', { target: 'p1' }), roster);
-    s = game.reduce(s, act('vote', 'p1', { target: 'p2' }), roster);
-    s = game.reduce(s, act('vote', 'p2', { target: 'p1' }), roster);
-    expect(s.phase).toBe('results');
-    expect(s.scores.p1).toBe(2);
-  });
-
-  it('ignoriert leere Antworten', () => {
-    const roster = players(3);
-    let s = game.createState(roster);
-    s = game.reduce(s, act('submit', 'p0', { text: '   ' }), roster);
-    expect(Object.keys(s.answers)).toHaveLength(0);
-  });
-
-  it('zählt ein doppeltes „Weiter" nicht als zweite Runde', () => {
-    // Vorher prüfte `next` nur auf das Ende der Partie. Der zweite Tap kam in
-    // der Schreibphase der nächsten Runde an und übersprang ihren Prompt.
-    const roster = players(3);
-    let s = game.createState(roster);
-    for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: p.id }), roster);
-    s = game.reduce(s, act('vote', 'p0', { target: 'p1' }), roster);
-    s = game.reduce(s, act('vote', 'p1', { target: 'p2' }), roster);
-    s = game.reduce(s, act('vote', 'p2', { target: 'p1' }), roster);
-    expect(s.phase).toBe('results');
-    s = game.reduce(s, act('next'), roster);
-    const prompt = s.prompt;
-    const doppelt = game.reduce(s, act('next'), roster);
-    expect(doppelt.round).toBe(2);
-    expect(doppelt.prompt).toBe(prompt);
-    expect(doppelt.phase).toBe('writing');
-  });
-});
+// Meme-Duell: eigene Tests in meme-battle/meme-battle.test.ts.
 
 describe('Top Ten', () => {
   const game = getLoadedGame('top-ten')!;
@@ -1132,11 +1092,13 @@ describe('Spicy-Modus', () => {
     for (const id of ['most-likely', 'meme-battle', 'top-ten']) {
       expect(getGame(id)?.allowSpicy, id).toBe(true);
       const game = getLoadedGame(id)!;
+      // Das Meme-Duell mischt Vorlagen UND Themen – spicy sind nur die Themen.
+      const stapel = (s: { deck: unknown[]; topicDeck?: unknown[] }) => s.topicDeck ?? s.deck;
       const plain = game.createState(players(4));
       useApp.setState({ spicy: { [id]: true } });
       const withSpicy = game.createState(players(4));
       // Mit Spicy stehen mehr Karten im Stapel als ohne.
-      expect(withSpicy.deck.length, id).toBeGreaterThan(plain.deck.length);
+      expect(stapel(withSpicy).length, id).toBeGreaterThan(stapel(plain).length);
       useApp.setState({ spicy: {} });
     }
   });

@@ -32,7 +32,7 @@ import { Link } from 'react-router-dom';
  * jedes Spiel und trennen darum nichts.
  *
  * ANZEIGE stellt die bekannten Klassiker nach oben – wer die App öffnet,
- * sucht meist „Wahrheit oder Pflicht", nicht „Meme Battle".
+ * sucht meist „Wahrheit oder Pflicht", nicht „Meme-Duell".
  */
 const ZUORDNUNG: GameTag[] = ['karten', 'bewegung', 'kreativ', 'geheim', 'reden'];
 const ANZEIGE: GameTag[] = ['reden', 'geheim', 'karten', 'bewegung', 'kreativ'];

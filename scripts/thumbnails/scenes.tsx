@@ -1253,22 +1253,23 @@ function MemeBattle() {
           fill="#1b6f69"
           opacity={0.55}
         >
-          RUNDE 3 · 6 PUNCHLINES
+          MEME DER RUNDE
         </text>
       </g>
       {[
-        { x: 60, y: 386, t: '+3', c: '#ffd60a' },
-        { x: 300, y: 112, t: '+1', c: '#66d4cf' },
+        // Punkte wie im Spiel: einstimmig Feuer sind 1000, das Trittbrett die Hälfte.
+        { x: 60, y: 386, t: '+1000', c: '#ffd60a' },
+        { x: 300, y: 112, t: '+500', c: '#66d4cf' },
       ].map((v) => (
         <g key={v.t} filter="url(#shs)">
-          <circle cx={v.x} cy={v.y} r={28} fill={v.c} />
-          <circle cx={v.x} cy={v.y} r={28} fill="url(#sheen)" />
+          <circle cx={v.x} cy={v.y} r={30} fill={v.c} />
+          <circle cx={v.x} cy={v.y} r={30} fill="url(#sheen)" />
           <text
             x={v.x}
-            y={v.y + 10}
+            y={v.y + (v.t.length > 4 ? 7 : 8)}
             textAnchor="middle"
             fontFamily="Anton"
-            fontSize={26}
+            fontSize={v.t.length > 4 ? 18 : 21}
             fill="#063e3b"
           >
             {v.t}
