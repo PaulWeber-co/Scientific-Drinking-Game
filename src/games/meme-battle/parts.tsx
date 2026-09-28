@@ -1,22 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/icons';
-import { haptic } from '../../lib/haptics';
+import { haptic, hapticRamp } from '../../lib/haptics';
 import { renderMeme, shareMeme } from './render';
 import { templateOf } from './templates';
 
 /**
  * Die Uhr als Leiste, die abbrennt – statt einer großen Zahl, die mit dem
  * Meme um Aufmerksamkeit kämpft. Die Sekunden stehen trotzdem daneben.
+ *
+ * Die Leiste läuft als EINE CSS-Animation über die Restzeit, nicht in
+ * Viertelsekunden-Schritten: so gleitet sie mit 60 bzw. 120 Bildern pro
+ * Sekunde, ohne dass React dafür rendert.
+ *
+ * `feel`: Zehn Sekunden vor Schluss ein Warnstoß, in den letzten fünf ein
+ * Ticken, das härter wird – wie der Zünder der Wortbombe.
  */
-export function TimerBar({ until, total }: { until: number; total: number }) {
+export function TimerBar({ until, total, feel }: { until: number; total: number; feel?: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
   }, [until]);
   const left = Math.max(0, until - now);
-  const pct = total > 0 ? Math.min(1, left / total) : 0;
   const s = Math.ceil(left / 1000);
+
+  // Startwert und Dauer nur beim Aufziehen der Uhr festlegen – ein Nachrechnen
+  // bei jedem Rendern startete die Animation ständig neu.
+  const [burn] = useState(() => {
+    const rest = Math.max(0, until - Date.now());
+    return { from: total > 0 ? Math.min(1, rest / total) : 0, ms: rest };
+  });
+
+  const lastFelt = useRef<number | null>(null);
+  useEffect(() => {
+    if (!feel || s === lastFelt.current) return;
+    lastFelt.current = s;
+    if (s === 10) haptic('warn');
+    else if (s > 0 && s <= 5) hapticRamp((6 - s) / 5);
+  }, [s, feel]);
+
   return (
     <div
       className={`md-timer ${s <= 10 ? 'md-timer--hot' : ''}`}
@@ -25,7 +47,13 @@ export function TimerBar({ until, total }: { until: number; total: number }) {
     >
       <Icon name="timer" size={15} />
       <div className="md-timer__track">
-        <div className="md-timer__fill" style={{ transform: `scaleX(${pct})` }} />
+        <div
+          className="md-timer__fill"
+          style={{
+            ['--from' as string]: burn.from,
+            animationDuration: `${burn.ms}ms`,
+          }}
+        />
       </div>
       <span className="md-timer__s t-mono-num">{s}</span>
     </div>
@@ -43,10 +71,10 @@ export function TopicNote({ text }: { text: string }) {
   );
 }
 
-/** Hoch, meh, runter als kleine Zählung unter einem Abzug. */
+/** Fire, OK, Lame als kleine Zählung unter einem Abzug. */
 export function Tally({ up, meh, down }: { up: number; meh: number; down: number }) {
   return (
-    <span className="md-tally t-mono-num" aria-label={`${up} Feuer, ${meh} geht so, ${down} lahm`}>
+    <span className="md-tally t-mono-num" aria-label={`${up}× Fire, ${meh}× OK, ${down}× Lame`}>
       <span className="md-tally__up">
         <Icon name="flame" size={13} /> {up}
       </span>
@@ -77,6 +105,33 @@ export function tiltFor(seed: string, spread = 3): number {
 }
 
 /**
+ * Zählt vom alten zum neuen Punktestand – auch ins Minus, mit sanftem Auslaufen.
+ * Ohne Bewegung (reduzierte Animationen) steht sofort die Endzahl da.
+ */
+export function CountTo({ from, to, delay = 350 }: { from: number; to: number; delay?: number }) {
+  const [value, setValue] = useState(from);
+  useEffect(() => {
+    const still =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (from === to || still || typeof requestAnimationFrame === 'undefined') {
+      setValue(to);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now() + delay;
+    const tick = (now: number) => {
+      const t = Math.max(0, Math.min(1, (now - start) / 900));
+      setValue(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to, delay]);
+  return <>{value}</>;
+}
+
+/**
  * Speichert ein Meme als Abzug – in die Fotos oder ins Teilen-Menü. Erst
  * hier wird aus Text und Vorlage ein Bild gerechnet.
  */
@@ -89,7 +144,7 @@ export function SaveMeme({
   meme: { t: string; x: string[] };
   caption: string;
   label?: string;
-  /** Nur das Symbol – für Galerien, in denen zwanzig Knöpfe stünden. */
+  /** Nur das Symbol – für enge Kopfzeilen. */
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -106,6 +161,7 @@ export function SaveMeme({
         try {
           const blob = await renderMeme(template, meme.x, caption);
           await shareMeme(blob, `meme-duell-${meme.t}`);
+          haptic('success');
         } catch (e) {
           console.error('Meme speichern fehlgeschlagen', e);
         } finally {

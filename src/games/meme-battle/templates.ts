@@ -33,8 +33,10 @@ export interface MemeTemplate {
   w: number;
   h: number;
   boxes: MemeBox[];
-  /** Herkunft (meist Know Your Meme) – für die Quellenangabe. */
+  /** Herkunft (Know Your Meme bzw. die Sammlung) – für die Quellenangabe. */
   src?: string;
+  /** Nur mit Spicy-Schalter (ab 18): Drogen, Mord-Witz, vulgärer Titel. */
+  sp?: 1;
 }
 
 export const TEMPLATES = raw as MemeTemplate[];

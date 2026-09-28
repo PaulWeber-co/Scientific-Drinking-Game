@@ -5,7 +5,7 @@ import { markTextsSeen } from '../../store/seen';
 import { WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GamePlayer } from '../types';
 import { creators, type State } from './game';
-import { MemeImage, MemePrint } from './Meme';
+import { Label, MemeImage, MemePrint } from './Meme';
 import { TopicNote } from './parts';
 import { MAX_CHARS, templateOf } from './templates';
 
@@ -67,6 +67,12 @@ export function Editor({
 
   useEffect(() => setActive(0), [templateId]);
 
+  // Neue Runde, neue Vorlage auf dem Tisch – das soll man spüren, auch wenn
+  // das Handy gerade in der Hand liegt und keiner hinschaut.
+  useEffect(() => {
+    haptic('heavy');
+  }, [state.round]);
+
   // Die Uhr läuft ab: was getippt ist, geht raus – genau einmal je Vorlage.
   useEffect(() => {
     if (submitted || state.deadline === null) return;
@@ -75,6 +81,7 @@ export function Editor({
       const key = `${state.round}|${templateId}`;
       if (autoSent.current === key || !texts.some((x) => x?.trim())) return;
       autoSent.current = key;
+      haptic('press');
       dispatch({ type: 'submit', texts });
     }, 200);
     return () => clearInterval(t);
@@ -108,10 +115,19 @@ export function Editor({
       {topic && <TopicNote text={topic} />}
 
       <MemePrint
-        caption={submitted ? 'Abgegeben' : template.name}
-        className={submitted ? 'md-print--done' : ''}
+        // Je Vorlage ein neuer Abzug: beim Würfeln dreht sich das Bild um.
+        key={templateId}
+        caption={template.name}
+        className={`md-print--flip ${submitted ? 'md-print--done' : ''}`}
         tilt={-0.8}
         ar={template.w / template.h}
+        badge={
+          submitted ? (
+            <Label tone="mint" icon="check" slap>
+              Abgegeben
+            </Label>
+          ) : undefined
+        }
       >
         <MemeImage
           template={template}

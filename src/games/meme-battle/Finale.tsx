@@ -1,12 +1,13 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
 import { haptic } from '../../lib/haptics';
 import { GameOver } from '../shared/GameOver';
 import type { GamePlayer, GameRuntime } from '../types';
 import type { State, Tally } from './game';
-import { MemeImage, MemePrint, PointsBadge } from './Meme';
-import { SaveMeme, tiltFor } from './parts';
+import { MemeLightbox, type LightboxEntry } from './Lightbox';
+import { Label, MemeImage, MemePrint, PointsBadge } from './Meme';
+import { CountTo, SaveMeme, tiltFor } from './parts';
 import { templateOf } from './templates';
 
 const NO_TALLY: Tally = { meme: 0, ride: 0, riders: 0 };
@@ -18,6 +19,7 @@ const PLACE_LABEL = ['1.', '2.', '3.'];
  * ganz unten jedes Meme der Partie, vom besten bis zum schwächsten.
  */
 export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State>) {
+  const [open, setOpen] = useState<LightboxEntry | null>(null);
   const relaxed = state.options.mode === 'entspannt';
   const nameOf = (id: string) =>
     id === me.id ? 'Du' : (players.find((p) => p.id === id)?.name ?? state.names[id] ?? 'Weg');
@@ -83,12 +85,18 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
                       size={place === 0 ? 'lg' : 'md'}
                     />
                   </div>
-                  <span className={`md-podium__no md-podium__no--${place + 1}`}>
+                  <Label
+                    tone={(['gold', 'silver', 'bronze'] as const)[place]}
+                    className="md-podium__no"
+                    slap
+                  >
                     {PLACE_LABEL[place]}
-                  </span>
+                  </Label>
                 </div>
                 <span className="md-podium__name">{nameOf(r.player.id)}</span>
-                <span className="md-podium__pts t-mono-num">{r.value}</span>
+                <span className="md-podium__pts t-mono-num">
+                  <CountTo from={0} to={r.value} delay={700} />
+                </span>
                 <span className="md-podium__block" />
               </div>
             ) : (
@@ -104,7 +112,8 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
           {rows.map((r, i) => (
             <div
               key={r.player.id}
-              className={`result-row md-final-row ${r.player.id === me.id ? 'md-row--me' : ''}`}
+              className={`result-row md-row md-rise ${r.player.id === me.id ? 'md-row--me' : ''}`}
+              style={{ ['--i' as string]: i + 3 }}
             >
               <div className="result-row__rank">{i + 1}</div>
               <Avatar
@@ -145,36 +154,44 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
       {sorted.length > 0 && (
         <section className="stack-3">
           <div className="md-gallery__title">
-            <Icon name="flame" size={18} /> Von Feuer bis Lahm <Icon name="arrowDown" size={18} />
+            <Icon name="flame" size={18} /> Von Fire bis Lame
           </div>
+          <p className="t-caption t-center">Antippen zum Ansehen und Speichern.</p>
           <div className="md-gallery">
             {sorted.map((h, i) => {
               const t = templateOf(h.t);
               const caption = `${nameOf(h.by)} · Runde ${h.r}`;
+              const badge = !relaxed ? (
+                <PointsBadge points={h.p} tone={i === 0 ? 'gold' : undefined} />
+              ) : undefined;
               return (
                 <div
                   key={`${h.r}-${h.by}`}
-                  className={`md-gallery__item ${i === 0 ? 'md-gallery__item--top' : ''}`}
+                  className={`md-gallery__item md-deal ${i === 0 ? 'md-gallery__item--top' : ''}`}
+                  style={{ ['--i' as string]: Math.min(i, 12) }}
                 >
                   <MemePrint
                     tilt={tiltFor(h.by + h.r, i === 0 ? 1.5 : 2.5)}
-                    stamp={i === 0}
+                    stamp={false}
                     caption={caption}
-                    badge={
-                      !relaxed ? (
-                        <PointsBadge points={h.p} tone={i === 0 ? 'gold' : undefined} />
-                      ) : undefined
-                    }
+                    badge={badge}
+                    ar={t ? t.w / t.h : undefined}
+                    onOpen={() => {
+                      haptic('tap');
+                      setOpen({ meme: h, caption, badge });
+                    }}
                   >
                     {t && <MemeImage template={t} texts={h.x} />}
                   </MemePrint>
-                  <SaveMeme meme={h} caption={caption} compact={i !== 0} />
+                  {i === 0 && <SaveMeme meme={h} caption={caption} />}
                 </div>
               );
             })}
           </div>
         </section>
       )}
+
+      <MemeLightbox entry={open} onClose={() => setOpen(null)} />
     </div>
   );
 }

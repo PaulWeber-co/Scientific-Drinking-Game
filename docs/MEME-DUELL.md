@@ -13,18 +13,18 @@ eigenen deutschen Themen und Trinkregeln.
 |:--|:--|
 | **Einrichten** | Der Host wählt Modus, Bastelzeit (45/60/90/120 s), Runden (3/5/8/ohne Ende), Würfe (aus/3/5/8) und ob es das Trittbrett gibt. Alle sehen die Einstellung live. |
 | **Basteln** | Jede Person bekommt eine Vorlage im Polaroid, die Textfelder sitzen direkt im Bild und zeigen „Text 1", „Text 2", solange sie leer sind. Tippen aufs Feld im Bild springt ins passende Eingabefeld. **Neu würfeln** (Standard fünfmal pro Partie) und **Zurück** zur vorigen Vorlage, das kostet keinen Wurf, der Text bleibt erhalten. „Fertig" lässt sich bis zum Ablauf der Uhr zurücknehmen. Läuft die Uhr ab, schickt das Handy ab, was getippt ist. Keine Vorlage kommt in einer Partie zweimal. |
-| **Abstimmen** | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Feuer** (+), **Geht so** (0), **Lahm** (−). Dazu vier **Reaktionen** (Lachen, Tot gelacht, Liebe, Cringe), die anonym auf allen Handys übers Bild fliegen, und oben rechts **Speichern**. Wer das Meme gebaut hat, sieht „Pokerface" und keine Abstimmknöpfe. |
-| **Auflösung** | Das Meme der Runde groß mit Gold-Aufkleber, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Dann Punktestand (Meme, Trittbrett, Mitfahrer) und Trinkansagen. |
-| **Finale** | Podest für die ersten drei, Endstand mit Aufschlüsselung der Punkte, Trinkansage, und ganz unten **„Von Feuer bis Lahm"**: jedes Meme der Partie vom besten zum schwächsten, jedes als Bild speicherbar. |
+| **Abstimmen** | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Fire** (+), **OK** (0), **Lame** (−). Dazu vier **Reaktionen** (Lachen, Tot gelacht, Liebe, Cringe), die anonym auf allen Handys übers Bild fliegen, und oben rechts **Speichern**. Wer das Meme gebaut hat, sieht „Pokerface" und keine Abstimmknöpfe, spürt aber jede Reaktion als kurzes Tippen. |
+| **Auflösung** | Das Meme der Runde groß mit goldenem Prägeetikett, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Antippen zeigt ein Meme groß, dort lässt es sich speichern. Dann Punktestand (Meme, Trittbrett, Mitfahrer) und Trinkansagen. |
+| **Finale** | Podest für die ersten drei, Endstand mit Aufschlüsselung der Punkte, Trinkansage, und ganz unten **„Von Fire bis Lame"**: jedes Meme der Partie vom besten zum schwächsten. Antippen zeigt es groß und speichert es als Bild. |
 
 ### Punkte
 
-- Einstimmig **Feuer = +1000**. Jedes „Lahm" zieht im selben Maß ab, „Geht so" zählt null.
+- Einstimmig **Fire = +1000**. Jedes Lame zieht im selben Maß ab, OK zählt null.
   Formel: `1000 × (hoch − runter) / Abstimmende`. Ein Meme kann ins Minus rutschen.
 - **Trittbrett:** Einmal pro Runde springst du auf ein fremdes Meme auf, **während** es gezeigt
   wird, und bekommst die Hälfte seiner Punkte, auch die Hälfte eines Minus.
 - **Mitfahrer-Bonus:** Das Meme bekommt **+10 je Person**, die darauf mitfährt.
-- Wer nicht abstimmt, zählt wie „Geht so".
+- Wer nicht abstimmt, zählt wie OK.
 
 ### Modi
 
@@ -33,7 +33,7 @@ eigenen deutschen Themen und Trinkregeln.
 | Klassisch | Jede Person zieht ihre eigene Vorlage. |
 | Gleiches Meme | Alle bekommen dieselbe Vorlage, kein Würfeln. Nur die Pointe entscheidet. |
 | Themen | Jede Runde ein Thema als Zettel über dem Bild („Der Kater morgen früh"). **Eigene Karten** aus dem Spieldetail werden hier zu Themen, Spicy-Themen kommen mit dem Spicy-Schalter dazu. |
-| Entspannt | Keine Punkte, kein Trittbrett, keine Trinkansagen, nur Memes und „Von Feuer bis Lahm". |
+| Entspannt | Keine Punkte, kein Trittbrett, keine Trinkansagen, nur Memes und „Von Fire bis Lame". |
 
 ### Wer trinkt
 
@@ -53,8 +53,8 @@ den eigenen Körperdaten.
 
 **Ja, und die Bilder gehören nicht in die Datenbank.**
 
-Die 186 Vorlagen liegen als WebP-Dateien **neben der App** in `public/memes/` (zusammen rund
-3,2 MB, im Schnitt 17 KB je Bild). GitHub Pages liefert sie aus wie jede andere Datei, in der
+Die 308 Vorlagen liegen als WebP-Dateien **neben der App** in `public/memes/` (zusammen rund
+5,3 MB, im Schnitt 17 KB je Bild). GitHub Pages liefert sie aus wie jede andere Datei, in der
 nativen App stecken sie direkt im Paket. Über Firebase geht pro Meme nur das hier:
 
 ```json
@@ -83,7 +83,7 @@ Monat, dazu kommen alle anderen Spiele. Engpass bleibt wie bisher die Grenze von
 gleichzeitigen Verbindungen (siehe `docs/FIREBASE-VS-SUPABASE.md`).
 
 Damit das so bleibt, trägt der Spielstand nur die nächsten 24 gemischten Vorlagen statt aller
-186 (1,5 KB weniger bei jedem Zug), Reaktionen sind auf die letzten acht begrenzt und pro
+308 (gut 3 KB weniger bei jedem Zug), Reaktionen sind auf die letzten acht begrenzt und pro
 Handy höchstens eine alle 0,6 s.
 
 ### Offline und Ladezeit
@@ -92,7 +92,7 @@ Handy höchstens eine alle 0,6 s.
   die Kachelmotive verdrängen. Wer eine Vorlage einmal gesehen hat, hat sie auch ohne Netz.
 - **Vorladen:** Sobald eine Runde startet, lädt jedes Handy alle Vorlagen dieser Runde. Beim
   Abstimmen steht jedes Meme sofort da.
-- Die Vorlagen stehen **nicht** im Precache. 3 MB beim ersten App-Start braucht niemand, der
+- Die Vorlagen stehen **nicht** im Precache. 5 MB beim ersten App-Start braucht niemand, der
   nur Busfahrer spielen will.
 
 ---
@@ -106,17 +106,20 @@ src/games/meme-battle/          (ID bleibt meme-battle, siehe unten)
   templates.json   Katalog: ID, Name, Maße, Textfelder (erzeugt vom Import-Skript)
   templates.ts     Typen, templateOf(), memeUrl()
   topics.ts        Themen für den Themen-Modus (inkl. Spicy)
-  Meme.tsx         Vorlage + Texte als DOM, Schrift passt sich dem Feld an; Polaroid-Rahmen
+  Meme.tsx         Vorlage + Texte als DOM, Schrift passt sich dem Feld an; Abzug, Prägeetikett
   Editor.tsx       Basteln
   Vote.tsx         Abstimmen, Trittbrett
   Results.tsx      Auflösung einer Runde
-  Finale.tsx       Podest, Endstand, „Von Feuer bis Lahm"
+  Finale.tsx       Podest, Endstand, „Von Fire bis Lame"
+  Lightbox.tsx     Ein Meme groß ansehen und speichern
   Reactions.tsx    Reaktionen: Knöpfe und die fliegenden Symbole
+  parts.tsx        Uhr, Themenzettel, Stimmen, hochzählende Punkte, Speichern-Knopf
   Setup.tsx        Einrichten
   render.ts        Brennt ein Meme als JPEG mit Papierrand (Speichern/Teilen)
   meme.css         Alles Optische, auf Basis von .abzug
 public/memes/      Die Bilder
 scripts/memes/import_memegen.py   Holt und verkleinert die Vorlagen
+scripts/memes/extra.json          Textfelder für die Vorlagen ohne eigene Angaben
 scripts/meme-preview/             Vorschau mit drei Handys, ohne Lobby
 ```
 
@@ -157,16 +160,45 @@ ab", „Uhr vorspulen". `?phones=1` zeigt nur ein Handy.
 
 ### Vorlagen ergänzen oder entfernen
 
-Das Import-Skript ist wiederholbar. Es liest Ordner im memegen-Format:
+Das Import-Skript ist wiederholbar. Die 308 Vorlagen kommen aus vier offenen Sammlungen:
+
+| Quelle | Vorlagen | Textfelder |
+|:--|--:|:--|
+| [memegen](https://github.com/jacebrowning/memegen) | 209 | aus deren `config.yml` (Position, Drehung, Farbe) |
+| [ImgFlip575K](https://github.com/schesa/ImgFlip575K_Dataset), die meistgenutzten von imgflip | 44 | von Hand in `scripts/memes/extra.json` |
+| [memebank](https://github.com/cipherdragon/memebank) | 16 | von Hand in `extra.json` |
+| [MemeTastic](https://github.com/gsantner/memetastic) | 39 | von Hand in `extra.json` |
+
+Gibt es eine Vorlage in mehreren Quellen, gewinnt memegen (dort sind die Felder genauer).
 
 ```bash
 pip install pillow pyyaml
 git clone --depth 1 https://github.com/jacebrowning/memegen /tmp/memegen
-python3 scripts/memes/import_memegen.py /tmp/memegen/templates
+git clone --depth 1 https://github.com/cipherdragon/memebank /tmp/memebank
+git clone --depth 1 https://github.com/gsantner/memetastic /tmp/memetastic
+git clone --depth 1 https://github.com/schesa/ImgFlip575K_Dataset /tmp/imgflip
+
+python3 scripts/memes/import_memegen.py /tmp/memegen/templates \
+  --src imgflip575k=/tmp/imgflip/dataset/templates/img \
+  --src memebank=/tmp/memebank \
+  --src memetastic=/tmp/memetastic/app/src/main/assets/bundled
 ```
 
-**Eine Vorlage entfernen:** ihre ID mit Grund in `EXCLUDE` im Skript eintragen und das Skript
-neu laufen lassen. Nur die Datei zu löschen reicht nicht, der Katalog zeigte dann ins Leere.
+**Inhaltlich wird nichts aussortiert.** Auch schwarzer Humor, Politiker und derbe Vorlagen
+sind drin. Nur fünf kommen erst mit dem **Spicy-Schalter** (ab 18) in den Stapel, weil die App
+auch Leute unter 18 hat: Elmo (Kokain), Y'all Got Any More (Crack), Dating Site Murderer,
+FMR (vulgärer Titel) und Middle Finger. Die Liste steht in `SPICY` im Skript bzw. als
+`"spicy": true` in `extra.json`. Soll eine davon immer dabei sein, dort austragen.
+
+**Eine Vorlage entfernen** (etwa auf Hinweis eines Rechteinhabers): ihre ID mit Grund in
+`REMOVED` im Skript eintragen und das Skript neu laufen lassen. Nur die Datei zu löschen
+reicht nicht, der Katalog zeigte dann ins Leere.
+
+**Textfelder einer Vorlage aus `extra.json` korrigieren:** `boxes` ist eine Liste aus
+`[x, y, Breite, Höhe, Stil]`, alles Anteile des Bildes. `"tb"` steht für oben und unten,
+`"t"`/`"b"` für nur oben/unten. Stil: ohne Angabe dicke weiße Meme-Schrift, `ink` schwarz und
+schlicht (weiße Flächen), `comic` schwarz handschriftlich (Sprechblasen), `thinw` weiß und
+schlicht.
 
 **Eigene Vorlagen** (z. B. aus eurem Freundeskreis, mit Einverständnis der Abgebildeten):
 
@@ -195,8 +227,14 @@ text:
 ```
 
 ```bash
-python3 scripts/memes/import_memegen.py /tmp/memegen/templates meine-vorlagen
+python3 scripts/memes/import_memegen.py /tmp/memegen/templates meine-vorlagen \
+  --src imgflip575k=/tmp/imgflip/dataset/templates/img \
+  --src memebank=/tmp/memebank \
+  --src memetastic=/tmp/memetastic/app/src/main/assets/bundled
 ```
+
+Die `--src`-Angaben immer mitgeben: Das Skript baut den Katalog jedes Mal komplett neu, ohne
+sie fielen die 99 Vorlagen aus `extra.json` heraus.
 
 Die Positionen findest du am schnellsten, indem du das Bild in einem Grafikprogramm öffnest
 und Pixel durch Bildbreite/-höhe teilst. Danach mit der Vorschau prüfen.
@@ -223,12 +261,12 @@ Gestaltung schon. Deshalb:
 |:--|:--|
 | Name „Make it Meme" (Marke) | **Meme-Duell**, der Name taucht nirgends in der App auf |
 | „Meme-Buddy" und dessen Punkte | **Trittbrett** und **Mitfahrer-Bonus**, mit Bus-Symbol aus dem eigenen Icon-Set |
-| Hoch/Runter-Knöpfe in deren Farben | **Feuer / Geht so / Lahm** mit eigenen Symbolen |
+| Hoch/Runter-Knöpfe in deren Farben | **Fire / OK / Lame** mit eigenen Symbolen |
 | Emoji-Reaktionen | vier eigene SVG-Symbole (die App verwendet bewusst keine Emojis) |
 | „Change meme" / „Go back" gegen Münzen | **Neu würfeln** und **Zurück**, ohne Münzen oder Konto |
-| „From dank to stank" | **Von Feuer bis Lahm** |
+| „From dank to stank" | **Von Fire bis Lame** |
 | Chat, Münzen, Ränge, Konten | nicht nötig: alle sitzen im selben Raum |
-| Deren Oberfläche und Grafiken | Polaroid-Abzüge, Klebeband-Zettel, Aufkleber aus dem Design der App |
+| Deren Oberfläche und Grafiken | Polaroid-Abzüge, Klebeband-Zettel, Prägeetiketten aus dem Design der App |
 | Englische Themen | eigene deutsche Themen, eigene Spicy-Themen |
 | Nur Punkte | Trinkregeln, Pegel-Rechnung, Einwegkamera-Optik beim Speichern |
 
@@ -247,16 +285,18 @@ trotzdem:
   in einen erkennbaren Dialog mit ihm treten muss. Ein **fertiges Meme** mit eigenem Text
   passt gut in dieses Raster. Die **leere Vorlage**, die die App mitliefert, ist dagegen
   zunächst eine Vervielfältigung. Genau dort liegt die Grauzone.
-- **Persönlichkeitsrecht:** Einige Vorlagen zeigen reale Personen. Deshalb sind reale
-  Politiker*innen, Verspottung von Privatpersonen, Drogen-Memes und Stereotype von vornherein
-  **ausgeschlossen** (Liste mit Begründung in `EXCLUDE` im Import-Skript).
+- **Persönlichkeitsrecht:** Einige Vorlagen zeigen reale Personen, darunter Politiker und
+  Privatpersonen, die unfreiwillig zum Meme wurden (etwa „Third World Kid", „Redneck",
+  „Dating Site Murderer"). Auf Wunsch ist inhaltlich **nichts ausgeschlossen**. Das erhöht das
+  Risiko einer Beschwerde etwas, vor allem bei Privatpersonen. Der Entfernen-auf-Hinweis-Weg
+  unten fängt das auf.
 
 **Was das Risiko praktisch klein hält:**
 
 1. Eine Kontaktadresse im Impressum (`src/legal/site.ts`) und die Zusage, Vorlagen auf Hinweis
-   **sofort** zu entfernen (Eintrag in `EXCLUDE`, Skript laufen lassen, deployen).
-2. Die Quelle je Vorlage steht im Katalog (`src` → meist Know Your Meme). So lässt sich jede
-   Anfrage schnell zuordnen.
+   **sofort** zu entfernen (Eintrag in `REMOVED`, Skript laufen lassen, deployen).
+2. Die Quelle je Vorlage steht im Katalog (`src` → meist Know Your Meme oder die Sammlung, aus
+   der sie stammt). So lässt sich jede Anfrage schnell zuordnen.
 3. **App Store / Play Store:** Apple (Richtlinie 5.2) und Google prüfen fremdes geistiges
    Eigentum strenger als das Web. Wird die native App abgelehnt, ist der schnellste Weg eine
    Store-Fassung mit eigenen Vorlagen (eigene Fotos, CC0-Bilder), gleiches Skript mit einem

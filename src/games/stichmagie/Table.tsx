@@ -121,6 +121,31 @@ export function Table({ state, players, me, dispatch, quit }: GameRuntime<State>
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur je neuer Runde
   }, [roundKey]);
 
+  // Austeilen spürt man: ein Anschlag, dann ein leises Rattern im Takt der
+  // Karten, die in den Fächer fliegen (45 ms je Karte, wie `sm-deal`).
+  const handSize = (state.hands[me.id] ?? []).length;
+  useEffect(() => {
+    if (!seated || !handSize || !['trump', 'werwolf', 'bid'].includes(state.phase)) return;
+    if (Object.keys(state.bids).length) return;
+    haptic('heavy');
+    const ticks = Array.from({ length: Math.min(handSize, 10) }, (_, i) =>
+      setTimeout(() => haptic('tick'), 180 + i * 60),
+    );
+    return () => ticks.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur je neuer Runde
+  }, [roundKey]);
+
+  // Legt jemand anderes eine Karte, tippt es kurz – wer das Handy weglegt,
+  // merkt so, dass der Stich wächst und er bald dran ist.
+  const trickLen = useRef(state.trick.length);
+  useEffect(() => {
+    const before = trickLen.current;
+    trickLen.current = state.trick.length;
+    if (state.trick.length <= before) return;
+    const last = state.trick[state.trick.length - 1];
+    if (last && last.by !== me.id) haptic('tap');
+  }, [state.trick, me.id]);
+
   // Der Stich fliegt zum Gewinner, kurz bevor der Host ihn einsammelt.
   const [gone, setGone] = useState(false);
   useEffect(() => {
@@ -932,8 +957,11 @@ function Hand({
                     .filter(Boolean)
                     .join(' ')}
                   style={{
-                    left: p.left,
-                    top: p.top,
+                    // Position als Transform statt left/top: rücken die Karten
+                    // nach, gleitet das auf der Grafikkarte, ohne dass der
+                    // Browser in jedem Bild das Layout neu rechnet.
+                    ['--x' as string]: `${p.left}px`,
+                    ['--y' as string]: `${p.top}px`,
                     ['--i' as string]: p.order,
                     ['--rot' as string]: `${p.rot}deg`,
                     ['--dip' as string]: `${p.dip}px`,
@@ -1019,6 +1047,12 @@ function Score({
     groups.set(base, [...(groups.get(base) ?? []), playerFor(r.seat, players)]);
   }
   const mine = rows.find((r) => r.seat.id === me.id);
+
+  // Punktlandung oder daneben – das Ergebnis der Runde auch in der Hand.
+  useEffect(() => {
+    if (mine) haptic(mine.delta > 0 ? 'success' : 'error');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- einmal je Abrechnung
+  }, [state.round]);
 
   return (
     <div className="sm-score stack-3">

@@ -53,7 +53,14 @@ interface Flight {
  * ohne Namen. Was schon im Spielstand stand, als das Bild aufging, fliegt
  * nicht noch einmal los.
  */
-export function ReactionLayer({ reactions }: { reactions: State['reactions'] }) {
+export function ReactionLayer({
+  reactions,
+  feel,
+}: {
+  reactions: State['reactions'];
+  /** Jede ankommende Reaktion als leises Tippen spüren – auf dem eigenen Meme. */
+  feel?: boolean;
+}) {
   const seen = useRef(reactions.reduce((m, r) => Math.max(m, r.n), 0));
   const [flights, setFlights] = useState<Flight[]>([]);
   // Jede Welle räumt sich selbst weg. Die Wecker hängen NICHT am Effekt: der
@@ -69,6 +76,7 @@ export function ReactionLayer({ reactions }: { reactions: State['reactions'] }) 
     const fresh = reactions.filter((r) => r.n > seen.current);
     if (!fresh.length) return;
     seen.current = Math.max(...fresh.map((r) => r.n));
+    if (feel) haptic('tick');
     setFlights((cur) => [
       ...cur,
       ...fresh.map((r) => ({
@@ -84,6 +92,9 @@ export function ReactionLayer({ reactions }: { reactions: State['reactions'] }) 
       setFlights((cur) => cur.filter((f) => !ids.has(f.n)));
     }, FLIGHT_MS);
     timers.current.add(t);
+    // `feel` wechselt nicht, solange dasselbe Meme steht (die Ebene ist je Meme
+    // neu verschlüsselt) – nur neue Reaktionen sollen den Effekt auslösen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reactions]);
 
   return (

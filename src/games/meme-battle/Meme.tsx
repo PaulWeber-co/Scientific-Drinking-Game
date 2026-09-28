@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { Icon, type IconName } from '../../components/icons';
 import { formatStamp } from '../../lib/format';
 import { memeUrl, type MemeBox, type MemeTemplate } from './templates';
 
@@ -156,7 +157,11 @@ function MemeText({
 
 /**
  * Der Abzug um ein Meme – dasselbe Papier wie die Spielkarten und das Album.
- * Unten im breiten Rand steht, wovon das Bild erzählt: Runde, Name, Punkte.
+ *
+ * Unten im breiten Rand steht links, wovon das Bild erzählt (Name, Runde,
+ * Vorlage), rechts ein Etikett (Punkte, „Mit dabei") oder der Datumsstempel.
+ * Beides sitzt IM Papierrand, nie auf dem Bild: ein Aufkleber auf der Ecke
+ * deckte sonst genau die Textzeile ab, um die es geht.
  */
 export function MemePrint({
   children,
@@ -165,6 +170,7 @@ export function MemePrint({
   tilt = 0,
   stamp = true,
   ar,
+  onOpen,
   className = '',
   style,
 }: {
@@ -175,12 +181,15 @@ export function MemePrint({
   stamp?: boolean;
   /** Seitenverhältnis des Bildes – damit hohe Vorlagen nicht aus dem Bildschirm wachsen. */
   ar?: number;
+  /** Macht den ganzen Abzug antippbar (Galerie → groß ansehen). */
+  onOpen?: () => void;
   className?: string;
   style?: CSSProperties;
 }) {
+  const right = badge ?? (stamp ? <span className="md-print__stamp">{formatStamp()}</span> : null);
   return (
     <div
-      className={`abzug md-print ${className}`}
+      className={`abzug md-print ${onOpen ? 'md-print--open' : ''} ${className}`}
       style={{
         ...style,
         ['--tilt' as string]: `${tilt}deg`,
@@ -188,24 +197,67 @@ export function MemePrint({
       }}
     >
       <div className="md-print__foto">{children}</div>
-      {caption && <div className="md-print__caption">{caption}</div>}
-      {stamp && (
-        <span className="abzug__stempel md-print__stamp" aria-hidden>
-          {formatStamp()}
-        </span>
+      {/* Immer da, auch leer: der breite Rand unten macht den Abzug erst zum Abzug. */}
+      <div className="md-print__strip">
+        <span className="md-print__caption">{caption}</span>
+        {right}
+      </div>
+      {onOpen && (
+        <button
+          type="button"
+          className="md-print__hit"
+          onClick={onOpen}
+          aria-label={typeof caption === 'string' ? `${caption} groß ansehen` : 'Groß ansehen'}
+        />
       )}
-      {badge}
     </div>
   );
 }
 
-/** Punkte als runder Aufkleber am Abzug, wie auf dem Kachelmotiv. */
-export function PointsBadge({ points, tone }: { points: number; tone?: 'gold' | 'mint' | 'red' }) {
-  const t = tone ?? (points < 0 ? 'red' : 'mint');
+type LabelTone = 'ink' | 'gold' | 'silver' | 'bronze' | 'red' | 'mint';
+
+/**
+ * Ein Prägeetikett wie aus dem Beschriftungsgerät: Band, erhabene Buchstaben,
+ * leicht schief aufgeklebt. Passt zu Papier und Datumsstempel – und ist eckig,
+ * damit auch lange Zahlen wie „+1000" nicht in einen Kreis gequetscht werden.
+ */
+export function Label({
+  children,
+  tone = 'ink',
+  icon,
+  slap,
+  className = '',
+}: {
+  children: ReactNode;
+  tone?: LabelTone;
+  icon?: IconName;
+  /** Wird mit Schwung aufgeklebt (Auflösung). */
+  slap?: boolean;
+  className?: string;
+}) {
   return (
-    <span className={`md-badge md-badge--${t} t-mono-num`}>
+    <span className={`md-label md-label--${tone} ${slap ? 'md-label--slap' : ''} ${className}`}>
+      {icon && <Icon name={icon} size={13} strokeWidth={2.2} />}
+      <span className="md-label__text">{children}</span>
+    </span>
+  );
+}
+
+/** Punkte als Etikett: Gold fürs beste, Rot fürs Minus, sonst schwarzes Band. */
+export function PointsBadge({
+  points,
+  tone,
+  slap,
+}: {
+  points: number;
+  tone?: LabelTone;
+  slap?: boolean;
+}) {
+  const t = tone ?? (points < 0 ? 'red' : 'ink');
+  return (
+    <Label tone={t} slap={slap} className="t-mono-num">
       {points > 0 ? '+' : points < 0 ? '−' : '±'}
       {Math.abs(points)}
-    </span>
+    </Label>
   );
 }

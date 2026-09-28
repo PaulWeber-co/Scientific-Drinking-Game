@@ -161,7 +161,13 @@ function MemeBattleGame(props: GameRuntime<State>) {
         onQuit={quit}
       >
         {state.deadline !== null && (
-          <TimerBar until={state.deadline} total={state.options.seconds * 1000} />
+          <TimerBar
+            key={state.deadline}
+            until={state.deadline}
+            total={state.options.seconds * 1000}
+            // Die letzten Sekunden spürt nur, wer noch bastelt.
+            feel={!state.memes[me.id]}
+          />
         )}
         <Editor state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
       </GameFrame>

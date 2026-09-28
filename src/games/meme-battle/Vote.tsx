@@ -3,7 +3,7 @@ import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import type { GameActionInput, GamePlayer } from '../types';
 import { currentAuthor, votersFor, VOTE_MS, type State, type Vote } from './game';
-import { MemeImage, MemePrint } from './Meme';
+import { Label, MemeImage, MemePrint } from './Meme';
 import { SaveMeme, TimerBar, TopicNote, tiltFor } from './parts';
 import { ReactionBar, ReactionLayer } from './Reactions';
 import { templateOf } from './templates';
@@ -14,9 +14,9 @@ const CHOICES: {
   icon: 'flame' | 'minus' | 'arrowDown';
   tone: string;
 }[] = [
-  { value: -1, label: 'Lahm', icon: 'arrowDown', tone: 'down' },
-  { value: 0, label: 'Geht so', icon: 'minus', tone: 'meh' },
-  { value: 1, label: 'Feuer', icon: 'flame', tone: 'up' },
+  { value: -1, label: 'Lame', icon: 'arrowDown', tone: 'down' },
+  { value: 0, label: 'OK', icon: 'minus', tone: 'meh' },
+  { value: 1, label: 'Fire', icon: 'flame', tone: 'up' },
 ];
 
 /**
@@ -47,19 +47,24 @@ export function VoteView({
   const cast = author ? Object.keys(state.votes[author] ?? {}).length : 0;
   const voters = author ? votersFor(players, author).length : 0;
 
+  // Jedes neue Meme ist ein Anschlag: das erste der Runde kräftig (die
+  // Abstimmung beginnt), das eigene spürbar anders als die fremden.
   useEffect(() => {
-    haptic('tap');
-  }, [state.showing]);
+    haptic(state.showing === 0 ? 'heavy' : mineIsUp ? 'press' : 'tap');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- einmal je Meme
+  }, [state.round, state.showing]);
 
   if (!author || !meme) return null;
 
   return (
     <div className="md-vote stack-3">
-      <div className="row-between">
+      <div className="md-vote__head">
         <span className="t-upper">
           Meme {state.showing + 1} von {state.order.length}
         </span>
-        {state.deadline !== null && <TimerBar until={state.deadline} total={VOTE_MS} />}
+        {state.deadline !== null && (
+          <TimerBar key={state.deadline} until={state.deadline} total={VOTE_MS} />
+        )}
         <SaveMeme meme={meme} caption={`Meme-Duell · Runde ${state.round}`} compact />
       </div>
 
@@ -71,14 +76,12 @@ export function VoteView({
           className="md-print--develop"
           tilt={tiltFor(author + state.round, 2)}
           ar={template ? template.w / template.h : undefined}
-          caption={
-            mineIsUp ? 'Dein Meme · Pokerface' : riding === author ? 'Du fährst mit' : 'Anonym'
-          }
+          caption={mineIsUp ? 'Dein Meme · Pokerface' : 'Anonym'}
           badge={
             riding === author ? (
-              <span className="md-ticket" aria-hidden>
-                <Icon name="bus" size={16} />
-              </span>
+              <Label tone="mint" icon="bus">
+                Mit dabei
+              </Label>
             ) : undefined
           }
         >
@@ -88,7 +91,12 @@ export function VoteView({
             <div className="md-missing">{meme.x.filter(Boolean).join(' / ')}</div>
           )}
         </MemePrint>
-        <ReactionLayer key={`fx-${state.round}-${state.showing}`} reactions={state.reactions} />
+        {/* Auf dem eigenen Meme spürt man jede Reaktion – die Lacher der anderen. */}
+        <ReactionLayer
+          key={`fx-${state.round}-${state.showing}`}
+          reactions={state.reactions}
+          feel={mineIsUp}
+        />
       </div>
 
       {mineIsUp ? (
@@ -103,7 +111,7 @@ export function VoteView({
               className={`md-votebtn md-votebtn--${c.tone}`}
               aria-pressed={myVote === c.value}
               onClick={() => {
-                haptic(c.value === 1 ? 'success' : 'select');
+                haptic(c.value === 1 ? 'success' : c.value === -1 ? 'press' : 'select');
                 dispatch({ type: 'vote', target: author, value: c.value });
               }}
             >

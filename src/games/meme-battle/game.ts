@@ -1,4 +1,5 @@
 import { shuffle } from '../../lib/format';
+import { isSpicyOn } from '../../store/app';
 import { customCardsFor } from '../../store/cards';
 import { orderByFreshness } from '../../store/seen';
 import { spicyDeck } from '../shared/prompts';
@@ -37,7 +38,7 @@ export interface Meme {
 }
 
 /**
- * Jedes Meme der Partie – fürs Finale „Von Feuer bis Lahm". Kurze Schlüssel,
+ * Jedes Meme der Partie – fürs Finale „Von Fire bis Lame". Kurze Schlüssel,
  * weil die Liste mit jedem Spielzug über die Leitung geht.
  */
 export interface Played extends Meme {
@@ -201,17 +202,20 @@ export function topicText(state: Pick<State, 'topic' | 'customTopics'>): string 
   return t >= 0 ? (TOPICS[t]?.text ?? null) : (state.customTopics[-t - 1] ?? null);
 }
 
-/** Frisch gemischte Vorlagen, Ungesehenes zuerst. */
 /**
- * So viele Vorlagen trägt der Spielstand im Voraus. Alle 186 wären 1,5 KB mehr
- * bei JEDER Aktion – und jede Stimme geht an alle Handys.
+ * So viele Vorlagen trägt der Spielstand im Voraus. Alle 308 wären gut 3 KB
+ * mehr bei JEDER Aktion – und jede Stimme geht an alle Handys.
  */
 const DECK_WINDOW = 24;
 
+/** Frisch gemischte Vorlagen, Ungesehenes zuerst. */
 function freshDeck(exclude: Set<string> = new Set()): string[] {
-  let ids = TEMPLATES.map((t) => t.id).filter((id) => !exclude.has(id));
+  // Die wenigen Spicy-Vorlagen nur mit Schalter – wie die Spicy-Themen.
+  const spicy = isSpicyOn('meme-battle');
+  const all = TEMPLATES.filter((t) => spicy || !t.sp).map((t) => t.id);
+  let ids = all.filter((id) => !exclude.has(id));
   // Alles schon gespielt (sehr lange Partie): dann eben wieder von vorn.
-  if (ids.length < DECK_WINDOW) ids = TEMPLATES.map((t) => t.id);
+  if (ids.length < DECK_WINDOW) ids = all;
   return orderByFreshness(shuffle(ids), (id) => `meme:${id}`).slice(0, DECK_WINDOW);
 }
 

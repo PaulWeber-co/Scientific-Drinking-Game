@@ -857,14 +857,17 @@
 }
 .sm-hand__card {
   position: absolute;
+  left: 0;
+  top: 0;
   border-radius: 8px;
-  transform: translateY(var(--dip)) rotate(var(--rot));
+  /* Platz im Fächer (--x/--y) als Transform: nachrückende Karten gleiten auf
+     der Grafikkarte statt über left/top, die jedes Bild ein Layout kosten. */
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) translateY(var(--dip)) rotate(var(--rot));
   transform-origin: 50% 120%;
   transition:
-    left 0.3s var(--ease-spring),
-    top 0.3s var(--ease-spring),
-    transform 0.24s var(--ease-spring),
+    transform 0.3s var(--ease-spring),
     filter 0.22s;
+  will-change: transform;
   animation: sm-deal 0.55s var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 45ms);
   -webkit-tap-highlight-color: transparent;
@@ -878,7 +881,8 @@
 }
 @keyframes sm-arrive {
   from {
-    transform: translate(-80px, -40px) rotate(-20deg) scale(0.6);
+    transform: translate3d(calc(var(--x, 0px) - 80px), calc(var(--y, 0px) - 40px), 0) rotate(-20deg)
+      scale(0.6);
     opacity: 0;
   }
 }
@@ -891,15 +895,17 @@
   }
 }
 .sm-hand--active .sm-hand__card {
-  transform: translateY(calc(var(--dip) - 4px)) rotate(var(--rot));
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) translateY(calc(var(--dip) - 4px))
+    rotate(var(--rot));
 }
 .sm-hand--active .sm-hand__card--no {
-  transform: translateY(calc(var(--dip) + 6px)) rotate(var(--rot));
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) translateY(calc(var(--dip) + 6px))
+    rotate(var(--rot));
   filter: brightness(0.42) saturate(0.5);
 }
 .sm-hand .sm-hand__card--sel,
 .sm-hand--active .sm-hand__card--sel {
-  transform: translateY(-22px) rotate(0deg) scale(1.08);
+  transform: translate3d(var(--x, 0), var(--y, 0), 0) translateY(-22px) rotate(0deg) scale(1.08);
 }
 .sm-hand__card--sel .smcard {
   box-shadow:
@@ -922,7 +928,7 @@
 }
 @keyframes sm-deal {
   from {
-    transform: translate(0, -160px) rotate(-18deg) scale(0.55);
+    transform: translate3d(var(--x, 0), calc(var(--y, 0px) - 160px), 0) rotate(-18deg) scale(0.55);
     opacity: 0;
   }
 }

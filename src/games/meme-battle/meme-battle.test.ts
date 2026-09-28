@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodeState, encodeState } from '../../features/party/PartyContext';
+import { useApp } from '../../store/app';
 import { useCustomCards } from '../../store/cards';
 import type { GameAction, GamePlayer } from '../types';
 import {
@@ -67,14 +68,15 @@ function voteAndAdvance(
 
 describe('Meme-Duell: Katalog', () => {
   it('hat genug Vorlagen und jede mit gültigen Textfeldern', () => {
-    expect(TEMPLATES.length).toBeGreaterThan(150);
+    expect(TEMPLATES.length).toBeGreaterThan(300);
     const ids = new Set<string>();
     for (const t of TEMPLATES) {
       expect(ids.has(t.id), t.id).toBe(false);
       ids.add(t.id);
       expect(t.w, t.id).toBeGreaterThan(0);
       expect(t.boxes.length, t.id).toBeGreaterThanOrEqual(1);
-      expect(t.boxes.length, t.id).toBeLessThanOrEqual(5);
+      expect(t.boxes.length, t.id).toBeLessThanOrEqual(8);
+      expect(t.id, 'nur, was der Service-Worker-Cache erkennt').toMatch(/^[a-z0-9-]+$/);
       for (const b of t.boxes) {
         expect(b.w, t.id).toBeGreaterThan(0);
         expect(b.h, t.id).toBeGreaterThan(0);
@@ -84,10 +86,20 @@ describe('Meme-Duell: Katalog', () => {
     }
   });
 
-  it('liefert Politiker und Drogen-Vorlagen nicht mit aus', () => {
-    for (const id of ['trump', 'sad-obama', 'elmo', 'yallgot', 'ugandanknuck']) {
-      expect(templateOf(id), id).toBeNull();
+  it('filtert nichts aus – Drogen-Memes gibt es aber nur mit Spicy', () => {
+    for (const id of ['trump', 'sad-obama', 'ugandanknuck', 'surprised-pikachu', 'me-gusta']) {
+      expect(templateOf(id), id).not.toBeNull();
     }
+    const roster = players(3);
+    const ohne = new Set<string>();
+    for (let i = 0; i < 30; i++) createState(roster).deck.forEach((id) => ohne.add(id));
+    expect(ohne.has('elmo')).toBe(false);
+    useApp.setState({ spicy: { 'meme-battle': true } });
+    const mit = new Set<string>();
+    for (let i = 0; i < 60; i++) createState(roster).deck.forEach((id) => mit.add(id));
+    useApp.setState({ spicy: {} });
+    expect(templateOf('elmo')?.sp).toBe(1);
+    expect([...mit].some((id) => templateOf(id)?.sp)).toBe(true);
   });
 });
 
@@ -351,7 +363,7 @@ describe('Meme-Duell: Punkte', () => {
   it('verteilt Punkte, Trittbrett- und Mitfahrer-Bonus', () => {
     const { roster, s: s0 } = started(3);
     let s = allSubmit(s0, roster);
-    // p0s Meme bekommt Feuer von allen, alle anderen Memes „lahm".
+    // p0s Meme bekommt Fire von allen, alle anderen Memes Lame.
     const plan = (_voter: string, author: string) => (author === 'p0' ? 1 : -1);
     // p1 springt auf p0s Meme auf, p2 auf das von p1.
     for (let i = 0; i < 3; i++) {

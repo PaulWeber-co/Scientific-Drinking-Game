@@ -39,9 +39,9 @@ const MODE_INFO: Record<Mode, { title: string; text: string; icon: IconName }> =
 
 /** Drei Beispiele fürs Titelbild – deutsch, damit klar ist, was hier passiert. */
 const HERO: { id: string; texts: string[]; tilt: number }[] = [
-  { id: 'fine', texts: ['Party um 4 Uhr', 'Alles im grünen Bereich'], tilt: -9 },
+  { id: 'fine', texts: ['4 Uhr', 'Alles gut'], tilt: -7 },
   { id: 'drake', texts: ['Früh ins Bett', 'Noch ein Meme-Duell'], tilt: 2 },
-  { id: 'db', texts: ['Noch ein Meme', 'Ich', 'Mein Bett'], tilt: 10 },
+  { id: 'db', texts: ['Memes', 'Ich', 'Bett'], tilt: 7 },
 ];
 
 /**
@@ -75,6 +75,7 @@ export function Setup({
               className={`md-fan__print md-fan__print--${i}`}
               tilt={h.tilt}
               stamp={i === 1}
+              ar={t.w / t.h}
             >
               <MemeImage template={t} texts={h.texts} />
             </MemePrint>
