@@ -993,7 +993,24 @@ function Hand({
  * Zählt vom alten zum neuen Punktestand – auch ins Minus. `CountUp` aus den
  * Bausteinen kann nur ab null aufwärts und zeigte negative Stände als 0.
  */
-function Tally({ from, to }: { from: number; to: number }) {
+/**
+ * Zählt den Gesamtstand hoch. Erst wenn die Zeilen liegen (`delay`), damit
+ * Einfliegen und Zählen nicht gegeneinander laufen.
+ *
+ * `feel`: Die eigene Zeile rastet spürbar ein – vorne dicht, hinten immer
+ * langsamer wie ein auslaufendes Zählwerk.
+ */
+function Tally({
+  from,
+  to,
+  delay = 0,
+  feel,
+}: {
+  from: number;
+  to: number;
+  delay?: number;
+  feel?: boolean;
+}) {
   const [value, setValue] = useState(from);
   useEffect(() => {
     const still =
@@ -1004,15 +1021,23 @@ function Tally({ from, to }: { from: number; to: number }) {
       return;
     }
     let raf = 0;
-    const start = performance.now();
+    let step = 0;
+    const steps = 8;
+    const start = performance.now() + delay;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 900);
-      setValue(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
+      const t = Math.max(0, Math.min(1, (now - start) / 900));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(from + (to - from) * eased));
+      const reached = Math.floor(eased * steps);
+      if (feel && reached > step) {
+        step = reached;
+        haptic(reached >= steps ? 'press' : 'tick');
+      }
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [from, to]);
+  }, [from, to, delay, feel]);
   return <>{value}</>;
 }
 
@@ -1098,7 +1123,7 @@ function Score({
               {r.delta > 0 ? `+${r.delta}` : r.delta}
             </span>
             <span className="sm-row__total t-mono-num">
-              <Tally from={r.total - r.delta} to={r.total} />
+              <Tally from={r.total - r.delta} to={r.total} delay={450} feel={r.seat.id === me.id} />
             </span>
           </div>
         ))}

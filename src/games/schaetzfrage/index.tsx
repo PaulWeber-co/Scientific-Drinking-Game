@@ -5,7 +5,7 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, WaitingFor } from '../shared/pieces';
+import { BigCard, RankTag, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -245,7 +245,7 @@ function SchaetzfrageGame({ state, players, me, dispatch, quit, online }: GameRu
       <div className="stack-2">
         {ranked.map((r, i) => (
           <div key={r.p.id} className="result-row" style={{ ['--i' as string]: i }}>
-            <div className="result-row__rank">{i + 1}</div>
+            <RankTag place={i + 1} />
             <div className="grow">
               <div className="t-headline">{r.p.name}</div>
               <div className="t-caption">

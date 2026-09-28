@@ -150,10 +150,19 @@
 }
 .sm-seat--turn {
   border-color: #ffd24a;
-  box-shadow:
-    0 0 0 1px #ffd24a,
-    0 0 16px rgba(255, 210, 74, 0.45);
+  box-shadow: 0 0 0 1px #ffd24a;
   transform: translateY(-2px);
+}
+/* Das Leuchten liegt auf einer eigenen Ebene und pulsiert nur über die
+   Deckkraft – ein animierter Schatten müsste jedes Bild neu malen, und das
+   läuft hier endlos, solange jemand am Zug ist. */
+.sm-seat--turn::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 16px rgba(255, 210, 74, 0.5);
+  pointer-events: none;
   animation: sm-pulse 1.6s ease-in-out infinite;
 }
 .sm-seat--away {
@@ -161,9 +170,7 @@
 }
 @keyframes sm-pulse {
   50% {
-    box-shadow:
-      0 0 0 1px #ffd24a,
-      0 0 4px rgba(255, 210, 74, 0.2);
+    opacity: 0.2;
   }
 }
 .sm-seat__avatar {
@@ -876,7 +883,18 @@
   /* Später gekommen (Jongleur, Hexe): fliegt einzeln herein und leuchtet. */
   animation: sm-arrive 0.6s var(--ease-out) backwards;
 }
-.sm-hand__card--fresh .smcard {
+/* Leuchten als eigene Ebene, die nur ausblendet – statt den Schatten der
+   Karte Bild für Bild neu zu malen. */
+.sm-hand__card--fresh .smcard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--mint),
+    0 0 22px rgba(102, 212, 207, 0.7);
+  pointer-events: none;
+  opacity: 0;
   animation: sm-newglow 1.6s ease-out;
 }
 @keyframes sm-arrive {
@@ -889,9 +907,7 @@
 @keyframes sm-newglow {
   0%,
   40% {
-    box-shadow:
-      0 0 0 2px var(--mint),
-      0 0 22px rgba(102, 212, 207, 0.7);
+    opacity: 1;
   }
 }
 .sm-hand--active .sm-hand__card {
@@ -1317,7 +1333,7 @@
   .sm-flip,
   .sm-hero__card,
   .sm-spark,
-  .sm-seat--turn,
+  .sm-seat--turn::after,
   .sm-podium__place,
   .sm-podium__crown,
   .sm-banner,
@@ -1325,7 +1341,7 @@
   .sm-play--takeable .smcard,
   .sm-burst,
   .sm-hand--active .sm-hand__area::before,
-  .sm-hand__card--fresh .smcard {
+  .sm-hand__card--fresh .smcard::after {
     animation: none !important;
   }
   .sm-splash {

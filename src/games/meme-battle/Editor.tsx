@@ -7,7 +7,7 @@ import type { GameActionInput, GamePlayer } from '../types';
 import { creators, type State } from './game';
 import { Label, MemeImage, MemePrint } from './Meme';
 import { TopicNote } from './parts';
-import { MAX_CHARS, templateOf } from './templates';
+import { maxCharsFor, templateOf } from './templates';
 
 /**
  * Basteln: die eigene Vorlage im Abzug, darunter ein Feld je Textstelle.
@@ -47,8 +47,12 @@ export function Editor({
     [drafts, templateId, mine],
   );
   const setText = (i: number, value: string) => {
+    const limit = template ? maxCharsFor(template, i) : value.length;
     const next = [...texts];
-    next[i] = value.slice(0, MAX_CHARS);
+    next[i] = value.slice(0, limit);
+    // Am Anschlag einmal spürbar rasten – sonst tippt man ins Leere und
+    // wundert sich, warum nichts mehr kommt.
+    if (value.length >= limit && (texts[i]?.length ?? 0) < limit) haptic('press');
     setDrafts((d) => ({ ...d, [templateId]: next }));
   };
   useEffect(() => setDrafts({}), [state.round]);
@@ -72,6 +76,15 @@ export function Editor({
   useEffect(() => {
     haptic('heavy');
   }, [state.round]);
+
+  // Wer noch bastelt, spürt jedes fertige Meme der anderen als leises Klopfen –
+  // wie das „fertig"-Signal am Nachbartisch, ohne aufs Handy zu schauen.
+  const doneCount = Object.keys(state.memes).length;
+  const seenDone = useRef(doneCount);
+  useEffect(() => {
+    if (doneCount > seenDone.current && !submitted) haptic('tick');
+    seenDone.current = doneCount;
+  }, [doneCount, submitted]);
 
   // Die Uhr läuft ab: was getippt ist, geht raus – genau einmal je Vorlage.
   useEffect(() => {
@@ -134,7 +147,14 @@ export function Editor({
           texts={texts}
           editing={!submitted}
           active={submitted ? undefined : active}
-          onBox={submitted ? undefined : focus}
+          onBox={
+            submitted
+              ? undefined
+              : (i) => {
+                  haptic('select');
+                  focus(i);
+                }
+          }
         />
       </MemePrint>
 
@@ -151,7 +171,7 @@ export function Editor({
                   className="md-field__input"
                   value={texts[i] ?? ''}
                   placeholder={template.boxes.length === 1 ? 'Dein Text' : `Text ${i + 1}`}
-                  maxLength={MAX_CHARS}
+                  maxLength={maxCharsFor(template, i)}
                   enterKeyHint={i < template.boxes.length - 1 ? 'next' : 'done'}
                   autoComplete="off"
                   autoCorrect="on"
@@ -196,7 +216,7 @@ export function Editor({
               </>
             )}
             <button
-              className="btn btn--brand btn--lg grow"
+              className="btn btn--brand btn--lg grow md-go"
               disabled={!hasText}
               onClick={() => {
                 haptic('success');

@@ -101,7 +101,7 @@ function MemeBattleGame(props: GameRuntime<State>) {
           Beim Meme-Duell bastelt jede Person heimlich ihr eigenes Meme. Startet dafür eine
           Online-Lobby – dann hat jede Person ihre Vorlage auf dem eigenen Handy.
         </BigCard>
-        <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
+        <button className="btn btn--brand btn--block btn--lg md-go" onClick={quit}>
           Zurück
         </button>
       </GameFrame>
@@ -120,7 +120,7 @@ function MemeBattleGame(props: GameRuntime<State>) {
           Das Meme-Duell wurde umgebaut. Diese Runde stammt noch aus der alten Fassung.
         </BigCard>
         <button
-          className="btn btn--brand btn--block btn--lg"
+          className="btn btn--brand btn--block btn--lg md-go"
           onClick={() => dispatch({ type: 'restart' })}
         >
           Neu starten

@@ -3,6 +3,7 @@ import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
 import { haptic } from '../../lib/haptics';
 import { GameOver } from '../shared/GameOver';
+import { RankTag } from '../shared/pieces';
 import type { GamePlayer, GameRuntime } from '../types';
 import type { State, Tally } from './game';
 import { MemeLightbox, type LightboxEntry } from './Lightbox';
@@ -65,7 +66,7 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
   const podium = rows.slice(0, 3);
 
   return (
-    <div className="stack">
+    <div className="md-finale stack">
       {!relaxed && podium.length > 0 && (
         <div className="md-podium" aria-label="Podest">
           {[podium[1], podium[0], podium[2]].map((r, i) => {
@@ -115,7 +116,7 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
               className={`result-row md-row md-rise ${r.player.id === me.id ? 'md-row--me' : ''}`}
               style={{ ['--i' as string]: i + 3 }}
             >
-              <div className="result-row__rank">{i + 1}</div>
+              <RankTag place={i + 1} />
               <Avatar
                 name={r.player.name}
                 color={r.player.color}

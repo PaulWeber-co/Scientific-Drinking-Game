@@ -17,7 +17,7 @@ import {
   type State,
 } from './game';
 import { fitText, wrapLines } from './render';
-import { TEMPLATES, templateOf } from './templates';
+import { MAX_CHARS, maxCharsFor, TEMPLATES, templateOf } from './templates';
 import { TOPICS } from './topics';
 
 const players = (n: number): GamePlayer[] =>
@@ -100,6 +100,21 @@ describe('Meme-Duell: Katalog', () => {
     useApp.setState({ spicy: {} });
     expect(templateOf('elmo')?.sp).toBe(1);
     expect([...mit].some((id) => templateOf(id)?.sp)).toBe(true);
+  });
+
+  it('begrenzt winzige Felder, damit kein Text herausquillt', () => {
+    for (const t of TEMPLATES) {
+      t.boxes.forEach((_, i) => {
+        const n = maxCharsFor(t, i);
+        expect(n, `${t.id}[${i}]`).toBeGreaterThanOrEqual(14);
+        expect(n, `${t.id}[${i}]`).toBeLessThanOrEqual(MAX_CHARS);
+      });
+    }
+    // Die kleinen Schilder im Boardroom tragen keinen ganzen Absatz …
+    expect(maxCharsFor(templateOf('boardroom')!, 1)).toBeLessThan(40);
+    // … die allermeisten Felder dagegen die vollen 90 Zeichen.
+    const big = TEMPLATES.flatMap((t) => t.boxes.map((_, i) => maxCharsFor(t, i)));
+    expect(big.filter((n) => n === MAX_CHARS).length / big.length).toBeGreaterThan(0.7);
   });
 });
 

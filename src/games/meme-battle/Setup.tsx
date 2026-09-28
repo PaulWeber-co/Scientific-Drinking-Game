@@ -187,7 +187,7 @@ export function Setup({
 
       {isHost ? (
         <button
-          className="btn btn--brand btn--block btn--lg"
+          className="btn btn--brand btn--block btn--lg md-go"
           disabled={!enough}
           onClick={() => {
             haptic('heavy');

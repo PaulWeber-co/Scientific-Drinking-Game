@@ -104,11 +104,28 @@ export function tiltFor(seed: string, spread = 3): number {
   return ((Math.abs(h) % 1000) / 1000 - 0.5) * 2 * spread;
 }
 
+/** In so vielen Rasten läuft das Zählwerk unter dem Daumen aus. */
+const COUNT_STEPS = 8;
+
 /**
  * Zählt vom alten zum neuen Punktestand – auch ins Minus, mit sanftem Auslaufen.
  * Ohne Bewegung (reduzierte Animationen) steht sofort die Endzahl da.
+ *
+ * `feel`: Das Zählwerk rastet spürbar ein – schnell am Anfang, dann immer
+ * langsamer wie ein auslaufendes Rad. Nur für die eigene Zeile, sonst ratterten
+ * acht Zählwerke gleichzeitig.
  */
-export function CountTo({ from, to, delay = 350 }: { from: number; to: number; delay?: number }) {
+export function CountTo({
+  from,
+  to,
+  delay = 350,
+  feel,
+}: {
+  from: number;
+  to: number;
+  delay?: number;
+  feel?: boolean;
+}) {
   const [value, setValue] = useState(from);
   useEffect(() => {
     const still =
@@ -119,15 +136,24 @@ export function CountTo({ from, to, delay = 350 }: { from: number; to: number; d
       return;
     }
     let raf = 0;
+    let step = 0;
     const start = performance.now() + delay;
     const tick = (now: number) => {
       const t = Math.max(0, Math.min(1, (now - start) / 900));
-      setValue(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(from + (to - from) * eased));
+      // Rasten nach dem gebremsten Fortschritt, nicht nach der Zeit: so liegen
+      // sie vorne dicht und hinten weit auseinander.
+      const reached = Math.floor(eased * COUNT_STEPS);
+      if (feel && reached > step) {
+        step = reached;
+        haptic(reached >= COUNT_STEPS ? (to > from ? 'press' : 'tap') : 'tick');
+      }
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [from, to, delay]);
+  }, [from, to, delay, feel]);
   return <>{value}</>;
 }
 

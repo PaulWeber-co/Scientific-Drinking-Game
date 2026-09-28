@@ -5,8 +5,9 @@
  *   npx vite
  *   http://localhost:5173/Scientific-Drinking-Game/scripts/meme-preview/
  *
- * `?phones=1` zeigt nur das eigene Handy (für Bildschirmfotos). Firebase wird
- * nicht angefasst – der Reducer läuft direkt hier, wie beim Host.
+ * `?phones=1` zeigt nur das eigene Handy (für Bildschirmfotos), `?w=360&h=640`
+ * setzt die Größe der Handys (kleine Geräte prüfen). Firebase wird nicht
+ * angefasst – der Reducer läuft direkt hier, wie beim Host.
  */
 import { StrictMode, useCallback, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -40,8 +41,12 @@ const IDEAS = [
 ];
 const idea = () => IDEAS[Math.floor(Math.random() * IDEAS.length)];
 
+const params = new URLSearchParams(location.search);
+const PHONE_W = Number(params.get('w') ?? 390);
+const PHONE_H = Number(params.get('h') ?? 844);
+
 function Preview() {
-  const phones = Number(new URLSearchParams(location.search).get('phones') ?? 3);
+  const phones = Number(params.get('phones') ?? 3);
   const [state, setState] = useState<State>(() => memeBattle.createState(PLAYERS));
 
   const run = useCallback((by: string, a: GameActionInput) => {
@@ -156,8 +161,8 @@ function Phone({
     <PartyCtx.Provider value={party}>
       <div
         style={{
-          width: 390,
-          height: 844,
+          width: PHONE_W,
+          height: PHONE_H,
           overflow: 'auto',
           borderRadius: 28,
           border: '1px solid #333',

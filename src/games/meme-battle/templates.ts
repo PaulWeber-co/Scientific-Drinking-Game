@@ -60,3 +60,30 @@ export function memeUrl(id: string): string {
 
 /** Wie viele Zeichen ein Feld höchstens trägt. Mehr passt auf kein Meme. */
 export const MAX_CHARS = 90;
+
+/** Nie weniger – ein kurzer Satz muss in jedes Feld. */
+const MIN_CHARS = 14;
+/** Breite des Abzugs auf einem kleinen Handy, in CSS-Pixeln. */
+const REF_W = 300;
+/** Kleinste Schrift, die man am Tisch noch liest. */
+const MIN_FS = 7;
+
+/**
+ * Wie viel Text in DIESES Feld passt, ohne dass die Schrift unleserlich klein
+ * wird oder der Text aus dem Feld quillt.
+ *
+ * Das Einpassen in `MemeText` verkleinert die Schrift notfalls bis auf 2 px –
+ * passt dann, ist aber nicht mehr lesbar. In winzigen Feldern (Boardroom,
+ * Distracted Boyfriend) wäre das schon bei 25 Zeichen so. Gerechnet für einen kleinen Abzug, mit Luft für
+ * Zeilenumbrüche an Wortgrenzen; hohe Vorlagen sind im Editor schmaler, weil
+ * ihre Höhe begrenzt ist.
+ */
+export function maxCharsFor(template: MemeTemplate, index: number): number {
+  const box = template.boxes[index];
+  if (!box) return MAX_CHARS;
+  const ar = template.w / template.h;
+  const width = Math.min(REF_W, 280 * ar);
+  const perLine = (box.w * width) / (MIN_FS * 0.55);
+  const lines = Math.max(1, Math.floor((box.h * width) / ar / (MIN_FS * 1.12)));
+  return Math.max(MIN_CHARS, Math.min(MAX_CHARS, Math.floor(perLine * lines * 0.75)));
+}

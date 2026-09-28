@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Avatar } from '../../components/ui/Avatar';
 import { haptic } from '../../lib/haptics';
 import { DrinkCallList } from '../shared/DrinkCall';
-import { BigCard } from '../shared/pieces';
+import { BigCard, RankTag } from '../shared/pieces';
 import { isOver } from '../shared/rounds';
 import type { GameActionInput, GamePlayer } from '../types';
 import { creators, type State } from './game';
@@ -61,7 +61,7 @@ export function Results({
 
   const next = (
     <button
-      className="btn btn--brand btn--block btn--lg md-rise"
+      className="btn btn--brand btn--block btn--lg md-go md-rise"
       style={{ ['--i' as string]: 6 }}
       onClick={() => {
         haptic('press');
@@ -188,7 +188,7 @@ export function Results({
               className={`result-row md-row md-rise ${r.p.id === me.id ? 'md-row--me' : ''}`}
               style={{ ['--i' as string]: i + 2 }}
             >
-              <div className="result-row__rank">{i + 1}</div>
+              <RankTag place={i + 1} />
               <Avatar name={r.p.name} color={r.p.color} photo={r.p.photo} size="sm" />
               <div className="grow">
                 <div className="t-headline">{r.p.id === me.id ? 'Du' : r.p.name}</div>
@@ -200,7 +200,7 @@ export function Results({
               </div>
               <div className="md-score-col">
                 <div className="t-mono-num md-score">
-                  <CountTo from={r.total - r.gain} to={r.total} />
+                  <CountTo from={r.total - r.gain} to={r.total} feel={r.p.id === me.id} />
                 </div>
                 {r.gain !== 0 && (
                   <div className={`md-gain t-mono-num ${r.gain < 0 ? 'md-gain--neg' : ''}`}>

@@ -69,6 +69,10 @@ function MemeText({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const upper = box.s !== 'none';
+  // Mit Antippen ist das Feld ein <button>, sonst ein <div>. Beim Abgeben
+  // wechselt React deshalb das Element aus – und die neue Textzeile hätte
+  // ohne erneutes Einpassen wieder die Grundgröße.
+  const tappable = !!onTap;
   // Im Editor steht in leeren Feldern „Text 1", „Text 2" – wie auf dem
   // Eingabefeld darunter, damit klar ist, welches Feld wohin gehört.
   const isPlaceholder = !text && !!editing;
@@ -85,7 +89,10 @@ function MemeText({
       const w = frame.clientWidth;
       const h = frame.clientHeight;
       if (!w || !h || !el.textContent) return;
-      let lo = 5;
+      // Unten offen bis 2 px: auf den kleinen Abzügen der Galerie ist ein Feld
+      // manchmal nur 9 px hoch. Winzig ist dort besser als übers Bild gelaufen –
+      // antippen zeigt das Meme ohnehin groß.
+      let lo = 2;
       // Der Platzhalter bleibt klein – sonst füllt „TEXT 1" ein großes Feld aus.
       let hi = Math.max(lo, Math.min(h, w * 0.5, isPlaceholder ? Math.max(12, h * 0.4) : h));
       for (let i = 0; i < 12; i++) {
@@ -107,7 +114,7 @@ function MemeText({
       alive = false;
       ro?.disconnect();
     };
-  }, [shown, box.f, isPlaceholder]);
+  }, [shown, box.f, isPlaceholder, tappable]);
 
   const style: CSSProperties = {
     left: `${box.x * 100}%`,
@@ -135,7 +142,7 @@ function MemeText({
     </span>
   );
 
-  if (onTap) {
+  if (tappable) {
     return (
       <button
         type="button"
