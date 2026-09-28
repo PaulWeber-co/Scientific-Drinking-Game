@@ -106,7 +106,7 @@ export function Setup({
 
       <section className="stack-3">
         <span className="t-upper">Regeln</span>
-        <div className="sm-option">
+        <div className={`sm-option ${isHost ? '' : 'sm-option--locked'}`}>
           <div className="grow">
             <div className="t-headline">Ansagen dürfen nicht aufgehen</div>
             <div className="t-caption" id="sm-rule-even">
@@ -121,7 +121,7 @@ export function Setup({
             onChange={(on) => isHost && dispatch({ type: 'rule', rule: 'noEvenBids', on })}
           />
         </div>
-        <div className="sm-option">
+        <div className={`sm-option ${isHost ? '' : 'sm-option--locked'}`}>
           <div className="grow">
             <div className="t-headline">Karte an der Stirn</div>
             <div className="t-caption" id="sm-rule-forehead">

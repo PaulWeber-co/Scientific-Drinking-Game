@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/top-ten.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Geheime Zahl, passende Antwort. Kriegt ihr die Reihenfolge hin?',
   icon: 'ranking',
   accent: 'var(--blue)',
+  image,
   minPlayers: 3,
   maxPlayers: 10,
   duration: '20-40 Min',

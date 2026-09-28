@@ -1,0 +1,4 @@
+# Vom Import-Skript erzeugt (scripts/memes/import_memegen.py), bewusst einzeilig.
+src/games/meme-battle/templates.json
+# Von Hand gepflegt, eine Vorlage je Zeile – ausgeklappt wären es 2000 Zeilen.
+scripts/memes/extra.json

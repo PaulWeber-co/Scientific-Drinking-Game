@@ -188,6 +188,12 @@ Beim Durchgehen der Spieleliste sind mir zwei aufgefallen:
 Alle Kartentexte und Icons sind Eigenentwicklung, da ist nichts übernommen. Spielprinzipien
 selbst sind nicht urheberrechtlich geschützt — nur Namen, Texte und Gestaltung.
 
+**Ausnahme: die Meme-Vorlagen im Meme-Duell.** Die Bilder stammen aus Filmen, Serien und
+Fotos Dritter. Der Name des Vorbilds („Make it Meme") taucht nirgends auf, der Mechanik-Kern
+ist neu benannt (Trittbrett statt Meme-Buddy). Für die Bilder selbst bleibt eine Grauzone,
+die ein Entfernen-auf-Hinweis-Prozess klein hält. Einschätzung, Spicy-Liste und Ablauf:
+[`MEME-DUELL.md`](MEME-DUELL.md), Abschnitt 5.
+
 ### Barrierefreiheit (BFSG, seit 28. Juni 2025)
 
 Betrifft Dienstleistungen im elektronischen Geschäftsverkehr an Verbraucher. Eine
@@ -220,3 +226,4 @@ Kommt eine eigene Domain dazu:
 | Altersgrenzen | eingebaut |
 | Haftungsausschluss Alkohol | im Impressum, im Onboarding und im Profil |
 | Marke „Tabu Rush" | **prüfen oder umbenennen** |
+| Meme-Vorlagen (Bildrechte Dritter) | Kontaktadresse im Impressum, Vorlagen auf Hinweis sofort entfernen |

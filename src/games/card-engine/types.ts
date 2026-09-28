@@ -32,6 +32,8 @@ export interface CardGameConfig {
   tagline: string;
   icon: IconName;
   accent: string;
+  /** Kachelmotiv aus `meta.ts` – ohne das fiele es beim Laden weg. */
+  image?: string;
   minPlayers: number;
   maxPlayers: number;
   duration: string;
@@ -63,6 +65,8 @@ export interface CardGameConfig {
   /** Wenn gesetzt: der Spieler darf kneifen und trinkt stattdessen. */
   refuseLabel?: string;
   refuseSips?: number;
+  /** Beschriftung der Trinkansage nach dem Kneifen-Knopf. Standard: „gekniffen". */
+  refuseCallLabel?: string;
   cards: CardDef[];
   /** Blendet den Härtegrad-Regler ein. */
   heatSelectable?: boolean;

@@ -546,17 +546,72 @@
   border-radius: var(--r-md);
   background: var(--surface-2);
 }
+/* Der Platz als Prägeetikett statt als Kreis: Band mit erhabener Ziffer,
+   leicht schief aufgeklebt – dieselbe Sprache wie Datumsstempel und Abzug.
+   Ein Kreis quetscht zweistellige Plätze, das Band wächst einfach mit. */
 .result-row__rank {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  display: grid;
+  --tape: #1b1d22;
+  --tape-hi: #40444d;
+  --ink: #f4f1ea;
+  --emboss: rgba(0, 0, 0, 0.6);
+  min-width: 30px;
+  height: 28px;
+  padding: 1px 7px 0;
+  border-radius: 4px;
+  display: inline-grid;
   place-items: center;
-  font-size: 13px;
-  font-weight: 800;
   flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  background: linear-gradient(
+    180deg,
+    var(--tape-hi) 0%,
+    var(--tape) 45%,
+    var(--tape) 72%,
+    #000 150%
+  );
+  /* Die Spielfarbe als schmale Kante links – der Rest bleibt ruhig. */
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 1px 0 var(--emboss),
+    0 -1px 0 rgba(255, 255, 255, 0.12);
+  transform: rotate(-3deg);
+}
+.result-row__rank--1,
+.result-row__rank--2,
+.result-row__rank--3 {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 1px 0 var(--emboss),
+    0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.result-row__rank--1 {
+  --tape: #c9971c;
+  --tape-hi: #ffe28a;
+  --ink: #3b2800;
+  --emboss: rgba(255, 244, 200, 0.7);
+}
+.result-row__rank--2 {
+  --tape: #9aa3ad;
+  --tape-hi: #eef2f6;
+  --ink: #22282f;
+  --emboss: rgba(255, 255, 255, 0.7);
+}
+.result-row__rank--3 {
+  --tape: #a4622f;
+  --tape-hi: #f0b27f;
+  --ink: #2c1405;
+  --emboss: rgba(255, 220, 190, 0.55);
 }
 .answer-card {
   padding: var(--s-4);
@@ -776,7 +831,9 @@
   border-radius: var(--r-md);
   background: var(--surface);
   border: 1px solid var(--hairline);
-  animation: rise var(--dur) var(--ease-emph) both;
+  /* `backwards`, nicht `both`: eine gefüllte Animation hält `transform`
+     fest, und das Eindrücken (.pressable:active) sprang dann ohne Feder. */
+  animation: rise var(--dur) var(--ease-emph) backwards;
   animation-delay: calc(var(--i, 0) * 35ms);
 }
 .votecard__name {
@@ -1617,13 +1674,65 @@
   letter-spacing: 0.005em;
 }
 
-/* Im Spiel ist der Hauptknopf orange wie der Datumsstempel – das Blau der
-   App gehoert zur Navigation, nicht auf den Abzug. Eckig statt rund: Es
-   ist ein Auslöser, kein Systemknopf. */
+/* Der Hauptknopf im Spiel: Mint. Das Blau der App gehoert zur Navigation,
+   nicht auf den Abzug – und Orange auf Schwarz sah nach der falschen Seite
+   aus. Eckig statt rund: Es ist ein Auslöser, kein Systemknopf. Erhaben wie
+   eine Taste, mit Glanzkante oben; ein Lichtstreif läuft einmal durch,
+   sobald der Knopf bereit ist. Deaktiviert neutral statt blass-bunt. */
 .game .btn--brand {
-  background: var(--stamp);
-  color: var(--paper-ink);
+  --go: var(--mint);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border-radius: var(--r-xs);
+  color: #04221f;
+  font-weight: 750;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--go) 62%, #fff) 0%,
+    var(--go) 46%,
+    color-mix(in srgb, var(--go) 84%, #000) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.16),
+    0 10px 26px -14px var(--go);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.game .btn--brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.6) 48%,
+    transparent 66%
+  );
+  transform: translate3d(-110%, 0, 0);
+  pointer-events: none;
+}
+.game .btn--brand:not(:disabled)::after {
+  animation: go-shine 1100ms var(--ease-out) 250ms both;
+}
+@keyframes go-shine {
+  to {
+    transform: translate3d(110%, 0, 0);
+  }
+}
+.game .btn--brand:disabled {
+  opacity: 1;
+  color: var(--label-3);
+  text-shadow: none;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game .btn--brand::after {
+    animation: none !important;
+    display: none;
+  }
 }
 
 /* ---------- Ring of Fire: Kranz und Becher ----------

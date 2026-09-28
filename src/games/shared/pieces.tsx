@@ -40,6 +40,18 @@ export function BigCard({
   );
 }
 
+/**
+ * Platz in einer Rangliste als Prägeetikett. Die ersten drei in Gold, Silber
+ * und Bronze, der Rest als dunkles Band mit der Spielfarbe an der Kante.
+ */
+export function RankTag({ place }: { place: number }) {
+  return (
+    <div className={`result-row__rank ${place <= 3 ? `result-row__rank--${place}` : ''}`}>
+      {place}
+    </div>
+  );
+}
+
 export function PlayerChip({ player, note }: { player: GamePlayer; note?: ReactNode }) {
   return (
     <span className={`pchip ${player.online === false ? 'pchip--off' : ''}`}>

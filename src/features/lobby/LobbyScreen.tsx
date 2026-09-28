@@ -183,7 +183,7 @@ export function LobbyScreen() {
 
         {!online && fragenOffen && players.length > 1 && (
           <button
-            className="notice notice--orange row"
+            className="notice notice--mint row"
             style={{ textAlign: 'left', width: '100%' }}
             onClick={() => setPreloadOpen(true)}
           >

@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/schaetzfrage.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -8,6 +9,7 @@ export const meta: GameMeta = {
   tagline: 'Alle tippen eine Zahl. Am weitesten daneben trinkt.',
   icon: 'target',
   accent: 'var(--teal)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '10-20 Min',

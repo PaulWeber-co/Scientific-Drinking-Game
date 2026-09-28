@@ -1,173 +1,105 @@
-import { useEffect, useState } from 'react';
-import { haptic } from '../../lib/haptics';
-import { shuffle } from '../../lib/format';
-import { spicyDeck } from '../shared/prompts';
+import './meme.css';
+import { useEffect, useRef } from 'react';
 import { markTextsSeen } from '../../store/seen';
 import { GameFrame } from '../shared/GameFrame';
-import { GameOver } from '../shared/GameOver';
-import { baseFor, isOver, roundGoal } from '../shared/rounds';
-import { DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, WaitingFor } from '../shared/pieces';
-import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { BigCard } from '../shared/pieces';
+import type { GameDefinition, GameRuntime } from '../types';
+import { Editor } from './Editor';
+import { Finale } from './Finale';
+import {
+  allVoted,
+  createState,
+  currentAuthor,
+  MIN_SHOW_MS,
+  reduce,
+  SUBMIT_GRACE_MS,
+  topicText,
+  type State,
+} from './game';
 import { meta } from './meta';
+import { TimerBar } from './parts';
+import { Results } from './Results';
+import { Setup } from './Setup';
+import { memeUrl } from './templates';
+import { VoteView } from './Vote';
 
-interface Prompt {
-  text: string;
-  spicy?: boolean;
-}
+export type { State } from './game';
 
-const PROMPTS: Prompt[] = [
-  { text: 'Der Titel des Films über diese Party wäre …' },
-  { text: 'Die schlechteste Antwort auf „Wir müssen reden" ist …' },
-  { text: 'Was steht auf dem Grabstein von diesem Abend?' },
-  { text: 'Eine App, die niemand braucht, aber alle installieren würden: …' },
-  { text: 'Die ehrlichste Bewertung dieser Wohnung wäre …' },
-  { text: 'Der Werbeslogan für Montagmorgen: …' },
-  { text: 'Was denkt der Kühlschrank um 3 Uhr nachts?' },
-  { text: 'Ein Satz, den man nie zu seinem Chef sagen sollte: …' },
-  { text: 'Die peinlichste Art, eine Party zu verlassen: …' },
-  { text: 'Was flüstert dein Handy, wenn es auf 1 % fällt?' },
-  { text: 'Der neue Pflichtkurs an jeder Schule sollte heißen: …' },
-  { text: 'Eine Sportart, die es geben sollte: …' },
-  { text: 'Der schlechteste Name für eine Bar: …' },
-  { text: 'Was wäre die Superkraft, die niemand will?' },
-  { text: 'Die Autokorrektur macht aus „Ich liebe dich" …' },
-  { text: 'Die letzte Nachricht der Menschheit lautet: …' },
-  { text: 'Was ruft man beim Bungee-Sprung statt „Aaaah"?' },
-  { text: 'Ein Feiertag, den Deutschland dringend braucht: …' },
-  { text: 'Der ehrlichste Untertitel für dein LinkedIn-Profil: …' },
-  { text: 'Ein Getränk, das es nie geben sollte: …' },
-  { text: 'Die schlimmste Belohnung für gute Arbeit ist …' },
-  { text: 'Was steht in der Bedienungsanleitung für diese Runde?' },
-  { text: 'Ein Podcast, den nur eine Person hören würde, heißt: …' },
-  { text: 'Der Grund, warum Aliens uns bisher meiden: …' },
-  { text: 'Was sagt dein Wecker wirklich, wenn er klingelt?' },
-  { text: 'Die neue Geschmacksrichtung, die scheitern wird: …' },
-  { text: 'Ein Warnschild, das an jeder Haustür hängen sollte: …' },
-  { text: 'Die schlechteste Ausrede für Verspätung ist …' },
-  { text: 'Ein Buchtitel, der sich nie verkauft: …' },
-  { text: 'Was würde dein Haustier über dich posten?' },
-
-  // Spicy – nur im Stapel, wenn der Schalter an ist.
-  { text: 'Die schlimmste Nachricht nach einem ersten Date: …', spicy: true },
-  { text: 'Ein Anmachspruch, der garantiert nach hinten losgeht: …', spicy: true },
-  { text: 'Die rote Flagge, über die du trotzdem hinwegsiehst: …', spicy: true },
-  { text: 'Was in deiner Dating-Bio stünde, wenn du komplett ehrlich wärst: …', spicy: true },
-  { text: 'Der schlechteste Ort für ein erstes Date: …', spicy: true },
-  { text: 'Was denkt dein Ex gerade über dich?', spicy: true },
-  { text: 'Der Satz, nach dem jedes Date sofort vorbei ist: …', spicy: true },
-  { text: 'Die ehrlichste Antwort auf „Wie war ich?": …', spicy: true },
-];
-
-/** Fünf Prompts sind bei „mittel" eine runde Partie – danach wiederholen sich die Pointen. */
-const ROUND_BASE = baseFor('meme-battle');
-
-interface State {
-  phase: 'writing' | 'voting' | 'results' | 'over';
-  prompt: number;
-  deck: number[];
-  answers: Record<string, string>;
-  votes: Record<string, string>;
-  scores: Record<string, number>;
-  round: number;
-  /** Rundenzahl, nach der Schluss ist. `null` = ohne Ende. */
-  goal: number | null;
-  /** Reihenfolge, in der die Antworten gezeigt werden (anonym). */
-  reveal: string[];
-}
+/**
+ * Hängt der Host (Handy gesperrt, App im Hintergrund), springen die anderen
+ * nach dieser Zeit ein. Der Reducer nimmt nur die erste Meldung an – jede
+ * trägt die Kennung des Memes, für das sie gedacht war.
+ */
+const FALLBACK_MS = 4_000;
+/**
+ * Abstand zwischen zwei gleichen Meldungen. Ohne ihn schickte jedes Gerät
+ * bei schlafendem Host viermal pro Sekunde „weiter" in die Inbox – bis zur
+ * Host-Übernahme nach 45 s wären das pro Handy über hundert Einträge.
+ */
+const RESEND_MS = { host: 1_000, guest: 3_000 };
 
 export const memeBattle: GameDefinition<State> = {
   ...meta,
-
-  createState: (players) => {
-    const deck = spicyDeck(PROMPTS, 'meme-battle', (p) => p.text, players.length);
-    return {
-      phase: 'writing',
-      prompt: deck[0],
-      deck: deck.slice(1),
-      answers: {},
-      votes: {},
-      scores: Object.fromEntries(players.map((p) => [p.id, 0])),
-      round: 1,
-      goal: roundGoal(ROUND_BASE),
-      reveal: [],
-    };
-  },
-
-  reduce: (state, action, players) => {
-    const active = players.filter((p) => p.online !== false).map((p) => p.id);
-    switch (action.type) {
-      case 'submit': {
-        if (state.phase !== 'writing') return state;
-        const text = String(action.text ?? '').slice(0, 140).trim();
-        if (!text) return state;
-        const answers = { ...state.answers, [action.by]: text };
-        const done = active.every((id) => answers[id]);
-        return {
-          ...state,
-          answers,
-          phase: done ? 'voting' : 'writing',
-          reveal: done ? shuffle(Object.keys(answers)) : state.reveal,
-        };
-      }
-      case 'vote': {
-        if (state.phase !== 'voting') return state;
-        const target = String(action.target);
-        if (target === action.by) return state;
-        const votes = { ...state.votes, [action.by]: target };
-        const voters = active.filter((id) => state.answers[id]);
-        const done = voters.every((id) => votes[id]);
-        if (!done) return { ...state, votes };
-        const scores = { ...state.scores };
-        for (const t of Object.values(votes)) scores[t] = (scores[t] ?? 0) + 1;
-        return { ...state, votes, scores, phase: 'results' };
-      }
-      case 'next': {
-        // Nur aus der Auflösung heraus – wie in allen anderen Spielen. Vorher
-        // galt nur „nicht nach dem Ende": zwei fast gleichzeitige Taps auf
-        // „Weiter" zählten zwei Runden, und der zweite übersprang einen
-        // Prompt mitten in der Schreibphase.
-        if (state.phase !== 'results') return state;
-        const round = state.round + 1;
-        if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
-        const deck = state.deck.length ? state.deck : spicyDeck(PROMPTS, 'meme-battle', (p) => p.text, players.length);
-        return {
-          ...state,
-          phase: 'writing',
-          prompt: deck[0],
-          deck: deck.slice(1),
-          answers: {},
-          votes: {},
-          reveal: [],
-          round,
-        };
-      }
-      case 'restart':
-        return memeBattle.createState(players);
-      default:
-        return state;
-    }
-  },
-
+  createState: (players) => createState(players),
+  reduce,
   Component: MemeBattleGame,
 };
 
-function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
-  const [draft, setDraft] = useState('');
-  const send = (a: GameActionInput) => dispatch(a);
-  const byId = (id: string) => players.find((p) => p.id === id);
-  const prompt = PROMPTS[state.prompt]?.text ?? '';
-  // Gemerkt, damit die naechste Partie am selben Abend andere Prompts zieht.
+function MemeBattleGame(props: GameRuntime<State>) {
+  const { state, players, me, isHost, dispatch, online, quit } = props;
+  const topic = state ? topicText(state) : null;
+  const author = state ? currentAuthor(state) : null;
+
   useEffect(() => {
-    if (prompt) markTextsSeen([prompt]);
-  }, [prompt]);
+    if (topic) markTextsSeen([topic]);
+  }, [topic]);
+
+  // Alle Vorlagen der Runde schon beim Basteln laden – beim Abstimmen steht
+  // dann jedes Meme sofort da, statt erst aus dem Netz zu tröpfeln.
+  const roundTemplates = state ? [...new Set(Object.values(state.drawn))].sort().join(',') : '';
+  useEffect(() => {
+    for (const id of roundTemplates.split(',').filter(Boolean)) new Image().src = memeUrl(id);
+  }, [roundTemplates]);
+
+  const lastSent = useRef(0);
+  const resend = isHost ? RESEND_MS.host : RESEND_MS.guest;
+
+  // Die Bastel-Uhr: nach Ablauf plus Gnadenfrist startet der Host die Abstimmung.
+  useEffect(() => {
+    if (state?.phase !== 'create' || state.deadline === null) return;
+    const due = state.deadline + SUBMIT_GRACE_MS + (isHost ? 0 : FALLBACK_MS);
+    const t = setInterval(() => {
+      const now = Date.now();
+      if (now < due || now - lastSent.current < resend) return;
+      lastSent.current = now;
+      dispatch({ type: 'timeout' });
+    }, 300);
+    return () => clearInterval(t);
+  }, [state?.phase, state?.deadline, isHost, resend, dispatch]);
+
+  // Beim Abstimmen: weiter, sobald alle abgestimmt haben und das Meme ein paar
+  // Sekunden stand – spätestens, wenn die Uhr abläuft.
+  const everyone = state ? allVoted(state, players) : false;
+  useEffect(() => {
+    if (state?.phase !== 'vote' || !author || state.deadline === null) return;
+    const extra = isHost ? 0 : FALLBACK_MS;
+    const t = setInterval(() => {
+      const now = Date.now();
+      const settled = everyone && now >= state.shownAt + MIN_SHOW_MS + 600 + extra;
+      if (!settled && now < state.deadline! + extra) return;
+      if (now - lastSent.current < resend) return;
+      lastSent.current = now;
+      dispatch({ type: 'advance', target: author });
+    }, 250);
+    return () => clearInterval(t);
+  }, [state?.phase, state?.deadline, state?.shownAt, author, everyone, isHost, resend, dispatch]);
 
   if (!online) {
     return (
-      <GameFrame title={memeBattle.name} accent={memeBattle.accent} onQuit={quit}>
+      <GameFrame title={meta.name} accent={meta.accent} onQuit={quit}>
         <BigCard kicker="Eigene Handys nötig">
-          Meme Battle lebt davon, dass niemand die Antworten der anderen sieht. Startet dafür eine
-          Online-Lobby – dann schreibt jede Person auf ihrem eigenen Handy.
+          Beim Meme-Duell bastelt jede Person heimlich ihr eigenes Meme. Startet dafür eine
+          Online-Lobby – dann hat jede Person ihre Vorlage auf dem eigenen Handy.
         </BigCard>
         <button className="btn btn--brand btn--block btn--lg" onClick={quit}>
           Zurück
@@ -176,149 +108,93 @@ function MemeBattleGame({ state, players, me, dispatch, quit, online }: GameRunt
     );
   }
 
+  if (!state) return null;
+
+  // Ein Spielstand aus der Zeit vor dem Umbau (Meme Battle mit Prompts) hat
+  // keine Einstellungen. Läuft so eine Runde beim Update noch, lieber sauber
+  // neu anfangen als an einem fremden Zustand abzustürzen.
+  if (!state.options) {
+    return (
+      <GameFrame title={meta.name} accent={meta.accent} onQuit={quit}>
+        <BigCard kicker="Neue Version">
+          Das Meme-Duell wurde umgebaut. Diese Runde stammt noch aus der alten Fassung.
+        </BigCard>
+        <button
+          className="btn btn--brand btn--block btn--lg"
+          onClick={() => dispatch({ type: 'restart' })}
+        >
+          Neu starten
+        </button>
+      </GameFrame>
+    );
+  }
+
+  const roundLabel = state.goal ? `Runde ${state.round}/${state.goal}` : `Runde ${state.round}`;
+
+  if (state.phase === 'setup') {
+    return (
+      <GameFrame
+        title={meta.name}
+        accent={meta.accent}
+        subtitle="Die Runde wird eingerichtet"
+        onQuit={quit}
+      >
+        <Setup state={state} players={players} isHost={isHost} dispatch={dispatch} />
+      </GameFrame>
+    );
+  }
+
   if (state.phase === 'over') {
-    const rows = players.map((p) => ({ player: p, value: state.scores[p.id] ?? 0, unit: 'Stimme' }));
-    const values = rows.map((r) => r.value);
-    const best = values.length ? Math.max(...values) : 0;
-    const worst = values.length ? Math.min(...values) : 0;
-    const champions = rows.filter((r) => r.value === best);
-    const last = rows.filter((r) => r.value === worst).map((r) => r.player);
     return (
-      <GameFrame
-        title={memeBattle.name}
-        accent={memeBattle.accent}
-        subtitle="Ausgespielt"
-        onQuit={quit}
-      >
-        <GameOver
-          headline={
-            champions.length === 1
-              ? `${state.round - 1} Prompts. ${champions[0].player.name} hat die meisten Stimmen geholt.`
-              : `${state.round - 1} Prompts. An der Spitze bleibt es unentschieden.`
-          }
-          ranking={rows}
-          rankingTitle="Die meisten Stimmen"
-          finalCall={
-            // Nur wenn es wirklich ein Schlusslicht gibt – sonst trinkt die
-            // ganze Runde für ein Ergebnis, das keins ist.
-            best > worst
-              ? { players: last, baseSips: 4, label: 'am wenigsten Stimmen', source: 'meme-battle' }
-              : undefined
-          }
-          onAgain={() => send({ type: 'restart' })}
-          onQuit={quit}
-        />
+      <GameFrame title={meta.name} accent={meta.accent} subtitle="Ausgespielt" onQuit={quit}>
+        <Finale {...props} />
       </GameFrame>
     );
   }
 
-  if (state.phase === 'writing') {
-    const submitted = !!state.answers[me.id];
-    const waiting = players.filter((p) => p.online !== false && !state.answers[p.id]).map((p) => p.name);
+  if (state.phase === 'create') {
     return (
       <GameFrame
-        title={memeBattle.name}
-        accent={memeBattle.accent}
-        subtitle={state.goal ? `Runde ${state.round}/${state.goal}` : `Runde ${state.round}`}
+        title={meta.name}
+        accent={meta.accent}
+        subtitle={`${roundLabel} · Basteln`}
         onQuit={quit}
       >
-        <BigCard kicker="Prompt">{prompt}</BigCard>
-        {submitted ? (
-          <WaitingFor names={waiting} what="Warten auf" />
-        ) : (
-          <div className="stack-3">
-            <textarea
-              className="input"
-              placeholder="Deine Pointe …"
-              maxLength={140}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <div className="row-between">
-              <span className="t-caption">{draft.length}/140</span>
-              <button
-                className="btn btn--brand"
-                disabled={!draft.trim()}
-                onClick={() => {
-                  haptic('success');
-                  send({ type: 'submit', text: draft });
-                  setDraft('');
-                }}
-              >
-                Abschicken
-              </button>
-            </div>
-          </div>
+        {state.deadline !== null && (
+          <TimerBar
+            key={state.deadline}
+            until={state.deadline}
+            total={state.options.seconds * 1000}
+            // Die letzten Sekunden spürt nur, wer noch bastelt.
+            feel={!state.memes[me.id]}
+          />
         )}
+        <Editor state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
       </GameFrame>
     );
   }
 
-  if (state.phase === 'voting') {
-    const myVote = state.votes[me.id];
-    const waiting = players
-      .filter((p) => p.online !== false && state.answers[p.id] && !state.votes[p.id])
-      .map((p) => p.name);
+  if (state.phase === 'vote') {
     return (
-      <GameFrame title={memeBattle.name} accent={memeBattle.accent} subtitle="Abstimmen" onQuit={quit}>
-        <BigCard kicker="Prompt">{prompt}</BigCard>
-        <div className="stack-3">
-          {state.reveal.map((authorId) => (
-            <button
-              key={authorId}
-              className={`answer-card ${myVote === authorId ? 'answer-card--picked' : ''}`}
-              disabled={!!myVote || authorId === me.id}
-              onClick={() => {
-                haptic('select');
-                send({ type: 'vote', target: authorId });
-              }}
-            >
-              {state.answers[authorId]}
-              {authorId === me.id && <div className="t-caption">deine Antwort</div>}
-            </button>
-          ))}
-        </div>
-        {myVote && <WaitingFor names={waiting} what="Warten auf" />}
+      <GameFrame
+        title={meta.name}
+        accent={meta.accent}
+        subtitle={`${roundLabel} · Abstimmen`}
+        onQuit={quit}
+      >
+        <VoteView state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
       </GameFrame>
     );
   }
-
-  const counts: Record<string, number> = {};
-  for (const t of Object.values(state.votes)) counts[t] = (counts[t] ?? 0) + 1;
-  const ranked = state.reveal
-    .map((id) => ({ id, votes: counts[id] ?? 0 }))
-    .sort((a, b) => b.votes - a.votes);
-  const minVotes = ranked.length ? ranked[ranked.length - 1].votes : 0;
-  const losers = ranked.filter((r) => r.votes === minVotes).map((r) => byId(r.id)).filter(Boolean) as GamePlayer[];
 
   return (
-    <GameFrame title={memeBattle.name} accent={memeBattle.accent} subtitle="Ergebnis" onQuit={quit}>
-      <BigCard kicker="Prompt">{prompt}</BigCard>
-      <div className="stack-2">
-        {ranked.map((r, i) => (
-          <div key={r.id} className="result-row">
-            <div className="result-row__rank">{i + 1}</div>
-            <div className="grow">
-              <div className="t-headline">{state.answers[r.id]}</div>
-              <div className="t-caption">
-                {byId(r.id)?.name} · {r.votes}{' '}
-                {r.votes === 1 ? 'Stimme' : 'Stimmen'}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <DrinkCallList
-        players={losers}
-        // Gar keine Stimme ist mehr als nur wenige – das darf man spüren.
-        baseSips={minVotes === 0 ? 5 : 3}
-        source="meme-battle"
-        label={minVotes === 0 ? 'keine einzige Stimme' : 'wenig Stimmen'}
-        resetKey={state.round}
-      />
-      <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'next' })}>
-        {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächster Prompt'}
-      </button>
+    <GameFrame
+      title={meta.name}
+      accent={meta.accent}
+      subtitle={`${roundLabel} · Auflösung`}
+      onQuit={quit}
+    >
+      <Results state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
     </GameFrame>
   );
 }

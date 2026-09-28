@@ -49,9 +49,21 @@ export default defineConfig({
             handler: 'NetworkOnly',
           },
           {
+            // Die Meme-Vorlagen (public/memes, rund 3 MB) stehen ebenfalls
+            // nicht im Precache. Eigener Cache, damit knapp 200 Vorlagen nicht
+            // die Kachel-Motive verdrängen – wer eine Vorlage einmal hatte,
+            // hat sie danach auch ohne Netz.
+            urlPattern: ({ url }) => /\/memes\/[a-z0-9-]+\.webp$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'memes',
+              expiration: { maxEntries: 260, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+          {
             // Die Kachel-Motive liegen als eigene Dateien neben dem Paket und
-            // stehen bewusst NICHT im Precache: 17 Motive sind rund zwei
-            // Megabyte, die beim ersten Start niemand braucht. Wer ein Spiel
+            // stehen bewusst NICHT im Precache: 19 Motive sind knapp ein
+            // Megabyte, das beim ersten Start niemand braucht. Wer ein Spiel
             // einmal gesehen hat, sieht sein Bild danach auch ohne Netz.
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',

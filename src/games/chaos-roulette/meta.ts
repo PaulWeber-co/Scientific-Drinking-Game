@@ -1,4 +1,5 @@
 import type { GameMeta } from '../types';
+import image from '../../assets/games/chaos-roulette.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik und Komponente lädt die Registry erst beim Spielstart. */
@@ -7,7 +8,8 @@ export const meta: GameMeta = {
   name: 'Chaos-Roulette',
   tagline: 'Aufgaben für die Runde. Handys bleiben liegen.',
   icon: 'shuffle',
-  accent: 'var(--orange)',
+  accent: 'var(--pink)',
+  image,
   minPlayers: 2,
   maxPlayers: 16,
   duration: '10-30 Min',

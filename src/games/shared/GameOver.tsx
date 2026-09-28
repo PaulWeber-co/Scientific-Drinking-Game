@@ -3,7 +3,7 @@ import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
 import { haptic } from '../../lib/haptics';
 import { DrinkCall, DrinkCallList } from './DrinkCall';
-import { BigCard } from './pieces';
+import { BigCard, RankTag } from './pieces';
 import type { GamePlayer } from '../types';
 import { PhotoPrompt } from './PhotoPrompt';
 
@@ -80,7 +80,7 @@ export function GameOver({
           {rankingTitle && <div className="t-upper t-center">{rankingTitle}</div>}
           {ranked.map((r, i) => (
             <div key={r.player.id} className="result-row">
-              {!rankHighIsBad && <div className="result-row__rank">{i + 1}</div>}
+              {!rankHighIsBad && <RankTag place={i + 1} />}
               <Avatar name={r.player.name} color={r.player.color} photo={r.player.photo} size="sm" />
               <div className="grow">
                 <div className="t-headline">{r.player.name}</div>
