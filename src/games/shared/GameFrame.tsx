@@ -6,6 +6,7 @@ import { haptic } from '../../lib/haptics';
 import { keepScreenAwake } from '../../lib/wakelock';
 import { GameSettings, type HeatControl, type SpicyControl } from './GameSettings';
 import { GlassButton } from './GlassButton';
+import { useParty } from '../../features/party/PartyContext';
 
 interface Props {
   title: string;
@@ -32,6 +33,7 @@ export function GameFrame({
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
   const nav = useNavigate();
+  const { otherBuild } = useParty();
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
   // fällt beim Verlassen von selbst wieder weg.
   useEffect(() => keepScreenAwake(), []);
@@ -72,7 +74,15 @@ export function GameFrame({
           <GameSettings heat={heat} spicy={spicy} />
         </div>
       </header>
-      <div className="game__body">{children}</div>
+      <div className="game__body">
+        {otherBuild && (
+          <div className="notice notice--neutral" role="status">
+            Ihr spielt mit verschiedenen App-Versionen. Wenn etwas komisch aussieht:
+            alle auf die neueste Version aktualisieren.
+          </div>
+        )}
+        {children}
+      </div>
 
       {/* Der Knopf sitzt am Daumen und beendet die Runde für alle. Ohne
           Rückfrage kostet ein Fehlgriff der ganzen Gruppe das Spiel. */}

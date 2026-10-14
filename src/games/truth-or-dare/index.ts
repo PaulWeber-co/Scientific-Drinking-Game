@@ -48,7 +48,7 @@ const WAHRHEIT_SPICY: CardDef[] = [
   { text: 'Was war das Verrückteste, das du aus Verliebtheit gemacht hast?' },
   { text: 'Hast du dich schon mal in eine Freundin oder einen Freund verliebt?' },
   { text: 'Welche Eigenschaft an dir hat schon mal jemanden verjagt?' },
-  { text: 'Was ist dein Dealbreaker, über den niemand hinwegkommt?' },
+  { text: 'Was ist für dich eine Red Flag, über die du nicht hinwegkommst?' },
   { text: 'Wen aus deinem Umfeld hast du schon mal heimlich vermisst?' },
 ].map((c) => ({ ...c, mode: 'wahrheit', heat: 3, spicy: true }) as CardDef);
 

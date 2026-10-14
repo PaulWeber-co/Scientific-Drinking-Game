@@ -195,16 +195,7 @@ export function LobbyScreen() {
         )}
 
         <section className="stack-3">
-          <div className="row-between">
-            <h2 className="t-title2">
-              {players.length} Spieler
-            </h2>
-            {!online && (
-              <button className="btn btn--plain" onClick={() => setAddOpen(true)}>
-                + Hinzufügen
-              </button>
-            )}
-          </div>
+          <h2 className="t-title2">{players.length} Spieler</h2>
           <div className="list">
             {players.map((p) => (
               <div key={p.id} className="list__item">
@@ -236,42 +227,59 @@ export function LobbyScreen() {
                     </>
                   );
                   // Online gehört jedes Handy einer Person: Eintragen geht nur für sich.
+                  // Der Tipp auf den Namen trägt ein (so suchten es Tester),
+                  // der Glas-Knopf daneben zeigt, dass es geht.
                   return log ? (
-                    <button
-                      className="row grow pressable"
-                      style={{ textAlign: 'left' }}
-                      aria-label={`Getränk für ${p.name} eintragen`}
-                      onClick={() => {
-                        haptic('tap');
-                        setLogFor(p.id);
-                      }}
-                    >
-                      {inhalt}
-                    </button>
+                    <>
+                      <button
+                        className="row grow pressable"
+                        style={{ textAlign: 'left' }}
+                        onClick={() => {
+                          haptic('tap');
+                          setLogFor(p.id);
+                        }}
+                      >
+                        {inhalt}
+                      </button>
+                      <button
+                        className="btn btn--tinted btn--sm"
+                        // Immer am rechten Rand, auch hinter „Ändern": so
+                        // stehen die Glas-Knöpfe untereinander.
+                        style={{ order: 1 }}
+                        aria-label={`Getränk für ${p.name} eintragen`}
+                        onClick={() => {
+                          haptic('tap');
+                          setLogFor(p.id);
+                        }}
+                      >
+                        <Icon name="plus" size={14} />
+                        <Icon name={p.drinkIcon ?? 'tallGlass'} size={17} />
+                      </button>
+                    </>
                   ) : (
                     <span className="row grow">{inhalt}</span>
                   );
                 })()}
                 {p.local && (
-                  <>
-                    <button className="btn btn--plain" onClick={() => setEditing(p)}>
-                      Ändern
-                    </button>
-                    <button
-                      className="btn btn--plain"
-                      style={{ color: 'var(--red)' }}
-                      onClick={() => party.removeLocalPlayer(p.id)}
-                    >
-                      Entfernen
-                    </button>
-                  </>
+                  <button className="btn btn--plain" onClick={() => setEditing(p)}>
+                    Ändern
+                  </button>
                 )}
               </div>
             ))}
+            {/* Wie „Telefon hinzufügen" in iOS-Kontakte: das Anlegen ist die
+                letzte Zeile der Liste, nicht ein Knopf darunter, der wie
+                „Getränk eintragen" aussah (und umgekehrt). */}
+            {!online && (
+              <button
+                className="list__item pressable"
+                style={{ color: 'var(--blue)', width: '100%' }}
+                onClick={() => setAddOpen(true)}
+              >
+                <Icon name="plus" size={17} /> Mitspieler hinzufügen
+              </button>
+            )}
           </div>
-          <button className="btn btn--glass btn--block" onClick={() => setLogFor(party.me.id)}>
-            <Icon name="plus" size={17} /> Getränk eintragen
-          </button>
           {players.length < 2 && (
             <div className="notice notice--neutral">
               Allein geht noch nichts. Ab zwei Personen sind Spiele dabei, die volle Auswahl
@@ -386,6 +394,7 @@ function AddPlayerSheet({
   onClose: () => void;
   edit?: GamePlayer | null;
 }) {
+  const submit = useRef<(() => void) | null>(null);
   // Das Formular lebt nur, solange das Sheet offen ist: jeder neue Gast
   // startet mit frischen Standardwerten, nichts bleibt vom vorigen hängen.
   // Beim Bearbeiten sorgt der key dafür, dass die Felder zum richtigen Gast
@@ -395,13 +404,24 @@ function AddPlayerSheet({
       open={open}
       onClose={onClose}
       title={edit ? `${edit.name} ändern` : 'Mitspieler auf diesem Handy'}
+      // „Fertig" legt an – vorher schloss es nur und der Gast fehlte.
+      action={{ label: 'Fertig', onClick: () => submit.current?.() }}
     >
-      <GuestForm key={edit?.id ?? 'neu'} onDone={onClose} edit={edit ?? null} />
+      <GuestForm key={edit?.id ?? 'neu'} onDone={onClose} edit={edit ?? null} submitRef={submit} />
     </Sheet>
   );
 }
 
-function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | null }) {
+function GuestForm({
+  onDone,
+  edit,
+  submitRef,
+}: {
+  onDone: () => void;
+  edit?: GamePlayer | null;
+  /** Der Kopf des Sheets speichert: er ruft hierüber das Absenden auf. */
+  submitRef: { current: (() => void) | null };
+}) {
   const party = useParty();
   // Beim Bearbeiten stehen die gespeicherten Werte im Formular, sonst die
   // Standardwerte. Der Trink-Log des Gastes bleibt in beiden Fällen unberührt.
@@ -453,6 +473,7 @@ function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | n
     haptic('success');
     onDone();
   };
+  submitRef.current = submit;
 
   const who = name.trim() || 'Der Gast';
 
@@ -574,9 +595,18 @@ function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | n
           </div>
         </>
       )}
-      <button className="btn btn--brand btn--block btn--lg" onClick={submit}>
-        {edit ? 'Speichern' : 'Hinzufügen'}
-      </button>
+      {edit && (
+        <button
+          className="btn btn--glass btn--block"
+          style={{ color: 'var(--red)' }}
+          onClick={() => {
+            party.removeLocalPlayer(edit.id);
+            onDone();
+          }}
+        >
+          Entfernen
+        </button>
+      )}
     </div>
   );
 }

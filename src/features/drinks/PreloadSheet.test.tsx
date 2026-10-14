@@ -111,7 +111,7 @@ describe('Frage nach dem Vorglühen', () => {
     // springt sie bei jedem Rendern der Lobby erneut auf.
     const onClose = vi.fn();
     mount(onClose);
-    fireEvent.click(screen.getByRole('button', { name: 'Fertig' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     expect(usePlayer.getState().preloadAskedAt).toBe(JETZT);
     expect(onClose).toHaveBeenCalled();

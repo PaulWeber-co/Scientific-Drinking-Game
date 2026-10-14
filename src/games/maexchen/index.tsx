@@ -12,7 +12,9 @@ import { meta } from './meta';
 
 /**
  * Rangfolge von niedrig nach hoch: gemischte Würfe, dann Pasch, dann Mäxchen.
- * Der Index in diesem Array ist der Rang, mit dem gerechnet wird.
+ * Die App prüft keine Ansage mehr (User-Entscheid 2026-10-14: angesagt wird
+ * laut, wie mit echtem Becher). Die Rangfolge braucht sie nur noch, um den
+ * Wurf zu benennen und das Mäxchen zu erkennen.
  */
 const RANKS: string[] = [
   '31', '32', '41', '42', '43', '51', '52', '53', '54', '61', '62', '63', '64', '65',
@@ -20,20 +22,8 @@ const RANKS: string[] = [
   '21',
 ];
 
-/** Mäxchen (21) ist die hoechste Ansage – nichts schlaegt es. */
+/** Mäxchen (21) ist der höchste Wurf – nichts schlägt es. */
 const MAEXCHEN = RANKS.length - 1;
-
-/**
- * Was der naechste Spieler ansagen darf. Normalerweise alles ueber der
- * letzten Ansage. Steht Maexchen, bleibt nur Maexchen selbst: es laesst
- * sich nicht ueberbieten, aber wer glaubt, darf es erneut versuchen. Ohne
- * diese Ausnahme blieben null Knoepfe uebrig und die Runde waere tot.
- */
-export function announceOptions(previous: number | null): number[] {
-  if (previous === null) return RANKS.map((_, i) => i);
-  if (previous >= MAEXCHEN) return [MAEXCHEN];
-  return RANKS.map((_, i) => i).filter((i) => i > previous);
-}
 
 const rankLabel = (i: number) => {
   const r = RANKS[i];
@@ -41,32 +31,40 @@ const rankLabel = (i: number) => {
   return r[0] === r[1] ? `${r[0]}er Pasch` : `${r[0]}-${r[1]}`;
 };
 
-/** Kurzform für die Ansage-Knöpfe – "6-5" statt "6-5" plus Beiwerk. */
-const rankShort = (i: number) => {
-  const r = RANKS[i];
-  if (r === '21') return 'Mäxchen';
-  return `${r[0]}-${r[1]}`;
-};
-const isPair = (i: number) => RANKS[i][0] === RANKS[i][1] && RANKS[i] !== '21';
-
 function rankOf(dice: [number, number]): number {
   const [hi, lo] = [...dice].sort((a, b) => b - a);
   return RANKS.indexOf(`${hi}${lo}`);
 }
 
 interface State {
-  phase: 'roll' | 'announce' | 'decide' | 'reveal' | 'over';
+  /** `look`: der Würfelnde sieht in den Becher und sagt laut an. `decide`:
+   *  der Nächste glaubt oder deckt auf. `reveal`: aufgedeckt bzw. Mäxchen
+   *  geglaubt – ohne `loserId` wartet die Runde noch auf das Urteil. */
+  phase: 'roll' | 'look' | 'decide' | 'reveal' | 'over';
   order: string[];
   turnIndex: number;
   dice: [number, number] | null;
-  announced: number | null;
-  previous: number | null;
-  reveal: { dice: [number, number]; announced: number; truthful: boolean; loserId: string } | null;
+  reveal: {
+    /** `null`, wenn ein Mäxchen geglaubt wurde – der Becher bleibt zu. */
+    dice: [number, number] | null;
+    loserId: string | null;
+    /** Wer glaubt, muss überbieten. Ein Mäxchen lässt sich nicht
+     *  überbieten, also verliert, wer es glaubt (Wikipedia: die Runde endet,
+     *  wenn keine Steigerung mehr möglich ist). */
+    believedMaexchen: boolean;
+  } | null;
   round: number;
   /** Ziellinie in Runden. `null` heißt: ohne Ende. */
   goal: number | null;
   /** Wie oft wer eine Runde verloren hat – die einzige Wertung, die das Spiel führt. */
   losses: Record<string, number>;
+}
+
+/** Rund um Mäxchen wird doppelt getrunken – darin sind sich alle
+ *  Regelquellen einig. Die Engine deckelt die Härte ohnehin. */
+function sipsFor(reveal: NonNullable<State['reveal']>): number {
+  const maexchen = reveal.believedMaexchen || (reveal.dice !== null && rankOf(reveal.dice) === MAEXCHEN);
+  return maexchen ? 8 : 4;
 }
 
 export const maexchen: GameDefinition<State> = {
@@ -77,8 +75,6 @@ export const maexchen: GameDefinition<State> = {
     order: shuffle(players.map((p) => p.id)),
     turnIndex: 0,
     dice: null,
-    announced: null,
-    previous: null,
     reveal: null,
     round: 1,
     // Eine Runde ist ein Aufdecken. Acht davon reichen, damit jeder ein paar
@@ -89,62 +85,62 @@ export const maexchen: GameDefinition<State> = {
 
   reduce: (state, action, players) => {
     const n = Math.max(1, state.order.length);
+    const announcerId = state.order[state.turnIndex % n];
+    const deciderId = state.order[(state.turnIndex + 1) % n];
     switch (action.type) {
       case 'roll': {
         if (state.phase !== 'roll') return state;
         const dice: [number, number] = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
-        return { ...state, dice, phase: 'announce' };
+        return { ...state, dice, phase: 'look' };
       }
-      case 'announce': {
-        if (state.phase !== 'announce') return state;
-        const rank = Number(action.rank);
-        if (!Number.isInteger(rank) || rank < 0 || rank >= RANKS.length) return state;
-        // Gleicher Rang ist nur bei Maexchen erlaubt – siehe announceOptions.
-        if (state.previous !== null && rank <= state.previous && rank !== MAEXCHEN) return state;
-        return { ...state, announced: rank, phase: 'decide' };
+      case 'pass': {
+        // Angesagt wird laut; die App merkt sich nur, dass der Becher weiter ist.
+        if (state.phase !== 'look') return state;
+        return { ...state, phase: 'decide' };
       }
       case 'believe': {
-        if (state.phase !== 'decide' || state.announced === null) return state;
-        return {
-          ...state,
-          turnIndex: (state.turnIndex + 1) % n,
-          previous: state.announced,
-          announced: null,
-          dice: null,
-          phase: 'roll',
-        };
+        if (state.phase !== 'decide') return state;
+        return { ...state, turnIndex: (state.turnIndex + 1) % n, dice: null, phase: 'roll' };
       }
       case 'doubt': {
-        if (state.phase !== 'decide' || state.announced === null || !state.dice) return state;
-        const actual = rankOf(state.dice);
-        const truthful = actual >= state.announced;
-        const announcerId = state.order[state.turnIndex % n];
-        const doubterId = state.order[(state.turnIndex + 1) % n];
-        const loserId = truthful ? doubterId : announcerId;
+        if (state.phase !== 'decide' || !state.dice) return state;
         return {
           ...state,
           phase: 'reveal',
+          reveal: { dice: state.dice, loserId: null, believedMaexchen: false },
+        };
+      }
+      case 'believeMaexchen': {
+        if (state.phase !== 'decide') return state;
+        return {
+          ...state,
+          phase: 'reveal',
+          losses: { ...state.losses, [deciderId]: (state.losses[deciderId] ?? 0) + 1 },
+          reveal: { dice: null, loserId: deciderId, believedMaexchen: true },
+        };
+      }
+      case 'judge': {
+        // Nur einmal je Aufdecken: ein zweiter Tap würde die Niederlage
+        // doppelt zählen oder dem anderen zuschieben.
+        if (state.phase !== 'reveal' || !state.reveal || state.reveal.loserId) return state;
+        const loserId = action.lied ? announcerId : deciderId;
+        return {
+          ...state,
           losses: { ...state.losses, [loserId]: (state.losses[loserId] ?? 0) + 1 },
-          reveal: {
-            dice: state.dice,
-            announced: state.announced,
-            truthful,
-            loserId,
-          },
+          reveal: { ...state.reveal, loserId },
         };
       }
       case 'nextRound': {
-        // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
-        // „Neue Runde" würden sonst zwei Runden zählen, und eine Runde fiele
-        // still aus. Die Inbox wendet Aktionen nacheinander an.
-        if (state.phase !== 'reveal') return state;
+        // Nur aus einer entschiedenen Auflösung heraus: zwei fast gleichzeitige
+        // Taps auf „Neue Runde" würden sonst zwei Runden zählen, und eine Runde
+        // fiele still aus. Die Inbox wendet Aktionen nacheinander an.
+        if (state.phase !== 'reveal' || !state.reveal?.loserId) return state;
         const ids = new Set(players.map((p) => p.id));
         const order = [
           ...state.order.filter((id) => ids.has(id)),
           ...players.filter((p) => !state.order.includes(p.id)).map((p) => p.id),
         ];
-        const loser = state.reveal?.loserId;
-        const idx = loser ? Math.max(0, order.indexOf(loser)) : 0;
+        const idx = Math.max(0, order.indexOf(state.reveal.loserId));
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
         return {
@@ -153,8 +149,6 @@ export const maexchen: GameDefinition<State> = {
           turnIndex: idx,
           phase: 'roll',
           dice: null,
-          announced: null,
-          previous: null,
           reveal: null,
           round,
         };
@@ -187,7 +181,18 @@ function Die({ value }: { value: number }) {
   );
 }
 
-function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+/** Der höhere Würfel zuerst – in derselben Reihenfolge, wie der Wurf heißt („3-1"). */
+function Dice({ dice }: { dice: [number, number] }) {
+  const [hi, lo] = [...dice].sort((a, b) => b - a);
+  return (
+    <div className="row" style={{ justifyContent: 'center', gap: 14 }}>
+      <Die value={hi} />
+      <Die value={lo} />
+    </div>
+  );
+}
+
+function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   const send = (a: GameActionInput) => dispatch(a);
   const n = Math.max(1, state.order.length);
   const byId = (id: string) => players.find((p) => p.id === id);
@@ -195,11 +200,6 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
   const decider = byId(state.order[(state.turnIndex + 1) % n]) ?? players[0];
   const canAnnounce = !online || announcer?.id === me.id;
   const canDecide = !online || decider?.id === me.id;
-
-  const options = announceOptions(state.previous);
-  // Nur wer würfelt, sieht seinen Wurf – online sehen die anderen die
-  // Tabelle ohne Markierung.
-  const mine = canAnnounce && state.dice ? rankOf(state.dice) : null;
 
   if (state.phase === 'over') {
     const ranking = players.map((p) => ({
@@ -242,17 +242,13 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
     );
   }
 
+  const judged = state.reveal?.loserId ? byId(state.reveal.loserId) : null;
+
   return (
     <GameFrame
       title={maexchen.name}
       accent={maexchen.accent}
-      subtitle={
-        state.previous !== null
-          ? `Zu schlagen: ${rankLabel(state.previous)}`
-          : state.goal
-            ? `Runde ${Math.min(state.round, state.goal)}/${state.goal}`
-            : `Runde ${state.round}`
-      }
+      subtitle={state.goal ? `Runde ${Math.min(state.round, state.goal)}/${state.goal}` : `Runde ${state.round}`}
       onQuit={quit}
     >
       {state.phase !== 'reveal' && announcer && (
@@ -291,46 +287,40 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
         </>
       )}
 
-      {state.phase === 'announce' && (
+      {state.phase === 'look' && state.dice && (
         <>
-          <p className="t-sub t-center t-balance">
-            {!canAnnounce
-              ? `${announcer?.name} sagt gleich an.`
-              : mine !== null && state.previous !== null && mine <= state.previous && mine !== MAEXCHEN
-                ? 'Dein Wurf reicht nicht. Sag etwas Höheres an – oder lass es darauf ankommen.'
-                : state.previous === MAEXCHEN
-                  ? 'Mäxchen steht. Nur ein eigenes Mäxchen hält dagegen – sonst hilft nur aufdecken lassen.'
-                  : 'Sag jetzt an – die Wahrheit oder etwas Höheres. Halt das Handy verdeckt.'}
-          </p>
-          <p className="t-caption t-center">
-            Reihenfolge: gemischte Würfe, dann Pasch, dann Mäxchen.
-          </p>
-          {/* Die ganze Rangfolge, nicht nur das Erlaubte: Wer seinen Wurf in
-              der Tabelle sieht, sieht auch, wie weit er bluffen müsste. */}
-          <div className="rankgrid">
-            {RANKS.map((_, i) => (
-              <button
-                key={i}
-                className={`rankchip pressable ${RANKS[i] === '21' ? 'rankchip--max' : ''} ${
-                  isPair(i) ? 'rankchip--pair' : ''
-                } ${i === mine ? 'rankchip--mine' : ''}`}
-                disabled={!canAnnounce || !options.includes(i)}
-                onClick={() => {
-                  haptic('select');
-                  send({ type: 'announce', rank: i });
-                }}
-              >
-                {rankShort(i)}
-                {i === mine && <span className="rankchip__mine">dein Wurf</span>}
-              </button>
-            ))}
-          </div>
+          {canAnnounce ? (
+            <div className="stack-3">
+              {/* Der Blick unter den Becher: zwei echte Würfel statt einer
+                  markierten Zeile in einer Tabelle. */}
+              <Dice dice={state.dice} />
+              <div className="t-title2 t-center">{rankLabel(rankOf(state.dice))}</div>
+              <p className="t-sub t-center t-balance">
+                Sag laut an – die Wahrheit oder mehr. Dann gib das Handy verdeckt weiter.
+              </p>
+              <p className="t-caption t-center">
+                Reihenfolge: gemischte Würfe (3-1 bis 6-5), dann Pasch, dann Mäxchen (2-1).
+              </p>
+            </div>
+          ) : (
+            <BigCard kicker="Unter dem Becher">{announcer?.name} schaut nach und sagt gleich an.</BigCard>
+          )}
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            disabled={!canAnnounce}
+            onClick={() => {
+              haptic('select');
+              send({ type: 'pass' });
+            }}
+          >
+            Angesagt – weitergeben
+          </button>
         </>
       )}
 
-      {state.phase === 'decide' && state.announced !== null && (
+      {state.phase === 'decide' && (
         <>
-          <BigCard kicker={`${announcer?.name} sagt an`}>{rankLabel(state.announced)}</BigCard>
+          <BigCard kicker={`${announcer?.name} hat angesagt`}>Glaubst du es?</BigCard>
           <div className="choice choice--2">
             <button
               className="choice__btn pressable"
@@ -356,32 +346,79 @@ function MaexchenGame({ state, players, me, dispatch, quit, online }: GameRuntim
           <p className="t-caption t-center t-balance">
             Glauben heißt: du würfelst als Nächstes und musst höher ansagen.
           </p>
+          <button
+            className="btn btn--plain btn--block"
+            disabled={!canDecide}
+            onClick={() => {
+              haptic('warn');
+              send({ type: 'believeMaexchen' });
+            }}
+          >
+            Mäxchen geglaubt – ich trinke
+          </button>
         </>
       )}
 
       {state.phase === 'reveal' && state.reveal && (
         <div className="stack-3">
-          <div className="row" style={{ justifyContent: 'center', gap: 14 }}>
-            <Die value={state.reveal.dice[0]} />
-            <Die value={state.reveal.dice[1]} />
-          </div>
-          <BigCard tone={state.reveal.truthful ? 'default' : 'danger'} kicker={state.reveal.truthful ? 'Gesagt und gehalten' : 'Erwischt'}>
-            Angesagt war {rankLabel(state.reveal.announced)}, gewürfelt {rankLabel(rankOf(state.reveal.dice))}.
-          </BigCard>
-          {byId(state.reveal.loserId) && (
-            <DrinkCall
-              player={byId(state.reveal.loserId)!}
-              // Rund um Mäxchen wird doppelt getrunken – darin sind sich alle
-              // Regelquellen einig. Die Engine deckelt die Härte ohnehin.
-              baseSips={state.reveal.announced === MAEXCHEN ? 8 : 4}
-              source="maexchen"
-              label={state.reveal.truthful ? 'zu Unrecht gezweifelt' : 'beim Lügen erwischt'}
-              resetKey={state.round}
-            />
+          {state.reveal.dice ? (
+            <>
+              <Dice dice={state.reveal.dice} />
+              <BigCard kicker="Aufgedeckt">
+                Gewürfelt: {rankLabel(rankOf(state.reveal.dice))}.
+                {!judged && ` War die Ansage von ${announcer?.name} höher?`}
+              </BigCard>
+            </>
+          ) : (
+            <BigCard kicker="Mäxchen geglaubt">
+              Mäxchen lässt sich nicht überbieten. Der Becher bleibt zu.
+            </BigCard>
           )}
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'nextRound' })}>
-            {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Neue Runde'}
-          </button>
+          {!judged ? (
+            <div className="choice choice--2">
+              <button
+                className="choice__btn pressable"
+                style={{ ['--tint' as string]: 'var(--red)' }}
+                disabled={!canDecide && !isHost}
+                onClick={() => {
+                  haptic('heavy');
+                  send({ type: 'judge', lied: true });
+                }}
+              >
+                Gelogen – {announcer?.name} trinkt
+              </button>
+              <button
+                className="choice__btn pressable"
+                style={{ ['--tint' as string]: 'var(--green)' }}
+                disabled={!canDecide && !isHost}
+                onClick={() => {
+                  haptic('heavy');
+                  send({ type: 'judge', lied: false });
+                }}
+              >
+                Stimmt – {decider?.name} trinkt
+              </button>
+            </div>
+          ) : (
+            <>
+              <DrinkCall
+                player={judged}
+                baseSips={sipsFor(state.reveal)}
+                source="maexchen"
+                label={
+                  state.reveal.believedMaexchen
+                    ? 'Mäxchen geglaubt'
+                    : judged.id === announcer?.id
+                      ? 'beim Lügen erwischt'
+                      : 'zu Unrecht gezweifelt'
+                }
+                resetKey={state.round}
+              />
+              <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'nextRound' })}>
+                {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Neue Runde'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </GameFrame>

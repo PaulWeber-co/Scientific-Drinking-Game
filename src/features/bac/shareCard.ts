@@ -1,5 +1,6 @@
 import { formatBac, formatTime } from '../../lib/format';
 import type { NightSummary } from './nightSummary';
+import { shareFile } from '../../lib/shareFile';
 
 const W = 1080;
 const H = 1350;
@@ -118,20 +119,5 @@ export async function shareNightCard(summary: NightSummary, name: string): Promi
   const canvas = drawNightCard(summary, name);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return;
-  const file = new File([blob], 'pegel-abend.png', { type: 'image/png' });
-  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Der Abend in Zahlen' });
-      return;
-    } catch {
-      /* Abgebrochen – dann eben herunterladen. */
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'pegel-abend.png';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  await shareFile(blob, 'pegel-abend.png', 'Der Abend in Zahlen');
 }

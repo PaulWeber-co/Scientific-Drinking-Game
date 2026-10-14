@@ -1198,30 +1198,6 @@
   }
 }
 
-/* ---------- Mäxchen-Ansagen ---------- */
-.rankgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: var(--s-2);
-}
-.rankchip {
-  min-height: 44px;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.rankchip--max {
-  grid-column: 1 / -1;
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--accent);
-}
-.rankchip:disabled {
-  opacity: 0.4;
-}
-
 /* ---------- Reaktions-Duell ---------- */
 .duel {
   position: fixed;
@@ -1427,32 +1403,6 @@
   44% { transform: translate3d(-6px, 3px, 0) rotate(-0.4deg); }
   62% { transform: translate3d(5px, -2px, 0); }
   80% { transform: translate3d(-3px, 1px, 0); }
-}
-
-/* ---------- Mäxchen: Pasch hervorheben ---------- */
-.rankchip--pair {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
-/* Der eigene Wurf: steht nach den Varianten, damit er sie überschreibt. Auch
-   ausgegraut (Wurf reicht nicht) bleibt er lesbar. */
-.rankchip--mine {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.1;
-  background: var(--label);
-  border-color: var(--label);
-  color: var(--bg);
-}
-.rankchip--mine:disabled {
-  opacity: 0.75;
-}
-.rankchip__mine {
-  font-size: var(--t-caption);
-  font-weight: 600;
 }
 
 /* ---------- Tabu: Punktestand ---------- */

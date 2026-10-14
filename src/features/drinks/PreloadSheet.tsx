@@ -55,7 +55,12 @@ export function PreloadSheet({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <Sheet open={open} onClose={close} title="Schon was getrunken?">
+    <Sheet
+      open={open}
+      onClose={close}
+      title="Schon was getrunken?"
+      action={{ label: 'Eintragen', onClick: apply }}
+    >
       <div className="stack-3">
         <div className="t-caption">
           Damit die App weiß, wo du stehst. Grob reicht – {drink.name} ist eingestellt.
@@ -72,9 +77,6 @@ export function PreloadSheet({ open, onClose }: { open: boolean; onClose: () => 
         <div className="list-header t-upper">Seit wann</div>
         <Segmented value={ago} options={AGO} onChange={setAgo} />
 
-        <button className="btn btn--brand btn--block btn--lg" onClick={apply}>
-          Eintragen
-        </button>
         <button className="btn btn--glass btn--block" onClick={close}>
           Noch nichts getrunken
         </button>

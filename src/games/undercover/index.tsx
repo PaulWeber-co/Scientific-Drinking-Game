@@ -15,6 +15,7 @@ import {
   WaitingFor,
 } from '../shared/pieces';
 import { PeekCard } from '../shared/PeekCard';
+import { fromHost } from '../shared/host';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { WORDS } from './words';
 import { meta } from './meta';
@@ -169,7 +170,10 @@ export const undercover: GameDefinition<State> = {
         return { ...state, seen, phase: done ? 'describe' : 'reveal' };
       }
       case 'startVote': {
-        if (state.phase !== 'describe') return state;
+        // Weiterschalten ist online Sache des Hosts (User-Entscheid
+        // 2026-10-14): sonst drückt einer, und alle anderen verpassen den
+        // Moment – „es geht so schnell weiter".
+        if (state.phase !== 'describe' || !fromHost(action, players)) return state;
         return { ...state, phase: 'vote' };
       }
       case 'vote': {
@@ -188,7 +192,8 @@ export const undercover: GameDefinition<State> = {
         // gleichzeitig, danach trägt die Person mit dem Handy die Finger ein.
         // Jeder Finger wird eine Stimme unter erfundenem Schlüssel, damit
         // Auszählung und Gleichstand dieselbe Rechnung sind wie online.
-        if (state.phase !== 'vote') return state;
+        // Online zählt nur der Host – für die Handys, die keiner mehr anschaut.
+        if (state.phase !== 'vote' || !fromHost(action, players)) return state;
         const raw = (action.counts as Record<string, number>) ?? {};
         const votes: Record<string, string> = {};
         let n = 0;
@@ -213,7 +218,7 @@ export const undercover: GameDefinition<State> = {
         };
       }
       case 'continue': {
-        if (state.phase !== 'result') return state;
+        if (state.phase !== 'result' || !fromHost(action, players)) return state;
         // Die Reihenfolge wandert um eine Person weiter, damit nicht immer
         // dieselbe anfaengt – auch das eine belegte Beschwerde bei
         // vergleichbaren Apps.
@@ -223,7 +228,7 @@ export const undercover: GameDefinition<State> = {
       case 'newRound': {
         // Nur aus einer entschiedenen Runde heraus. Zwei fast gleichzeitige
         // Taps würden sonst zwei Runden zählen und eine still überspringen.
-        if (state.phase !== 'over') return state;
+        if (state.phase !== 'over' || !fromHost(action, players)) return state;
         const round = state.round + 1;
         // Die Ziellinie liegt zwischen zwei Runden – eine angefangene Runde
         // wird immer zu Ende gespielt.
@@ -244,11 +249,27 @@ export const undercover: GameDefinition<State> = {
   Component: UndercoverGame,
 };
 
-function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   // Erst wer die Karte einmal offen hatte, kann weitergeben. Bewusst lokal:
   // es geht niemanden sonst an.
   const [revealed, setRevealed] = useState(false);
   const send = (a: GameActionInput) => dispatch(a);
+  // Online kann der Host die Abstimmung mit Fingern auszählen, wenn Handys
+  // weggelegt sind und die Runde sonst auf sie wartet.
+  // Gilt nur für die Abstimmung, in der er gedrückt wurde.
+  const voteKey = `${state.round}-${state.eliminated.length}`;
+  const [fingerAt, setFingerAt] = useState<string | null>(null);
+  const finger = fingerAt === voteKey;
+  const hostName = players.find((p) => p.isHost)?.name ?? 'Der Host';
+  /** Online schaltet nur der Host weiter; die anderen sehen, auf wen es ankommt. */
+  const weiter = (label: ReactNode, action: GameActionInput) =>
+    !online || isHost ? (
+      <button className="btn btn--brand btn--block btn--lg" onClick={() => send(action)}>
+        {label}
+      </button>
+    ) : (
+      <div className="t-caption t-center">{hostName} schaltet weiter.</div>
+    );
   const byId = (id: string | null) => players.find((p) => p.id === id) ?? null;
   const alive = players.filter((p) => !state.eliminated.includes(p.id));
 
@@ -394,12 +415,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
           {erster?.id === me.id ? 'Du fängst' : `${erster?.name} fängt`} an, dann reihum im
           Kreis. Jeder sagt einen Satz zu seinem Wort – ohne es zu nennen.
         </BigCard>
-        <button
-          className="btn btn--brand btn--block btn--lg"
-          onClick={() => send({ type: 'startVote' })}
-        >
-          Alle dran gewesen – abstimmen
-        </button>
+        {weiter('Alle dran gewesen – abstimmen', { type: 'startVote' })}
       </GameFrame>
     );
   }
@@ -411,7 +427,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
     return (
       <GameFrame title={undercover.name} accent={undercover.accent} subtitle="Abstimmen" onQuit={quit}>
         <BigCard kicker="Wer ist Undercover?">Alle stimmen gleichzeitig ab.</BigCard>
-        {online ? (
+        {online && !finger ? (
           <>
             <VoteGrid
               players={alive}
@@ -423,6 +439,11 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
               disabled={state.eliminated.includes(me.id)}
             />
             {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+            {isHost && (
+              <button className="btn btn--glass btn--block" onClick={() => setFingerAt(voteKey)}>
+                Mit Fingern auszählen
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -512,16 +533,14 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
         />
       )}
 
-      <button
-        className="btn btn--brand btn--block btn--lg"
-        onClick={() => send({ type: state.phase === 'over' ? 'newRound' : 'continue' })}
-      >
-        {state.phase !== 'over'
+      {weiter(
+        state.phase !== 'over'
           ? 'Weiter beschreiben'
           : isOver(state.round + 1, state.goal)
             ? 'Endstand'
-            : 'Neue Runde'}
-      </button>
+            : 'Neue Runde',
+        { type: state.phase === 'over' ? 'newRound' : 'continue' },
+      )}
     </GameFrame>
   );
 }

@@ -119,7 +119,9 @@ export function LogDrinkSheet({
   };
 
   return (
-    <Sheet open={open} onClose={close} title="Getränk eintragen">
+    // Der Tipp aufs Getränk bucht – der Kopfknopf speichert nichts, also
+    // heißt er auch nicht „Fertig".
+    <Sheet open={open} onClose={close} title="Getränk eintragen" closeLabel="Abbrechen">
       <div className="stack-3">
         {players.length > 1 && (
           <div className="row wrap" style={{ gap: 6 }} role="group" aria-label="Wer">

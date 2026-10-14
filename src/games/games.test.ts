@@ -101,6 +101,9 @@ const VARIANTS: Record<string, unknown>[] = [
   { rank: 0, value: 1, index: 2, answer: 'innen' },
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
+  // Mäxchen: das Urteil nach dem Aufdecken. Ich hab noch nie: die eigene Antwort.
+  { lied: true, answer: 'yes' },
+  { lied: false, answer: 'no' },
   { outcome: 'refused' },
   // Nur der NAME. Eine gueltige Handkarte ist ein Index in einen gemischten
   // Stapel von 600 – den trifft kein fester Wert. Die echten Werte liefert
@@ -382,20 +385,19 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
     );
   });
 
-  it('bleibt bei Maexchen ansagbar, wenn Maexchen steht', () => {
-    // Der konkrete Fall, an dem die Runde vorher starb: Maexchen angesagt,
-    // der Naechste glaubt – dann hatte niemand mehr einen Knopf.
+  it('beendet die Runde, wenn jemand ein Maexchen glaubt', () => {
+    // Der konkrete Fall, an dem die Runde einmal starb: Maexchen angesagt,
+    // der Naechste glaubt – dann hatte niemand mehr einen Knopf. Heute
+    // verliert, wer es glaubt, und die naechste Runde ist erreichbar.
     const g = getLoadedGame('maexchen')!;
     const roster = players(3);
     let s = g.createState(roster);
     s = g.reduce(s, act('roll', 'p0'), roster);
-    s = g.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = g.reduce(s, act('believe', 'p1'), roster);
-    s = g.reduce(s, act('roll', 'p1'), roster);
-    expect(s.phase).toBe('announce');
-    expect(hasEscape(g, s, roster), 'maexchen nach angesagtem Maexchen').toBe(true);
-    const weiter = g.reduce(s, act('announce', 'p1', { rank: 20 }), roster);
-    expect(weiter.phase).toBe('decide');
+    s = g.reduce(s, act('pass', 'p0'), roster);
+    s = g.reduce(s, act('believeMaexchen', 'p1'), roster);
+    expect(s.phase).toBe('reveal');
+    expect(hasEscape(g, s, roster), 'maexchen nach geglaubtem Maexchen').toBe(true);
+    expect(g.reduce(s, act('nextRound', 'p0'), roster).phase).toBe('roll');
   });
 });
 
@@ -944,38 +946,23 @@ describe('Zwei Wahrheiten, eine Lüge', () => {
 describe('Mäxchen', () => {
   const game = getLoadedGame('maexchen')!;
 
-  it('lässt nur höhere Ansagen zu', () => {
-    const roster = players(3);
+  /** Bis zum Aufdecken: würfeln, weitergeben, aufdecken. */
+  function aufgedeckt(roster: ReturnType<typeof players>) {
     let s = game.createState(roster);
     s = game.reduce(s, act('roll'), roster);
-    s = game.reduce(s, act('announce', 'p0', { rank: 5 }), roster);
-    expect(s.announced).toBe(5);
-    s = game.reduce(s, act('believe'), roster);
-    s = game.reduce(s, act('roll'), roster);
-    const tooLow = game.reduce(s, act('announce', 'p1', { rank: 3 }), roster);
-    expect(tooLow.announced).toBeNull();
-    const ok = game.reduce(s, act('announce', 'p1', { rank: 9 }), roster);
-    expect(ok.announced).toBe(9);
-  });
+    s = game.reduce(s, act('pass'), roster);
+    return game.reduce(s, act('doubt'), roster);
+  }
 
-  it('bestraft beim Aufdecken die richtige Person', () => {
+  it('bestraft nach „Gelogen" den Ansager', () => {
     const roster = players(3);
-    let s = game.createState(roster);
-    // Gelogen: 1+1 ist der niedrigste Pasch, angesagt wird Mäxchen.
-    s = { ...s, phase: 'announce', dice: [1, 1] };
-    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = game.reduce(s, act('doubt'), roster);
-    expect(s.reveal?.truthful).toBe(false);
+    const s = game.reduce(aufgedeckt(roster), act('judge', 'p0', { lied: true }), roster);
     expect(s.reveal?.loserId).toBe(s.order[0]);
   });
 
-  it('bestraft den Zweifler, wenn die Ansage stimmte', () => {
+  it('bestraft nach „Stimmt" den Zweifler', () => {
     const roster = players(3);
-    let s = game.createState(roster);
-    s = { ...s, phase: 'announce', dice: [2, 1] }; // Mäxchen
-    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = game.reduce(s, act('doubt'), roster);
-    expect(s.reveal?.truthful).toBe(true);
+    const s = game.reduce(aufgedeckt(roster), act('judge', 'p0', { lied: false }), roster);
     expect(s.reveal?.loserId).toBe(s.order[1]);
   });
 });

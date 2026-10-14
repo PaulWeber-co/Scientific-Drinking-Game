@@ -1,4 +1,5 @@
 import { memeUrl, type MemeBox, type MemeTemplate } from './templates';
+import { shareFile } from '../../lib/shareFile';
 
 /**
  * Brennt ein Meme als Bild – nur, wenn jemand es speichern oder teilen will.
@@ -175,15 +176,5 @@ export async function renderMeme(
 
 /** Ins Teilen-Menü – oder, ohne eines (Desktop), als Download. */
 export async function shareMeme(blob: Blob, name: string): Promise<void> {
-  const file = new File([blob], `${name}.jpg`, { type: 'image/jpeg' });
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file] }).catch(() => {});
-    return;
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  await shareFile(blob, `${name}.jpg`);
 }

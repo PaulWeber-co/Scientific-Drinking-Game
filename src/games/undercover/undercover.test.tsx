@@ -326,3 +326,76 @@ describe('Undercover: Hinweise', () => {
     expect(bisVote(players, start).phase).toBe('vote');
   });
 });
+
+describe('Undercover online: der Host schaltet weiter', () => {
+  // Host markiert, sonst gilt jede Aktion als erlaubt (geteiltes Handy).
+  const online = (n: number): GamePlayer[] =>
+    runde(n).map((p) => ({ ...p, isHost: p.id === me.id }));
+
+  it('Gäste können weder abstimmen lassen noch weiterschalten', () => {
+    const players = online(4);
+    const beschreiben = alleGesehen(undercover.createState(players), players);
+    expect(tun(beschreiben, { type: 'startVote', by: 'p1' }, players)).toBe(beschreiben);
+    const vote = tun(beschreiben, { type: 'startVote' }, players);
+    expect(vote.phase).toBe('vote');
+
+    // Ein Unschuldiger fliegt: Ergebnis, dann „Weiter beschreiben".
+    const unschuldig = players.find((p) => p.id !== vote.undercoverId)!.id;
+    let s = vote;
+    for (const p of players) s = tun(s, { type: 'vote', target: unschuldig, by: p.id }, players);
+    expect(s.phase).toBe('result');
+    expect(tun(s, { type: 'continue', by: 'p1' }, players)).toBe(s);
+    expect(tun(s, { type: 'continue' }, players).phase).toBe('describe');
+  });
+
+  it('neue Runde nur vom Host', () => {
+    const players = online(4);
+    const over = { ...undercover.createState(players), phase: 'over' as const, winner: 'gruppe' as const };
+    expect(tun(over, { type: 'newRound', by: 'p2' }, players)).toBe(over);
+    expect(tun(over, { type: 'newRound' }, players).round).toBe(2);
+  });
+
+  it('der Host zählt mit Fingern aus, ein Gast nicht', () => {
+    const players = online(4);
+    const vote = bisVote(players);
+    const counts = { [vote.undercoverId]: 3, [players.find((p) => p.id !== vote.undercoverId)!.id]: 1 };
+    expect(tun(vote, { type: 'countVotes', counts, by: 'p1' }, players)).toBe(vote);
+    const out = tun(vote, { type: 'countVotes', counts }, players);
+    expect(out.lastOut).toBe(vote.undercoverId);
+  });
+
+  function mountOnline(state: State, who: GamePlayer, players: GamePlayer[]) {
+    const sent: GameActionInput[] = [];
+    const Game = undercover.Component;
+    render(
+      <PartyCtx.Provider value={{ me: who, players, mode: 'online' } as unknown as PartyValue}>
+        <Game
+          state={state}
+          players={players}
+          me={who}
+          isHost={who.isHost === true}
+          online
+          dispatch={(a: GameActionInput) => sent.push(a)}
+          quit={() => {}}
+        />
+      </PartyCtx.Provider>,
+    );
+    return sent;
+  }
+
+  it('Gast sieht statt des Knopfs, wer weiterschaltet', () => {
+    const players = online(4);
+    const beschreiben = alleGesehen(undercover.createState(players), players);
+    mountOnline(beschreiben, players[1], players);
+    expect(screen.queryByRole('button', { name: /abstimmen/ })).toBeNull();
+    expect(screen.getByText('Paul schaltet weiter.')).toBeTruthy();
+  });
+
+  it('Host schaltet online auf Fingerzählen um', () => {
+    const players = online(4);
+    const sent = mountOnline(bisVote(players), players[0], players);
+    fireEvent.click(screen.getByRole('button', { name: 'Mit Fingern auszählen' }));
+    expect(screen.getByText(/Auf drei zeigen alle/)).toBeTruthy();
+    expect(sent).toEqual([]);
+  });
+});
