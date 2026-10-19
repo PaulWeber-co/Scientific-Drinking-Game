@@ -23,6 +23,9 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
   const [name, setName] = useState('');
   const [volume, setVolume] = useState(300);
   const [abv, setAbv] = useState(12);
+  const validVolume = Number.isFinite(volume) && volume >= 10 && volume <= 1000;
+  const validAbv = Number.isFinite(abv) && abv > 0 && abv <= 60;
+  const canAdd = !!name.trim() && validVolume && validAbv;
 
   const choose = (d: DrinkDefinition) => {
     haptic('success');
@@ -101,27 +104,30 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
           <div className="list-header t-upper">Eigenes Getränk</div>
           {showForm ? (
             <div className="card stack-3">
-              <div className="field">
+              <label className="field">
                 <span className="field__label">Name</span>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Omas Eierlikör" />
-              </div>
+              </label>
               <div className="grid-2">
-                <div className="field">
+                <label className="field">
                   <span className="field__label">Volumen (ml)</span>
-                  <input className="input" type="number" inputMode="numeric" value={volume} onChange={(e) => setVolume(Number(e.target.value))} />
-                </div>
-                <div className="field">
+                  <input className="input" type="number" inputMode="numeric" min={10} max={1000} value={Number.isNaN(volume) ? '' : volume} onChange={(e) => setVolume(e.target.valueAsNumber)} />
+                </label>
+                <label className="field">
                   <span className="field__label">Vol.-%</span>
-                  <input className="input" type="number" inputMode="decimal" value={abv} onChange={(e) => setAbv(Number(e.target.value))} />
-                </div>
+                  <input className="input" type="number" inputMode="decimal" min={0} max={60} step="any" value={Number.isNaN(abv) ? '' : abv} onChange={(e) => setAbv(e.target.valueAsNumber)} />
+                </label>
               </div>
+              {!validVolume && <p className="t-caption">Bitte ein Volumen zwischen 10 und 1000 ml eingeben.</p>}
+              {!validAbv && <p className="t-caption">Bitte einen Alkoholgehalt über 0 und bis 60 Vol.-% eingeben.</p>}
               <div className="t-caption">
-                Ergibt {((volume * abv) / 100 * 0.789).toFixed(1).replace('.', ',')} g reinen Alkohol pro Glas.
+                Ergibt {validVolume && validAbv ? ((volume * abv) / 100 * 0.789).toFixed(1).replace('.', ',') : '–'} g reinen Alkohol pro Glas.
               </div>
               <button
                 className="btn btn--brand btn--block"
-                disabled={!name.trim() || abv <= 0}
+                disabled={!canAdd}
                 onClick={() => {
+                  if (!canAdd) return;
                   const d = createCustomDrink({ name, volumeMl: volume, abvPercent: abv });
                   addCustomDrink(d);
                   haptic('success');

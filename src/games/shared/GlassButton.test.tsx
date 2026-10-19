@@ -65,6 +65,13 @@ afterEach(() => {
 });
 
 describe('Glas-Knopf im Spielrahmen', () => {
+  it('bucht auch über native Tastatur- oder Screenreader-Aktivierung ohne Pointer', () => {
+    mount();
+    fireEvent.click(glas(), { detail: 0 });
+
+    expect(logSipsFor).toHaveBeenCalledExactlyOnceWith('p0', PILS, 'glas');
+  });
+
   it('nennt das eingestellte Getränk, damit der Tap keine Überraschung ist', () => {
     mount();
     expect(glas().getAttribute('aria-label')).toBe('Glas Bier (Pils) eintragen');
@@ -74,6 +81,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     expect(logSipsFor).toHaveBeenCalledTimes(1);
     expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas');
@@ -86,6 +94,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     expect(logSipsFor).toHaveBeenCalledWith('p0', sipsPerServing(findDrink('shot-tequila')), 'glas');
     expect(sipsPerServing(findDrink('shot-tequila'))).not.toBe(PILS);
@@ -95,6 +104,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }));
     expect(undoLastFor).toHaveBeenCalledWith('p0');
@@ -105,6 +115,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
     expect(screen.queryByRole('button', { name: 'Rückgängig' })).toBeTruthy();
 
     // Kurz davor steht es noch – sonst pruefte der Test nur, dass es
@@ -121,6 +132,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     // Der lange Druck darf NICHT zusätzlich ein Glas buchen.
     expect(logSipsFor).not.toHaveBeenCalled();
@@ -134,6 +146,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     fireEvent.click(screen.getByText('Halbes'));
     fireEvent.click(screen.getByRole('button', { name: '½ Glas Bier (Pils) eintragen' }));
@@ -153,6 +166,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     fireEvent.click(screen.getByRole('button', { name: '1× Tequila / Wodka eintragen' }));
 
@@ -178,10 +192,19 @@ describe('Glas-Knopf im Spielrahmen', () => {
 });
 
 describe('Glas-Knopf auf einem geteilten Handy', () => {
+  it('öffnet die Personenauswahl auch ohne Pointer-Ereignisse', () => {
+    mount({ mode: 'local', players: [me, mia] });
+    fireEvent.click(glas(), { detail: 0 });
+
+    expect(screen.getByText('Wer hat ausgetrunken?')).toBeInTheDocument();
+    expect(logSipsFor).not.toHaveBeenCalled();
+  });
+
   it('fragt zuerst, wer ausgetrunken hat', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     // Kein stiller Eintrag auf den Gerätebesitzer: bei Pass & Play sitzen
     // mehrere Leute an einem Handy.
@@ -193,15 +216,17 @@ describe('Glas-Knopf auf einem geteilten Handy', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
     fireEvent.click(screen.getByRole('button', { name: /Mia/ }));
 
-    expect(logSipsFor).toHaveBeenCalledWith('p1', PILS, 'glas');
+    expect(logSipsFor).toHaveBeenCalledWith('p1', sipsPerServing(findDrink('wine-red')), 'glas');
   });
 
   it('führt aus der Rückfrage zum vollen Eintragen – der zweite Weg neben dem langen Druck', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
     fireEvent.click(screen.getByRole('button', { name: /Anderes Getränk/ }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Mia' }));
@@ -220,6 +245,7 @@ describe('Glas-Knopf auf einem geteilten Handy', () => {
     mount({ mode: 'online', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas');
   });

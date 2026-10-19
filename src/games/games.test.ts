@@ -102,6 +102,8 @@ const VARIANTS: Record<string, unknown>[] = [
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
   { outcome: 'refused' },
+  // Card-engine actions carry the originating turn to reject delayed taps.
+  { turnKey: '1:0' },
   // Nur der NAME. Eine gueltige Handkarte ist ein Index in einen gemischten
   // Stapel von 600 – den trifft kein fester Wert. Die echten Werte liefert
   // `handVariants()` aus dem Zustand. `card` ist dasselbe fuer die einzelne

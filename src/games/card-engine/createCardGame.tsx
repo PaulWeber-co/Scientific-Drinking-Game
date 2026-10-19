@@ -98,6 +98,11 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     action: GameAction,
     players: GamePlayer[],
   ): CardGameState => {
+    // Several phones can finish the same card before the next state arrives.
+    // Actions from that view must not advance or resolve the following turn.
+    if (action.turnKey !== undefined && action.turnKey !== `${state.round}:${state.turnIndex}`) {
+      return state;
+    }
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
@@ -134,9 +139,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       case 'pickWinner':
         return { ...state, winner: String(action.winner) };
       case 'next': {
-        // Nur von einer liegenden oder aufgelösten Karte aus. Zwei fast
-        // gleichzeitige Taps würden sonst zwei Runden zählen und eine Karte
-        // überspringen; die Inbox wendet Aktionen nacheinander an.
+        // A self-declared card advances directly; other games resolve first.
+        // turnKey above also guards the direct card-to-card transition.
         if (state.phase !== 'card' && state.phase !== 'resolved') return state;
         const order = syncOrder(state.order, players);
         const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
@@ -197,7 +201,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
     const send = (action: GameActionInput) => {
       haptic('select');
-      dispatch(action);
+      dispatch({ ...action, turnKey: `${state.round}:${state.turnIndex}` });
     };
 
     return (

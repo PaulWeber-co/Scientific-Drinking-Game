@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { PartyProvider, useParty, type PartyValue } from './PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
+import { findDrink } from '../../engine/drinks';
+import { makeDrinkEvent } from '../../engine/sips';
 
 /**
  * Die Online-Lobby gegen eine Datenbank im Arbeitsspeicher.
@@ -155,6 +157,7 @@ beforeEach(() => {
     currentDrinkId: 'beer-pils',
     customDrinks: [],
     log: [],
+    carryoverLog: [],
   });
 });
 
@@ -162,7 +165,41 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('Online-Lobby: Restalkohol', () => {
+  it('meldet nach dem Abendabschluss weiterhin die bestehende Pegelzone', async () => {
+    usePlayer.setState({
+      log: [makeDrinkEvent(findDrink('beer-pils'), 40, 'glas', START - 3_600_000)],
+      nightStartedAt: START - 3_600_000,
+    });
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    await beitreten();
+    const before = getAt(`lobbies/ABCD/players/${ICH}/zone`);
+    expect(before).not.toBe('sober');
+
+    act(() => usePlayer.getState().endNight());
+    await act(async () => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(getAt(`lobbies/ABCD/players/${ICH}/zone`)).toBe(before);
+  });
+});
+
 describe('Online-Lobby: Host-Übernahme', () => {
+  it('zeigt eine bereits bestehende Verbindung nach dem Beitritt als online', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    await beitreten();
+    expect(api.connection).toBe('online');
+  });
+
+  it('bleibt nach Wechsel des Lobby-Codes ohne neuen Verbindungsaufbau online', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    lobby({ h2: spieler('h2', 'Host 2', START - 120_000, START) }, 'h2', 'EFGH');
+    await beitreten();
+    await act(async () => { await api.joinOnline('EFGH'); });
+    expect(api.code).toBe('EFGH');
+    expect(api.connection).toBe('online');
+  });
+
   it('übernimmt den Host, auch wenn die anderen laufend Herzschläge schicken', async () => {
     // Der Host ist seit einer Minute weg. Vorher setzte jedes neue Abbild der
     // Lobby – also jeder Herzschlag irgendeines Geräts – den 20-Sekunden-Takt

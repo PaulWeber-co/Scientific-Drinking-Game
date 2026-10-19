@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
-import { findDrink } from '../../engine/drinks';
-import { formatEntry, formatGlasses, tally } from '../../engine/tally';
+import { eventDrink, formatEntry, formatGlasses, tally } from '../../engine/tally';
 import { formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
@@ -126,7 +125,7 @@ function Entries({
   onRemove,
 }: {
   log: readonly DrinkEvent[];
-  customsFor: Parameters<typeof findDrink>[1];
+  customsFor: Parameters<typeof eventDrink>[1];
   onRemove: (id: string) => void;
 }) {
   return (
@@ -137,7 +136,7 @@ function Entries({
           <div key={e.id} className="list__item">
             <span className="grow">
               <span className="t-headline" style={{ display: 'block' }}>
-                {formatEntry(findDrink(e.drinkId, customsFor), e.sips, e.drinkName)}
+                {formatEntry(eventDrink(e, customsFor), e.sips, e.drinkName)}
               </span>
               <span className="t-caption">{formatTime(e.at)}</span>
             </span>

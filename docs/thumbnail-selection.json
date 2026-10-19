@@ -1,0 +1,136 @@
+{
+  "selectedOn": "2026-10-19",
+  "reference": {
+    "game": "kings-cup",
+    "asset": "src/assets/games/kings-cup.webp",
+    "sha256": "474f863025b7465554ebe58f646cf080ae282c7d24eae04feb7d461dbcd3380c"
+  },
+  "selections": [
+    {
+      "game": "truth-or-dare",
+      "name": "Wahrheit oder Pflicht",
+      "variant": "A",
+      "asset": "src/assets/games/truth-or-dare.webp",
+      "sha256": "7ee8f98d3a25f440aff31b0c9f40d24bb8c66dde403c2332c59bd0fd7fb34cfa"
+    },
+    {
+      "game": "never-have-i-ever",
+      "name": "Ich hab noch nie",
+      "variant": "A",
+      "asset": "src/assets/games/never-have-i-ever.webp",
+      "sha256": "7615f30b10cc145fbe0f45f16b8c7ad6579655f0a6a947fd70da76dc905429a2"
+    },
+    {
+      "game": "most-likely",
+      "name": "Wer aus der Runde",
+      "variant": "A",
+      "asset": "src/assets/games/most-likely.webp",
+      "sha256": "4dafcb45ebd538dcbc1491b27f2a4d7522e98728d05577e9400b05947422eeb5"
+    },
+    {
+      "game": "undercover",
+      "name": "Undercover",
+      "variant": "A",
+      "asset": "src/assets/games/undercover.webp",
+      "sha256": "6d7515d2fd1ca2537b7829b6dbf1a78572d14169c4469f478549ef8d3b0497b1"
+    },
+    {
+      "game": "chaos-roulette",
+      "name": "Chaos-Roulette",
+      "variant": "B",
+      "asset": "src/assets/games/chaos-roulette.webp",
+      "sha256": "f0b2c03c363e73048f6c59460cbb6af0d222677ab56d5ec6b7e79679db3267d1"
+    },
+    {
+      "game": "wortbombe",
+      "name": "Wortbombe",
+      "variant": "A",
+      "asset": "src/assets/games/wortbombe.webp",
+      "sha256": "02d4ef4bd6779657a163d12adf2f31594d5c28a37782fbc02c2e4a644c0bb97e"
+    },
+    {
+      "game": "duell",
+      "name": "Reaktions-Duell",
+      "variant": "B",
+      "asset": "src/assets/games/duell.webp",
+      "sha256": "f562b211504c800aae315677ae107d47f3fb2192f5429e1d4dd553378fd0c44f"
+    },
+    {
+      "game": "tabu",
+      "name": "Tabu Rush",
+      "variant": "A",
+      "asset": "src/assets/games/tabu.webp",
+      "sha256": "70d631738cbb76828169e68b7421976737d31aa36f34deb1f9363755d0c1ebab"
+    },
+    {
+      "game": "meme-battle",
+      "name": "Meme-Duell",
+      "variant": "B",
+      "asset": "src/assets/games/meme-battle.webp",
+      "sha256": "f076420402f57d37048c4d8bb570f3d9a657d6f2eb828b9e81c65a40628d1b3d"
+    },
+    {
+      "game": "lueckenfueller",
+      "name": "Lückenfüller",
+      "variant": "B",
+      "asset": "src/assets/games/lueckenfueller.webp",
+      "sha256": "77954308fd4692611c70bb41e7d0e3f51fd0f967f4013888eed722b088f8c8bf"
+    },
+    {
+      "game": "schaetzfrage",
+      "name": "Schätzfrage",
+      "variant": "A",
+      "asset": "src/assets/games/schaetzfrage.webp",
+      "sha256": "ab65b92191ee227d752ff7e94c162dfb762ba43d1de7bfe1a0c1e7c045cdd175"
+    },
+    {
+      "game": "zwei-wahrheiten",
+      "name": "Zwei Wahrheiten, eine Lüge",
+      "variant": "B",
+      "asset": "src/assets/games/zwei-wahrheiten.webp",
+      "sha256": "91466308ac66d7ba6650f3bfb43ac8539cbff649867340259fe4719143fd18bd"
+    },
+    {
+      "game": "top-ten",
+      "name": "Top Ten",
+      "variant": "B",
+      "asset": "src/assets/games/top-ten.webp",
+      "sha256": "f41c76b37214eac8e61b1946b4e930d6bab5a2c6d5c4f5e2878f52da3214ac00"
+    },
+    {
+      "game": "maexchen",
+      "name": "Mäxchen",
+      "variant": "A",
+      "asset": "src/assets/games/maexchen.webp",
+      "sha256": "b74094fc8f34c809452ed714d828318e9bd7db78170b6a3631f2b4347e563e56"
+    },
+    {
+      "game": "busfahrer",
+      "name": "Busfahrer",
+      "variant": "B",
+      "asset": "src/assets/games/busfahrer.webp",
+      "sha256": "04a48372a85b23265da860fcf16703061f9e574f29fbae8cba841a5828fd0c87"
+    },
+    {
+      "game": "kategorien",
+      "name": "Kategorien",
+      "variant": "B",
+      "asset": "src/assets/games/kategorien.webp",
+      "sha256": "c1d68bb5cae13d6cb66dc7f00992b727f235e59cf856f7e5220345d36d7415c5"
+    },
+    {
+      "game": "erste-zeile",
+      "name": "Erste Zeile",
+      "variant": "B",
+      "asset": "src/assets/games/erste-zeile.webp",
+      "sha256": "886d088f9a88305ef7a2a8caebddc3c971df5f9c943a091f72ad27836431b8dd"
+    },
+    {
+      "game": "stichmagie",
+      "name": "Stichmagie",
+      "variant": "A",
+      "asset": "src/assets/games/stichmagie.webp",
+      "sha256": "f96618d14f9664e5d1b629ded8faf7d49921daf3b6ff434290467d8826b3b050"
+    }
+  ]
+}

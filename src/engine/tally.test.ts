@@ -4,6 +4,7 @@ import { makeDrinkEvent } from './sips';
 import {
   formatAmount,
   formatEntry,
+  eventDrink,
   formatGlasses,
   glassesOf,
   sipsForGlasses,
@@ -75,6 +76,21 @@ describe('formatEntry', () => {
 });
 
 describe('tally', () => {
+  it('behält Shot-Einheit und Glasgröße nach Löschen eines eigenen Getränks', () => {
+    const custom = { ...shot, id: 'custom-hausshot', name: 'Hausshot', defaultVolumeMl: 40, sipSizeMl: 40 };
+    const event = makeDrinkEvent(custom, 2);
+    // Das Getränk ist aus dem Katalog entfernt; nur das Ereignis kennt es noch.
+    expect(formatEntry(eventDrink(event), event.sips)).toBe('2× Hausshot');
+    expect(tally([event]).glasses).toBe(2);
+    expect(tally([event]).grams).toBe(event.alcoholGrams);
+  });
+
+  it('liest bestehende Einträge ohne Snapshot weiter aus dem Katalog', () => {
+    const { drink: _drink, ...oldEvent } = makeDrinkEvent(pils, PILS);
+    expect(tally([oldEvent]).glasses).toBe(1);
+    expect(formatEntry(eventDrink(oldEvent), oldEvent.sips)).toBe('1 Glas Bier (Pils)');
+  });
+
   it('summiert je Getränk und sortiert das Schwerste nach vorn', () => {
     const log = [
       makeDrinkEvent(pils, 3, 'kings-cup'),

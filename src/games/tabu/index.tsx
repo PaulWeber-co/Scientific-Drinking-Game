@@ -34,6 +34,14 @@ interface State {
   goal: number | null;
 }
 
+function finishRound(state: State): State {
+  return {
+    ...state,
+    phase: 'result',
+    score: { ...state.score, [state.turn]: state.score[state.turn] + state.hits },
+  };
+}
+
 export const tabu: GameDefinition<State> = {
   ...meta,
 
@@ -86,6 +94,9 @@ export const tabu: GameDefinition<State> = {
       case 'skip':
       case 'foul': {
         if (state.phase !== 'playing') return state;
+        // The timer polls every 250 ms; a button pressed after zero must not
+        // add another hit or penalty before that timer action arrives.
+        if ((action.at ?? Date.now()) >= state.endsAt) return finishRound(state);
         const { word, deck } = draw(state.deck);
         return {
           ...state,
@@ -97,11 +108,7 @@ export const tabu: GameDefinition<State> = {
       }
       case 'timeUp': {
         if (state.phase !== 'playing') return state;
-        return {
-          ...state,
-          phase: 'result',
-          score: { ...state.score, [state.turn]: state.score[state.turn] + state.hits },
-        };
+        return finishRound(state);
       }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf

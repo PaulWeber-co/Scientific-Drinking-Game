@@ -338,6 +338,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
 
   if (state.phase === 'guess') {
     const out = byId(state.lastOut);
+    const canGuess = !online || me.id === state.undercoverId;
     return (
       <GameFrame
         title={undercover.name}
@@ -348,13 +349,17 @@ function UndercoverGame({ state, players, me, dispatch, quit, online }: GameRunt
         <BigCard kicker="Erwischt">
           {out?.name} war Undercover. Ein Rateversuch bleibt: Welches Wort hatte die Gruppe?
         </BigCard>
-        <Choice
-          options={state.guessOptions.map((w) => ({ id: w, label: w }))}
-          onPick={(word) => {
-            haptic('heavy');
-            send({ type: 'guess', word });
-          }}
-        />
+        {canGuess ? (
+          <Choice
+            options={state.guessOptions.map((w) => ({ id: w, label: w }))}
+            onPick={(word) => {
+              haptic('heavy');
+              send({ type: 'guess', word });
+            }}
+          />
+        ) : (
+          <WaitingFor names={out ? [out.name] : []} what="Warten auf" />
+        )}
         <p className="t-sub t-center t-balance">
           Trifft {out?.name} das Wort, dreht die Runde noch.
         </p>

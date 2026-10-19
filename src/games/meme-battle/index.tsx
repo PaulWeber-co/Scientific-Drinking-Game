@@ -56,7 +56,7 @@ function MemeBattleGame(props: GameRuntime<State>) {
 
   // Alle Vorlagen der Runde schon beim Basteln laden – beim Abstimmen steht
   // dann jedes Meme sofort da, statt erst aus dem Netz zu tröpfeln.
-  const roundTemplates = state ? [...new Set(Object.values(state.drawn))].sort().join(',') : '';
+  const roundTemplates = [...new Set(Object.values(state?.drawn ?? {}))].sort().join(',');
   useEffect(() => {
     for (const id of roundTemplates.split(',').filter(Boolean)) new Image().src = memeUrl(id);
   }, [roundTemplates]);

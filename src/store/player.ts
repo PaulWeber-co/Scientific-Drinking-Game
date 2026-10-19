@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DEFAULT_TARGET_BAC } from '../engine/constants';
+import { useMemo } from 'react';
+import { BETA_CONSERVATIVE, DEFAULT_TARGET_BAC } from '../engine/constants';
 import { findDrink } from '../engine/drinks';
-import { nightPeak, soberAt } from '../engine/bac';
+import { estimateBac, nightPeak, soberAt } from '../engine/bac';
 import { makeDrinkEvent } from '../engine/sips';
 import { useNights } from './nights';
 import { useFilm } from './film';
@@ -17,6 +18,8 @@ interface PlayerState {
   currentDrinkId: string;
   customDrinks: DrinkDefinition[];
   log: DrinkEvent[];
+  /** Abgeschlossene Abende, deren Alkohol noch nicht sicher abgebaut ist. */
+  carryoverLog: DrinkEvent[];
   /** Beginn des aktuellen Abends – danach wird das Log automatisch geleert. */
   nightStartedAt: number | null;
   /** Gläser Wasser heute Abend – zählt nur, wer will. */
@@ -44,12 +47,16 @@ interface PlayerState {
   markPreloadAsked: () => void;
   /** Startet den Abend ohne Trink-Ereignis – etwa wenn ein Spiel losgeht. */
   beginNight: () => void;
+  /** Entfernt abgebaute Restalkohol-Historie nach dem Laden. */
+  pruneCarryover: () => void;
   endNight: () => void;
   resetAll: () => void;
 }
 
 /** Ein Abend ist nach 14 Stunden vorbei – danach startet das Log frisch. */
 const NIGHT_MS = 14 * 60 * 60 * 1000;
+/** Das Vorglühen kann bis vier Stunden zurück eingetragen werden. */
+const BACKDATE_WINDOW_MS = 4 * 60 * 60 * 1000;
 
 export const usePlayer = create<PlayerState>()(
   persist(
@@ -59,6 +66,7 @@ export const usePlayer = create<PlayerState>()(
       currentDrinkId: 'beer-pils',
       customDrinks: [],
       log: [],
+      carryoverLog: [],
       nightStartedAt: null,
       waterCount: 0,
       preloadAskedAt: null,
@@ -86,6 +94,11 @@ export const usePlayer = create<PlayerState>()(
       logEvent: (e) =>
         set((s) => ({
           log: [...s.log, e],
+          // Vor einem neuen Abend darf alte Historie erst weg, wenn sie
+          // auch zum Zeitpunkt eines möglichen Nachtrags schon abgebaut war.
+          carryoverLog: s.log.length
+            ? s.carryoverLog
+            : remainingHistory(s.carryoverLog, s.profile, Math.min(Date.now(), e.at)),
           nightStartedAt: s.nightStartedAt ?? e.at,
         })),
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
@@ -93,17 +106,31 @@ export const usePlayer = create<PlayerState>()(
       addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
       markPreloadAsked: () => set({ preloadAskedAt: Date.now() }),
       beginNight: () =>
-        set((s) => (s.nightStartedAt ? s : { nightStartedAt: Date.now() })),
+        set((s) =>
+          s.nightStartedAt
+            ? s
+            : {
+                nightStartedAt: Date.now(),
+                carryoverLog: remainingHistory(s.carryoverLog, s.profile),
+              },
+        ),
+      pruneCarryover: () =>
+        set((s) =>
+          s.log.length
+            ? s
+            : { carryoverLog: remainingHistory(s.carryoverLog, s.profile) },
+        ),
 
       // Der Abend wird archiviert, nicht weggeworfen. Diese eine Stelle
       // deckt ALLE drei Wege ab, auf denen ein Abend endet: der Knopf im
       // Rückblick, die 14-Stunden-Automatik unten, und `resetAll`.
       endNight: () => {
         const s = get();
+        const events = bacEvents(s);
         if (s.nightStartedAt) {
           const at = Date.now();
           const peak = s.profile
-            ? nightPeak(s.log, s.profile, at)
+            ? nightPeak(events, s.profile, at, s.nightStartedAt)
             : { peakBac: 0, peakAt: s.nightStartedAt };
           const nightId = useNights.getState().archive({
             startedAt: s.nightStartedAt,
@@ -111,14 +138,22 @@ export const usePlayer = create<PlayerState>()(
             log: s.log,
             waterCount: s.waterCount,
             ...peak,
-            soberAt: s.profile ? soberAt(s.log, s.profile, at) : at,
+            soberAt: s.profile ? soberAt(events, s.profile, at) : at,
           });
           // Die Bilder des Abends bekommen jetzt ihre Zuordnung, und der
           // nächste Abend fängt mit frischem Film an.
           useFilm.getState().assignNight(nightId);
           useFilm.getState().resetRoll();
         }
-        set({ log: [], nightStartedAt: null, waterCount: 0, preloadAskedAt: null });
+        // Archivieren beendet den Abend, nicht den Alkoholabbau. Anzeige,
+        // Fahrtprognose und nächste Spielansage müssen weiter damit rechnen.
+        set({
+          carryoverLog: remainingHistory(events, s.profile),
+          log: [],
+          nightStartedAt: null,
+          waterCount: 0,
+          preloadAskedAt: null,
+        });
       },
       resetAll: () => {
         useNights.getState().clearAll();
@@ -131,6 +166,7 @@ export const usePlayer = create<PlayerState>()(
           profile: null,
           onboarded: false,
           log: [],
+          carryoverLog: [],
           nightStartedAt: null,
           waterCount: 0,
           preloadAskedAt: null,
@@ -141,9 +177,12 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'sdg.player',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => migratePlayer(persisted, version) as PlayerState,
-      onRehydrateStorage: () => (state) => closeStaleNight(state),
+      onRehydrateStorage: () => (state) => {
+        closeStaleNight(state);
+        state?.pruneCarryover();
+      },
     },
   ),
 );
@@ -158,6 +197,7 @@ export function migratePlayer(persisted: unknown, version: number): unknown {
   const state = persisted as {
     profile?: (Profile & { emoji?: string }) | null;
     customDrinks?: DrinkDefinition[];
+    carryoverLog?: DrinkEvent[];
   };
   // v1 speicherte ein Emoji als Avatar. Ab v2 sind es Initialen auf einer
   // Farbe – bestehende Profile bekommen eine aus dem Namen abgeleitete.
@@ -177,7 +217,34 @@ export function migratePlayer(persisted: unknown, version: number): unknown {
       d.sipIsUnit && d.sipSizeMl < d.defaultVolumeMl ? { ...d, sipSizeMl: d.defaultVolumeMl } : d,
     );
   }
+  if (version < 5 && state) state.carryoverLog = [];
   return state;
+}
+
+/** Einzige Ereignisquelle für Pegel, Fahrtprognose und persönliche Dosierung. */
+export function bacEvents(state: Pick<PlayerState, 'log' | 'carryoverLog'>): DrinkEvent[] {
+  return state.carryoverLog.length ? [...state.carryoverLog, ...state.log] : state.log;
+}
+
+export function useBacEvents(): DrinkEvent[] {
+  const log = usePlayer((s) => s.log);
+  const carryoverLog = usePlayer((s) => s.carryoverLog);
+  return useMemo(() => bacEvents({ log, carryoverLog }), [log, carryoverLog]);
+}
+
+/**
+ * Erst nach konservativ berechnetem Abbau verwerfen. Die vier Stunden für
+ * mögliche Nachträge bleiben erhalten: ein heute nüchterner Rest kann zum
+ * rückdatierten Trinkzeitpunkt noch relevant gewesen sein.
+ */
+export function remainingHistory(events: DrinkEvent[], profile: Profile | null, at = Date.now()): DrinkEvent[] {
+  const earliestEntry = at - BACKDATE_WINDOW_MS;
+  if (!events.length || !profile || events.some((e) => e.at > earliestEntry)) return events;
+  const estimate = estimateBac(events, profile, earliestEntry, {
+    beta: BETA_CONSERVATIVE,
+    resorptionDeficit: 0,
+  });
+  return estimate.effective > 0.001 ? events : [];
 }
 
 /**

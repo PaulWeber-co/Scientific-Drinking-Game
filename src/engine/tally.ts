@@ -48,6 +48,11 @@ export function formatEntry(drink: DrinkDefinition, sips: number, name = drink.n
   return `${formatAmount(drink, sips)} ${name}`;
 }
 
+/** Historische Mengen hängen vom damaligen Glas ab, nicht vom heutigen Katalog. */
+export function eventDrink(event: DrinkEvent, customs: DrinkDefinition[] = []): DrinkDefinition {
+  return event.drink ?? findDrink(event.drinkId, customs);
+}
+
 export interface TallyRow {
   drink: DrinkDefinition;
   /** Name aus dem Eintrag – auch dann richtig, wenn das Getränk hier unbekannt ist. */
@@ -77,7 +82,7 @@ export function tally(log: readonly DrinkEvent[], customs: DrinkDefinition[] = [
       row.glasses = glassesOf(row.drink, row.sips);
       continue;
     }
-    const drink = findDrink(e.drinkId, customs);
+    const drink = eventDrink(e, customs);
     map.set(e.drinkId, {
       drink,
       name: e.drinkName,
