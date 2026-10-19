@@ -26,11 +26,21 @@ export function Sheet({
   open,
   onClose,
   title,
+  action,
+  closeLabel,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title?: ReactNode;
+  /**
+   * Ein Formular, das etwas anlegt: rechts oben steht dann die Aktion, links
+   * „Abbrechen" – wie bei „Neuer Kontakt" in iOS. Ohne `action` schließt der
+   * Knopf rechts nur.
+   */
+  action?: { label: string; onClick: () => void };
+  /** Beschriftung des Schließen-Knopfs. Standard: „Abbrechen" mit Aktion, sonst „Fertig". */
+  closeLabel?: string;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -64,13 +74,38 @@ export function Sheet({
         aria-label={typeof title === 'string' ? title : undefined}
       >
         <div className="sheet__grabber" />
-        {title && (
-          <div className="row-between" style={{ marginBottom: 12 }}>
-            <div className="t-title2">{title}</div>
-            <button className="btn btn--plain" onClick={schliessen}>
-              Fertig
-            </button>
-          </div>
+        {action ? (
+          <>
+            <div className="row-between" style={{ marginBottom: 4 }}>
+              <button className="btn btn--plain" onClick={schliessen}>
+                {closeLabel ?? 'Abbrechen'}
+              </button>
+              <button
+                className="btn btn--plain"
+                style={{ fontWeight: 700 }}
+                onClick={() => {
+                  haptic('tap');
+                  action.onClick();
+                }}
+              >
+                {action.label}
+              </button>
+            </div>
+            {title && (
+              <div className="t-title2" style={{ marginBottom: 12 }}>
+                {title}
+              </div>
+            )}
+          </>
+        ) : (
+          title && (
+            <div className="row-between" style={{ marginBottom: 12 }}>
+              <div className="t-title2">{title}</div>
+              <button className="btn btn--plain" onClick={schliessen}>
+                {closeLabel ?? 'Fertig'}
+              </button>
+            </div>
+          )
         )}
         {children}
       </div>

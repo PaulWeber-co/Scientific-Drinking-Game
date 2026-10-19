@@ -15,7 +15,7 @@
  * sichtbaren oder haptischen Zwilling.
  */
 
-export type Sound = 'tick' | 'boom';
+export type Sound = 'tick' | 'boom' | 'dice' | 'cup';
 
 let enabled = true;
 export function setSoundEnabled(v: boolean) {
@@ -215,6 +215,73 @@ export function sound(name: Sound): void {
   if (!out) return;
   const now = c.currentTime;
 
+  if (name === 'dice') {
+    /**
+     * Würfel im Becher sind kein Rauschen, sondern eine Folge harter Klacker,
+     * deren Abstände wachsen, bis die Würfel liegen. Jeder Klacker bekommt
+     * eine eigene Quelle: eine Pufferquelle startet nur ein einziges Mal.
+     */
+    let t = now;
+    let lautst = 0.6;
+    for (let i = 0; i < 6; i++) {
+      const v = voice(c, out);
+      v.filter.type = 'bandpass';
+      v.filter.frequency.value = 2800 * jitter(0.25);
+      v.gain.gain.setValueAtTime(lautst, t);
+      v.gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      v.src.start(t, v.offset, 0.035);
+      t += (0.05 + i * 0.025) * jitter(0.3);
+      lautst *= 0.8;
+    }
+    return;
+  }
+
+  const { src, filter, gain, offset } = voice(c, out);
+
+  if (name === 'tick') {
+    // Ein Tick lebt oben. Bei 2 kHz kam ein dumpfes „Tuff" heraus; der
+    // übliche Bereich für einen trockenen Klick liegt bei 4 bis 7 kHz.
+    filter.type = 'highpass';
+    filter.frequency.value = 5000 * jitter(0.15);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
+    src.start(now, offset, 0.02);
+    return;
+  }
+
+  if (name === 'cup') {
+    // Der Becher schlägt auf den Tisch: kurz und dumpf, darunter ein tiefer
+    // Stoß. Kürzer und heller als der Knall, sonst klingt Aufdecken nach Bombe.
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, now);
+    filter.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+    gain.gain.setValueAtTime(0.8, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    src.start(now, offset, 0.14);
+    thump(c, out, now, 180, 0.12);
+    return;
+  }
+
+  /**
+   * Der Knall braucht BEWEGUNG, sonst ist er nur Rauschen, das leiser wird.
+   *
+   * Zwei Dinge fahren nach unten: der Filter von 5 kHz auf 400 Hz und eine
+   * tiefe Schicht von 120 auf 40 Hz. Ein fester Tiefpass bei 800 Hz lag
+   * ausserdem genau auf der Abbruchkante eines Handylautsprechers — davon
+   * kam am Tisch nichts an.
+   */
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(5000, now);
+  filter.frequency.exponentialRampToValueAtTime(400, now + 0.25);
+  gain.gain.setValueAtTime(0.9, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+  src.start(now, offset, 0.65);
+
+  thump(c, out, now, 120, 0.4);
+}
+
+/** Eine Rauschquelle mit Filter und Hüllkurve, am Ende selbst abgeräumt. */
+function voice(c: AudioContext, out: GainNode) {
   const src = c.createBufferSource();
   const puffer = noiseBuffer(c);
   src.buffer = puffer;
@@ -234,40 +301,18 @@ export function sound(name: Sound): void {
   };
   // Zufälliger Startpunkt im Puffer, sonst ist jeder Klang derselbe Ausschnitt.
   const offset = Math.random() * Math.max(0, puffer.duration - 1);
+  return { src, filter, gain, offset };
+}
 
-  if (name === 'tick') {
-    // Ein Tick lebt oben. Bei 2 kHz kam ein dumpfes „Tuff" heraus; der
-    // übliche Bereich für einen trockenen Klick liegt bei 4 bis 7 kHz.
-    filter.type = 'highpass';
-    filter.frequency.value = 5000 * jitter(0.15);
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
-    src.start(now, offset, 0.02);
-    return;
-  }
-
-  /**
-   * Der Knall braucht BEWEGUNG, sonst ist er nur Rauschen, das leiser wird.
-   *
-   * Zwei Dinge fahren nach unten: der Filter von 5 kHz auf 400 Hz und eine
-   * tiefe Schicht von 120 auf 40 Hz. Ein fester Tiefpass bei 800 Hz lag
-   * ausserdem genau auf der Abbruchkante eines Handylautsprechers — davon
-   * kam am Tisch nichts an.
-   */
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(5000, now);
-  filter.frequency.exponentialRampToValueAtTime(400, now + 0.25);
-  gain.gain.setValueAtTime(0.9, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
-  src.start(now, offset, 0.65);
-
+/** Tiefe Schicht unter einem Aufprall: ein Sinus, der nach unten fällt. */
+function thump(c: AudioContext, out: GainNode, now: number, von: number, dauer: number) {
   const sub = c.createOscillator();
   const subGain = c.createGain();
   sub.type = 'sine';
-  sub.frequency.setValueAtTime(120, now);
-  sub.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+  sub.frequency.setValueAtTime(von, now);
+  sub.frequency.exponentialRampToValueAtTime(von / 3, now + dauer * 0.625);
   subGain.gain.setValueAtTime(0.7, now);
-  subGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+  subGain.gain.exponentialRampToValueAtTime(0.0001, now + dauer);
   sub.connect(subGain);
   subGain.connect(out);
   sub.onended = () => {
@@ -278,5 +323,5 @@ export function sound(name: Sound): void {
     }
   };
   sub.start(now);
-  sub.stop(now + 0.45);
+  sub.stop(now + dauer + 0.05);
 }

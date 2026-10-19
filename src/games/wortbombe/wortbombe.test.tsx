@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act } from '@testing-library/react';
+import { render } from '../../test/render';
 import { wortbombe } from './index';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import type { GamePlayer } from '../types';

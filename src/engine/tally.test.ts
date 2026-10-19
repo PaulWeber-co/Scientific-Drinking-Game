@@ -4,7 +4,9 @@ import { makeDrinkEvent } from './sips';
 import {
   formatAmount,
   formatEntry,
+  formatGlassCount,
   formatGlasses,
+  formatVolume,
   glassesOf,
   sipsForGlasses,
   tally,
@@ -110,5 +112,29 @@ describe('Kurzform', () => {
     expect(formatGlasses(1)).toBe('1');
     expect(formatGlasses(2.6)).toBe('2½');
     expect(formatGlasses(2.8)).toBe('3');
+  });
+});
+
+describe('Menge in Litern', () => {
+  // Rückmeldung aus dem Test: „Was ist Ganzes und Halbes?" – die Kachel sagt
+  // deshalb, wie viel wirklich gebucht wird.
+  it('nennt große Mengen in Litern, Shots in Zentilitern', () => {
+    const weizen = findDrink('beer-wheat');
+    const shot = findDrink('shot-schnaps');
+    expect(formatVolume(weizen, sipsForGlasses(weizen, 1))).toBe('0,5 l');
+    expect(formatVolume(weizen, sipsForGlasses(weizen, 2))).toBe('1 l');
+    expect(formatVolume(pils, sipsForGlasses(pils, 1))).toBe('0,33 l');
+    expect(formatVolume(shot, sipsForGlasses(shot, 1))).toBe('2 cl');
+  });
+
+  it('zeigt beim halben Shot ehrlich den ganzen', () => {
+    const shot = findDrink('shot-schnaps');
+    expect(formatVolume(shot, sipsForGlasses(shot, 0.5))).toBe('2 cl');
+  });
+
+  it('setzt Glas und Gläser richtig', () => {
+    expect(formatGlassCount(0.5)).toBe('½ Glas');
+    expect(formatGlassCount(1)).toBe('1 Glas');
+    expect(formatGlassCount(2)).toBe('2 Gläser');
   });
 });

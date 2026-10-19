@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { usePlayer } from '../../store/player';
-import { developAt, filmStand, useFilm } from '../../store/film';
+import { filmStand, useFilm } from '../../store/film';
 import { useParty } from '../party/PartyContext';
 
 export interface FilmStatus {
@@ -12,8 +12,6 @@ export interface FilmStatus {
   remaining: number;
   /** Wie viele ICH davon noch belichten darf. */
   mineLeft: number;
-  /** Wann die Bilder dieses Abends sichtbar werden. */
-  developsAt: number;
   /** Eingestellte Wartezeit in Stunden, 0 = am nächsten Morgen. */
   developAfterH: number;
   /** Darf dieses Gerät die Einstellungen ändern? */
@@ -68,7 +66,6 @@ export function useFilmStatus(): FilmStatus {
     total,
     remaining,
     mineLeft,
-    developsAt: developAt(nightStartedAt ?? Date.now(), effDevelop),
     developAfterH: effDevelop,
     canSetup: !online || party.isHost,
   };

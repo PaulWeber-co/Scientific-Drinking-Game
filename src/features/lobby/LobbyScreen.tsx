@@ -26,7 +26,7 @@ import { useApp } from '../../store/app';
 import { usePlayer } from '../../store/player';
 import { PreloadSheet } from '../drinks/PreloadSheet';
 import { LogDrinkSheet } from '../../games/shared/LogDrinkSheet';
-import { TableTally } from '../drinks/TableTally';
+import { formatGlassCount, tally } from '../../engine/tally';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -37,9 +37,11 @@ export function LobbyScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [preloadOpen, setPreloadOpen] = useState(false);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logFor, setLogFor] = useState<string | null>(null);
   const preloadAskedAt = usePlayer((s) => s.preloadAskedAt);
   const alcoholFree = usePlayer((s) => s.profile?.alcoholFree ?? false);
+  const myLog = usePlayer((s) => s.log);
+  const customDrinks = usePlayer((s) => s.customDrinks);
   const lastCode = useApp((s) => s.lastLobbyCode);
   const markGamePlayed = useApp((s) => s.markGamePlayed);
 
@@ -193,54 +195,91 @@ export function LobbyScreen() {
         )}
 
         <section className="stack-3">
-          <div className="row-between">
-            <h2 className="t-title2">
-              {players.length} Spieler
-            </h2>
-            {!online && (
-              <button className="btn btn--plain" onClick={() => setAddOpen(true)}>
-                + Hinzufügen
-              </button>
-            )}
-          </div>
+          <h2 className="t-title2">{players.length} Spieler</h2>
           <div className="list">
             {players.map((p) => (
               <div key={p.id} className="list__item">
-                <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
-                <span className="grow">
-                  <span className="t-headline" style={{ display: 'block' }}>
-                    {p.name} {p.id === party.me.id && <span className="t-caption">(du)</span>}
-                  </span>
-                  <span className="t-caption row" style={{ gap: 5 }}>
-                    {p.isHost && <>Host ·</>}
-                    <Icon name={p.driver ? 'car' : (p.drinkIcon ?? 'water')} size={13} />
-                    {p.driver && <span className="drivertag">fährt</span>}
-                    {p.online === false && <>· offline</>}
-                  </span>
-                </span>
+                {(() => {
+                  // Gläser stehen hier statt in einer zweiten Liste darunter:
+                  // „wer mitspielt" soll nur einmal auf der Seite stehen.
+                  const log = p.id === party.me.id ? myLog : p.local?.log;
+                  const t = log?.length ? tally(log, customDrinks) : null;
+                  const inhalt = (
+                    <>
+                      <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
+                      <span className="grow">
+                        <span className="t-headline" style={{ display: 'block' }}>
+                          {p.name} {p.id === party.me.id && <span className="t-caption">(du)</span>}
+                        </span>
+                        <span className="t-caption row wrap" style={{ gap: 5 }}>
+                          {p.isHost && <>Host ·</>}
+                          <Icon name={p.driver ? 'car' : (p.drinkIcon ?? 'water')} size={13} />
+                          {p.driver && <span className="drivertag">fährt</span>}
+                          {t && (
+                            <span style={{ whiteSpace: 'nowrap' }}>
+                              {formatGlassCount(t.glasses)}
+                              {t.rows.length === 1 && ` · ${t.rows[0].name}`}
+                            </span>
+                          )}
+                          {p.online === false && <>· offline</>}
+                        </span>
+                      </span>
+                    </>
+                  );
+                  // Online gehört jedes Handy einer Person: Eintragen geht nur für sich.
+                  // Der Tipp auf den Namen trägt ein (so suchten es Tester),
+                  // der Glas-Knopf daneben zeigt, dass es geht.
+                  return log ? (
+                    <>
+                      <button
+                        className="row grow pressable"
+                        style={{ textAlign: 'left' }}
+                        onClick={() => {
+                          haptic('tap');
+                          setLogFor(p.id);
+                        }}
+                      >
+                        {inhalt}
+                      </button>
+                      <button
+                        className="btn btn--tinted btn--sm"
+                        // Immer am rechten Rand, auch hinter „Ändern": so
+                        // stehen die Glas-Knöpfe untereinander.
+                        style={{ order: 1 }}
+                        aria-label={`Getränk für ${p.name} eintragen`}
+                        onClick={() => {
+                          haptic('tap');
+                          setLogFor(p.id);
+                        }}
+                      >
+                        <Icon name="plus" size={14} />
+                        <Icon name={p.drinkIcon ?? 'tallGlass'} size={17} />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="row grow">{inhalt}</span>
+                  );
+                })()}
                 {p.local && (
-                  <>
-                    <button className="btn btn--plain" onClick={() => setEditing(p)}>
-                      Ändern
-                    </button>
-                    <button
-                      className="btn btn--plain"
-                      style={{ color: 'var(--red)' }}
-                      onClick={() => party.removeLocalPlayer(p.id)}
-                    >
-                      Entfernen
-                    </button>
-                  </>
+                  <button className="btn btn--plain" onClick={() => setEditing(p)}>
+                    Ändern
+                  </button>
                 )}
               </div>
             ))}
+            {/* Wie „Telefon hinzufügen" in iOS-Kontakte: das Anlegen ist die
+                letzte Zeile der Liste, nicht ein Knopf darunter, der wie
+                „Getränk eintragen" aussah (und umgekehrt). */}
+            {!online && (
+              <button
+                className="list__item pressable"
+                style={{ color: 'var(--blue)', width: '100%' }}
+                onClick={() => setAddOpen(true)}
+              >
+                <Icon name="plus" size={17} /> Mitspieler hinzufügen
+              </button>
+            )}
           </div>
-          {/* Wer wie viel hat – erst, wenn jemand etwas eingetragen hat; eine
-              frische Runde bleibt so aufgeräumt wie vorher. */}
-          <TableTally hideEmpty />
-          <button className="btn btn--glass btn--block" onClick={() => setLogOpen(true)}>
-            <Icon name="plus" size={17} /> Getrunken eintragen
-          </button>
           {players.length < 2 && (
             <div className="notice notice--neutral">
               Allein geht noch nichts. Ab zwei Personen sind Spiele dabei, die volle Auswahl
@@ -296,10 +335,11 @@ export function LobbyScreen() {
       <AddPlayerSheet open={editing !== null} onClose={() => setEditing(null)} edit={editing} />
       <PreloadSheet open={preloadOpen} onClose={() => setPreloadOpen(false)} />
       <LogDrinkSheet
-        open={logOpen}
-        onClose={() => setLogOpen(false)}
+        open={logFor !== null}
+        onClose={() => setLogFor(null)}
         players={online ? [party.me] : players}
         meId={party.me.id}
+        initialPlayerId={logFor ?? undefined}
         onLog={(playerId, d, sips, at) =>
           party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
         }
@@ -354,6 +394,7 @@ function AddPlayerSheet({
   onClose: () => void;
   edit?: GamePlayer | null;
 }) {
+  const submit = useRef<(() => void) | null>(null);
   // Das Formular lebt nur, solange das Sheet offen ist: jeder neue Gast
   // startet mit frischen Standardwerten, nichts bleibt vom vorigen hängen.
   // Beim Bearbeiten sorgt der key dafür, dass die Felder zum richtigen Gast
@@ -363,13 +404,24 @@ function AddPlayerSheet({
       open={open}
       onClose={onClose}
       title={edit ? `${edit.name} ändern` : 'Mitspieler auf diesem Handy'}
+      // „Fertig" legt an – vorher schloss es nur und der Gast fehlte.
+      action={{ label: 'Fertig', onClick: () => submit.current?.() }}
     >
-      <GuestForm key={edit?.id ?? 'neu'} onDone={onClose} edit={edit ?? null} />
+      <GuestForm key={edit?.id ?? 'neu'} onDone={onClose} edit={edit ?? null} submitRef={submit} />
     </Sheet>
   );
 }
 
-function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | null }) {
+function GuestForm({
+  onDone,
+  edit,
+  submitRef,
+}: {
+  onDone: () => void;
+  edit?: GamePlayer | null;
+  /** Der Kopf des Sheets speichert: er ruft hierüber das Absenden auf. */
+  submitRef: { current: (() => void) | null };
+}) {
   const party = useParty();
   // Beim Bearbeiten stehen die gespeicherten Werte im Formular, sonst die
   // Standardwerte. Der Trink-Log des Gastes bleibt in beiden Fällen unberührt.
@@ -421,6 +473,7 @@ function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | n
     haptic('success');
     onDone();
   };
+  submitRef.current = submit;
 
   const who = name.trim() || 'Der Gast';
 
@@ -542,9 +595,18 @@ function GuestForm({ onDone, edit }: { onDone: () => void; edit?: GamePlayer | n
           </div>
         </>
       )}
-      <button className="btn btn--brand btn--block btn--lg" onClick={submit}>
-        {edit ? 'Speichern' : 'Hinzufügen'}
-      </button>
+      {edit && (
+        <button
+          className="btn btn--glass btn--block"
+          style={{ color: 'var(--red)' }}
+          onClick={() => {
+            party.removeLocalPlayer(edit.id);
+            onDone();
+          }}
+        >
+          Entfernen
+        </button>
+      )}
     </div>
   );
 }

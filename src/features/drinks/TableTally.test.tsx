@@ -29,17 +29,20 @@ const gast = (log = [makeDrinkEvent(findDrink('wine-red'), 10, 'glas', JETZT - 3
 
 const removeEventFor = vi.fn();
 
-function mount(players: GamePlayer[], mode: 'local' | 'online' = 'local', hideEmpty = false) {
+const onAdd = vi.fn();
+
+function mount(players: GamePlayer[], mode: 'local' | 'online' = 'local') {
   const value = { mode, players, me, removeEventFor } as unknown as PartyValue;
   return render(
     <PartyCtx.Provider value={value}>
-      <TableTally hideEmpty={hideEmpty} />
+      <TableTally onAdd={onAdd} />
     </PartyCtx.Provider>,
   );
 }
 
 beforeEach(() => {
   removeEventFor.mockClear();
+  onAdd.mockClear();
   usePlayer.setState({
     profile: { ...defaultProfile(), name: 'Paul' },
     onboarded: true,
@@ -64,15 +67,18 @@ describe('Der Tisch', () => {
     expect(screen.queryByText('Der Tisch')).toBeNull();
   });
 
-  it('versteckt sich mit hideEmpty, solange niemand etwas hat', () => {
-    mount([me, gast([])], 'local', true);
-    expect(screen.queryByText('Der Tisch')).toBeNull();
+  it('öffnet beim Tipp auf den Namen das Eintragen für genau diese Person', () => {
+    // Rückmeldung aus dem Test: „hab erstmal auf meinen Namen klicken wollen".
+    mount([me, gast()]);
+    fireEvent.click(screen.getByRole('button', { name: 'Getränk für Mia eintragen' }));
+    expect(onAdd).toHaveBeenCalledWith('p1');
   });
 
-  it('erscheint mit hideEmpty, sobald ein Gast etwas hat', () => {
-    // Gegenprobe: derselbe Aufruf, nur das Gast-Log ist nicht leer.
-    mount([me, gast()], 'local', true);
-    expect(screen.getByText('Der Tisch')).toBeTruthy();
+  it('bietet online das Eintragen nur für mich an', () => {
+    const anderer: GamePlayer = { id: 'p2', name: 'Nils', color: 'teal', online: true, zone: 'sweet' };
+    mount([me, anderer], 'online');
+    expect(screen.getByRole('button', { name: 'Getränk für Du eintragen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Nils/ })).toBeNull();
   });
 
   it('klappt die Einträge eines Gastes auf und entfernt einen davon', () => {

@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -6,8 +9,28 @@ import { VitePWA } from 'vite-plugin-pwa';
 // deploying somewhere else (Vercel, Cloudflare Pages, custom domain: "/").
 const base = process.env.VITE_BASE ?? '/Scientific-Drinking-Game/';
 
+/**
+ * Fingerabdruck der Spiellogik. Der Host schreibt ihn in die Runde; ein Handy
+ * mit anderem Stand sieht einen Hinweis statt „undefined beschreibt gerade".
+ * Pfade und Zeilenenden normalisiert: derselbe Code soll unter Windows und
+ * Linux denselben Abdruck ergeben.
+ */
+function gameBuild(): string {
+  const dir = fileURLToPath(new URL('./src/games', import.meta.url));
+  const files = readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .map((f) => f.replaceAll('\\', '/'))
+    .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+    .sort();
+  const hash = createHash('sha256');
+  for (const f of files) {
+    hash.update(f).update(readFileSync(`${dir}/${f}`, 'utf8').replaceAll('\r\n', '\n'));
+  }
+  return hash.digest('hex').slice(0, 12);
+}
+
 export default defineConfig({
   base,
+  define: { __GAME_BUILD__: JSON.stringify(gameBuild()) },
   plugins: [
     react(),
     VitePWA({

@@ -41,8 +41,8 @@ export const RULES: Rule[] = [
   { title: 'Du', text: 'Du bestimmst, wer trinkt. Zeig auf eine Person.', drink: 'pick', sips: 3 },
   { title: 'Ich', text: 'Du trinkst. Ohne Diskussion.', drink: 'actor', sips: 3 },
   { title: 'Boden', text: 'Alle fassen den Boden an. Die letzte Hand trinkt.', drink: 'loser', sips: 3 },
-  { title: 'Links', text: 'Alle links von dir trinken.', drink: 'left', sips: 3 },
-  { title: 'Rechts', text: 'Alle rechts von dir trinken.', drink: 'right', sips: 3 },
+  { title: 'Links', text: 'Die Person links neben dir trinkt.', drink: 'left', sips: 3 },
+  { title: 'Rechts', text: 'Die Person rechts neben dir trinkt.', drink: 'right', sips: 3 },
   { title: 'Himmel', text: 'Alle Hände hoch. Die letzte Hand trinkt.', drink: 'loser', sips: 3 },
   { title: 'Partner', text: 'Wähle eine Person. Ab jetzt trinkt sie immer mit dir mit – bis zum nächsten Partner.', drink: 'pick', sips: 2 },
   // Reim/Kategorie/Regel/Fragemeister treffen niemanden beim Aufdecken,
@@ -81,30 +81,19 @@ const RULE_IDEAS = [
 ];
 
 /**
- * Feste Sitzordnung (state.order) in zwei Hälften teilen: wer vom Ziehenden
- * aus links bzw. rechts sitzt. `order` wird nur beim Start gemischt und bei
+ * Die direkten Nachbarn des Ziehenden in der festen Sitzordnung
+ * (state.order). `order` wird nur beim Start gemischt und bei
  * Beitritt/Verlassen synchronisiert (siehe 'next') – sonst bleibt die
  * Reihenfolge die ganze Partie stabil und bildet damit den Sitzkreis ab.
- * Eine Auswahl braucht es hier deshalb nicht: „links"/„rechts" ist ohnehin
- * nur die geschlechtsfreie Ersetzung von „Jungs"/„Mädels" (zwei konsistente
- * Hälften, keine geometrische Tatsache, die erst wer bestätigen müsste).
- * Bei einer ungeraden Anzahl an Mitspielern bekommt „rechts" die Person
- * genau gegenüber mit dazu – eine Deutung, keine Regel aus einer Quelle.
+ * „Links" ist EINE Person, nicht die linke Tischhälfte (User-Entscheid
+ * 2026-09-16): im Kreis wäre „alle links von dir" jeder.
  */
 export function seatSplit(order: string[], actorId: string): { left: string[]; right: string[] } {
   const i = order.indexOf(actorId);
-  const others = order.filter((id) => id !== actorId);
-  if (i === -1 || !others.length) return { left: [], right: [] };
-  // Zu zweit sitzt die andere Person links UND rechts von dir. Ohne diesen
-  // Fall bekäme „rechts" sie und „links" niemanden – die Karte „Links" träfe
-  // dann niemanden und würde STUMM nichts anzeigen (`DrinkCallList` rendert
-  // bei leerer Liste nichts). Ein toter Zug, kein Fehler, den man sieht.
-  if (others.length === 1) return { left: others, right: others };
   const n = order.length;
-  const rightCount = Math.ceil(others.length / 2);
-  const right = Array.from({ length: rightCount }, (_, k) => order[(i + k + 1) % n]);
-  const left = others.filter((id) => !right.includes(id));
-  return { left, right };
+  if (i === -1 || n < 2) return { left: [], right: [] };
+  // Zu zweit ist die andere Person beides – dafür sorgt das Modulo.
+  return { left: [order[(i - 1 + n) % n]], right: [order[(i + 1) % n]] };
 }
 
 interface State {

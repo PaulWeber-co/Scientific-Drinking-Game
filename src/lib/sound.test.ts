@@ -120,6 +120,27 @@ describe('Klänge', () => {
     expect(filters[0].frequency.exponentialRampToValueAtTime).toHaveBeenCalled();
   });
 
+  it('lässt die Würfel mehrfach klackern, mit wachsenden Abständen', () => {
+    // Ein einzelner Rauschstoß klingt nach Klick, nicht nach Würfeln im Becher.
+    const { sources, filters } = fakeContext();
+    sound('dice');
+    expect(sources.length).toBeGreaterThanOrEqual(4);
+    expect(filters.every((f) => f.type === 'bandpass')).toBe(true);
+    const starts = sources.map((s) => s.start.mock.calls[0][0] as number);
+    const gaps = starts.slice(1).map((t, i) => t - starts[i]);
+    expect(gaps.every((g) => g > 0)).toBe(true);
+    expect(gaps[gaps.length - 1]).toBeGreaterThan(gaps[0]);
+  });
+
+  it('lässt den Becher kurz und dumpf aufschlagen', () => {
+    const { sources, filters } = fakeContext();
+    sound('cup');
+    expect(sources).toHaveLength(1);
+    expect(filters[0].type).toBe('lowpass');
+    // Kürzer als der Knall (0,65 s), sonst klingt Aufdecken nach Bombe.
+    expect(sources[0].start.mock.calls[0][2]).toBeLessThan(0.3);
+  });
+
   it('streut den Tick, damit er nicht als Muster auffällt', () => {
     const { filters, sources } = fakeContext();
     sound('tick');

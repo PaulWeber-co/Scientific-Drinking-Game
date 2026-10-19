@@ -225,6 +225,22 @@ export function isDeveloped(photo: Photo, now: number = Date.now()): boolean {
   return photo.developAt <= now;
 }
 
+/**
+ * Wann die Bilder des laufenden Films sichtbar werden.
+ *
+ * Gerechnet ab dem ERSTEN Bild des Abends, nicht ab dem Abendbeginn: ein
+ * Abend beginnt schon mit einem Spiel am Nachmittag, und die Fotos vom
+ * späten Abend waren dann entwickelt, kaum dass sie geschossen waren.
+ */
+export function rollDevelopAt(
+  photos: readonly Photo[],
+  afterH: number,
+  now: number = Date.now(),
+): number {
+  const laufend = photos.filter((p) => p.nightId === null).map((p) => p.at);
+  return developAt(laufend.length ? Math.min(...laufend) : now, afterH);
+}
+
 /** Wann die Bilder sichtbar werden. */
 export function developAt(nightStartedAt: number, afterH: number): number {
   if (afterH > 0) return nightStartedAt + afterH * 3_600_000;

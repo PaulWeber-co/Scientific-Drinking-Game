@@ -17,6 +17,7 @@ export const meta: GameMeta = {
   tags: ['karten', 'kreativ', 'geheim'],
   requiresOwnDevice: true,
   allowSpicy: true,
+  allowBlanks: true,
   allowCustomCards: true,
   howTo: [
     'Jede Person braucht ein eigenes Handy – die Hand bleibt geheim, bis alle gelegt haben.',

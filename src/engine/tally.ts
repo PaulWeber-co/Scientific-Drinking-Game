@@ -101,3 +101,19 @@ export function formatGlasses(glasses: number): string {
   const whole = Math.floor(halves / 2);
   return halves % 2 === 1 ? (whole === 0 ? '½' : `${whole}½`) : String(whole);
 }
+
+/** „1 Glas", „½ Glas", „2½ Gläser" – die Zahl samt richtigem Wort. */
+export function formatGlassCount(glasses: number): string {
+  return `${formatGlasses(glasses)} ${Math.round(glasses * 2) <= 2 ? 'Glas' : 'Gläser'}`;
+}
+
+/**
+ * Die echte Menge, die ein Eintrag bucht: „0,5 l", „2 cl". Aus den Schlucken
+ * gerechnet, nicht aus dem gewählten Glas – ein halber Shot bleibt ein Shot
+ * und steht dann auch als 2 cl da.
+ */
+export function formatVolume(drink: DrinkDefinition, sips: number): string {
+  const ml = glassesOf(drink, sips) * drink.defaultVolumeMl;
+  const zahl = (n: number, stellen: number) => String(Number(n.toFixed(stellen))).replace('.', ',');
+  return ml < 100 ? `${zahl(ml / 10, 1)} cl` : `${zahl(ml / 1000, 2)} l`;
+}

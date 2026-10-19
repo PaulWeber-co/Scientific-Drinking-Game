@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { migratePlayer, usePlayer } from './player';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PAUSE_MS, closeStaleNight, migratePlayer, usePlayer } from './player';
 import { createCustomDrink, findDrink } from '../engine/drinks';
 import { makeDrinkEvent } from '../engine/sips';
 
@@ -19,6 +19,44 @@ describe('removeEvent', () => {
     usePlayer.getState().removeEvent(b.id);
 
     expect(usePlayer.getState().log.map((e) => e.sips)).toEqual([1, 3]);
+  });
+});
+
+/** Zwei Abende trennt eine Pause – nicht erst die 14-Stunden-Grenze. */
+describe('Pause trennt Abende', () => {
+  const H = 3_600_000;
+  const vormittag = new Date(2026, 8, 12, 11, 0, 0).getTime();
+
+  beforeEach(() => {
+    usePlayer.setState({ log: [], nightStartedAt: null, lastActiveAt: null });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('ein Spiel am Vormittag und ein Getränk am Abend sind zwei Abende', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(vormittag);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + 9 * H);
+    usePlayer.getState().logEvent(makeDrinkEvent(findDrink('beer-pils', []), 3));
+    expect(usePlayer.getState().nightStartedAt).toBe(vormittag + 9 * H);
+    expect(usePlayer.getState().log).toHaveLength(1);
+  });
+
+  it('innerhalb der Pause bleibt es derselbe Abend', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(vormittag);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + PAUSE_MS - 1000);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + 2 * PAUSE_MS - 2000);
+    usePlayer.getState().beginNight();
+    expect(usePlayer.getState().nightStartedAt).toBe(vormittag);
+  });
+
+  it('schließt einen pausierten Abend auch beim Start der App', () => {
+    usePlayer.setState({ nightStartedAt: vormittag, lastActiveAt: vormittag });
+    closeStaleNight(usePlayer.getState(), vormittag + PAUSE_MS + 1);
+    expect(usePlayer.getState().nightStartedAt).toBeNull();
   });
 });
 
