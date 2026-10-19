@@ -45,3 +45,13 @@ Bereits früher gelöschte Daten lassen sich durch den Fix nicht rekonstruieren:
 ## Neue Bilder
 
 Aus 36 mit ChatGPT Image Generation erstellten Entwürfen wurden die 18 vom Nutzer ausgewählten Motive übernommen. Sie ersetzen die bisherigen Bilddateien unter `src/assets/games/` und erscheinen dadurch in Spieleübersicht, Lobby und Detailseiten. Die Zuordnung A/B samt Dateipfaden und SHA-256-Hashes steht in [thumbnail-selection.json](./thumbnail-selection.json). Ring of Fire bleibt die unveränderte Stilvorlage.
+
+## Zusammenführung mit dem Kollegen-Stand
+
+Der Main-Stand `3fb64a5` aus PR #34 wurde inhaltlich mit diesem Review zusammengeführt. Die neuen Mäxchen-, Undercover- und Selbstauskunft-Abläufe, Host-Steuerung, Blankokarten, System-Teilen und sichtbaren Getränkemengen bleiben erhalten.
+
+Bei den Überschneidungen wurden die Funktionen kombiniert: Die Sechs-Stunden-Pausenerkennung archiviert den alten Abend und bewahrt dabei Restalkohol; Album-Abschluss und neue Entwicklungszeiten funktionieren zusammen mit automatischer Bildfreischaltung und Kamera-Fehlerbehandlung. Der schnelle Getränkeeinstieg und der aufklappbare Fahr-Check nutzen weiterhin die vollständige Alkoholhistorie. Historische Getränkesnapshots bleiben auch bei den neuen Gläseranzeigen erhalten.
+
+Eine zusätzliche Integration betrifft „Ich hab noch nie“: Auch die neuen gemeinsamen Antworten tragen die Zugkennung, damit eine verspätete Antwort nicht zur nächsten Karte gezählt wird. Regressionstests decken diese Kombination sowie automatischen Abendwechsel, Speichermigration, Kamera und Album ab.
+
+Prüfung des zusammengeführten Stands: 823 Tests in 74 Dateien erfolgreich, ebenso Typprüfung, ESLint und Produktionsbuild. Die 18 Bildauswahlen und das unveränderte Ring-of-Fire-Motiv stimmen in der gebauten App auf Übersicht und Detailseiten weiterhin mit ihren dokumentierten SHA-256-Hashes überein.

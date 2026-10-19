@@ -79,7 +79,8 @@ interface LobbySnapshot {
   };
   players?: Record<string, RemotePlayer>;
   /** Der Spielstand liegt als JSON-String in der Datenbank – siehe encodeState(). */
-  game?: { id: string; startedAt: number; state: string };
+  /** `build`: Fingerabdruck der Spiellogik des Hosts. Fehlt bei älteren Ständen. */
+  game?: { id: string; startedAt: number; state: string; build?: string };
 }
 
 /** Kennung einer laufenden Runde – Spiel plus Startzeit. */
@@ -109,6 +110,12 @@ export interface PartyValue {
   startedAt: number;
   /** Film-Einstellungen der Runde; `null`, solange niemand etwas gesetzt hat. */
   film: { rolls: number; developAfterH: number } | null;
+  /**
+   * Der Host spielt mit anderer Spiellogik als dieses Handy. Dann kann der
+   * Spielstand Felder haben, die dieser Stand nicht kennt – die Runde zeigt
+   * einen Hinweis statt still Unsinn.
+   */
+  otherBuild: boolean;
 
   createOnline: () => Promise<string>;
   joinOnline: (code: string) => Promise<void>;
@@ -702,7 +709,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         'meta/startedBy': myId,
         'meta/startedAt': now,
         'meta/updatedAt': now,
-        game: { id, startedAt: now, state: encodeState(state) },
+        game: { id, startedAt: now, state: encodeState(state), build: __GAME_BUILD__ },
         inbox: null,
       }).catch((e) => setError(describe(e)));
     },
@@ -857,6 +864,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     [myId, removeEvent],
   );
 
+  // Ältere Hosts schreiben keinen Abdruck – dann lässt sich nichts sagen.
+  const hostBuild = snapshot?.game?.build;
+  const otherBuild = mode === 'online' && !!hostBuild && hostBuild !== __GAME_BUILD__;
+
   const value: PartyValue = {
     mode,
     code,
@@ -871,6 +882,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     startedBy,
     startedAt,
     film,
+    otherBuild,
     createOnline,
     joinOnline,
     startLocal,

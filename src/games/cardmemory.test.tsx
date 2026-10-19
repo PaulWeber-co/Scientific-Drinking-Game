@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { render } from '../test/render';
 import { useState } from 'react';
 import { createCardGame, type CardDef, type CardGameState } from './card-engine/createCardGame';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';

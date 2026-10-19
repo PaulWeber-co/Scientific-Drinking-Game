@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { render } from '../../test/render';
 import { useState } from 'react';
 import { kingsCup, RULES, seatSplit } from './index';
 import { slotAngle } from './geometrie';
@@ -37,8 +38,7 @@ const dana = lokal('p3', 'Dana');
 const roster: GamePlayer[] = [me, ben, cem, dana];
 
 // Feste Sitzordnung fürs ganze Testfile: Ben zieht (turnIndex 0), Mira
-// sitzt ihm gegenüber auf der rechten Seite, Dana links. Das ergibt sich
-// aus seatSplit selbst (siehe eigener Test unten) und macht Rechts (Ben
+// ist seine rechte Nachbarin, Dana die linke. Das macht Rechts (Ben
 // betrachtet) zum einzigen der 13 Fälle, in dem Mira legitim mittrinkt.
 const ORDER = ['p1', 'p0', 'p2', 'p3'];
 
@@ -164,7 +164,7 @@ describe('Trinkansage trifft die richtige Person (alle 13 Regeln)', () => {
           expect(angesagt, rule.title).toEqual(['p3']);
           break;
         case 'right':
-          expect(new Set(angesagt), rule.title).toEqual(new Set(['p0', 'p2']));
+          expect(angesagt, rule.title).toEqual(['p0']);
           break;
         case 'none':
           // Reim/Kategorie/Regel/Fragemeister/König: niemand trinkt jetzt.
@@ -294,14 +294,11 @@ describe('Becher in der Mitte (vierter König)', () => {
 });
 
 describe('seatSplit', () => {
-  it('teilt alle anderen Spieler auf, niemand fehlt und niemand kommt doppelt vor', () => {
+  it('trifft je Seite genau den direkten Nachbarn, auch über den Kreisrand', () => {
     for (const n of [3, 4, 5, 6, 7]) {
       const order = Array.from({ length: n }, (_, i) => `s${i}`);
-      const { left, right } = seatSplit(order, 's0');
-      const alle = [...left, ...right];
-      expect(alle, `n=${n}`).not.toContain('s0');
-      expect(new Set(alle).size, `n=${n}: Duplikat`).toBe(n - 1);
-      expect(alle.length, `n=${n}: jemand fehlt`).toBe(n - 1);
+      expect(seatSplit(order, 's0'), `n=${n}`).toEqual({ left: [`s${n - 1}`], right: ['s1'] });
+      expect(seatSplit(order, `s${n - 1}`), `n=${n}`).toEqual({ left: [`s${n - 2}`], right: ['s0'] });
     }
   });
 

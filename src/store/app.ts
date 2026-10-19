@@ -22,6 +22,8 @@ export interface AppState {
   recentGames: string[];
   /** Spicy-Inhalte je Spiel. Standardmäßig aus. */
   spicy: Record<string, boolean>;
+  /** Blankokarten je Spiel: leere Karten, die man beim Legen selbst beschreibt. */
+  blanks: Record<string, boolean>;
   /** Wie lang eine Partie laufen soll. Gilt für alle Spiele. */
   gameLength: GameLength;
   /**
@@ -38,6 +40,7 @@ export interface AppState {
   setLastLobbyCode: (c: string | null) => void;
   markGamePlayed: (id: string) => void;
   toggleSpicy: (id: string) => void;
+  toggleBlanks: (id: string) => void;
   clearSpicy: () => void;
   setGameLength: (l: GameLength) => void;
   setTaskOnSkip: (f: TaskFrequency) => void;
@@ -54,6 +57,7 @@ export const useApp = create<AppState>()(
       lastLobbyCode: null,
       recentGames: [],
       spicy: {},
+      blanks: {},
       gameLength: 'mittel',
       taskOnSkip: 'manchmal',
 
@@ -74,6 +78,7 @@ export const useApp = create<AppState>()(
       markGamePlayed: (id) =>
         set((s) => ({ recentGames: [id, ...s.recentGames.filter((g) => g !== id)].slice(0, 8) })),
       toggleSpicy: (id) => set((s) => ({ spicy: { ...s.spicy, [id]: !s.spicy[id] } })),
+      toggleBlanks: (id) => set((s) => ({ blanks: { ...s.blanks, [id]: !s.blanks[id] } })),
       // Spicy ist eine Einwilligung der Runde, keine Vorliebe: Am nächsten
       // Abend sitzen andere Leute am Tisch. Wird von `endNight` gerufen.
       clearSpicy: () => set({ spicy: {} }),
@@ -137,4 +142,9 @@ export function migrateApp(persisted: unknown, version: number): AppState {
  */
 export function isSpicyOn(gameId: string): boolean {
   return useApp.getState().spicy[gameId] === true;
+}
+
+/** Ob ein Spiel mit Blankokarten startet. Wie `isSpicyOn` auch für den Reducer. */
+export function isBlanksOn(gameId: string): boolean {
+  return useApp.getState().blanks[gameId] === true;
 }

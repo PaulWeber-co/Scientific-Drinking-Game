@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Segmented, Sheet } from '../../components/ui';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
-import { formatEntry, sipsForGlasses } from '../../engine/tally';
+import { formatEntry, formatVolume, sipsForGlasses } from '../../engine/tally';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
 import type { DrinkDefinition } from '../../engine/types';
@@ -11,9 +11,9 @@ import type { GamePlayer } from '../types';
 type Amount = 'half' | 'full' | 'double';
 
 const AMOUNTS: { value: Amount; label: string }[] = [
-  { value: 'half', label: 'Halbes' },
-  { value: 'full', label: 'Ganzes' },
-  { value: 'double', label: 'Zwei' },
+  { value: 'half', label: '½ Glas' },
+  { value: 'full', label: '1 Glas' },
+  { value: 'double', label: '2 Gläser' },
 ];
 const GLASSES: Record<Amount, number> = { half: 0.5, full: 1, double: 2 };
 
@@ -113,12 +113,15 @@ export function LogDrinkSheet({
       >
         <Icon name={d.icon} size={24} className="drinktile__icon" />
         <span className="drinktile__name">{d.name}</span>
+        <span className="drinktile__vol">{formatVolume(d, sips)}</span>
       </button>
     );
   };
 
   return (
-    <Sheet open={open} onClose={close} title="Getrunken">
+    // Der Tipp aufs Getränk bucht – der Kopfknopf speichert nichts, also
+    // heißt er auch nicht „Fertig".
+    <Sheet open={open} onClose={close} title="Getränk eintragen" closeLabel="Abbrechen">
       <div className="stack-3">
         {players.length > 1 && (
           <div className="row wrap" style={{ gap: 6 }} role="group" aria-label="Wer">

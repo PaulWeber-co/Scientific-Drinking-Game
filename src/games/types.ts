@@ -139,6 +139,8 @@ export interface GameMeta {
   allowCustomCards?: boolean;
   /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */
   allowSpicy?: boolean;
+  /** true = das Spiel lässt sich mit Blankokarten spielen (selbst beschriebene Antworten). */
+  allowBlanks?: boolean;
   /**
    * Rundenzahl, wenn sie nicht aus `ROUND_BASES` folgt, sondern aus der
    * Gruppengröße – etwa bei einem Stichspiel, in dem das Deck die Runden

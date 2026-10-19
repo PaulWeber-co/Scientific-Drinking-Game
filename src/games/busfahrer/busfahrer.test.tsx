@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { render } from '../../test/render';
 import { busfahrer } from './index';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { cardFromIndex } from '../shared/deck';
@@ -316,9 +317,10 @@ describe('Busfahrer: zu zweit und am Rand', () => {
     expect(s.phase).toBe('pyramid');
     for (let i = 0; i < 10; i++) s = lauf(s, act('pyFlip'), act('pyPass'));
     expect(s.phase).toBe('bus');
-    // Und die Fahrt zu Ende. 60 Schritte sind reichlich: fuenf Plaetze, und
-    // gut ein Drittel des Stapels wirft zurueck.
-    for (let i = 0; i < 60 && s.phase === 'bus'; i++) {
+    // Und die Fahrt zu Ende. Gemessen an 2000 Fahrten brauchen 1,5 % mehr als
+    // 60 Schritte, die laengste 112 – mit 60 als Grenze war der Test bei
+    // Pech rot. 500 laesst Luft und faengt eine Endlosschleife trotzdem.
+    for (let i = 0; i < 500 && s.phase === 'bus'; i++) {
       s = s.busPenalty > 0 ? lauf(s, act('restartBus')) : lauf(s, act('flip'));
     }
     expect(s.phase, 'die Fahrt kommt an').toBe('done');

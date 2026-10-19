@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { LogDrinkSheet } from './LogDrinkSheet';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { findDrink, sipsPerServing } from '../../engine/drinks';
@@ -83,10 +83,20 @@ describe('Eintragen', () => {
 
   it('bucht ein halbes Glas als halbe Schluckzahl', () => {
     mount();
-    fireEvent.click(screen.getByText('Halbes'));
+    fireEvent.click(screen.getByText('½ Glas'));
     fireEvent.click(tile(/^½ Glas Bier \(Pils\) eintragen$/));
 
     expect(onLog.mock.calls[0][2]).toBe(Math.round(PILS / 2));
+  });
+
+  it('zeigt auf der Kachel die echte Menge zur gewählten Größe', () => {
+    // „Ganzes" und „Halbes" sagten nicht, wie viel. Die Kachel muss beim
+    // Umschalten mitrechnen, sonst steht dort eine falsche Menge.
+    mount();
+    const weizen = () => tile(/Weißbier eintragen$/);
+    expect(within(weizen()).getByText('0,5 l')).toBeTruthy();
+    fireEvent.click(screen.getByText('2 Gläser'));
+    expect(within(weizen()).getByText('1 l')).toBeTruthy();
   });
 
   it('datiert „1 Std her" um eine Stunde zurück', () => {

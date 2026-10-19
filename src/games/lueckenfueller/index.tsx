@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { spicyDeck } from '../shared/prompts';
 import { markTextsSeen } from '../../store/seen';
 import { customCardsFor } from '../../store/cards';
+import { isBlanksOn } from '../../store/app';
+import { Sheet } from '../../components/ui';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
@@ -15,6 +17,18 @@ import { meta } from './meta';
 
 /** Handkarten je Person – wie im Vorbild. */
 const HAND = 10;
+/** Blankokarten je Hand, wenn die Runde mit ihnen spielt. */
+const BLANKS = 2;
+/** Blankokarten tragen Nummern ab hier; die eingebaute Liste reicht nie so weit. */
+const BLANK_BASE = 1_000_000;
+/** So lang wie die längste eingebaute Antwortkarte. */
+export const BLANK_MAX = 45;
+const isBlank = (ref: Ref) => ref >= BLANK_BASE;
+/**
+ * Wie lange der Richter weg sein darf, bevor die Rolle weiterwandert. Wer beim
+ * Vorlesen das Handy sperrt, gilt für Firebase sofort als offline.
+ */
+const JUDGE_GRACE_MS = 20_000;
 /** Gnadenfrist, sobald die Mehrheit gelegt hat. */
 const GRACE_MS = 20_000;
 /** Ab hier wird die Restzeit hervorgehoben. */
@@ -41,6 +55,12 @@ export interface State {
   blackDeck: Ref[];
   whiteDeck: Ref[];
   custom: string[];
+  /** Wie viele Einträge in `custom` eigene Karten aus dem Profil sind. Was
+   *  dahinter steht, wurde auf Blankokarten geschrieben und kommt nie in den
+   *  Stapel. */
+  ownCount: number;
+  /** Jede Hand hält `BLANKS` Blankokarten. */
+  blanks: boolean;
   hands: Record<string, Ref[]>;
   played: Record<string, Ref[]>;
   order: string[];
@@ -59,6 +79,7 @@ function whiteDeckOf(custom: string[], playerCount: number): Ref[] {
 }
 
 export function whiteText(state: Pick<State, 'custom'>, ref: Ref): string {
+  if (isBlank(ref)) return '';
   return ref >= 0 ? (WHITE[ref]?.text ?? '') : (state.custom[-ref - 1] ?? '');
 }
 
@@ -98,10 +119,21 @@ function startRound(state: State, players: GamePlayer[], round: number): State {
   const hands: Record<string, Ref[]> = { ...state.hands };
   for (const p of players) {
     if (p.online === false && !hands[p.id]) continue;
-    const hand = hands[p.id] ?? [];
+    const leer = Array.from({ length: BLANKS }, (_, k) => BLANK_BASE + k);
+    const hand = [
+      ...(hands[p.id] ?? []),
+      ...(state.blanks ? leer.filter((b) => !hands[p.id]?.includes(b)) : []),
+    ];
     const fehlt = HAND - hand.length;
+    hands[p.id] = hand;
     if (fehlt <= 0) continue;
-    if (whiteDeck.length < fehlt) whiteDeck = [...whiteDeck, ...whiteDeckOf(state.custom, players.length)];
+    if (whiteDeck.length < fehlt) {
+      // Ein frischer Stapel enthält auch, was gerade auf Händen oder noch im
+      // alten Stapel liegt – ohne Filter hielte jemand dieselbe Karte doppelt.
+      const liegt = new Set([...whiteDeck, ...Object.values(hands).flat()]);
+      const nachschub = whiteDeckOf(state.custom.slice(0, state.ownCount), players.length);
+      whiteDeck = [...whiteDeck, ...nachschub.filter((r) => !liegt.has(r))];
+    }
     hands[p.id] = [...hand, ...whiteDeck.slice(0, fehlt)];
     whiteDeck = whiteDeck.slice(fehlt);
   }
@@ -140,6 +172,8 @@ export const lueckenfueller: GameDefinition<State> = {
       blackDeck: blackDeckOf(players.length),
       whiteDeck: whiteDeckOf(custom, players.length),
       custom,
+      ownCount: custom.length,
+      blanks: isBlanksOn('lueckenfueller'),
       hands: {},
       played: {},
       order: [],
@@ -166,7 +200,23 @@ export const lueckenfueller: GameDefinition<State> = {
         if (new Set(cards).size !== cards.length) return state;
         if (!cards.every((c) => hand.includes(c))) return state;
 
-        const played = { ...state.played, [action.by]: cards };
+        // Blankokarten kommen mit ihrem Text; der landet in `custom` und die
+        // Karte liegt ab da wie eine eigene Karte.
+        const texts = Array.isArray(action.texts) ? action.texts : [];
+        const custom = [...state.custom];
+        const gelegt: Ref[] = [];
+        for (const [i, c] of cards.entries()) {
+          if (!isBlank(c)) {
+            gelegt.push(c);
+            continue;
+          }
+          const text = typeof texts[i] === 'string' ? texts[i].trim().slice(0, BLANK_MAX) : '';
+          if (!text) return state;
+          custom.push(text);
+          gelegt.push(-custom.length);
+        }
+
+        const played = { ...state.played, [action.by]: gelegt };
         const hands = { ...state.hands, [action.by]: hand.filter((c) => !cards.includes(c)) };
         const dabei = participants(state, players);
         const fertig = dabei.filter((id) => played[id]).length;
@@ -174,6 +224,7 @@ export const lueckenfueller: GameDefinition<State> = {
         if (fertig >= dabei.length) {
           return {
             ...state,
+            custom,
             played,
             hands,
             phase: 'reveal',
@@ -191,7 +242,7 @@ export const lueckenfueller: GameDefinition<State> = {
         // ein Spieler, der sein Handy weglegt, hätte sie eingefroren.
         const deadline =
           state.deadline ?? (fertig * 2 >= dabei.length ? (action.at ?? Date.now()) + GRACE_MS : null);
-        return { ...state, played, hands, deadline };
+        return { ...state, custom, played, hands, deadline };
       }
 
       case 'timeout': {
@@ -242,17 +293,36 @@ export const lueckenfueller: GameDefinition<State> = {
       }
 
       case 'judge-left': {
-        if (state.phase === 'over') return state;
+        // Nach dem Küren braucht niemand mehr den Richter: weiter darf jeder.
+        if (state.phase === 'over' || state.phase === 'score') return state;
         const richter = players.find((p) => p.id === state.judgeId);
         if (richter && richter.online !== false) return state;
-        // Die Runde wird verworfen, nicht gewertet: der Richter hat die
-        // Karten nie gesehen. Gespieltes geht zurück auf die Hand,
-        // `round` steigt NICHT.
-        const hands = { ...state.hands };
-        for (const [id, cards] of Object.entries(state.played)) {
-          hands[id] = [...(hands[id] ?? []), ...cards];
+        const judgeId = nextJudge(players, state.judgeId);
+        if (judgeId === state.judgeId) return state;
+        // Die Rolle wandert, die Runde bleibt. Vorher wurde sie verworfen und
+        // alles Gelegte ging zurück auf die Hände – gelegte Karten tauchten in
+        // der nächsten Runde wieder auf. Gelegt ist gelegt; nur die Karte des
+        // neuen Richters fällt aus der Wertung.
+        const played = Object.fromEntries(
+          Object.entries(state.played).filter(([id]) => id !== judgeId),
+        );
+        if (state.phase === 'reveal') {
+          const order = state.order.filter((id) => id !== judgeId);
+          if (!order.length) return startRound({ ...state, played: {} }, players, state.round);
+          const revealed = state.order.slice(0, state.revealed).filter((id) => id !== judgeId).length;
+          return { ...state, judgeId, played, order, revealed };
         }
-        return startRound({ ...state, hands }, players, state.round);
+        const weiter = { ...state, judgeId, played };
+        const dabei = participants(weiter, players);
+        const alleDa = dabei.length > 0 && dabei.every((id) => played[id]);
+        if (!alleDa) return weiter;
+        return {
+          ...weiter,
+          phase: 'reveal',
+          order: shuffle(Object.keys(played)),
+          revealed: 0,
+          deadline: null,
+        };
       }
 
       case 'restart':
@@ -308,6 +378,10 @@ function LueckenfuellerGame({
   online,
 }: GameRuntime<State>) {
   const [gewaehlt, setGewaehlt] = useState<Ref[]>([]);
+  // Was auf die Blankokarten geschrieben wurde, bis gelegt ist. Bleibt lokal.
+  const [texte, setTexte] = useState<Record<Ref, string>>({});
+  const [schreibt, setSchreibt] = useState<Ref | null>(null);
+  const [entwurf, setEntwurf] = useState('');
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string) => players.find((p) => p.id === id);
   const schwarz = BLACK[state.black];
@@ -333,13 +407,24 @@ function LueckenfuellerGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, state.phase, state.deadline]);
 
-  // Verschwindet der Richter, verwirft der Host die Runde. Ohne diesen
-  // Wecker wartet die ganze Gruppe auf jemanden, der nicht wiederkommt.
+  // Verschwindet der Richter, gibt der Host die Rolle weiter. Ohne diesen
+  // Wecker wartet die ganze Gruppe auf jemanden, der nicht wiederkommt. Erst
+  // nach einer Karenz: ein gesperrtes Handy beim Vorlesen ist kein Abgang.
+  // Die Uhr hängt am Richter, nicht am Effekt: `players` ändert sich mit
+  // jedem Heartbeat, ein Neustart des Effekts darf die Karenz nicht nullen.
+  const richterWeg = useRef<{ id: string; seit: number } | null>(null);
   useEffect(() => {
     if (!isHost || state.phase === 'over') return;
     const t = setInterval(() => {
       const r = players.find((p) => p.id === state.judgeId);
-      if (!r || r.online === false) send({ type: 'judge-left' });
+      if (r && r.online !== false) {
+        richterWeg.current = null;
+        return;
+      }
+      if (richterWeg.current?.id !== state.judgeId) {
+        richterWeg.current = { id: state.judgeId, seit: Date.now() };
+      }
+      if (Date.now() - richterWeg.current.seit >= JUDGE_GRACE_MS) send({ type: 'judge-left' });
     }, 2000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`, s. oben
@@ -347,7 +432,17 @@ function LueckenfuellerGame({
 
   useEffect(() => {
     setGewaehlt([]);
+    setTexte({});
   }, [state.round, state.black, state.phase]);
+
+  const waehle = (ref: Ref) =>
+    setGewaehlt((prev) =>
+      prev.includes(ref)
+        ? prev.filter((r) => r !== ref)
+        : prev.length >= state.pick
+          ? [...prev.slice(1), ref]
+          : [...prev, ref],
+    );
 
   if (!online) {
     return (
@@ -434,23 +529,23 @@ function LueckenfuellerGame({
             <div className="lf-hand">
               {hand.map((ref) => {
                 const platz = gewaehlt.indexOf(ref);
+                const blanko = isBlank(ref);
                 return (
                   <button
                     key={ref}
-                    className={`lf-card ${platz >= 0 ? 'lf-card--picked' : ''}`}
+                    className={`lf-card ${blanko ? 'lf-card--blank' : ''} ${platz >= 0 ? 'lf-card--picked' : ''}`}
                     onClick={() => {
                       haptic('select');
-                      setGewaehlt((prev) =>
-                        prev.includes(ref)
-                          ? prev.filter((r) => r !== ref)
-                          : prev.length >= state.pick
-                            ? [...prev.slice(1), ref]
-                            : [...prev, ref],
-                      );
+                      if (blanko && !(platz >= 0)) {
+                        setEntwurf(texte[ref] ?? '');
+                        setSchreibt(ref);
+                        return;
+                      }
+                      waehle(ref);
                     }}
                   >
                     {state.pick === 2 && platz >= 0 && <span className="lf-card__no">{platz + 1}</span>}
-                    {whiteText(state, ref)}
+                    {blanko ? (texte[ref] ?? 'Blankokarte – antippen und selbst schreiben') : whiteText(state, ref)}
                   </button>
                 );
               })}
@@ -460,11 +555,42 @@ function LueckenfuellerGame({
               disabled={gewaehlt.length !== state.pick}
               onClick={() => {
                 haptic('success');
-                send({ type: 'submit', cards: gewaehlt });
+                send({
+                  type: 'submit',
+                  cards: gewaehlt,
+                  texts: gewaehlt.map((r) => (isBlank(r) ? (texte[r] ?? '') : '')),
+                });
               }}
             >
               {gewaehlt.length === state.pick ? 'Legen' : `Noch ${state.pick - gewaehlt.length} wählen`}
             </button>
+            <Sheet open={schreibt !== null} onClose={() => setSchreibt(null)} title="Blankokarte">
+              <form
+                className="stack-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const text = entwurf.trim();
+                  if (schreibt === null || !text) return;
+                  haptic('select');
+                  setTexte((t) => ({ ...t, [schreibt]: text }));
+                  if (!gewaehlt.includes(schreibt)) waehle(schreibt);
+                  setSchreibt(null);
+                }}
+              >
+                <input
+                  className="input"
+                  autoFocus
+                  maxLength={BLANK_MAX}
+                  placeholder="Deine Antwort"
+                  aria-label="Deine Antwort"
+                  value={entwurf}
+                  onChange={(e) => setEntwurf(e.target.value)}
+                />
+                <button className="btn btn--brand btn--block btn--lg" disabled={!entwurf.trim()}>
+                  Übernehmen
+                </button>
+              </form>
+            </Sheet>
           </>
         )}
       </GameFrame>

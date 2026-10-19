@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { lueckenfueller, fill, type State } from './index';
 import { BLACK } from './cards';
+import { BLANK_MAX } from './index';
 import { useApp } from '../../store/app';
 import { useSeen } from '../../store/seen';
 import { useCustomCards } from '../../store/cards';
@@ -324,21 +325,50 @@ describe('Ausfall und Nachzügler', () => {
     expect(tun(s, spaeter, { type: 'next', by: 'p1' }).hands.p9).toHaveLength(10);
   });
 
-  it('verwirft die Runde, wenn der Richter verschwindet', () => {
+  it('gibt die Richterrolle weiter, wenn der Richter verschwindet – Gelegtes bleibt gelegt', () => {
     const { p, s: s0 } = starte(4);
     const weg = p.map((x) => (x.id === s0.judgeId ? { ...x, online: false } : x));
-    const s1 = tun(s0, weg, { type: 'submit', by: 'p1', cards: [s0.hands.p1[0]] });
-    // Ohne das ist der Rest trivial wahr: eine abgewiesene Abgabe laesst die
-    // Hand ohnehin unveraendert.
-    expect(s1.played.p1).toBeDefined();
-    const nach = tun(s1, weg, { type: 'judge-left', by: 'p1' });
+    const neu = weg.filter((x) => x.online !== false && x.id !== s0.judgeId);
+    // Gelegt hat jemand, der NICHT der nächste Richter wird.
+    const leger = neu.find((x) => x.id !== neu[0].id && x.id !== neu[neu.length - 1].id) ?? neu[1];
+    const karte = s0.hands[leger.id][0];
+    const s1 = tun(s0, weg, { type: 'submit', by: leger.id, cards: [karte] });
+    expect(s1.played[leger.id]).toBeDefined();
+    const nach = tun(s1, weg, { type: 'judge-left', by: leger.id });
 
     expect(nach.round).toBe(1);
     expect(nach.judgeId).not.toBe(s0.judgeId);
-    expect(nach.played).toEqual({});
-    // Die gelegte Karte darf nicht verloren gehen.
-    expect(nach.hands.p1).toHaveLength(10);
-    expect(nach.hands.p1).toContain(s0.hands.p1[0]);
+    expect(nach.judgeId).not.toBe(leger.id);
+    expect(nach.played[leger.id]).toEqual([karte]);
+    // Der Fehler aus dem Gerätetest: die gelegte Karte kam zurück auf die Hand.
+    expect(nach.hands[leger.id]).not.toContain(karte);
+    // Auch nach dem Rundenwechsel nicht.
+    let s = nach;
+    const rest = neu.filter((x) => x.id !== nach.judgeId && !s.played[x.id]);
+    for (const x of rest) s = tun(s, weg, { type: 'submit', by: x.id, cards: [s.hands[x.id][0]] });
+    expect(s.phase).toBe('reveal');
+    for (let i = 0; i < s.order.length; i++) s = tun(s, weg, { type: 'flip', by: s.judgeId });
+    s = tun(s, weg, { type: 'pick-winner', by: s.judgeId, target: leger.id });
+    s = tun(s, weg, { type: 'next', by: leger.id });
+    expect(s.round).toBe(2);
+    expect(s.hands[leger.id]).not.toContain(karte);
+    expect(s.hands[leger.id]).toHaveLength(10);
+  });
+
+  it('nimmt die Karte des neuen Richters aus der Wertung', () => {
+    const { p, s: s0 } = starte(4);
+    const weg = p.map((x) => (x.id === s0.judgeId ? { ...x, online: false } : x));
+    let s = s0;
+    for (const x of weg) {
+      if (x.online === false) continue;
+      s = tun(s, weg, { type: 'submit', by: x.id, cards: [s.hands[x.id][0]] });
+    }
+    expect(s.phase).toBe('reveal');
+    const nach = tun(s, weg, { type: 'judge-left', by: 'p1' });
+    expect(nach.phase).toBe('reveal');
+    expect(nach.played[nach.judgeId]).toBeUndefined();
+    expect(nach.order).not.toContain(nach.judgeId);
+    expect(nach.order).toHaveLength(2);
   });
 
   it('verwirft nichts, wenn der Richter noch da ist', () => {
@@ -367,5 +397,57 @@ describe('Einsetzen in den Lückentext', () => {
 
   it('lässt die Marke stehen, wenn eine Karte fehlt', () => {
     expect(fill('____ und ____', ['nur eine'])).toBe('nur eine und ____');
+  });
+});
+
+describe('Blankokarten', () => {
+  const mitBlanko = (n: number) => {
+    useApp.setState({ blanks: { lueckenfueller: true } });
+    const r = starte(n);
+    useApp.setState({ blanks: {} });
+    return r;
+  };
+
+  it('legt ohne Einstellung keine Blankokarten aus', () => {
+    const { s } = starte(4);
+    expect(Object.values(s.hands).flat().some((r) => r >= 1_000_000)).toBe(false);
+  });
+
+  it('gibt jeder Hand zwei Blankokarten und füllt sie nach dem Legen wieder auf', () => {
+    const { p, s: s0 } = mitBlanko(4);
+    const leger = p.find((x) => x.id !== s0.judgeId)!;
+    const blanko = s0.hands[leger.id].filter((r) => r >= 1_000_000);
+    expect(blanko).toHaveLength(2);
+    expect(s0.hands[leger.id]).toHaveLength(10);
+
+    // Ohne Text wird nicht gelegt.
+    expect(tun(s0, p, { type: 'submit', by: leger.id, cards: [blanko[0]], texts: ['  '] })).toBe(s0);
+
+    const s1 = tun(s0, p, { type: 'submit', by: leger.id, cards: [blanko[0]], texts: ['mein Text'] });
+    const ref = s1.played[leger.id][0];
+    expect(ref).toBeLessThan(0);
+    expect(s1.custom[-ref - 1]).toBe('mein Text');
+    expect(s1.hands[leger.id]).not.toContain(blanko[0]);
+
+    let s = s1;
+    for (const x of p) {
+      if (x.id === s.judgeId || s.played[x.id]) continue;
+      const normal = s.hands[x.id].find((r) => r < 1_000_000)!;
+      s = tun(s, p, { type: 'submit', by: x.id, cards: [normal] });
+    }
+    for (let i = 0; i < s.order.length; i++) s = tun(s, p, { type: 'flip', by: s.judgeId });
+    s = tun(s, p, { type: 'pick-winner', by: s.judgeId, target: leger.id });
+    s = tun(s, p, { type: 'next', by: leger.id });
+    expect(s.round, `Phase ${s.phase}`).toBe(2);
+    expect(s.hands[leger.id].filter((r) => r >= 1_000_000)).toHaveLength(2);
+    expect(s.hands[leger.id]).toHaveLength(10);
+  });
+
+  it('kürzt zu lange Texte', () => {
+    const { p, s: s0 } = mitBlanko(4);
+    const leger = p.find((x) => x.id !== s0.judgeId)!;
+    const blanko = s0.hands[leger.id].find((r) => r >= 1_000_000)!;
+    const s1 = tun(s0, p, { type: 'submit', by: leger.id, cards: [blanko], texts: ['x'.repeat(200)] });
+    expect(s1.custom.at(-1)).toHaveLength(BLANK_MAX);
   });
 });

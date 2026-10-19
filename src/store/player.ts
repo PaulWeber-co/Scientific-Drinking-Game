@@ -22,6 +22,8 @@ interface PlayerState {
   carryoverLog: DrinkEvent[];
   /** Beginn des aktuellen Abends – danach wird das Log automatisch geleert. */
   nightStartedAt: number | null;
+  /** Letzte Aktivität des Abends (Getränk, Spielstart, Foto). */
+  lastActiveAt: number | null;
   /** Gläser Wasser heute Abend – zählt nur, wer will. */
   waterCount: number;
   /**
@@ -49,6 +51,12 @@ interface PlayerState {
   beginNight: () => void;
   /** Entfernt abgebaute Restalkohol-Historie nach dem Laden. */
   pruneCarryover: () => void;
+  /**
+   * Meldet Aktivität. Liegt die letzte länger als `PAUSE_MS` zurück, wird der
+   * alte Abend erst abgeschlossen – das Spiel am Vormittag gehört nicht zum
+   * Abend, und dessen Fotos entwickelten sonst zu früh.
+   */
+  noteActivity: () => void;
   endNight: () => void;
   resetAll: () => void;
 }
@@ -57,6 +65,9 @@ interface PlayerState {
 const NIGHT_MS = 14 * 60 * 60 * 1000;
 /** Das Vorglühen kann bis vier Stunden zurück eingetragen werden. */
 const BACKDATE_WINDOW_MS = 4 * 60 * 60 * 1000;
+
+/** So lange Ruhe trennt zwei Abende. */
+export const PAUSE_MS = 6 * 60 * 60 * 1000;
 
 export const usePlayer = create<PlayerState>()(
   persist(
@@ -68,6 +79,7 @@ export const usePlayer = create<PlayerState>()(
       log: [],
       carryoverLog: [],
       nightStartedAt: null,
+      lastActiveAt: null,
       waterCount: 0,
       preloadAskedAt: null,
 
@@ -91,7 +103,8 @@ export const usePlayer = create<PlayerState>()(
         const d = drink ?? findDrink(s.currentDrinkId, s.customDrinks);
         get().logEvent(makeDrinkEvent(d, sips, source));
       },
-      logEvent: (e) =>
+      logEvent: (e) => {
+        get().noteActivity();
         set((s) => ({
           log: [...s.log, e],
           // Vor einem neuen Abend darf alte Historie erst weg, wenn sie
@@ -100,12 +113,14 @@ export const usePlayer = create<PlayerState>()(
             ? s.carryoverLog
             : remainingHistory(s.carryoverLog, s.profile, Math.min(Date.now(), e.at)),
           nightStartedAt: s.nightStartedAt ?? e.at,
-        })),
+        }));
+      },
       undoLast: () => set((s) => ({ log: s.log.slice(0, -1) })),
       removeEvent: (id) => set((s) => ({ log: s.log.filter((e) => e.id !== id) })),
       addWater: () => set((s) => ({ waterCount: s.waterCount + 1 })),
       markPreloadAsked: () => set({ preloadAskedAt: Date.now() }),
-      beginNight: () =>
+      beginNight: () => {
+        get().noteActivity();
         set((s) =>
           s.nightStartedAt
             ? s
@@ -113,13 +128,19 @@ export const usePlayer = create<PlayerState>()(
                 nightStartedAt: Date.now(),
                 carryoverLog: remainingHistory(s.carryoverLog, s.profile),
               },
-        ),
+        );
+      },
       pruneCarryover: () =>
         set((s) =>
           s.log.length
             ? s
             : { carryoverLog: remainingHistory(s.carryoverLog, s.profile) },
         ),
+      noteActivity: () => {
+        const now = Date.now();
+        if (pausiert(get(), now)) get().endNight();
+        set({ lastActiveAt: now });
+      },
 
       // Der Abend wird archiviert, nicht weggeworfen. Diese eine Stelle
       // deckt ALLE drei Wege ab, auf denen ein Abend endet: der Knopf im
@@ -151,6 +172,7 @@ export const usePlayer = create<PlayerState>()(
           carryoverLog: remainingHistory(events, s.profile),
           log: [],
           nightStartedAt: null,
+          lastActiveAt: null,
           waterCount: 0,
           preloadAskedAt: null,
         });
@@ -168,6 +190,7 @@ export const usePlayer = create<PlayerState>()(
           log: [],
           carryoverLog: [],
           nightStartedAt: null,
+          lastActiveAt: null,
           waterCount: 0,
           preloadAskedAt: null,
           customDrinks: [],
@@ -258,7 +281,19 @@ export function remainingHistory(events: DrinkEvent[], profile: Profile | null, 
  */
 export function closeStaleNight(state: PlayerState | undefined, now = Date.now()): void {
   if (!state?.nightStartedAt) return;
-  if (now - state.nightStartedAt > NIGHT_MS) state.endNight();
+  if (now - state.nightStartedAt > NIGHT_MS || pausiert(state, now)) state.endNight();
+}
+
+/** Läuft ein Abend, dessen letzte Aktivität länger als die Pause zurückliegt? */
+function pausiert(
+  s: Pick<PlayerState, 'nightStartedAt' | 'lastActiveAt' | 'log'>,
+  now: number,
+): boolean {
+  if (!s.nightStartedAt) return false;
+  // Ältere Stände kennen das Feld nicht: dann zählt das letzte Getränk,
+  // sonst der Beginn.
+  const zuletzt = s.lastActiveAt ?? s.log.at(-1)?.at ?? s.nightStartedAt;
+  return now - zuletzt > PAUSE_MS;
 }
 
 /** Bequemer Zugriff auf das aktuell gewählte Getränk. */

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Avatar } from '../../components/ui/Avatar';
-import { eventDrink, formatEntry, formatGlasses, tally } from '../../engine/tally';
+import { eventDrink, formatEntry, formatGlassCount, formatGlasses, tally } from '../../engine/tally';
 import { formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
@@ -22,14 +22,18 @@ import type { DrinkEvent } from '../../engine/types';
  * dem Sicherheitsfeature genau den Gruppenzwang gemacht, den es vermeiden
  * soll. Die Verteilung der Zonen steht anonym im Gruppenpegel.
  */
-export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
+export function TableTally({
+  onAdd,
+}: {
+  /** Tipp auf eine Person: Getränk für sie eintragen. Nur wo ihr Log hier liegt. */
+  onAdd?: (playerId: string) => void;
+}) {
   const { players, me, mode, removeEventFor } = useParty();
   const myLog = usePlayer((s) => s.log);
   const customs = usePlayer((s) => s.customDrinks);
   const [open, setOpen] = useState<string | null>(null);
 
   if (players.length < 2) return null;
-  if (hideEmpty && !myLog.length && !players.some((p) => p.local?.log.length)) return null;
 
   return (
     <section className="card stack-3">
@@ -53,7 +57,7 @@ export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
                   <span className="t-headline">{name}</span>
                   {t && (
                     <span className="t-caption t-mono-num">
-                      {formatGlasses(t.glasses)} {Math.round(t.glasses * 2) <= 2 ? 'Glas' : 'Gläser'}
+                      {formatGlassCount(t.glasses)}
                     </span>
                   )}
                 </span>
@@ -78,22 +82,37 @@ export function TableTally({ hideEmpty = false }: { hideEmpty?: boolean }) {
           );
           return (
             <div key={p.id} className="stack-2">
-              {log?.length ? (
-                <button
-                  className="row pressable"
-                  style={{ alignItems: 'flex-start', width: '100%', textAlign: 'left' }}
-                  aria-expanded={aufgeklappt}
-                  aria-label={`Einträge von ${name}`}
-                  onClick={() => setOpen(aufgeklappt ? null : p.id)}
-                >
-                  {zeile}
-                  <Icon name={aufgeklappt ? 'chevronUp' : 'chevronDown'} size={15} />
-                </button>
-              ) : (
-                <div className="row" style={{ alignItems: 'flex-start' }}>
-                  {zeile}
-                </div>
-              )}
+              <div className="row" style={{ alignItems: 'flex-start' }}>
+                {/* Der Name ist der Griff zum Eintragen – dort hat im Test
+                    jede Person zuerst hingetippt. */}
+                {log && onAdd ? (
+                  <button
+                    className="row grow pressable"
+                    style={{ alignItems: 'flex-start', textAlign: 'left' }}
+                    aria-label={`Getränk für ${name} eintragen`}
+                    onClick={() => {
+                      haptic('tap');
+                      onAdd(p.id);
+                    }}
+                  >
+                    {zeile}
+                  </button>
+                ) : (
+                  <div className="row grow" style={{ alignItems: 'flex-start' }}>
+                    {zeile}
+                  </div>
+                )}
+                {!!log?.length && (
+                  <button
+                    className="btn btn--plain"
+                    aria-expanded={aufgeklappt}
+                    aria-label={`Einträge von ${name}`}
+                    onClick={() => setOpen(aufgeklappt ? null : p.id)}
+                  >
+                    <Icon name={aufgeklappt ? 'chevronUp' : 'chevronDown'} size={15} />
+                  </button>
+                )}
+              </div>
               {aufgeklappt && log && (
                 <Entries
                   log={log}

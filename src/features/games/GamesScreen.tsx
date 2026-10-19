@@ -134,6 +134,8 @@ export function GameDetail() {
   const nav = useNavigate();
   const party = useParty();
   const markGamePlayed = useApp((s) => s.markGamePlayed);
+  const blanksOn = useApp((s) => s.blanks[id] === true);
+  const toggleBlanks = useApp((s) => s.toggleBlanks);
   const gameLength = useApp((s) => s.gameLength);
   const game = getGame(id);
   const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln'>(null);
@@ -209,6 +211,18 @@ export function GameDetail() {
           {endless ? 'Endlos' : `${rounds} Runden`}
         </button>
         {game.allowSpicy && <SpicyToggle game={game} />}
+        {game.allowBlanks && (
+          <button
+            className={`chip pressable ${blanksOn ? 'chip--on' : ''}`}
+            aria-pressed={blanksOn}
+            onClick={() => {
+              haptic('tap');
+              toggleBlanks(game.id);
+            }}
+          >
+            <Icon name="cards" size={13} /> {blanksOn ? 'Mit Blankokarten' : 'Ohne Blankokarten'}
+          </button>
+        )}
         {game.allowCustomCards && (
           <button className="chip pressable" onClick={() => setSheet('karten')}>
             <Icon name="plus" size={13} /> Eigene Karten

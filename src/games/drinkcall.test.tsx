@@ -1,7 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
+import { render } from '../test/render';
 import { useState } from 'react';
 import { DrinkCall, DrinkCallList } from './shared/DrinkCall';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';

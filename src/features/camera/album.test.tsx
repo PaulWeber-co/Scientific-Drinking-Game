@@ -51,6 +51,27 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('Album: die Sperre an ihrer Wirkstelle', () => {
+  it('kann den Abend abschliessen und gibt seine Fotos trotzdem erst zur Entwicklungszeit frei', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    usePlayer.setState({ profile: null, log: [], carryoverLog: [], waterCount: 0 });
+    useFilm.setState({ photos: [foto({ developAt: now + 1_000 })] });
+    zeige();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abend beenden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abend abschließen' }));
+
+    expect(usePlayer.getState().nightStartedAt).toBeNull();
+    expect(useFilm.getState().photos[0].nightId).toBe(useNights.getState().nights[0].id);
+    expect(screen.getByLabelText('Noch nicht entwickelt')).toBeInTheDocument();
+    expect(photoUrl).not.toHaveBeenCalled();
+
+    await act(async () => vi.advanceTimersByTime(1_000));
+
+    expect(screen.queryByLabelText('Noch nicht entwickelt')).toBeNull();
+    expect(photoUrl).toHaveBeenCalledWith('a.jpg');
+  });
+
   it('gibt Bilder im offenen Album genau zur jeweiligen Entwicklungszeit frei', async () => {
     vi.useFakeTimers();
     const now = Date.now();

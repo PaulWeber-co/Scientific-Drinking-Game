@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bacEvents, closeStaleNight, defaultProfile, migratePlayer, usePlayer } from './player';
+import { PAUSE_MS, bacEvents, closeStaleNight, defaultProfile, migratePlayer, usePlayer } from './player';
 import { createCustomDrink, findDrink } from '../engine/drinks';
 import { makeDrinkEvent } from '../engine/sips';
 import { estimateBac, residualBac, soberAt } from '../engine/bac';
@@ -126,6 +126,66 @@ describe('Restalkohol nach dem Abendabschluss', () => {
   });
 });
 
+/** Zwei Abende trennt eine Pause – nicht erst die 14-Stunden-Grenze. */
+describe('Pause trennt Abende', () => {
+  const H = 3_600_000;
+  const vormittag = new Date(2026, 8, 12, 11, 0, 0).getTime();
+
+  beforeEach(() => {
+    usePlayer.setState({ ...usePlayer.getInitialState(), profile: defaultProfile() });
+    useNights.setState({ nights: [], current: [] });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('ein Spiel am Vormittag und ein Getränk am Abend sind zwei Abende', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(vormittag);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + 9 * H);
+    usePlayer.getState().logEvent(makeDrinkEvent(findDrink('beer-pils', []), 3));
+    expect(usePlayer.getState().nightStartedAt).toBe(vormittag + 9 * H);
+    expect(usePlayer.getState().log).toHaveLength(1);
+  });
+
+  it('innerhalb der Pause bleibt es derselbe Abend', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(vormittag);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + PAUSE_MS - 1000);
+    usePlayer.getState().beginNight();
+    vi.setSystemTime(vormittag + 2 * PAUSE_MS - 2000);
+    usePlayer.getState().beginNight();
+    expect(usePlayer.getState().nightStartedAt).toBe(vormittag);
+  });
+
+  it('schließt einen pausierten Abend auch beim Start der App', () => {
+    usePlayer.setState({ nightStartedAt: vormittag, lastActiveAt: vormittag });
+    closeStaleNight(usePlayer.getState(), vormittag + PAUSE_MS + 1);
+    expect(usePlayer.getState().nightStartedAt).toBeNull();
+  });
+
+  it('erhält beim automatischen Abendwechsel den Restalkohol des alten Abends', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(vormittag);
+    usePlayer.getState().logSips(120);
+    const [previous] = usePlayer.getState().log;
+
+    const now = vormittag + PAUSE_MS + 1;
+    vi.setSystemTime(now);
+    usePlayer.getState().logSips(2);
+
+    const state = usePlayer.getState();
+    expect(state.nightStartedAt).toBe(now);
+    expect(state.lastActiveAt).toBe(now);
+    expect(state.log).toHaveLength(1);
+    expect(state.carryoverLog).toEqual([previous]);
+    expect(useNights.getState().nights[0].log).toEqual([previous]);
+    const expected = estimateBac([previous, ...state.log], state.profile!, now);
+    expect(expected.bac).toBeGreaterThan(0.1);
+    expect(estimateBac(bacEvents(state), state.profile!, now)).toEqual(expected);
+  });
+});
+
 describe('migratePlayer', () => {
   it('macht aus einem alten 4-cl-Shot wieder ein ganzes Glas', () => {
     // So legte die App bis v3 einen 4-cl-Shot an: Glas 40 ml, Shot 20 ml.
@@ -150,5 +210,45 @@ describe('migratePlayer', () => {
       customDrinks: { sipSizeMl: number }[];
     };
     expect(neu.customDrinks[0].sipSizeMl).toBe(20);
+  });
+
+  it('übernimmt v4-Aktivitätsdaten und ergänzt die Resthistorie beim Laden', async () => {
+    const now = Date.now();
+    const log = [makeDrinkEvent(findDrink('beer-pils'), 2, 'glas', now - 1000)];
+    localStorage.setItem('sdg.player', JSON.stringify({
+      version: 4,
+      state: {
+        profile: defaultProfile(), log, nightStartedAt: now - 2000, lastActiveAt: now,
+      },
+    }));
+
+    await usePlayer.persist.rehydrate();
+
+    expect(usePlayer.getState().log).toEqual(log);
+    expect(usePlayer.getState().carryoverLog).toEqual([]);
+    expect(usePlayer.getState().lastActiveAt).toBe(now);
+  });
+
+  it('erhält v5-Resthistorie ohne Aktivitätsfeld und nutzt die letzte Logzeit', async () => {
+    const now = Date.now();
+    const carryoverLog = [makeDrinkEvent(findDrink('beer-pils'), 40, 'glas', now - 2 * 3_600_000)];
+    const log = [makeDrinkEvent(findDrink('beer-pils'), 2, 'glas', now - 1000)];
+    // v5 vor dem Merge kannte lastActiveAt noch nicht. Frische Defaults
+    // entsprechen dem Zustand vor der ersten Rehydration beim App-Start.
+    usePlayer.setState(usePlayer.getInitialState());
+    localStorage.setItem('sdg.player', JSON.stringify({
+      version: 5,
+      state: {
+        profile: defaultProfile(), carryoverLog, log,
+        nightStartedAt: now - 7 * 3_600_000,
+      },
+    }));
+
+    await usePlayer.persist.rehydrate();
+
+    expect(usePlayer.getState().carryoverLog).toEqual(carryoverLog);
+    expect(usePlayer.getState().log).toEqual(log);
+    expect(usePlayer.getState().nightStartedAt).toBe(now - 7 * 3_600_000);
+    expect(usePlayer.getState().lastActiveAt).toBeNull();
   });
 });

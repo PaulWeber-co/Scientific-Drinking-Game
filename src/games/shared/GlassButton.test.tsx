@@ -136,7 +136,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
 
     // Der lange Druck darf NICHT zusätzlich ein Glas buchen.
     expect(logSipsFor).not.toHaveBeenCalled();
-    expect(screen.getByText('Halbes')).toBeTruthy();
+    expect(screen.getByText('½ Glas')).toBeTruthy();
     expect(screen.getByText('1 Std her')).toBeTruthy();
   });
 
@@ -148,7 +148,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerUp(glas());
     fireEvent.click(glas(), { detail: 1 });
 
-    fireEvent.click(screen.getByText('Halbes'));
+    fireEvent.click(screen.getByText('½ Glas'));
     fireEvent.click(screen.getByRole('button', { name: '½ Glas Bier (Pils) eintragen' }));
 
     expect(logSipsFor).toHaveBeenCalledWith('p0', Math.round(PILS / 2), 'glas', {
@@ -187,7 +187,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerLeave(glas());
     act(() => vi.advanceTimersByTime(500));
 
-    expect(screen.queryByText('Halbes')).toBeNull();
+    expect(screen.queryByText('½ Glas')).toBeNull();
   });
 });
 
