@@ -82,7 +82,7 @@ describe('Ich hab noch nie online', () => {
   it('der Host kann vorziehen, solange noch jemand fehlt', () => {
     const sent = mount(neverHaveIEver.createState(roster), host);
     fireEvent.click(screen.getByRole('button', { name: 'Nicht mehr warten – weiter' }));
-    expect(sent).toEqual([{ type: 'next' }]);
+    expect(sent).toEqual([{ type: 'next', turnKey: '1:0' }]);
   });
 
   it('wenn alle geantwortet haben, sehen alle, wer es getan hat', () => {

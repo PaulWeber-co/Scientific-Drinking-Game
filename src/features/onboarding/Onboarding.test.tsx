@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { Onboarding } from './Onboarding';
 import { usePlayer } from '../../store/player';
 
@@ -56,5 +56,28 @@ describe('Onboarding unter 18', () => {
     weiter();
     expect(screen.getByText('Dein Zielpegel')).toBeTruthy();
     expect(screen.getByText(/Bis zu deinem Pegel/)).toBeTruthy();
+  });
+});
+
+describe('Einladung nach dem Onboarding', () => {
+  it('kehrt mit dem Lobby-Code zur ursprünglichen Einladung zurück', () => {
+    function Destination() {
+      const location = useLocation();
+      return <p>{`${location.pathname}${location.search}`}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={[
+        { pathname: '/onboarding', state: { returnTo: '/lobby?code=AB12' } },
+      ]}>
+        <Routes>
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/lobby" element={<Destination />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    weiter();
+    fireEvent.change(screen.getByPlaceholderText('Spitzname'), { target: { value: 'Lea' } });
+    for (let i = 0; i < 6; i++) weiter();
+    expect(screen.getByText('/lobby?code=AB12')).toBeInTheDocument();
   });
 });

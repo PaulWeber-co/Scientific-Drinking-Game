@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PegelScreen } from './PegelScreen';
@@ -6,6 +6,8 @@ import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { findDrink, sipsPerServing } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
+import { residualBac } from '../../engine/bac';
+import { formatBac } from '../../lib/format';
 import type { GamePlayer } from '../../games/types';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn() }));
@@ -41,6 +43,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(JETZT);
   usePlayer.setState({
+    ...usePlayer.getInitialState(),
     profile: { ...defaultProfile(), name: 'Paul' },
     onboarded: true,
     currentDrinkId: 'beer-pils',
@@ -48,6 +51,29 @@ beforeEach(() => {
     log: [],
     nightStartedAt: JETZT - 2 * STUNDE,
   });
+});
+
+afterEach(() => vi.useRealTimers());
+
+it('behält den schnellen Eintrag und berücksichtigt Restalkohol im aufgeklappten Fahr-Check', () => {
+  const events = [makeDrinkEvent(findDrink('beer-pils'), 40, 'glas', JETZT - STUNDE)];
+  usePlayer.setState({ log: events });
+  usePlayer.getState().endNight();
+  mount();
+
+  expect(screen.getByRole('button', { name: 'Getränk eintragen' })).toBeInTheDocument();
+  expect(screen.getByText('Restalkohol aus abgeschlossenen Abenden wird weiter berücksichtigt.')).toBeInTheDocument();
+  const toggle = screen.getByRole('button', { name: 'Fahrtauglichkeit' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(toggle);
+  for (let i = 0; i < 8; i++) fireEvent.click(screen.getByRole('button', { name: 'weniger' }));
+
+  const target = new Date(JETZT);
+  target.setHours(0, 0, 0, 0);
+  if (target.getTime() <= JETZT) target.setDate(target.getDate() + 1);
+  const expected = residualBac(events, usePlayer.getState().profile!, target.getTime());
+  expect(expected).toBeGreaterThan(0);
+  expect(screen.getByText(new RegExp(`Geschätzt ${formatBac(expected)} ‰ um 00:00`))).toBeInTheDocument();
 });
 
 describe('Trink-Log', () => {

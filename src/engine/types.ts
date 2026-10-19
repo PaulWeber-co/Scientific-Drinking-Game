@@ -57,6 +57,8 @@ export interface DrinkEvent {
   at: number;
   drinkId: string;
   drinkName: string;
+  /** Definition zum Trinkzeitpunkt; bleibt nach Löschen eigener Getränke erhalten. */
+  drink?: DrinkDefinition;
   sips: number;
   /** Reiner Alkohol in Gramm, der zu diesem Zeitpunkt konsumiert wurde. */
   alcoholGrams: number;

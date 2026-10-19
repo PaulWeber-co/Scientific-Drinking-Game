@@ -3,7 +3,8 @@ import { findDrink } from '../../engine/drinks';
 import { personalSips } from '../../engine/sips';
 import type { SipResult } from '../../engine/types';
 import type { GamePlayer } from '../../games/types';
-import { usePlayer } from '../../store/player';
+import { useBacEvents, usePlayer } from '../../store/player';
+import { useNow } from '../../lib/useNow';
 import { useParty } from './PartyContext';
 
 /**
@@ -17,9 +18,10 @@ import { useParty } from './PartyContext';
 export function useSipsForPlayer(player: GamePlayer | null, baseSips: number): SipResult | null {
   const me = useParty().me;
   const profile = usePlayer((s) => s.profile);
-  const log = usePlayer((s) => s.log);
+  const log = useBacEvents();
   const currentDrinkId = usePlayer((s) => s.currentDrinkId);
   const customDrinks = usePlayer((s) => s.customDrinks);
+  const now = useNow();
 
   return useMemo(() => {
     if (!player) return null;
@@ -30,6 +32,7 @@ export function useSipsForPlayer(player: GamePlayer | null, baseSips: number): S
         drink: findDrink(currentDrinkId, customDrinks),
         events: log,
         baseSips,
+        now,
       });
     }
     if (player.local) {
@@ -39,12 +42,13 @@ export function useSipsForPlayer(player: GamePlayer | null, baseSips: number): S
         // eine Liste eigener Getränke. Ohne sie rechnete die Ansage für ein
         // eigenes Getränk still mit dem ersten Katalog-Getränk (Pils).
         drink: findDrink(player.local.drinkId, customDrinks),
-        events: player.local.log,
+        events: [...(player.local.carryoverLog ?? []), ...player.local.log],
         baseSips,
+        now,
       });
     }
     return null;
-  }, [player, me.id, profile, log, currentDrinkId, customDrinks, baseSips]);
+  }, [player, me.id, profile, log, currentDrinkId, customDrinks, baseSips, now]);
 }
 
 /** Schluckzahl für mich selbst. */

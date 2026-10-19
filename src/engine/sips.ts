@@ -218,6 +218,7 @@ export function makeDrinkEvent(
     at,
     drinkId: drink.id,
     drinkName: drink.name,
+    drink: { ...drink },
     sips,
     alcoholGrams: round2(sips * alcoholPerSip(drink)),
     source,

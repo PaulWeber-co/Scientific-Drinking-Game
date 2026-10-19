@@ -234,6 +234,38 @@ describe('Undercover: der letzte Rateversuch', () => {
     expect(new Set(s.guessOptions).size, 'ein Wort stand doppelt').toBe(3);
   });
 
+  it('zeigt die Auswahl online nur auf dem Gerät des Enttarnten', () => {
+    const players = runde(4);
+    const state = { ...enttarnt(players), undercoverId: 'p1', lastOut: 'p1' };
+    const dispatch = vi.fn();
+    const Game = undercover.Component;
+    const view = (player: GamePlayer, online: boolean) => (
+      <PartyCtx.Provider value={{ me: player, players } as unknown as PartyValue}>
+        <Game
+          state={state}
+          players={players}
+          me={player}
+          isHost={player.id === me.id}
+          online={online}
+          dispatch={dispatch}
+          quit={() => {}}
+        />
+      </PartyCtx.Provider>
+    );
+    const { rerender } = render(view(me, true));
+    for (const word of state.guessOptions) {
+      expect(screen.queryByRole('button', { name: word })).toBeNull();
+    }
+
+    rerender(view(players[1], true));
+    fireEvent.click(screen.getByRole('button', { name: state.guessOptions[0] }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'guess', word: state.guessOptions[0] });
+
+    // Am geteilten Handy muss die Auswahl beim Gerätebesitzer weiterhin bedienbar sein.
+    rerender(view(me, false));
+    expect(screen.getByRole('button', { name: state.guessOptions[0] })).toBeTruthy();
+  });
+
   it('dreht die Runde, wenn er trifft', () => {
     const players = runde(4);
     let s = enttarnt(players);

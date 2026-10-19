@@ -25,7 +25,13 @@ export function Router() {
   const location = useLocation();
 
   if (!onboarded && !PUBLIC_PATHS.includes(location.pathname)) {
-    return <Navigate to="/onboarding" replace />;
+    return (
+      <Navigate
+        to="/onboarding"
+        replace
+        state={{ returnTo: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
@@ -20,6 +20,7 @@ type Step = (typeof STEPS)[number];
 
 export function Onboarding() {
   const nav = useNavigate();
+  const location = useLocation();
   const complete = usePlayer((s) => s.completeOnboarding);
   const acceptDisclaimer = useApp((s) => s.acceptDisclaimer);
   const [step, setStep] = useState(0);
@@ -52,7 +53,11 @@ export function Onboarding() {
         { ...p, alcoholFree: p.alcoholFree || gate !== 'full' },
         gate === 'full' ? drinkId : 'soft',
       );
-      nav('/', { replace: true });
+      // Einladungen behalten ihr Ziel, auch wenn zuerst ein Profil fehlt.
+      const returnTo = location.state?.returnTo;
+      nav(typeof returnTo === 'string' && /^\/(?!\/)/.test(returnTo) ? returnTo : '/', {
+        replace: true,
+      });
       return;
     }
     haptic('press');

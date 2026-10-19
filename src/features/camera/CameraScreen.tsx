@@ -41,6 +41,7 @@ export default function CameraScreen() {
   const addPhoto = useFilm((s) => s.addPhoto);
   const [busy, setBusy] = useState(false);
   const [blitz, setBlitz] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const zuletzt = useRef(0);
 
   const auslösen = useCallback(async () => {
@@ -52,23 +53,31 @@ export default function CameraScreen() {
 
     setBusy(true);
     setBlitz(true);
+    setCaptureError(null);
     haptic('heavy');
     try {
-      await setTorch(true);
-      await new Promise((r) => setTimeout(r, FLASH_LEAD_MS));
-      const blob = await developFrame(video, video.videoWidth, video.videoHeight);
-      await setTorch(false);
-      if (blob) {
-        const name = `${uid('f_')}.jpg`;
-        await savePhoto(name, blob);
-        // Ein Foto ist Aktivität: liegt der Abend lange zurück, wird er erst
-        // abgeschlossen, und dieses Bild eröffnet den neuen.
-        beginNight();
-        const developsAt = rollDevelopAt(useFilm.getState().photos, developAfterH);
-        addPhoto(name, developsAt);
-        void scheduleDevelopNotice(developsAt);
-        haptic('success');
+      let blob: Blob | null;
+      try {
+        await setTorch(true);
+        await new Promise((r) => setTimeout(r, FLASH_LEAD_MS));
+        blob = await developFrame(video, video.videoWidth, video.videoHeight);
+      } finally {
+        // Auch ein fehlgeschlagenes Auslesen des Videobilds muss die
+        // Taschenlampe wieder ausschalten.
+        await setTorch(false);
       }
+      if (!blob) throw new Error('Kein Kamerabild');
+      const name = `${uid('f_')}.jpg`;
+      await savePhoto(name, blob);
+      // Ein Foto ist Aktivität: liegt der Abend lange zurück, wird er erst
+      // abgeschlossen, und dieses Bild eröffnet den neuen.
+      beginNight();
+      const developsAt = rollDevelopAt(useFilm.getState().photos, developAfterH);
+      addPhoto(name, developsAt);
+      void scheduleDevelopNotice(developsAt);
+      haptic('success');
+    } catch {
+      setCaptureError('Das Foto konnte nicht aufgenommen oder gespeichert werden. Bitte versuch es noch einmal.');
     } finally {
       setBlitz(false);
       setBusy(false);
@@ -121,6 +130,7 @@ export default function CameraScreen() {
 
       {state === 'live' ? (
         <div className="viewfinder__bottom">
+          {captureError && <div className="notice notice--red" role="alert">{captureError}</div>}
           <p className="viewfinder__hint">
             {mineLeft > 0
               ? `Noch ${mineLeft} ${plural(mineLeft, 'Bild', 'Bilder')} für dich. Wie es geworden ist, siehst du morgen.`

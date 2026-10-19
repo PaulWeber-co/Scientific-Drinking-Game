@@ -100,6 +100,11 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     action: GameAction,
     players: GamePlayer[],
   ): CardGameState => {
+    // Several phones can finish the same card before the next state arrives.
+    // Actions from that view must not advance or resolve the following turn.
+    if (action.turnKey !== undefined && action.turnKey !== `${state.round}:${state.turnIndex}`) {
+      return state;
+    }
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
@@ -144,9 +149,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         return { ...state, declared: { ...(state.declared ?? {}), [action.by]: answer } };
       }
       case 'next': {
-        // Nur von einer liegenden oder aufgelösten Karte aus. Zwei fast
-        // gleichzeitige Taps würden sonst zwei Runden zählen und eine Karte
-        // überspringen; die Inbox wendet Aktionen nacheinander an.
+        // A self-declared card advances directly; other games resolve first.
+        // turnKey above also guards the direct card-to-card transition.
         if (state.phase !== 'card' && state.phase !== 'resolved') return state;
         // Wer selbst auskunftet, schaltet nicht für alle weiter: das tut nur
         // der Host (User-Entscheid 2026-10-14). Vorher konnte, wer zuerst
@@ -214,7 +218,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
     const send = (action: GameActionInput) => {
       haptic('select');
-      dispatch(action);
+      dispatch({ ...action, turnKey: `${state.round}:${state.turnIndex}` });
     };
 
     return (
@@ -339,7 +343,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 ]}
                 onPick={(id) => {
                   haptic(id === 'yes' ? 'warn' : 'success');
-                  dispatch({ type: 'declare', answer: id });
+                  dispatch({ type: 'declare', answer: id, turnKey: `${state.round}:${state.turnIndex}` });
                 }}
               />
             ) : declared === 'yes' ? (

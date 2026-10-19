@@ -102,6 +102,13 @@ describe('Busfahrer: Fragerunde', () => {
     expect(s.pyramid).toHaveLength(10);
   });
 
+  it('verbraucht die letzten Karten, bevor neu gemischt wird', () => {
+    const state = { ...busfahrer.createState(roster), deck: [karte(4), karte(5)] };
+    const result = run(state, act('answer', 'p0', { answer: 'schwarz' }));
+    expect(result.hand).toEqual([karte(4)]);
+    expect(result.deck).toEqual([karte(5)]);
+  });
+
   it('haelt die Pyramide auch dann sauber, wenn der Stapel NACHGEMISCHT wird', () => {
     // Der Test darueber sieht nur den Startzustand und ist dort trivial wahr.
     // Erst waehrend der Fragerunde geht der Vorrat zur Neige: zehn Karten
@@ -133,6 +140,21 @@ describe('Busfahrer: Fragerunde', () => {
 });
 
 describe('Busfahrer: Pyramide', () => {
+  it('legt bei doppelter Handkarte nur eine der beiden Kopien ab', () => {
+    const duplicate = karte(11, 3);
+    const state = gestellt({ hands: { p0: [], p1: [duplicate, duplicate, karte(4, 2)], p2: [] } });
+    const result = run(
+      state,
+      act('pyFlip'),
+      act('pyClaim', 'p1', { who: 'p1' }),
+      act('pyPick', 'p1', { card: duplicate }),
+      act('pyAccept'),
+      act('pyGive', 'p1', { to: 'p0' }),
+      act('pyDone'),
+    );
+    expect(result.hands.p1).toEqual([duplicate, karte(4, 2)]);
+  });
+
   it('deckt von unten auf und fragt dann, wer ablegt', () => {
     const s = run(gestellt(), act('pyFlip'));
     expect(s.pyUp).toBe(1);

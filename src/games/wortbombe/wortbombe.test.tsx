@@ -77,6 +77,39 @@ describe('Wortbombe: scharf machen', () => {
   });
 });
 
+describe('Wortbombe: Weitergabe', () => {
+  const running = (): Zustand => ({
+    ...wortbombe.createState(spieler),
+    phase: 'running',
+    order: ['p0', 'p1', 'p2'],
+    holderIndex: 1,
+    armedAt: 1_000,
+    explodesAt: 30_000,
+  });
+
+  it('lässt die Bombe unmittelbar vor dem Ablauf weiterreichen', () => {
+    const state = wortbombe.reduce(running(), { type: 'pass', by: 'p1', at: 29_999 }, spieler);
+    expect(state.phase).toBe('running');
+    expect(state.order[state.holderIndex]).toBe('p2');
+  });
+
+  it.each([30_000, 30_100])('trifft bei einem Tap um %i den bisherigen Halter', (at) => {
+    const state = wortbombe.reduce(running(), { type: 'pass', by: 'p1', at }, spieler);
+    expect(state.phase).toBe('boom');
+    expect(state.order[state.holderIndex]).toBe('p1');
+    expect(state.losses).toEqual({ p1: 1 });
+    // Der später eintreffende Timer darf dieselbe Explosion nicht doppelt zählen.
+    expect(wortbombe.reduce(state, { type: 'boom', by: 'p0', at: 30_250 }, spieler)).toBe(state);
+  });
+
+  it('überspringt nach dem Verlassen einer früheren Person niemanden', () => {
+    const remaining = spieler.filter((p) => p.id !== 'p0');
+    const state = wortbombe.reduce(running(), { type: 'pass', by: 'p1', at: 20_000 }, remaining);
+    expect(state.order).toEqual(['p1', 'p2']);
+    expect(state.order[state.holderIndex]).toBe('p2');
+  });
+});
+
 describe('Wortbombe: der Knall', () => {
   // Reihenfolge festnageln: `createState` mischt, sonst waere der „Nicht-Halter"
   // mal doch der Halter und der Lauf nur manchmal rot.

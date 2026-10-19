@@ -28,8 +28,26 @@ export function AlbumScreen() {
   const nights = useNights((s) => s.nights);
   const { remaining, mineLeft, running } = useFilmStatus();
   const [open, setOpen] = useState<Photo | null>(null);
+  const [now, setNow] = useState(Date.now);
   const [reviewOpen, setReviewOpen] = useState(false);
   const endNight = usePlayer((s) => s.endNight);
+
+  useEffect(() => {
+    const next = Math.min(...photos.filter((p) => p.developAt > now).map((p) => p.developAt));
+    if (!Number.isFinite(next)) return;
+    // Ein offenes Album muss den Abzug zur Entwicklungszeit freigeben,
+    // auch wenn sich weder Film noch Lobby in der Zwischenzeit ändern.
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(2_147_483_647, Math.max(0, next - Date.now())));
+    return () => clearTimeout(timer);
+  }, [photos, now]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setNow(Date.now());
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, []);
 
   // Bilder ohne Abend wegräumen – siehe `sweep.ts`.
   useEffect(() => {
@@ -101,7 +119,7 @@ export function AlbumScreen() {
             </div>
             <div className="photogrid">
               {bilder.map((p) => (
-                <Frame key={p.id} photo={p} onOpen={() => setOpen(p)} />
+                <Frame key={p.id} photo={p} now={now} onOpen={() => setOpen(p)} />
               ))}
             </div>
           </section>
@@ -125,8 +143,8 @@ function groupByNight(photos: readonly Photo[]): [string | null, Photo[]][] {
   return [...map.entries()];
 }
 
-function Frame({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
-  const fertig = isDeveloped(photo);
+function Frame({ photo, now, onOpen }: { photo: Photo; now: number; onOpen: () => void }) {
+  const fertig = isDeveloped(photo, now);
   const url = usePhotoUrl(fertig ? photo.file : null);
 
   if (!fertig) {

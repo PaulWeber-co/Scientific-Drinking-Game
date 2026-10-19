@@ -235,10 +235,10 @@ export const busfahrer: GameDefinition<State> = {
         if (state.lastResult) return state;
         // Nachschub OHNE die Pyramidenkarten. Ein volles Deck nachzumischen
         // legte dieselbe Karte offen in die Pyramide und verdeckt auf eine
-        // Hand – ab zehn Personen (4 Züge je Person, 42 Karten Vorrat) ist
+        // Hand – ab elf Personen (4 Züge je Person, 42 Karten Vorrat) ist
         // das der Regelfall, nicht der Randfall.
         const deck =
-          state.deck.length >= 5
+          state.deck.length > 0
             ? state.deck
             : shuffle(fullDeck().filter((c) => !state.pyramid.includes(c)));
         const [next, ...rest] = deck;
@@ -332,9 +332,12 @@ export const busfahrer: GameDefinition<State> = {
         if (!state.pyClaimBy || state.pyClaimCard === null) return state;
         if (state.pyStep === 'penalty' && !claimPasst(state)) return afterPyramidCard(state);
         const hand = state.hands[state.pyClaimBy] ?? [];
+        const pickedIndex = hand.indexOf(state.pyClaimCard);
         return afterPyramidCard({
           ...state,
-          hands: { ...state.hands, [state.pyClaimBy]: hand.filter((c) => c !== state.pyClaimCard) },
+          // Large groups can exhaust the deck and receive another copy of
+          // the same card. Playing one must remove exactly one occurrence.
+          hands: { ...state.hands, [state.pyClaimBy]: hand.filter((_, i) => i !== pickedIndex) },
         });
       }
 
@@ -760,9 +763,9 @@ function Pyramid({
           {darfIch && (
             <>
               <div className="cardrow">
-                {(state.hands[claimer.id] ?? []).map((c) => (
+                {(state.hands[claimer.id] ?? []).map((c, i) => (
                   <button
-                    key={c}
+                    key={`${c}-${i}`}
                     className="cardbtn pressable"
                     aria-label={`${RANKS[cardFromIndex(c).rank]} ${SUIT_NAMES[cardFromIndex(c).suit]} ablegen`}
                     onClick={() => send({ type: 'pyPick', card: c })}

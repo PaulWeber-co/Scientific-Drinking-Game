@@ -6,8 +6,7 @@ import {
   BETA_TYPICAL,
 } from '../../engine/constants';
 import { ZONE_META, bacZone, drivingLight, estimateBac, residualBac, soberAt } from '../../engine/bac';
-import { findDrink } from '../../engine/drinks';
-import { formatEntry } from '../../engine/tally';
+import { eventDrink, formatEntry } from '../../engine/tally';
 import { formatBac, formatDuration, formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { NavBar, Stepper } from '../../components/ui';
@@ -21,13 +20,15 @@ import { NightReview } from './NightReview';
 import { NightsList } from './NightsList';
 import { Stat } from './Stat';
 import { GAMES } from '../../games/registry';
-import { useCurrentDrink, usePlayer } from '../../store/player';
+import { useBacEvents, useCurrentDrink, usePlayer } from '../../store/player';
 
 const HOUR = 3_600_000;
 
 export function PegelScreen() {
   const profile = usePlayer((s) => s.profile);
   const log = usePlayer((s) => s.log);
+  const carryoverLog = usePlayer((s) => s.carryoverLog);
+  const events = useBacEvents();
   const customs = usePlayer((s) => s.customDrinks);
   const undoLast = usePlayer((s) => s.undoLast);
   const removeEvent = usePlayer((s) => s.removeEvent);
@@ -43,13 +44,13 @@ export function PegelScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
 
   const sober = useMemo(
-    () => (profile && log.length ? soberAt(log, profile, now) : null),
-    [log, profile, now],
+    () => (profile && events.length ? soberAt(events, profile, now) : null),
+    [events, profile, now],
   );
 
   const series = useMemo(() => {
-    if (!profile || !log.length) return [];
-    const start = Math.min(...log.map((e) => e.at)) - 15 * 60_000;
+    if (!profile || !events.length) return [];
+    const start = Math.min(...events.map((e) => e.at)) - 15 * 60_000;
     // Bis kurz hinter die Nüchternzeit – sonst wäre der halbe Chart eine
     // flache Null-Linie und die eigentliche Kurve zusammengedrückt.
     const horizon = sober ? sober + 20 * 60_000 : now + HOUR;
@@ -57,10 +58,10 @@ export function PegelScreen() {
     const points: { t: number; bac: number }[] = [];
     for (let i = 0; i <= 36; i++) {
       const t = start + ((end - start) * i) / 36;
-      points.push({ t, bac: estimateBac(log, profile, t).bac });
+      points.push({ t, bac: estimateBac(events, profile, t).bac });
     }
     return points;
-  }, [log, profile, now, sober]);
+  }, [events, profile, now, sober]);
 
   const driveTarget = useMemo(() => {
     const d = new Date(now);
@@ -70,8 +71,8 @@ export function PegelScreen() {
   }, [now, driveHour]);
 
   const driveBac = useMemo(
-    () => (driveOpen && profile && log.length ? residualBac(log, profile, driveTarget) : 0),
-    [driveOpen, log, profile, driveTarget],
+    () => (driveOpen && profile && events.length ? residualBac(events, profile, driveTarget) : 0),
+    [driveOpen, events, profile, driveTarget],
   );
 
   if (!profile) return null;
@@ -97,6 +98,11 @@ export function PegelScreen() {
             }
           />
           <p className="t-sub t-center t-balance">{zone.note}</p>
+          {carryoverLog.length > 0 && (estimate?.effective ?? 0) > 0.01 && (
+            <p className="t-caption t-center">
+              Restalkohol aus abgeschlossenen Abenden wird weiter berücksichtigt.
+            </p>
+          )}
           <button
             className="btn btn--brand btn--block"
             onClick={() => {
@@ -213,7 +219,7 @@ export function PegelScreen() {
                   <div key={e.id} className="list__item">
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
-                        {formatEntry(findDrink(e.drinkId, customs), e.sips, e.drinkName)}
+                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName)}
                       </span>
                       <span className="t-caption">
                         {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
