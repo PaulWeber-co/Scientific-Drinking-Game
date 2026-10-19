@@ -15,8 +15,14 @@ import { formatBac } from '../../lib/format';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 
-const STEPS = ['start', 'name', 'alter', 'koerper', 'magen', 'drink', 'ziel'] as const;
+const STEPS = ['start', 'name', 'alter', 'modus', 'koerper', 'magen', 'drink', 'ziel'] as const;
 type Step = (typeof STEPS)[number];
+type PlayMode = 'alcohol' | 'alcoholFree' | 'driver';
+const PLAY_MODES = [
+  { value: 'alcohol', label: 'Mit Alkohol', description: 'Ansagen passend zu dir und deinem Getränk', icon: 'beerMug' },
+  { value: 'alcoholFree', label: 'Alkoholfrei', description: 'Aufgaben statt Schlucken · ohne Körperdaten', icon: 'water' },
+  { value: 'driver', label: 'Ich fahre', description: 'Alkoholfrei · für deine Runde sichtbar', icon: 'car' },
+] as const;
 
 export function Onboarding() {
   const nav = useNavigate();
@@ -28,11 +34,12 @@ export function Onboarding() {
   const [drinkId, setDrinkId] = useState('beer-pils');
 
   const gate = ageGate(p.age);
-  // Unter 18 sind die Alkoholfunktionen aus. Getränkewahl und „bis zu deinem
-  // Pegel sind es etwa X Schlucke" hätten einer minderjährigen Person dann
-  // genau das vorgerechnet, was die App ihr gerade verweigert.
+  const alcoholFree = p.alcoholFree || p.designatedDriver || gate !== 'full';
+  const mode: PlayMode = p.designatedDriver ? 'driver' : alcoholFree ? 'alcoholFree' : 'alcohol';
+  // Körperdaten und die Pegelplanung braucht nur, wer mit Alkohol mitspielt.
+  // Auch unter 18 bleiben deshalb alle vier Fragen vollständig aus.
   const steps: readonly Step[] =
-    gate === 'full' ? STEPS : STEPS.filter((s) => s !== 'drink' && s !== 'ziel');
+    alcoholFree ? STEPS.filter((s) => !['koerper', 'magen', 'drink', 'ziel'].includes(s)) : STEPS;
   const last = steps.length - 1;
   const current: Step = steps[Math.min(step, last)];
   const patch = (v: Partial<Profile>) => setP((prev) => ({ ...prev, ...v }));
@@ -50,8 +57,8 @@ export function Onboarding() {
       haptic('success');
       acceptDisclaimer();
       complete(
-        { ...p, alcoholFree: p.alcoholFree || gate !== 'full' },
-        gate === 'full' ? drinkId : 'soft',
+        { ...p, alcoholFree },
+        alcoholFree ? 'soft' : drinkId,
       );
       // Einladungen behalten ihr Ziel, auch wenn zuerst ein Profil fehlt.
       const returnTo = location.state?.returnTo;
@@ -106,6 +113,34 @@ export function Onboarding() {
                 {AGE_GATE_TEXT[gate]}
               </div>
             )}
+          </StepShell>
+        )}
+        {current === 'modus' && (
+          <StepShell title="Wie spielst du heute?" sub="Kannst du später im Profil ändern.">
+            <div className="list">
+              {PLAY_MODES.filter((option) => gate === 'full' || option.value !== 'alcohol').map((option) => (
+                <button
+                  key={option.value}
+                  className={`list__item pressable ${mode === option.value ? 'list__item--active' : ''}`}
+                  aria-pressed={mode === option.value}
+                  onClick={() => {
+                    haptic('select');
+                    patch({
+                      alcoholFree: option.value !== 'alcohol',
+                      designatedDriver: option.value === 'driver',
+                    });
+                  }}
+                >
+                  <span className="listicon"><Icon name={option.icon} size={22} /></span>
+                  <span className="grow" style={{ textAlign: 'left' }}>
+                    <span className="t-headline" style={{ display: 'block' }}>{option.label}</span>
+                    <span className="t-caption">{option.description}</span>
+                  </span>
+                  {mode === option.value && <Icon name="check" size={22} />}
+                </button>
+              ))}
+            </div>
+            {gate !== 'full' && <div className="notice notice--orange">{AGE_GATE_TEXT[gate]}</div>}
           </StepShell>
         )}
         {current === 'koerper' && (
@@ -247,8 +282,8 @@ function StepStart() {
           die mitdenken.
         </h1>
         <p className="t-body t-dim t-balance">
-          Jede Ansage wird auf deine Körperdaten und dein Getränk umgerechnet. Ziel ist nicht mehr
-          Alkohol – sondern der richtige Pegel, den ganzen Abend.
+          Mit Alkohol, alkoholfrei oder als Fahrer: Du entscheidest, wie du mitspielst.
+          Wenn du Alkohol trinkst, passen wir die Ansagen an dich und dein Getränk an.
         </p>
       </div>
       <div className="notice notice--neutral">

@@ -219,7 +219,7 @@ export function PegelScreen() {
                   <div key={e.id} className="list__item">
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
-                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName)}
+                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName, e.volumeMl)}
                       </span>
                       <span className="t-caption">
                         {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
@@ -273,8 +273,8 @@ export function PegelScreen() {
         players={party.mode === 'local' ? party.players : [party.me]}
         meId={party.me.id}
         initialPlayerId={addFor ?? undefined}
-        onLog={(playerId, d, sips, at) =>
-          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
+        onLog={(playerId, d, sips, at, volumeMl) =>
+          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at, volumeMl })
         }
       />
     </div>

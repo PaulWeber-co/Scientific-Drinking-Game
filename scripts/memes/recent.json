@@ -1,0 +1,308 @@
+{
+  "_info": "Geprüfte Ergänzungen vom 19. Oktober 2026. period bezeichnet belegte Verbreitung, nicht pauschal das Entstehungsjahr. source ist der vom Katalog genannte Vorlagen-/Herkunftslink. MIT gilt für Sammlungscode, nicht automatisch für Bilder. Upstream-Angaben wie fair-use sind keine freigegebene Bildlizenz. Bilddateien stammen ausschließlich von fest referenzierten öffentlichen GitHub-Sammlungen; keine Aufrufe an Imgflip beim Import oder im Spiel.",
+  "templates": [
+    {
+      "id": "absolute-cinema-blank",
+      "name": "Absolute Cinema",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/absolute-cinema-blank/default.jpg",
+      "sha256": "9e0cccd79254c61fc437af26c25b7fc422406ae4489fdba52a98bf03beb60774",
+      "source": "https://imgflip.com/meme/514151477/Absolute-Cinema-Blank",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/absolute-cinema-blank",
+      "period": "2024 (Popularität; Aufnahme von 2020)",
+      "evidence": "https://knowyourmeme.com/editorials/poll/kym-review-the-top-20-memes-of-2024",
+      "boxes": [
+        {
+          "x": 0.05,
+          "y": 0.02,
+          "w": 0.9,
+          "h": 0.13
+        },
+        {
+          "x": 0.05,
+          "y": 0.85,
+          "w": 0.9,
+          "h": 0.13
+        }
+      ]
+    },
+    {
+      "id": "sad-hamster",
+      "name": "Sad Hamster",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/sad-hamster/default.jpg",
+      "sha256": "d95b7ab247bb04c74476b6c97dca84cb869ee373e83aad7bc76cbe7d0e05a9ae",
+      "source": "https://imgflip.com/meme/511654183/Sad-Hamster",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/sad-hamster",
+      "period": "Februar 2024 (virales Format)",
+      "evidence": "https://knowyourmeme.com/memes/sad-hamster-hamster-with-big-eyes",
+      "boxes": [
+        {
+          "x": 0.01,
+          "y": 0.005,
+          "w": 0.98,
+          "h": 0.175,
+          "c": "black"
+        },
+        {
+          "x": 0.01,
+          "y": 0.82,
+          "w": 0.98,
+          "h": 0.165,
+          "c": "black"
+        }
+      ]
+    },
+    {
+      "id": "happy-dolphin-rainbow",
+      "name": "Symphony Dolphin",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/happy-dolphin-rainbow/default.jpg",
+      "sha256": "7e7e455de0c1a77054c33c115c2539309ba7e77546d1b97b36e8f3d11d30995a",
+      "source": "https://imgflip.com/meme/512988872/Happy-dolphin-rainbow",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/happy-dolphin-rainbow",
+      "period": "August 2024 (Symphony-Trend; Illustration älter)",
+      "evidence": "https://knowyourmeme.com/memes/rainbow-dolphin-symphony-dolphin",
+      "boxes": [
+        {
+          "x": 0.05,
+          "y": 0.02,
+          "w": 0.9,
+          "h": 0.16
+        },
+        {
+          "x": 0.05,
+          "y": 0.82,
+          "w": 0.9,
+          "h": 0.16
+        }
+      ]
+    },
+    {
+      "id": "bro-visited-his-friend",
+      "name": "Bro Visited His Friend",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/bro-visited-his-friend/default.jpg",
+      "sha256": "494a95658da98b6ed1e9d18f158c2201cdcd7d30dec63a2dc12487c7fe2e7821",
+      "source": "https://imgflip.com/meme/525752147/Bro-visited-his-friend",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/bro-visited-his-friend",
+      "period": "März/April 2024 (Comic und Verbreitung)",
+      "evidence": "https://knowyourmeme.com/memes/bro-visited-his-friend-friendpilled-visitmaxxer",
+      "boxes": [
+        {
+          "x": 0.03,
+          "y": 0.08,
+          "w": 0.19,
+          "h": 0.25,
+          "c": "black",
+          "f": "thin",
+          "s": "none"
+        },
+        {
+          "x": 0.25,
+          "y": 0.08,
+          "w": 0.21,
+          "h": 0.27,
+          "c": "black",
+          "f": "thin",
+          "s": "none"
+        }
+      ]
+    },
+    {
+      "id": "what-kind-of-american",
+      "name": "What Kind of American?",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/what-kind-of-american/default.jpg",
+      "sha256": "15a6c04eaef595be7c9eed78f09462410cee4d042c4c105feafeb3d8c1070e2d",
+      "source": "https://imgflip.com/meme/499301001/What-kind-of-American",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/what-kind-of-american",
+      "period": "April 2024 (Filmstart und Bildformat; Trailer Dezember 2023)",
+      "evidence": "https://knowyourmeme.com/memes/what-kind-of-american-are-you",
+      "boxes": [
+        {
+          "x": 0.01,
+          "y": 0.005,
+          "w": 0.98,
+          "h": 0.145
+        },
+        {
+          "x": 0.01,
+          "y": 0.85,
+          "w": 0.98,
+          "h": 0.135
+        }
+      ]
+    },
+    {
+      "id": "high-vs-low-cortisol",
+      "name": "High vs. Low Cortisol",
+      "image": "https://raw.githubusercontent.com/tenequm/memegen-rs/852bd13168961b34300a2d0712cea4cf863f07d7/templates/high-vs-low-cortisol/default.jpg",
+      "sha256": "1674dc6bf63907a96ead03e465d2eb13808727a0834ecd9cef44f582cfc2f6bc",
+      "source": "https://imgflip.com/meme/641967685/high-vs-low-cortisol",
+      "catalog": "https://github.com/tenequm/memegen-rs/tree/852bd13168961b34300a2d0712cea4cf863f07d7/templates/high-vs-low-cortisol",
+      "period": "2026 (aktuelle Verwendung belegt, kein behauptetes Entstehungsjahr)",
+      "evidence": "https://suarausu.or.id/meme-high-low-cortisol-cara-gen-z-berekspresi/",
+      "boxes": [
+        {
+          "x": 0.02,
+          "y": 0.02,
+          "w": 0.46,
+          "h": 0.18,
+          "c": "black",
+          "f": "thin",
+          "s": "none"
+        },
+        {
+          "x": 0.52,
+          "y": 0.02,
+          "w": 0.46,
+          "h": 0.18,
+          "c": "black",
+          "f": "thin",
+          "s": "none"
+        }
+      ]
+    },
+    {
+      "id": "100-men-vs-1-gorilla",
+      "name": "100 Men vs. 1 Gorilla",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/100-men-vs-1-gorilla.jpg",
+      "sha256": "a9f050af13677beedc6a81acb032767c4a229d64163a7c2a064d8f38c5978a13",
+      "source": "https://imgflip.com/meme/592052817/100-Men-vs-1-Gorilla",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/100-men-vs-1-gorilla.meta.json",
+      "period": "April/Mai 2025 (erneuter viraler Schub; Gedankenspiel älter)",
+      "evidence": "https://knowyourmeme.com/memes/100-men-vs-1-gorilla",
+      "boxes": [
+        {
+          "x": 0.0402,
+          "y": 0.0299,
+          "w": 0.9196,
+          "h": 0.2
+        },
+        {
+          "x": 0.0402,
+          "y": 0.7701,
+          "w": 0.9196,
+          "h": 0.2
+        }
+      ]
+    },
+    {
+      "id": "meowl",
+      "name": "Meowl",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/meowl.jpg",
+      "sha256": "7ee679b2b6f8e183c8bc0496ce223439deffc6d096f7dbf1ec6257f26551c276",
+      "source": "https://imgflip.com/meme/613198819/A-meowl",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/meowl.meta.json",
+      "period": "August/September 2025 (New-Soul-Trend; Montage von 2013)",
+      "evidence": "https://knowyourmeme.com/memes/meowl",
+      "boxes": [
+        {
+          "x": 0.0395,
+          "y": 0.0298,
+          "w": 0.9209,
+          "h": 0.2
+        },
+        {
+          "x": 0.0395,
+          "y": 0.7702,
+          "w": 0.9209,
+          "h": 0.2
+        }
+      ]
+    },
+    {
+      "id": "moo-deng",
+      "name": "Moo Deng",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/moo-deng.jpg",
+      "sha256": "e08cae559fd45328171b9d62871a94f6ff471833abf8fb0ac01bef511a2c4b99",
+      "source": "https://imgflip.com/meme/550463235/Moo-Deng",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/moo-deng.meta.json",
+      "period": "September 2024 (virales Tiermotiv)",
+      "evidence": "https://knowyourmeme.com/memes/moo-deng-the-baby-hippo",
+      "boxes": [
+        {
+          "x": 0.0403,
+          "y": 0.0294,
+          "w": 0.9205,
+          "h": 0.1993
+        },
+        {
+          "x": 0.0403,
+          "y": 0.7712,
+          "w": 0.9205,
+          "h": 0.1993
+        }
+      ]
+    },
+    {
+      "id": "moo-deng-side-eye",
+      "name": "Moo Deng – Side Eye",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/moo-deng-side-eye.jpg",
+      "sha256": "379c8e74a2676f4197bd03dd0d2ba4f0fe4b5f3c70cb82d129c14001a0c8ca33",
+      "source": "https://imgflip.com/meme/555398822/Moo-Deng-Side-Eye",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animals/images/moo-deng-side-eye.meta.json",
+      "period": "2024 (zweite Reaktion desselben Tiermotivs)",
+      "evidence": "https://knowyourmeme.com/memes/moo-deng-the-baby-hippo",
+      "boxes": [
+        {
+          "x": 0.0404,
+          "y": 0.0303,
+          "w": 0.9206,
+          "h": 0.2002
+        },
+        {
+          "x": 0.0404,
+          "y": 0.7695,
+          "w": 0.9206,
+          "h": 0.2002
+        }
+      ]
+    },
+    {
+      "id": "jon-hamm-dancing",
+      "name": "Jon Hamm Dancing",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animated/gifs/jon-hamm-dancing.gif",
+      "sha256": "d403eceafe26e207b940423529fd688f5054078e8b59319ffb47e49f1d43d880",
+      "source": "https://imgflip.com/gif-maker/628238188/John-Hamm-dancing",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/animated/gifs/jon-hamm-dancing.meta.json",
+      "period": "Oktober–Dezember 2025 (Turn-the-Lights-Off-Trend)",
+      "evidence": "https://knowyourmeme.com/memes/jon-hamm-dancing-in-the-club-scene-turn-the-lights-off-trend",
+      "boxes": [
+        {
+          "x": 0.025,
+          "y": 0.02,
+          "w": 0.95,
+          "h": 0.18
+        },
+        {
+          "x": 0.025,
+          "y": 0.8,
+          "w": 0.95,
+          "h": 0.18
+        }
+      ],
+      "frame": 0
+    },
+    {
+      "id": "chill-guy",
+      "name": "Chill Guy",
+      "image": "https://raw.githubusercontent.com/kartikkabadi/meme-maker/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/characters/images/chill-guy.jpg",
+      "sha256": "dc8668fb451fe86c748b5658a532fcedd1f51f3e0c7f4f56c53753118e2551e6",
+      "source": "https://imgflip.com/memetemplate/562391530/Chill-guy",
+      "catalog": "https://github.com/kartikkabadi/meme-maker/blob/0e8531e680951612f4bb1437ef767ea5f7ce8519/assets/templates/packs/characters/images/chill-guy.meta.json",
+      "period": "September/November 2024 (viraler Schub; Figur von Phillip Banks, 2023)",
+      "evidence": "https://knowyourmeme.com/memes/just-a-chill-guy-my-new-character",
+      "boxes": [
+        {
+          "x": 0.0289,
+          "y": 0.0193,
+          "w": 0.9398,
+          "h": 0.2
+        },
+        {
+          "x": 0.0289,
+          "y": 0.7807,
+          "w": 0.9398,
+          "h": 0.2
+        }
+      ]
+    }
+  ]
+}

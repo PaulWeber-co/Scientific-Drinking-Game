@@ -24,7 +24,9 @@ it('behält einen geteilten Lobby-Code über das vollständige Erst-Onboarding',
   render(<MemoryRouter initialEntries={['/lobby?code=AB12']}><Router /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Verstanden' }));
   fireEvent.change(screen.getByPlaceholderText('Spitzname'), { target: { value: 'Lea' } });
-  for (let i = 0; i < 5; i++) fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Weiter' })); // Alter
+  fireEvent.click(screen.getByRole('button', { name: 'Weiter' })); // Spielweise
+  fireEvent.click(screen.getByRole('button', { name: /^Alkoholfrei/ }));
   fireEvent.click(screen.getByRole('button', { name: "Los geht's" }));
   await waitFor(() => expect(joinOnline).toHaveBeenCalledWith('AB12'));
   expect(screen.getByText('Einladungsrunde')).toBeInTheDocument();

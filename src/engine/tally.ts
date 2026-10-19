@@ -43,7 +43,23 @@ export function formatAmount(drink: DrinkDefinition, sips: number): string {
  * Weißwein". `name` kommt aus dem Eintrag, wenn das Getränk hier nicht mehr
  * bekannt ist (gelöschtes eigenes Getränk, Gast von einem anderen Handy).
  */
-export function formatEntry(drink: DrinkDefinition, sips: number, name = drink.name): string {
+export function formatEntry(
+  drink: DrinkDefinition,
+  sips: number,
+  name = drink.name,
+  volumeMl?: number,
+): string {
+  if (volumeMl !== undefined) {
+    const glasses = volumeMl / drink.defaultVolumeMl;
+    const halves = Math.round(glasses * 2);
+    // Nur genaue halbe/ganze Standardgläser so benennen. Eine 0,5-l-Flasche
+    // Pils ist keine gerundete 1½-Portion des 0,33-l-Katalogglases.
+    if (Math.abs(glasses * 2 - halves) < 1e-8 && halves > 0) {
+      if (drink.sipIsUnit && Number.isInteger(glasses)) return `${glasses}× ${name}`;
+      return `${formatGlassCount(glasses)} ${name}`;
+    }
+    return `${formatVolume(drink, sips, volumeMl)} ${name}`;
+  }
   if (drink.sipIsUnit) return `${sips}× ${name}`;
   return `${formatAmount(drink, sips)} ${name}`;
 }
@@ -75,19 +91,22 @@ export interface Tally {
 export function tally(log: readonly DrinkEvent[], customs: DrinkDefinition[] = []): Tally {
   const map = new Map<string, TallyRow>();
   for (const e of log) {
+    const drink = eventDrink(e, customs);
+    const glasses = e.volumeMl === undefined
+      ? glassesOf(drink, e.sips)
+      : e.volumeMl / drink.defaultVolumeMl;
     const row = map.get(e.drinkId);
     if (row) {
       row.sips += e.sips;
       row.grams += e.alcoholGrams;
-      row.glasses = glassesOf(row.drink, row.sips);
+      row.glasses += glasses;
       continue;
     }
-    const drink = eventDrink(e, customs);
     map.set(e.drinkId, {
       drink,
       name: e.drinkName,
       sips: e.sips,
-      glasses: glassesOf(drink, e.sips),
+      glasses,
       grams: e.alcoholGrams,
     });
   }
@@ -113,12 +132,11 @@ export function formatGlassCount(glasses: number): string {
 }
 
 /**
- * Die echte Menge, die ein Eintrag bucht: „0,5 l", „2 cl". Aus den Schlucken
- * gerechnet, nicht aus dem gewählten Glas – ein halber Shot bleibt ein Shot
- * und steht dann auch als 2 cl da.
+ * Menge eines Eintrags: „0,5 l", „2 cl". Manuelle Einträge übergeben ihr
+ * exaktes Volumen; bei älteren Einträgen bleibt die bisherige Umrechnung.
  */
-export function formatVolume(drink: DrinkDefinition, sips: number): string {
-  const ml = glassesOf(drink, sips) * drink.defaultVolumeMl;
+export function formatVolume(drink: DrinkDefinition, sips: number, volumeMl?: number): string {
+  const ml = volumeMl ?? glassesOf(drink, sips) * drink.defaultVolumeMl;
   const zahl = (n: number, stellen: number) => String(Number(n.toFixed(stellen))).replace('.', ',');
-  return ml < 100 ? `${zahl(ml / 10, 1)} cl` : `${zahl(ml / 1000, 2)} l`;
+  return ml < 100 ? `${zahl(ml / 10, 2)} cl` : `${zahl(ml / 1000, 3)} l`;
 }

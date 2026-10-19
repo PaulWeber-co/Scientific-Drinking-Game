@@ -64,6 +64,13 @@ export function ProfileScreen() {
           />
         </section>
 
+        {(profile.alcoholFree || profile.designatedDriver || gate !== 'full') && (
+          <div className="notice notice--neutral">
+            Für alkoholfreies Mitspielen brauchst du keine Körperdaten. Wenn du später mit Alkohol
+            mitspielst, prüfe hier zuerst Gewicht, Magenzustand, Getränk und Zielpegel.
+          </div>
+        )}
+
         <section className="stack-3">
           <div className="list-header t-upper">Körperdaten</div>
           <Segmented<Sex>

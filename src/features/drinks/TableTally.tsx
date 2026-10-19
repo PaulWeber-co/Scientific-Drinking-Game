@@ -155,7 +155,7 @@ function Entries({
           <div key={e.id} className="list__item">
             <span className="grow">
               <span className="t-headline" style={{ display: 'block' }}>
-                {formatEntry(eventDrink(e, customsFor), e.sips, e.drinkName)}
+                {formatEntry(eventDrink(e, customsFor), e.sips, e.drinkName, e.volumeMl)}
               </span>
               <span className="t-caption">{formatTime(e.at)}</span>
             </span>

@@ -41,8 +41,9 @@ export function GameFrame({
   return (
     <div className="game korn" style={{ ['--accent' as string]: accent }}>
       <header className="game__bar">
+        <div className="game__bar-content">
         <button
-          className="game__close"
+          className="game__close game__quit"
           aria-label="Spiel beenden"
           onClick={() => {
             haptic('tap');
@@ -55,7 +56,7 @@ export function GameFrame({
             PartyContext und überlebt den Abstecher, zurück geht es per
             Schließen im Sucher. Links, damit der Kopf symmetrisch bleibt. */}
         <button
-          className="game__close"
+          className="game__close game__camera"
           aria-label="Einwegkamera"
           onClick={() => {
             haptic('tap');
@@ -72,6 +73,7 @@ export function GameFrame({
           {action}
           <GlassButton />
           <GameSettings heat={heat} spicy={spicy} />
+        </div>
         </div>
       </header>
       <div className="game__body">

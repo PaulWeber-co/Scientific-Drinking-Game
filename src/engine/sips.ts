@@ -1,4 +1,4 @@
-import { estimateBac, widmarkFactor } from './bac';
+import { alcoholGrams, estimateBac, widmarkFactor } from './bac';
 import {
   BETA_TYPICAL,
   DOSING_ABSORPTION,
@@ -212,7 +212,11 @@ export function makeDrinkEvent(
   sips: number,
   source?: string,
   at: number = Date.now(),
+  volumeMl?: number,
 ): DrinkEvent {
+  if (volumeMl !== undefined && (!Number.isFinite(volumeMl) || volumeMl <= 0)) {
+    throw new RangeError('Die Getränkemenge muss positiv und endlich sein.');
+  }
   return {
     id: `${at.toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     at,
@@ -220,7 +224,12 @@ export function makeDrinkEvent(
     drinkName: drink.name,
     drink: { ...drink },
     sips,
-    alcoholGrams: round2(sips * alcoholPerSip(drink)),
+    ...(volumeMl === undefined ? {} : { volumeMl }),
+    alcoholGrams: round2(
+      volumeMl === undefined
+        ? sips * alcoholPerSip(drink)
+        : alcoholGrams(volumeMl, drink.abvPercent),
+    ),
     source,
   };
 }
