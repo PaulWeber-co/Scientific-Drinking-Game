@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { decodeState, encodeState, PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { useApp } from '../../store/app';
 import { useCustomCards } from '../../store/cards';
@@ -350,9 +351,11 @@ describe('Wer bin ich: Ansicht', () => {
   function zeigen(state: State, roster: GamePlayer[], me = roster[0]) {
     const Game = werBinIch.Component;
     return render(
-      <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
-        <Game state={state} players={roster} me={me} isHost online dispatch={() => {}} quit={() => {}} />
-      </PartyCtx.Provider>,
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+          <Game state={state} players={roster} me={me} isHost online dispatch={() => {}} quit={() => {}} />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
     );
   }
 
@@ -382,9 +385,11 @@ describe('Wer bin ich: Ansicht', () => {
     const Game = werBinIch.Component;
     const me = roster[0];
     const zeige = (state: State) => (
-      <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
-        <Game state={state} players={roster} me={me} isHost online dispatch={() => {}} quit={() => {}} />
-      </PartyCtx.Provider>
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+          <Game state={state} players={roster} me={me} isHost online dispatch={() => {}} quit={() => {}} />
+        </PartyCtx.Provider>
+      </MemoryRouter>
     );
     const view = render(zeige(s));
     expect(screen.getAllByTestId('drinkcall').map((e) => e.textContent)).toEqual([`p0:${DEAL_SIPS}`]);
