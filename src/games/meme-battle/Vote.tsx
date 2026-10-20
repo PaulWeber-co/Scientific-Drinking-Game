@@ -44,8 +44,9 @@ export function VoteView({
   const riding = state.riders[me.id];
   const canRide =
     state.options.trittbrett && state.options.mode !== 'entspannt' && !mineIsUp && !riding;
-  const cast = author ? Object.keys(state.votes[author] ?? {}).length : 0;
-  const voters = author ? votersFor(players, author).length : 0;
+  const eligible = author ? votersFor(players, author) : [];
+  const cast = author ? eligible.filter((id) => state.votes[author]?.[id] !== undefined).length : 0;
+  const voters = eligible.length;
 
   // Jedes neue Meme ist ein Anschlag: das erste der Runde kräftig (die
   // Abstimmung beginnt), das eigene spürbar anders als die fremden.
@@ -122,7 +123,7 @@ export function VoteView({
         </div>
       )}
 
-      <ReactionBar dispatch={dispatch} />
+      <ReactionBar dispatch={dispatch} target={author} />
 
       {state.options.trittbrett && state.options.mode !== 'entspannt' && !mineIsUp && (
         <button

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { PartyProvider, useParty, type PartyValue } from './PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
-import { alcoholPerSip, createCustomDrink } from '../../engine/drinks';
+import { alcoholPerSip, createCustomDrink, findDrink, sipsPerServing } from '../../engine/drinks';
+import { tally } from '../../engine/tally';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn() }));
 
@@ -137,6 +138,51 @@ describe('logSipsFor', () => {
 
     expect(api.players.find((p) => p.id === gast.id)?.local?.log).toHaveLength(0);
     expect(usePlayer.getState().log).toHaveLength(0);
+  });
+
+  it('bucht 0,5-l-Pils genau statt auf ganze Spiel-Schlucke zu runden', () => {
+    setup();
+    act(() => api.logSipsFor(api.me.id, 13, 'manuell', { drinkId: 'beer-pils', volumeMl: 500 }));
+    const [event] = usePlayer.getState().log;
+    expect(event.volumeMl).toBe(500);
+    expect(event.alcoholGrams).toBeCloseTo(19.73, 2);
+    expect(tally([event]).glasses).toBeCloseTo(500 / 330, 8);
+    act(() => api.undoLastFor(api.me.id));
+    expect(usePlayer.getState().log).toHaveLength(0);
+  });
+
+  it('bucht das schnelle Standardglas genau mit seiner Katalogmenge', () => {
+    setup();
+    const drink = findDrink('beer-pils');
+    act(() => api.logSipsFor(api.me.id, sipsPerServing(drink), 'glas', { volumeMl: drink.defaultVolumeMl }));
+    const [event] = usePlayer.getState().log;
+    expect(event.volumeMl).toBe(330);
+    expect(event.alcoholGrams).toBeCloseTo(13.02, 2);
+    expect(tally([event]).glasses).toBe(1);
+  });
+
+  it('bewahrt exakte Mengen und Rückgängig auch für Gäste und eigene Getränke', () => {
+    const custom = createCustomDrink({ name: 'Hausbier', volumeMl: 330, abvPercent: 5 });
+    usePlayer.setState({ customDrinks: [custom] });
+    setup();
+    const guest = addGuest('Mia', custom.id);
+    const at = Date.now() - 60_000;
+    act(() => api.logSipsFor(guest.id, 13, 'manuell', { drinkId: custom.id, volumeMl: 500, at }));
+    const [event] = api.players.find((p) => p.id === guest.id)?.local?.log ?? [];
+    expect(event).toMatchObject({ drinkId: custom.id, volumeMl: 500, alcoholGrams: 19.73, at });
+    expect(event.drink?.abvPercent).toBe(5);
+    expect(usePlayer.getState().log).toHaveLength(0);
+    act(() => api.undoLastFor(guest.id));
+    expect(api.players.find((p) => p.id === guest.id)?.local?.log).toHaveLength(0);
+  });
+
+  it.each([0, -5, NaN, Infinity])('blockiert ungültiges Volumen %s für mich und Gäste', (volumeMl) => {
+    setup();
+    const guest = addGuest('Mia');
+    act(() => api.logSipsFor(api.me.id, 1, 'manuell', { volumeMl }));
+    act(() => api.logSipsFor(guest.id, 1, 'manuell', { volumeMl }));
+    expect(usePlayer.getState().log).toHaveLength(0);
+    expect(api.players.find((p) => p.id === guest.id)?.local?.log).toHaveLength(0);
   });
 });
 

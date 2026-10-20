@@ -60,6 +60,8 @@ export interface DrinkEvent {
   /** Definition zum Trinkzeitpunkt; bleibt nach Löschen eigener Getränke erhalten. */
   drink?: DrinkDefinition;
   sips: number;
+  /** Exakte manuell eingetragene Menge; ältere Spiel-/Logeinträge haben nur Schlucke. */
+  volumeMl?: number;
   /** Reiner Alkohol in Gramm, der zu diesem Zeitpunkt konsumiert wurde. */
   alcoholGrams: number;
   /** Optional: welches Spiel den Schluck ausgelöst hat. */

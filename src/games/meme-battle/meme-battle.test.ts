@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { decodeState, encodeState } from '../../features/party/PartyContext';
 import { useApp } from '../../store/app';
 import { useCustomCards } from '../../store/cards';
@@ -122,7 +122,13 @@ describe('Meme-Duell: Einrichten', () => {
   it('startet am Tisch mit Standardwerten und überlebt die Datenbank', () => {
     const s = createState(players(4));
     expect(s.phase).toBe('setup');
-    expect(s.options).toEqual({ mode: 'klassisch', seconds: 90, trittbrett: true, rerolls: 5 });
+    expect(s.options).toEqual({
+      mode: 'klassisch',
+      seconds: 90,
+      trittbrett: true,
+      rerolls: 5,
+      rerollScope: 'round',
+    });
     expect(decodeState(encodeState(s))).toEqual(s);
   });
 
@@ -132,10 +138,35 @@ describe('Meme-Duell: Einrichten', () => {
     s = reduce(s, act('mode', 'p0', { mode: 'gleich' }), roster);
     s = reduce(s, act('timer', 'p0', { seconds: 60 }), roster);
     s = reduce(s, act('trittbrett', 'p0', { on: false }), roster);
-    expect(s.options).toEqual({ mode: 'gleich', seconds: 60, trittbrett: false, rerolls: 5 });
+    expect(s.options).toEqual({
+      mode: 'gleich',
+      seconds: 60,
+      trittbrett: false,
+      rerolls: 5,
+      rerollScope: 'round',
+    });
     const vorher = s;
     expect(reduce(s, act('mode', 'p0', { mode: 'wahrheit' }), roster)).toBe(vorher);
     expect(reduce(s, act('timer', 'p0', { seconds: 7 }), roster)).toBe(vorher);
+    expect(reduce(s, act('rerollScope', 'p0', { scope: 'hour' }), roster)).toBe(vorher);
+  });
+
+  it('übernimmt Einstellungen und den Start nur vom tatsächlichen Host', () => {
+    const roster = players(3).map((p, i) => ({ ...p, isHost: i === 0 }));
+    const s = createState(roster);
+    for (const [type, values] of [
+      ['mode', { mode: 'gleich' }],
+      ['timer', { seconds: 60 }],
+      ['rounds', { rounds: 8 }],
+      ['rerolls', { count: 8 }],
+      ['rerollScope', { scope: 'game' }],
+      ['trittbrett', { on: false }],
+      ['start', {}],
+    ] as const) {
+      expect(reduce(s, act(type, 'p1', values), roster), type).toBe(s);
+      expect(reduce(s, act(type, 'p0', values), roster), type).not.toBe(s);
+    }
+    expect(reduce(createState(players(2)), act('start'), players(2)).phase).toBe('setup');
   });
 
   it('teilt jeder Person eine eigene Vorlage aus', () => {
@@ -214,6 +245,87 @@ describe('Meme-Duell: Basteln', () => {
   it('lässt bei „Gleiches Meme" nicht würfeln', () => {
     const { roster, s } = started(3, 'gleich');
     expect(reduce(s, act('reroll', 'p1'), roster)).toBe(s);
+    expect(reduce({ ...s, prev: { p1: 'drake' } }, act('back', 'p1'), roster).drawn).toEqual(
+      s.drawn,
+    );
+  });
+
+  it('verwirft verspätete Aktionen für eine andere Vorlage oder Runde', () => {
+    const { roster, s } = started(3);
+    const changed = reduce(s, act('reroll'), roster);
+    for (const type of ['submit', 'reroll', 'back', 'edit']) {
+      expect(
+        reduce(
+          changed,
+          act(type, 'p0', {
+            template: s.drawn.p0,
+            round: 1,
+            texts: ['Alter Entwurf'],
+          }),
+          roster,
+        ),
+      ).toBe(changed);
+      expect(
+        reduce(
+          changed,
+          act(type, 'p0', {
+            template: changed.drawn.p0,
+            round: 0,
+            texts: ['Alter Entwurf'],
+          }),
+          roster,
+        ),
+      ).toBe(changed);
+    }
+  });
+
+  it('sichert abgegebene Memes nach Zeitablauf und lässt nur die Zustellfrist zum Abgeben', () => {
+    const { roster, s: initial } = started(3);
+    const submitted = reduce(initial, act('submit', 'p0', { texts: ['Schon fertig'] }), roster);
+    const deadline = initial.deadline!;
+    expect(reduce(submitted, act('edit', 'p0', { at: deadline }), roster)).toBe(submitted);
+    expect(reduce(initial, act('reroll', 'p1', { at: deadline }), roster)).toBe(initial);
+    const changed = reduce(initial, act('reroll'), roster);
+    expect(reduce(changed, act('back', 'p0', { at: deadline }), roster)).toBe(changed);
+    expect(
+      reduce(
+        initial,
+        act('submit', 'p1', {
+          at: deadline + SUBMIT_GRACE_MS,
+          texts: ['Pünktlich abgeschickt'],
+        }),
+        roster,
+      ).memes.p1,
+    ).toBeDefined();
+    expect(
+      reduce(
+        initial,
+        act('submit', 'p1', {
+          at: deadline + SUBMIT_GRACE_MS + 1,
+          texts: ['Zu spät'],
+        }),
+        roster,
+      ),
+    ).toBe(initial);
+  });
+
+  it('nimmt keine Meme-Aktionen von Personen außerhalb der anwesenden Lobby an', () => {
+    const { roster, s } = started(3);
+    expect(reduce(s, act('claim', 'fremd'), roster)).toBe(s);
+    const voting = allSubmit(s, roster);
+    for (const type of ['vote', 'ride', 'react']) {
+      expect(
+        reduce(
+          voting,
+          act(type, 'fremd', {
+            target: voting.order[0],
+            value: 1,
+            kind: 'lachen',
+          }),
+          roster,
+        ),
+      ).toBe(voting);
+    }
   });
 
   it('kürzt Texte auf die Felder der Vorlage und lehnt leere ab', () => {
@@ -358,6 +470,7 @@ describe('Meme-Duell: Reaktionen', () => {
     expect(reduce(s0, act('react', 'p0', { kind: 'lachen' }), roster)).toBe(s0);
     let s = allSubmit(s0, roster);
     expect(reduce(s, act('react', 'p0', { kind: 'kotzen' }), roster)).toBe(s);
+    expect(reduce(s, act('react', 'p0', { kind: 'lachen', target: s.order[1] }), roster)).toBe(s);
     for (let i = 0; i < 12; i++) s = reduce(s, act('react', 'p1', { kind: 'herz' }), roster);
     expect(s.reactions).toHaveLength(8);
     expect(s.reactions.at(-1)).toMatchObject({ n: 12, k: 'herz' });
@@ -420,7 +533,11 @@ describe('Meme-Duell: Runden', () => {
 
   it('behält die Würfe über Runden und endet nach dem Ziel', () => {
     const { roster, s: s0 } = started(3);
-    let s = reduce(s0, act('reroll', 'p0'), roster);
+    let s = reduce(
+      { ...s0, options: { ...s0.options, rerollScope: 'game' } },
+      act('reroll', 'p0'),
+      roster,
+    );
     s = { ...s, goal: 2 };
     s = playRound(s, roster);
     s = reduce(s, act('next'), roster);
@@ -434,6 +551,81 @@ describe('Meme-Duell: Runden', () => {
     expect(s.phase).toBe('over');
     expect(s.history).toHaveLength(6);
     expect(bestPerRound(s.history).map((h) => h.r)).toEqual([1, 2]);
+  });
+
+  it('füllt standardmäßig das Wechselbudget jeder Runde auf, auch nach Datenbanksynchronisation', () => {
+    const { roster, s: initial } = started(3);
+    let s = initial;
+    for (let i = 0; i < REROLLS; i++) s = reduce(s, act('reroll', 'p0'), roster);
+    expect(s.rerolls.p0).toBe(0);
+    s = decodeState(encodeState(playRound(s, roster))) as State;
+    s = reduce(s, act('next'), roster);
+    expect(s.rerolls).toEqual({ p0: REROLLS, p1: REROLLS, p2: REROLLS });
+    expect(s.prev).toEqual({});
+    expect(reduce(s, act('reroll', 'p0'), roster).rerolls.p0).toBe(REROLLS - 1);
+  });
+
+  it('behält bei alten Spielständen ohne Zeitraum das verbrauchte Gesamtbudget', () => {
+    const { roster, s: initial } = started(3);
+    const options = { mode: initial.options.mode, seconds: 90, trittbrett: true, rerolls: REROLLS };
+    let s = reduce({ ...initial, options }, act('reroll'), roster);
+    s = reduce(playRound(s, roster), act('next'), roster);
+    expect(s.rerolls.p0).toBe(REROLLS - 1);
+    s = reduce(s, act('restart'), roster);
+    expect(s.options.rerollScope).toBeUndefined();
+    s = reduce(s, act('start'), roster);
+    expect(s.rerolls.p0).toBe(REROLLS);
+  });
+
+  it('gibt Nachzüglern ein Rundenbudget und füllt es auch nach einer verpassten Runde auf', () => {
+    const { roster, s: initial } = started(3);
+    const late = { id: 'p9', name: 'Neu', color: 'pink' as const, online: true };
+    let s = reduce(initial, act('claim', late.id), [...roster, late]);
+    s = reduce(s, act('reroll', late.id), [...roster, late]);
+    expect(s.rerolls.p9).toBe(REROLLS - 1);
+    s = reduce(playRound(s, [...roster, late]), act('next'), roster);
+    expect(s.rerolls.p9).toBeUndefined();
+    s = reduce(s, act('claim', late.id), [...roster, late]);
+    expect(s.rerolls.p9).toBe(REROLLS);
+    expect(s.drawn.p9).toBeTruthy();
+  });
+
+  it('behält beim Neustart Zeitraum und Anzahl, setzt aber das verbrauchte Budget zurück', () => {
+    const roster = players(3);
+    let s = createState(roster);
+    s = reduce(s, act('rerolls', 'p0', { count: 3 }), roster);
+    s = reduce(s, act('rerollScope', 'p0', { scope: 'game' }), roster);
+    s = reduce(s, act('start'), roster);
+    s = reduce(s, act('reroll'), roster);
+    s = reduce(s, act('restart'), roster);
+    expect(s.options).toMatchObject({ rerollScope: 'game', rerolls: 3 });
+    s = reduce(s, act('start'), roster);
+    expect(s.rerolls.p0).toBe(3);
+  });
+
+  it('spielt erst alle übrigen Vorlagen, auch wenn weniger als 24 ungespielte übrig sind', () => {
+    const roster = players(3);
+    const all = TEMPLATES.filter((t) => !t.sp);
+    const used = all.slice(0, -5);
+    const unused = new Set(all.slice(-5).map((t) => t.id));
+    const s = {
+      ...createState(roster),
+      deck: [],
+      history: used.map((t) => ({
+        r: 1,
+        by: 'p0',
+        p: 0,
+        t: t.id,
+        x: ['Alt'],
+      })),
+    };
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      const next = reduce(s, act('start'), roster);
+      expect(Object.values(next.drawn).every((id) => unused.has(id))).toBe(true);
+    } finally {
+      random.mockRestore();
+    }
   });
 
   it('zeigt in einer Partie keine Vorlage zweimal', () => {

@@ -17,6 +17,7 @@ const players = (n: number): GamePlayer[] =>
     name: `Spieler ${i}`,
     color: 'indigo',
     online: true,
+    isHost: i === 0,
   }));
 
 const act = (type: string, by = 'p0', extra: Record<string, unknown> = {}): GameAction => ({
@@ -128,8 +129,11 @@ const VARIANTS: Record<string, unknown>[] = [
   // Meme-Duell: Texte fürs Meme, Bastelzeit und ein Modus, den es dort gibt.
   // Die Stimme selbst hängt am gerade gezeigten Meme – die liefert
   // `memeVariants()` aus dem Zustand.
-  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich', kind: 'lachen', rounds: 3, count: 8 },
-  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen', kind: 'herz', rounds: 0, count: 0 },
+  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich', kind: 'lachen', rounds: 3, count: 8, scope: 'round' },
+  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen', kind: 'herz', rounds: 0, count: 0, scope: 'game' },
+  // Runde und Vorlage binden neue Editor-Aktionen an den Entwurf. Die
+  // tatsächlich passenden Werte liefert `memeVariants()` aus dem Zustand.
+  { round: 1, template: 'drake' },
 ];
 
 /**
@@ -221,12 +225,22 @@ function turnVariants(state: unknown): Record<string, unknown>[] {
 }
 
 /**
- * Stimmen fürs Meme-Duell – aus dem ZUSTAND. Eine Stimme gilt nur für das
+ * Entwürfe und Stimmen fürs Meme-Duell – aus dem ZUSTAND. Neue Editor-Aktionen
+ * sind an Runde und Vorlage gebunden; geraten träfen sie höchstens zufällig.
+ * Eine Stimme gilt nur für das
  * Meme, das gerade läuft (`target` = Autor), und nur mit -1, 0 oder 1. Eine
  * geratene Kombination aus Person und Wert trifft das selten.
  */
 function memeVariants(state: unknown): Record<string, unknown>[] {
-  const s = state as { phase?: string; order?: unknown; showing?: unknown } | null;
+  const s = state as {
+    phase?: string; order?: unknown; showing?: unknown;
+    round?: unknown; drawn?: Record<string, unknown>;
+  } | null;
+  if (s?.phase === 'create' && typeof s.round === 'number' && s.drawn) {
+    return Object.values(s.drawn)
+      .filter((template) => typeof template === 'string')
+      .map((template) => ({ round: s.round, template, texts: ['Oben', 'Unten'] }));
+  }
   if (s?.phase !== 'vote' || !Array.isArray(s.order) || typeof s.showing !== 'number') return [];
   const target = s.order[s.showing];
   return [1, 0, -1].map((value) => ({ target, value }));

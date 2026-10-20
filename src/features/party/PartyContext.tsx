@@ -135,14 +135,16 @@ export interface PartyValue {
   /**
    * `at` datiert zurück (Nachtrag „ich hatte schon zwei"), `drinkId` bucht
    * auf ein anderes Getränk als das eingestellte (halbes Glas, Shot
-   * zwischendurch). Ohne beides bleibt es der Weg, den die Spiele nutzen.
+   * zwischendurch). `volumeMl` bewahrt die exakte manuelle Menge unabhängig
+   * von gerundeten Schluckzahlen. Ohne Optionen bleibt es der Weg der Spiele.
+   * Gibt die Eintrags-ID zurück, damit Rückgängig genau diese Buchung trifft.
    */
   logSipsFor: (
     playerId: string,
     sips: number,
     source?: string,
-    opts?: { at?: number; drinkId?: string },
-  ) => void;
+    opts?: { at?: number; drinkId?: string; volumeMl?: number },
+  ) => string | void;
   /** Nimmt den letzten Eintrag dieser Person zurück – auch bei Gästen. */
   undoLastFor: (playerId: string) => void;
   /** Nimmt einen bestimmten Eintrag dieser Person heraus – auch bei Gästen. */
@@ -796,21 +798,31 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }, [localPlayers]);
 
   const logSipsFor = useCallback(
-    (playerId: string, sips: number, source?: string, opts?: { at?: number; drinkId?: string }) => {
-      if (sips <= 0) return;
-      if (playerId === myId) {
-        const drink = findDrink(opts?.drinkId ?? currentDrinkId, customDrinks);
-        logEvent(makeDrinkEvent(drink, sips, source, opts?.at));
+    (
+      playerId: string,
+      sips: number,
+      source?: string,
+      opts?: { at?: number; drinkId?: string; volumeMl?: number },
+    ) => {
+      if (!Number.isFinite(sips) || sips <= 0) return;
+      if (opts?.volumeMl !== undefined && (!Number.isFinite(opts.volumeMl) || opts.volumeMl <= 0)) {
         return;
       }
-      if (!playersRef.current.some((p) => p.id === playerId && p.local)) return;
+      if (playerId === myId) {
+        const drink = findDrink(opts?.drinkId ?? currentDrinkId, customDrinks);
+        const event = makeDrinkEvent(drink, sips, source, opts?.at, opts?.volumeMl);
+        logEvent(event);
+        return event.id;
+      }
+      const guest = playersRef.current.find((p) => p.id === playerId && p.local);
+      if (!guest?.local) return;
+      // Pass & Play ist EIN Gerät: die eigenen Getränke gelten auch für Gäste.
+      const drink = findDrink(opts?.drinkId ?? guest.local.drinkId, customDrinks);
+      const ev: DrinkEvent = makeDrinkEvent(drink, sips, source, opts?.at, opts?.volumeMl);
       usePlayer.getState().beginNight();
       setLocalPlayers((prev) =>
         prev.map((p) => {
           if (p.id !== playerId || !p.local) return p;
-          // Pass & Play ist EIN Gerät: die eigenen Getränke gelten auch für Gäste.
-          const drink = findDrink(opts?.drinkId ?? p.local.drinkId, customDrinks);
-          const ev: DrinkEvent = makeDrinkEvent(drink, sips, source, opts?.at);
           return {
             ...p,
             local: {
@@ -823,6 +835,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           };
         }),
       );
+      return ev.id;
     },
     [myId, logEvent, currentDrinkId, customDrinks],
   );

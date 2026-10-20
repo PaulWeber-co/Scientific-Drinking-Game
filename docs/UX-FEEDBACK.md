@@ -1,8 +1,10 @@
 # UX-Feedback zur App
 
+Aktueller Umsetzungsstand: Die freigegebenen Punkte **1–3** sind auf dem Branch `codex/ux-improvements-and-game-review` umgesetzt. Die widersprüchliche Modusbeschreibung und die unsichtbaren Exportfehler aus **11–12** wurden bei der erneuten Meme-Duell-Prüfung als Funktionsfehler behoben. Alle anderen Vorschläge bleiben offen. Umsetzung und Prüfung: [UX-UPDATE.md](UX-UPDATE.md); vertiefte Spielberichte: [Meme-Duell](MEME-DUELL-REVIEW.md) und [Stichmagie](STICHMAGIE-REVIEW.md).
+
 Hinweis zur Zusammenführung: Diese Liste dokumentiert den ursprünglichen Review-Stand. Der anschließend integrierte Kollegen-Stand aus PR #34 verbessert bereits mehrere der hier beschriebenen Abläufe, darunter den schnellen Getränkeeinstieg, sichtbare Mengen und den Album-Abschluss. Die ursprünglichen Beobachtungen bleiben zur Nachvollziehbarkeit erhalten.
 
-Stand: 19. Oktober 2026. Diese Punkte sind Vorschläge zur Entscheidung; an den beschriebenen Produktabläufen wurde für dieses Review nichts geändert. Grundlage ist ein Durchgang durch die implementierten Einstiegs-, Spiele-, Lobby-, Pegel- und Kameraflows im Quellcode. Das ist keine Befragung echter Nutzer. Reproduzierbare Funktionsfehler wurden separat zur Behebung gemeldet und stehen nicht als offene Designwünsche in dieser Liste.
+Ursprünglicher Review: 19. Oktober 2026. Die folgenden Beschreibungen halten den damaligen Zustand und die Vorschläge zur Entscheidung fest. Grundlage war ein Durchgang durch die implementierten Einstiegs-, Spiele-, Lobby-, Pegel- und Kameraflows im Quellcode. Das ist keine Befragung echter Nutzer. Der aktuelle Umsetzungsstand steht oben.
 
 ## Zuerst entscheiden
 

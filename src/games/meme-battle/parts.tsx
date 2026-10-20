@@ -174,29 +174,42 @@ export function SaveMeme({
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   return (
-    <button
-      className={`btn btn--sm btn--glass md-save ${compact ? 'md-save--icon' : ''}`}
-      aria-label={compact ? `${label}: ${caption}` : undefined}
-      disabled={busy}
-      onClick={async () => {
-        const template = templateOf(meme.t);
-        if (!template) return;
-        setBusy(true);
-        haptic('tap');
-        try {
-          const blob = await renderMeme(template, meme.x, caption);
-          await shareMeme(blob, `meme-duell-${meme.t}`);
-          haptic('success');
-        } catch (e) {
-          console.error('Meme speichern fehlgeschlagen', e);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Icon name="share" size={16} />
-      {!compact && (busy ? 'Einen Moment …' : label)}
-    </button>
+    <span className="md-save-group">
+      <button
+        className={`btn btn--sm btn--glass md-save ${compact ? 'md-save--icon' : ''}`}
+        aria-label={compact ? `${label}: ${caption}` : undefined}
+        disabled={busy}
+        onClick={async () => {
+          const template = templateOf(meme.t);
+          setError(null);
+          if (!template) {
+            setError('Diese Vorlage fehlt. Lade die App neu und versuche es noch einmal.');
+            return;
+          }
+          setBusy(true);
+          haptic('tap');
+          try {
+            const blob = await renderMeme(template, meme.x, caption);
+            await shareMeme(blob, `meme-duell-${meme.t}`);
+            haptic('success');
+          } catch (e) {
+            console.error('Meme speichern fehlgeschlagen', e);
+            setError('Das Meme konnte nicht gespeichert werden. Bitte versuche es noch einmal.');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Icon name="share" size={16} />
+        {!compact && (busy ? 'Einen Moment …' : label)}
+      </button>
+      {error && (
+        <span className="md-save-error t-caption" role="alert">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

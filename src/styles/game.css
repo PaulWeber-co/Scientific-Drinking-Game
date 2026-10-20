@@ -11,13 +11,16 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
+  container: gameframe / inline-size;
   padding: calc(var(--safe-top) + var(--s-2)) var(--s-3) var(--s-2);
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.game__bar-content {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
 }
 .game__titles {
   flex: 1;
@@ -40,6 +43,38 @@
   gap: var(--s-1);
   justify-content: flex-end;
   flex-shrink: 0;
+}
+@container gameframe (max-width: 520px) {
+  .game__bar-content {
+    display: grid;
+    grid-template-columns: 44px 44px minmax(0, 1fr);
+    row-gap: var(--s-1);
+  }
+  .game__titles {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .game__titles .t-headline {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .game__titles .t-caption {
+    overflow-wrap: anywhere;
+  }
+  .game__quit {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .game__camera {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .game__action {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
 }
 .game__settings {
   /* Gleiche Zielflaeche wie der Beenden-Knopf gegenueber. */
@@ -81,6 +116,22 @@
 }
 .sipbtn:active {
   transform: scale(0.88);
+}
+.sipbtn__drink {
+  position: relative;
+  display: flex;
+}
+.sipbtn__plus {
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+.logdrink__volumes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
 }
 .sipnote {
   /* Haengt unter der Kopfzeile, statt das Spielfeld zu verschieben. */

@@ -23,8 +23,8 @@ const NOTE_MS = 8000;
 /**
  * Ein Glas eintragen, ohne das Spiel zu verlassen.
  *
- * Ein Tap ist ein volles Glas des eingestellten Getränks, langer Druck öffnet
- * das volle Eintragen: anderes Getränk, andere Menge, vorhin statt jetzt.
+ * Ein Tap ist ein volles Glas des eingestellten Getränks. Der sichtbare
+ * Pfeil und langer Druck öffnen anderes Getränk, andere Menge und Zeitpunkt.
  * Danach steht acht Sekunden ein Rückgängig darunter — ein Fehlgriff im
  * Dunkeln darf den Abend nicht verfälschen.
  *
@@ -32,7 +32,7 @@ const NOTE_MS = 8000;
  * ein Glas ist je Getränk verschieden viele Schlucke, ein Shot ist einer.
  */
 export function GlassButton() {
-  const { players, me, mode, logSipsFor, undoLastFor } = useParty();
+  const { players, me, mode, logSipsFor, removeEventFor } = useParty();
   const drink = useCurrentDrink();
   const customDrinks = usePlayer((s) => s.customDrinks);
   const [sheet, setSheet] = useState<null | 'who' | 'more'>(null);
@@ -40,9 +40,9 @@ export function GlassButton() {
   const noteTimer = useRef<number | undefined>(undefined);
   const pressTimer = useRef<number | undefined>(undefined);
   const wasLong = useRef(false);
-  // Rückgängig muss dieselbe Person treffen wie das Eintragen, auch wenn
-  // inzwischen jemand anders im Auswahl-Sheet steht.
-  const lastTarget = useRef<string>(me.id);
+  // Eine Spielansage kann vor dem Rückgängig noch einen neueren Eintrag
+  // buchen. Die Meldung gehört trotzdem zum konkreten Glas dieser Person.
+  const lastEntry = useRef<{ playerId: string; eventId: string } | null>(null);
 
   // Pass & Play führt fremde Körperdaten auf diesem Gerät mit; online gibt es
   // nur einen selbst, dann entfällt die Rückfrage.
@@ -74,8 +74,11 @@ export function GlassButton() {
       const guest = guests.find((p) => p.id === playerId);
       const selectedDrink = guest?.local ? findDrink(guest.local.drinkId, customDrinks) : drink;
       haptic('sip');
-      logSipsFor(playerId, sipsPerServing(selectedDrink), 'glas');
-      lastTarget.current = playerId;
+      const eventId = logSipsFor(playerId, sipsPerServing(selectedDrink), 'glas', {
+        volumeMl: selectedDrink.defaultVolumeMl,
+      });
+      if (!eventId) return;
+      lastEntry.current = { playerId, eventId };
       showNote(`Glas${whoLabel(playerId)} eingetragen`);
       setSheet(null);
     },
@@ -84,10 +87,11 @@ export function GlassButton() {
 
   /** Der volle Weg aus dem Sheet: Getränk, Menge und Zeitpunkt frei. */
   const logAny = useCallback(
-    (playerId: string, d: DrinkDefinition, sips: number, at: number) => {
-      logSipsFor(playerId, sips, 'glas', { drinkId: d.id, at });
-      lastTarget.current = playerId;
-      showNote(`${formatEntry(d, sips)}${whoLabel(playerId)} eingetragen`);
+    (playerId: string, d: DrinkDefinition, sips: number, at: number, volumeMl: number) => {
+      const eventId = logSipsFor(playerId, sips, 'glas', { drinkId: d.id, at, volumeMl });
+      if (!eventId) return;
+      lastEntry.current = { playerId, eventId };
+      showNote(`${formatEntry(d, sips, d.name, volumeMl)}${whoLabel(playerId)} eingetragen`);
     },
     [logSipsFor, showNote, whoLabel],
   );
@@ -128,7 +132,21 @@ export function GlassButton() {
           if (!longClick) activate();
         }}
       >
-        <Icon name={drink.icon} size={19} />
+        <span className="sipbtn__drink">
+          <Icon name={drink.icon} size={19} />
+          <Icon name="plus" size={10} className="sipbtn__plus" />
+        </span>
+      </button>
+      <button
+        className="game__settings logdrink__more"
+        aria-label="Anderes Getränk oder andere Menge eintragen"
+        title="Anderes Getränk oder andere Menge"
+        onClick={() => {
+          haptic('tap');
+          setSheet('more');
+        }}
+      >
+        <Icon name="chevronDown" size={17} />
       </button>
 
       {note && (
@@ -138,7 +156,9 @@ export function GlassButton() {
             className="btn btn--plain sipnote__undo"
             onClick={() => {
               haptic('warn');
-              undoLastFor(lastTarget.current);
+              const entry = lastEntry.current;
+              if (entry) removeEventFor(entry.playerId, entry.eventId);
+              lastEntry.current = null;
               setNote(null);
             }}
           >

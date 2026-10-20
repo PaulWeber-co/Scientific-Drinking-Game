@@ -3,6 +3,7 @@ import { isSpicyOn } from '../../store/app';
 import { customCardsFor } from '../../store/cards';
 import { orderByFreshness } from '../../store/seen';
 import { spicyDeck } from '../shared/prompts';
+import { fromHost } from '../shared/host';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import type { GameAction, GamePlayer } from '../types';
 import { MAX_CHARS, TEMPLATES, templateOf } from './templates';
@@ -28,6 +29,7 @@ import { TOPICS } from './topics';
 
 export type Mode = 'klassisch' | 'gleich' | 'themen' | 'entspannt';
 export const MODES: Mode[] = ['klassisch', 'gleich', 'themen', 'entspannt'];
+export type RerollScope = 'round' | 'game';
 
 export type Vote = -1 | 0 | 1;
 
@@ -68,8 +70,10 @@ export interface Options {
   seconds: number;
   /** Trittbrett (Mitfahren auf einem fremden Meme) an oder aus. */
   trittbrett: boolean;
-  /** Würfe je Person für die ganze Partie. */
+  /** Vorlagenwechsel je Person im gewählten Zeitraum. */
   rerolls: number;
+  /** Fehlt bei älteren Spielständen: deren Budget gilt weiter für die ganze Partie. */
+  rerollScope?: RerollScope;
 }
 
 export interface State {
@@ -86,7 +90,7 @@ export interface State {
   topic: number | null;
   /** Welche Vorlage vor wem liegt. */
   drawn: Record<string, string>;
-  /** Übrige Würfe je Person – für die ganze Partie, nicht je Runde. */
+  /** Übrige Vorlagenwechsel je Person im gewählten Zeitraum. */
   rerolls: Record<string, number>;
   /** Die Vorlage vor dem letzten Würfeln – „Zurück" holt sie wieder. */
   prev: Record<string, string>;
@@ -117,7 +121,7 @@ export interface State {
   reactSeq: number;
 }
 
-/** Würfe für die ganze Partie – wie im Vorbild fünf, einstellbar. */
+/** Standardbudget für Vorlagenwechsel, einstellbar. */
 export const REROLLS = 5;
 export const REROLL_OPTIONS = [0, 3, 5, 8] as const;
 /** Rundenzahl; 0 heißt ohne Ende. */
@@ -145,6 +149,10 @@ const ROUND_BASE = baseFor('meme-battle');
 const isMode = (v: unknown): v is Mode => MODES.includes(v as Mode);
 const isReaction = (v: unknown): v is Reaction => REACTIONS.includes(v as Reaction);
 const NO_TALLY: Tally = { meme: 0, ride: 0, riders: 0 };
+
+export function rerollScopeOf(options: Options): RerollScope {
+  return options.rerollScope === 'round' ? 'round' : 'game';
+}
 
 /** Das beste Meme jeder Runde (für Auswertungen und Tests). */
 export function bestPerRound(history: Played[]): Played[] {
@@ -215,7 +223,7 @@ function freshDeck(exclude: Set<string> = new Set()): string[] {
   const all = TEMPLATES.filter((t) => spicy || !t.sp).map((t) => t.id);
   let ids = all.filter((id) => !exclude.has(id));
   // Alles schon gespielt (sehr lange Partie): dann eben wieder von vorn.
-  if (ids.length < DECK_WINDOW) ids = all;
+  if (!ids.length) ids = all;
   return orderByFreshness(shuffle(ids), (id) => `meme:${id}`).slice(0, DECK_WINDOW);
 }
 
@@ -249,7 +257,8 @@ function taken(state: Pick<State, 'drawn' | 'prev'>): Set<string> {
 function newRound(state: State, players: GamePlayer[], round: number): State {
   let deck = state.deck;
   const drawn: Record<string, string> = {};
-  const rerolls = { ...state.rerolls };
+  const rerolls: Record<string, number> =
+    rerollScopeOf(state.options) === 'round' ? {} : { ...state.rerolls };
   const who = present(players);
   if (state.options.mode === 'gleich') {
     const [t, rest] = draw(deck, new Set(), usedIds(state));
@@ -387,6 +396,7 @@ export function createState(players: GamePlayer[], options?: Options): State {
       seconds: DEFAULT_SECONDS,
       trittbrett: true,
       rerolls: REROLLS,
+      rerollScope: 'round',
     },
     round: 1,
     goal: roundGoal(ROUND_BASE),
@@ -418,6 +428,20 @@ export function createState(players: GamePlayer[], options?: Options): State {
 }
 
 export function reduce(state: State, action: GameAction, players: GamePlayer[]): State {
+  // Die Setup-Oberfläche ist nur für den Host bedienbar. Dieselbe Grenze
+  // muss auch für verspätete oder direkt gesendete Online-Aktionen gelten.
+  if (
+    ['mode', 'timer', 'rounds', 'rerolls', 'rerollScope', 'trittbrett', 'start'].includes(
+      action.type,
+    ) &&
+    !fromHost(action, players)
+  )
+    return state;
+  if (!present(players).some((p) => p.id === action.by)) return state;
+  // Ein verspäteter Tastendruck aus der vorigen Runde oder Vorlage darf
+  // den neuen Entwurf nicht verändern. Alte Clients senden diese Felder noch nicht.
+  if (action.round !== undefined && action.round !== state.round) return state;
+  if (action.template !== undefined && action.template !== state.drawn[action.by]) return state;
   const at = typeof action.at === 'number' ? action.at : Date.now();
   switch (action.type) {
     // ---------- Einrichten ----------
@@ -444,13 +468,19 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
       if (state.options.rerolls === count) return state;
       return { ...state, options: { ...state.options, rerolls: count } };
     }
+    case 'rerollScope': {
+      if (state.phase !== 'setup' || !['round', 'game'].includes(String(action.scope)))
+        return state;
+      if (rerollScopeOf(state.options) === action.scope) return state;
+      return { ...state, options: { ...state.options, rerollScope: action.scope as RerollScope } };
+    }
     case 'trittbrett': {
       if (state.phase !== 'setup' || typeof action.on !== 'boolean') return state;
       if (state.options.trittbrett === action.on) return state;
       return { ...state, options: { ...state.options, trittbrett: action.on } };
     }
     case 'start': {
-      if (state.phase !== 'setup' || present(players).length < 2) return state;
+      if (state.phase !== 'setup' || present(players).length < 3) return state;
       const rerolls = Object.fromEntries(
         present(players).map((p) => [p.id, state.options.rerolls]),
       );
@@ -477,6 +507,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     }
     case 'reroll': {
       if (state.phase !== 'create' || state.options.mode === 'gleich') return state;
+      if (state.deadline !== null && at >= state.deadline) return state;
       const left = state.rerolls[action.by] ?? 0;
       if (!state.drawn[action.by] || state.memes[action.by] || left <= 0) return state;
       const [t, deck] = draw(state.deck, taken(state), usedIds(state));
@@ -491,7 +522,8 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     case 'back': {
       // Die vorige Vorlage zurückholen, ohne einen Wurf zu kosten. Zweimal
       // „Zurück" pendelt zwischen den beiden letzten.
-      if (state.phase !== 'create') return state;
+      if (state.phase !== 'create' || state.options.mode === 'gleich') return state;
+      if (state.deadline !== null && at >= state.deadline) return state;
       const before = state.prev[action.by];
       const now = state.drawn[action.by];
       if (!before || !now || state.memes[action.by]) return state;
@@ -503,6 +535,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     }
     case 'submit': {
       if (state.phase !== 'create') return state;
+      if (state.deadline !== null && at > state.deadline + SUBMIT_GRACE_MS) return state;
       const t = state.drawn[action.by];
       if (!t) return state;
       const x = cleanTexts(action.texts, t);
@@ -514,6 +547,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     }
     case 'edit': {
       if (state.phase !== 'create' || !state.memes[action.by]) return state;
+      if (state.deadline !== null && at >= state.deadline) return state;
       const memes = { ...state.memes };
       delete memes[action.by];
       return { ...state, memes };
@@ -547,6 +581,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     }
     case 'react': {
       if (state.phase !== 'vote' || !isReaction(action.kind)) return state;
+      if (action.target !== undefined && action.target !== currentAuthor(state)) return state;
       const reactSeq = state.reactSeq + 1;
       return {
         ...state,

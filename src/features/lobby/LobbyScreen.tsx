@@ -340,8 +340,8 @@ export function LobbyScreen() {
         players={online ? [party.me] : players}
         meId={party.me.id}
         initialPlayerId={logFor ?? undefined}
-        onLog={(playerId, d, sips, at) =>
-          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
+        onLog={(playerId, d, sips, at, volumeMl) =>
+          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at, volumeMl })
         }
       />
     </div>

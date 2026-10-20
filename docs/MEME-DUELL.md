@@ -9,13 +9,13 @@ eigenen deutschen Themen und Trinkregeln.
 
 ## 1. So spielt es sich
 
-| Phase | Was passiert |
-|:--|:--|
-| **Einrichten** | Der Host wählt Modus, Bastelzeit (45/60/90/120 s), Runden (3/5/8/ohne Ende), Würfe (aus/3/5/8) und ob es das Trittbrett gibt. Alle sehen die Einstellung live. |
-| **Basteln** | Jede Person bekommt eine Vorlage im Polaroid, die Textfelder sitzen direkt im Bild und zeigen „Text 1", „Text 2", solange sie leer sind. Tippen aufs Feld im Bild springt ins passende Eingabefeld. Die Schrift passt sich dem Feld an, und jedes Feld nimmt nur so viel Text, wie lesbar hineinpasst (winzige Schilder rund 15 Zeichen, große Felder bis 90). **Neu würfeln** (Standard fünfmal pro Partie) und **Zurück** zur vorigen Vorlage, das kostet keinen Wurf, der Text bleibt erhalten. „Fertig" lässt sich bis zum Ablauf der Uhr zurücknehmen. Läuft die Uhr ab, schickt das Handy ab, was getippt ist. Keine Vorlage kommt in einer Partie zweimal. |
-| **Abstimmen** | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Fire** (+), **OK** (0), **Lame** (−). Dazu vier **Reaktionen** (Lachen, Tot gelacht, Liebe, Cringe), die anonym auf allen Handys übers Bild fliegen, und oben rechts **Speichern**. Wer das Meme gebaut hat, sieht „Pokerface" und keine Abstimmknöpfe, spürt aber jede Reaktion als kurzes Tippen. |
-| **Auflösung** | Das Meme der Runde groß mit goldenem Prägeetikett, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Antippen zeigt ein Meme groß, dort lässt es sich speichern. Dann Punktestand (Meme, Trittbrett, Mitfahrer) und Trinkansagen. |
-| **Finale** | Podest für die ersten drei, Endstand mit Aufschlüsselung der Punkte, Trinkansage, und ganz unten **„Von Fire bis Lame"**: jedes Meme der Partie vom besten zum schwächsten. Antippen zeigt es groß und speichert es als Bild. |
+| Phase          | Was passiert                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Einrichten** | Der Host wählt Modus, Bastelzeit (45/60/90/120 s), Runden (3/5/8/ohne Ende), Vorlagenwechsel (aus/3/5/8), deren Gültigkeit (**Pro Runde** oder **Für das ganze Spiel**) und ob es das Trittbrett gibt. Alle sehen die Einstellung live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Basteln**    | Jede Person bekommt eine Vorlage im Polaroid, die Textfelder sitzen direkt im Bild und zeigen „Text 1", „Text 2", solange sie leer sind. Tippen aufs Feld im Bild springt ins passende Eingabefeld. Die Schrift passt sich dem Feld an, und jedes Feld nimmt nur so viel Text, wie lesbar hineinpasst (winzige Schilder rund 15 Zeichen, große Felder bis 90). **Wechseln** (Standard fünfmal **pro Runde**, alternativ ein gemeinsames Budget für die ganze Partie) und **Zurück** zur vorigen Vorlage: Zurück kostet keinen Wechsel, der Text bleibt erhalten. „Fertig" lässt sich zurücknehmen, solange noch andere basteln und die Uhr läuft. Läuft die Uhr ab, schickt das Handy ab, was getippt ist. Bereits gespielte Vorlagen kommen erst wieder, wenn der gesamte passende Katalog aufgebraucht ist. |
+| **Abstimmen**  | Die Memes kommen einzeln, anonym und auf allen Handys gleichzeitig. Jedes „entwickelt" sich wie ein Sofortbild. Drei Knöpfe: **Fire** (+), **OK** (0), **Lame** (−). Dazu vier **Reaktionen** (Lachen, Tot gelacht, Liebe, Cringe), die anonym auf allen Handys übers Bild fliegen, und oben rechts **Speichern**. Wer das Meme gebaut hat, sieht „Pokerface" und keine Abstimmknöpfe, spürt aber jede Reaktion als kurzes Tippen.                                                                                                                                                                                                                                                                                                                                                                            |
+| **Auflösung**  | Das Meme der Runde groß mit goldenem Prägeetikett, darunter der Rest des Stapels mit Namen, Punkten und Stimmen. Antippen zeigt ein Meme groß, dort lässt es sich speichern. Dann Punktestand (Meme, Trittbrett, Mitfahrer) und Trinkansagen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Finale**     | Podest für die ersten drei, Endstand mit Aufschlüsselung der Punkte, Trinkansage, und ganz unten **„Von Fire bis Lame"**: jedes Meme der Partie vom besten zum schwächsten. Antippen zeigt es groß und speichert es als Bild.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Punkte
 
@@ -28,21 +28,32 @@ eigenen deutschen Themen und Trinkregeln.
 
 ### Modi
 
-| Modus | Unterschied |
-|:--|:--|
-| Klassisch | Jede Person zieht ihre eigene Vorlage. |
-| Gleiches Meme | Alle bekommen dieselbe Vorlage, kein Würfeln. Nur die Pointe entscheidet. |
-| Themen | Jede Runde ein Thema als Zettel über dem Bild („Der Kater morgen früh"). **Eigene Karten** aus dem Spieldetail werden hier zu Themen, Spicy-Themen kommen mit dem Spicy-Schalter dazu. |
-| Entspannt | Keine Punkte, kein Trittbrett, keine Trinkansagen, nur Memes und „Von Fire bis Lame". |
+| Modus         | Unterschied                                                                                                                                                                            |
+| :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Klassisch     | Jede Person zieht ihre eigene Vorlage.                                                                                                                                                 |
+| Gleiches Meme | Alle bekommen dieselbe Vorlage, keine individuellen Vorlagenwechsel. Nur die Pointe entscheidet.                                                                                       |
+| Themen        | Jede Runde ein Thema als Zettel über dem Bild („Der Kater morgen früh"). **Eigene Karten** aus dem Spieldetail werden hier zu Themen, Spicy-Themen kommen mit dem Spicy-Schalter dazu. |
+| Entspannt     | Keine Punkte, kein Trittbrett, keine Trinkansagen, nur Memes und „Von Fire bis Lame".                                                                                                  |
+
+### Vorlagenwechsel pro Runde oder Partie
+
+- **Neue Partie:** fünf Vorlagenwechsel je Person und Runde. Der Host kann Anzahl und Gültigkeit beim Einrichten ändern; Gäste sehen die geltende Einstellung.
+- **Pro Runde:** Das Budget wird beim Austeilen jeder Runde vollständig aufgefüllt. Unbenutzte Wechsel werden nicht angespart. Wer später dazukommt, bekommt das Budget der laufenden Runde.
+- **Für das ganze Spiel:** Ein verbrauchter Wechsel bleibt auch in den folgenden Runden verbraucht. Ein Wiedereinstieg mit derselben Spielerkennung füllt das Budget innerhalb der Partie nicht auf.
+- **Gleiches Meme:** Alle bekommen dieselbe Vorlage; individuelle Wechsel und Zurück sind gesperrt, damit der Vergleich fair bleibt.
+- **Zurück:** Holt kostenlos die letzte Vorlage mit ihrem Text zurück. Die dabei verbrauchten Wechsel werden nicht erstattet.
+- **Neustart:** Behält Anzahl und Gültigkeit, beginnt aber mit einem frischen Budget.
+- **Bereits laufende ältere Partien:** Fehlt `options.rerollScope`, bleibt das bisherige Gesamtbudget erhalten. `round` bedeutet Rundenbudget, `game` Gesamtbudget. Nach einem Update wird ein laufendes Spiel nicht stillschweigend umgestellt.
+- **Zeit vorbei:** Texte werden automatisch abgegeben. Vorlagenwechsel und das Zurücknehmen einer Abgabe sind danach gesperrt; die kurze Zustellfrist von 2,5 Sekunden bleibt für pünktlich abgeschickte Texte bestehen.
 
 ### Wer trinkt
 
-| Ansage | Härte (`baseSips`) |
-|:--|:--|
+| Ansage                                                          | Härte (`baseSips`)    |
+| :-------------------------------------------------------------- | :-------------------- |
 | Schwächstes Meme der Runde (nur wenn es einen Unterschied gibt) | 3, bei Minuspunkten 4 |
-| Kein Meme abgegeben | 2 |
-| Aufs Trittbrett eines Minus-Memes gesprungen | 1 |
-| Letzter Platz im Finale | 4 |
+| Kein Meme abgegeben                                             | 2                     |
+| Aufs Trittbrett eines Minus-Memes gesprungen                    | 1                     |
+| Letzter Platz im Finale                                         | 4                     |
 
 Wie immer meldet das Spiel nur die Härte. Die Schluckzahl rechnet jedes Handy selbst aus
 den eigenen Körperdaten.
@@ -53,8 +64,8 @@ den eigenen Körperdaten.
 
 **Ja, und die Bilder gehören nicht in die Datenbank.**
 
-Die 308 Vorlagen liegen als WebP-Dateien **neben der App** in `public/memes/` (zusammen rund
-5,3 MB, im Schnitt 17 KB je Bild). GitHub Pages liefert sie aus wie jede andere Datei, in der
+Die 320 Vorlagen liegen als WebP-Dateien **neben der App** in `public/memes/` (zusammen rund
+5,7 MB, im Schnitt 18 KB je Bild). GitHub Pages liefert sie aus wie jede andere Datei, in der
 nativen App stecken sie direkt im Paket. Über Firebase geht pro Meme nur das hier:
 
 ```json
@@ -66,11 +77,11 @@ neue Vorlage auf einem Handy mit neuerer App nicht auf allen anderen ein falsche
 
 ### Warum nicht in Firebase?
 
-| Möglichkeit | Warum nicht |
-|:--|:--|
+| Möglichkeit                                | Warum nicht                                                                                                                                                                                                          |
+| :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Bilder als Base64 in der Realtime Database | Die kostenlose Stufe erlaubt 10 GB Download im Monat. Jeder Lobby-Beitritt zöge die Bilder mit, und weil der Spielstand bei jeder Aktion neu verschickt wird, wäre das Kontingent nach wenigen hundert Partien leer. |
-| Cloud Storage for Firebase | Braucht seit dem 3. Februar 2026 den Blaze-Tarif (Kreditkarte), auch für den Standard-Bucket. |
-| Statisch mit der App (so gebaut) | Kostet nichts, funktioniert offline, lädt über das CDN von GitHub. Firebase bleibt bei ein paar KB je Spielzug. |
+| Cloud Storage for Firebase                 | Braucht seit dem 3. Februar 2026 den Blaze-Tarif (Kreditkarte), auch für den Standard-Bucket.                                                                                                                        |
+| Statisch mit der App (so gebaut)           | Kostet nichts, funktioniert offline, lädt über das CDN von GitHub. Firebase bleibt bei ein paar KB je Spielzug.                                                                                                      |
 
 ### Was die Datenbank pro Partie aushält
 
@@ -83,7 +94,7 @@ Monat, dazu kommen alle anderen Spiele. Engpass bleibt wie bisher die Grenze von
 gleichzeitigen Verbindungen (siehe `docs/FIREBASE-VS-SUPABASE.md`).
 
 Damit das so bleibt, trägt der Spielstand nur die nächsten 24 gemischten Vorlagen statt aller
-308 (gut 3 KB weniger bei jedem Zug), Reaktionen sind auf die letzten acht begrenzt und pro
+320 (gut 3 KB weniger bei jedem Zug), Reaktionen sind auf die letzten acht begrenzt und pro
 Handy höchstens eine alle 0,6 s.
 
 ### Offline und Ladezeit
@@ -120,6 +131,8 @@ src/games/meme-battle/          (ID bleibt meme-battle, siehe unten)
 public/memes/      Die Bilder
 scripts/memes/import_memegen.py   Holt und verkleinert die Vorlagen
 scripts/memes/extra.json          Textfelder für die Vorlagen ohne eigene Angaben
+scripts/memes/import_recent.py    Ergänzt die geprüften neueren Meme-Vorlagen
+scripts/memes/recent.json         Feste Bildquellen, Prüfsummen und Textfelder der Ergänzungen
 scripts/meme-preview/             Vorschau mit drei Handys, ohne Lobby
 ```
 
@@ -160,14 +173,19 @@ ab", „Uhr vorspulen". `?phones=1` zeigt nur ein Handy.
 
 ### Vorlagen ergänzen oder entfernen
 
-Das Import-Skript ist wiederholbar. Die 308 Vorlagen kommen aus vier offenen Sammlungen:
+Der vollständige Import ist wiederholbar. Die bisherigen 308 Vorlagen kommen aus vier öffentlichen Sammlungen:
 
-| Quelle | Vorlagen | Textfelder |
-|:--|--:|:--|
-| [memegen](https://github.com/jacebrowning/memegen) | 209 | aus deren `config.yml` (Position, Drehung, Farbe) |
-| [ImgFlip575K](https://github.com/schesa/ImgFlip575K_Dataset), die meistgenutzten von imgflip | 44 | von Hand in `scripts/memes/extra.json` |
-| [memebank](https://github.com/cipherdragon/memebank) | 16 | von Hand in `extra.json` |
-| [MemeTastic](https://github.com/gsantner/memetastic) | 39 | von Hand in `extra.json` |
+| Quelle                                                                                       | Vorlagen | Textfelder                                        |
+| :------------------------------------------------------------------------------------------- | -------: | :------------------------------------------------ |
+| [memegen](https://github.com/jacebrowning/memegen)                                           |      209 | aus deren `config.yml` (Position, Drehung, Farbe) |
+| [ImgFlip575K](https://github.com/schesa/ImgFlip575K_Dataset), die meistgenutzten von imgflip |       44 | von Hand in `scripts/memes/extra.json`            |
+| [memebank](https://github.com/cipherdragon/memebank)                                         |       16 | von Hand in `extra.json`                          |
+| [MemeTastic](https://github.com/gsantner/memetastic)                                         |       39 | von Hand in `extra.json`                          |
+
+Weitere **12 neuere Vorlagen** kommen aus `tenequm/memegen-rs` und `kartikkabadi/meme-maker`.
+Die belegten Trends von 2024–2026, konkrete Bildquellen und angepasste Textfelder stehen in
+[MEME-VORLAGEN-QUELLEN.md](MEME-VORLAGEN-QUELLEN.md). Die Sammlungscode-Lizenz ist keine
+pauschale Bildlizenz.
 
 Gibt es eine Vorlage in mehreren Quellen, gewinnt memegen (dort sind die Felder genauer).
 
@@ -182,6 +200,7 @@ python3 scripts/memes/import_memegen.py /tmp/memegen/templates \
   --src imgflip575k=/tmp/imgflip/dataset/templates/img \
   --src memebank=/tmp/memebank \
   --src memetastic=/tmp/memetastic/app/src/main/assets/bundled
+python3 scripts/memes/import_recent.py
 ```
 
 **Inhaltlich wird nichts aussortiert.** Auch schwarzer Humor, Politiker und derbe Vorlagen
@@ -212,18 +231,18 @@ meine-vorlagen/
 ```yaml
 name: WG-Küche am Sonntag
 text:
-  - anchor_x: 0.0     # linke obere Ecke des Feldes, Anteil der Bildbreite
+  - anchor_x: 0.0 # linke obere Ecke des Feldes, Anteil der Bildbreite
     anchor_y: 0.0
-    scale_x: 1.0      # Breite des Feldes, Anteil der Bildbreite
-    scale_y: 0.2      # Höhe, Anteil der Bildhöhe
+    scale_x: 1.0 # Breite des Feldes, Anteil der Bildbreite
+    scale_y: 0.2 # Höhe, Anteil der Bildhöhe
   - anchor_x: 0.0
     anchor_y: 0.8
     scale_x: 1.0
     scale_y: 0.2
-    color: black      # optional: black, khaki, #RRGGBB …
-    font: thin        # optional: thin (schlicht) oder comic; Standard ist die dicke Meme-Schrift
-    style: none       # optional: so, wie getippt; Standard ist GROSSBUCHSTABEN
-    angle: 8          # optional: Drehung in Grad, gegen den Uhrzeigersinn
+    color: black # optional: black, khaki, #RRGGBB …
+    font: thin # optional: thin (schlicht) oder comic; Standard ist die dicke Meme-Schrift
+    style: none # optional: so, wie getippt; Standard ist GROSSBUCHSTABEN
+    angle: 8 # optional: Drehung in Grad, gegen den Uhrzeigersinn
 ```
 
 ```bash
@@ -234,7 +253,10 @@ python3 scripts/memes/import_memegen.py /tmp/memegen/templates meine-vorlagen \
 ```
 
 Die `--src`-Angaben immer mitgeben: Das Skript baut den Katalog jedes Mal komplett neu, ohne
-sie fielen die 99 Vorlagen aus `extra.json` heraus.
+sie fielen die 99 Vorlagen aus `extra.json` heraus. Danach immer
+`python3 scripts/memes/import_recent.py` ausführen, um auch die 12 neueren Vorlagen wieder
+aufzunehmen. Der Zusatzimport beachtet ebenfalls `REMOVED`; dort entfernte Ergänzungen
+werden nicht erneut importiert.
 
 Die Positionen findest du am schnellsten, indem du das Bild in einem Grafikprogramm öffnest
 und Pixel durch Bildbreite/-höhe teilst. Danach mit der Vorschau prüfen.
@@ -257,18 +279,18 @@ Stunde Fachberatung.
 Spielmechaniken sind als Idee nicht urheberrechtlich geschützt, Namen, Texte, Grafiken und
 Gestaltung schon. Deshalb:
 
-| Dort | Hier |
-|:--|:--|
-| Name „Make it Meme" (Marke) | **Meme-Duell**, der Name taucht nirgends in der App auf |
-| „Meme-Buddy" und dessen Punkte | **Trittbrett** und **Mitfahrer-Bonus**, mit Bus-Symbol aus dem eigenen Icon-Set |
-| Hoch/Runter-Knöpfe in deren Farben | **Fire / OK / Lame** mit eigenen Symbolen |
-| Emoji-Reaktionen | vier eigene SVG-Symbole (die App verwendet bewusst keine Emojis) |
-| „Change meme" / „Go back" gegen Münzen | **Neu würfeln** und **Zurück**, ohne Münzen oder Konto |
-| „From dank to stank" | **Von Fire bis Lame** |
-| Chat, Münzen, Ränge, Konten | nicht nötig: alle sitzen im selben Raum |
-| Deren Oberfläche und Grafiken | Polaroid-Abzüge, Klebeband-Zettel, Prägeetiketten aus dem Design der App |
-| Englische Themen | eigene deutsche Themen, eigene Spicy-Themen |
-| Nur Punkte | Trinkregeln, Pegel-Rechnung, Einwegkamera-Optik beim Speichern |
+| Dort                                   | Hier                                                                            |
+| :------------------------------------- | :------------------------------------------------------------------------------ |
+| Name „Make it Meme" (Marke)            | **Meme-Duell**, der Name taucht nirgends in der App auf                         |
+| „Meme-Buddy" und dessen Punkte         | **Trittbrett** und **Mitfahrer-Bonus**, mit Bus-Symbol aus dem eigenen Icon-Set |
+| Hoch/Runter-Knöpfe in deren Farben     | **Fire / OK / Lame** mit eigenen Symbolen                                       |
+| Emoji-Reaktionen                       | vier eigene SVG-Symbole (die App verwendet bewusst keine Emojis)                |
+| „Change meme" / „Go back" gegen Münzen | **Wechseln** und **Zurück**, ohne Münzen oder Konto                             |
+| „From dank to stank"                   | **Von Fire bis Lame**                                                           |
+| Chat, Münzen, Ränge, Konten            | nicht nötig: alle sitzen im selben Raum                                         |
+| Deren Oberfläche und Grafiken          | Polaroid-Abzüge, Klebeband-Zettel, Prägeetiketten aus dem Design der App        |
+| Englische Themen                       | eigene deutsche Themen, eigene Spicy-Themen                                     |
+| Nur Punkte                             | Trinkregeln, Pegel-Rechnung, Einwegkamera-Optik beim Speichern                  |
 
 **Im App-Store-Eintrag und in der Werbung** nicht mit „wie Make It Meme" werben. Ein
 Vergleich mit einer fremden Marke ist das, was Ärger bringt, nicht die Spielidee.
