@@ -1,5 +1,6 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { isNativeApp } from '../../lib/platform';
+import { toBase64 } from '../../lib/shareFile';
 
 /**
  * Wo die Bilder liegen.
@@ -63,13 +64,4 @@ export async function deletePhotos(names: readonly string[]): Promise<void> {
   for (const name of names) {
     await Filesystem.deleteFile({ path: `${FOLDER}/${name}`, directory: DIR }).catch(() => {});
   }
-}
-
-function toBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 }

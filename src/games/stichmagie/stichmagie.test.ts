@@ -37,10 +37,16 @@ const spieler = (n: number): GamePlayer[] =>
     name: `Spieler ${i}`,
     color: 'blue' as const,
     online: true,
+    isHost: i === 0,
   }));
 
-const tun = (s: State, p: GamePlayer[], action: Record<string, unknown>, by = 'p0') =>
-  reduce(s, { by, at: Date.now(), ...action } as GameAction, p);
+const tun = (s: State, p: GamePlayer[], action: Record<string, unknown>, by?: string) => {
+  const actor =
+    action.type === 'pass'
+      ? s.seats.find((seat) => s.hands[seat.id]?.includes(action.card as number))?.id
+      : s.turn;
+  return reduce(s, { by: by ?? (actor || 'p0'), at: Date.now(), ...action } as GameAction, p);
+};
 
 /** Farbkarte bauen: Farbe 0–3, Wert 1–13. */
 const num = (suit: number, value: number) => suit * 13 + value - 1;
@@ -244,6 +250,34 @@ function fixed(p: GamePlayer[], hands: number[][], opts: Partial<State> = {}): S
 }
 
 describe('Ablauf', () => {
+  it('nimmt keine fremde Ansage, Trumpfwahl oder Handkarte aus einer Online-Inbox an', () => {
+    const p = spieler(3);
+    const s = fixed(p, [[num(0, 1)], [num(0, 2)], [num(0, 3)]]);
+    expect(tun(s, p, { type: 'bid', who: 'p0', value: 1 }, 'p1')).toBe(s);
+    const trump: State = { ...s, phase: 'trump', turn: 'p0', indicator: M1 };
+    expect(tun(trump, p, { type: 'chooseTrump', suit: 2 }, 'p1')).toBe(trump);
+    const play: State = { ...s, phase: 'play', turn: 'p0', bids: { p0: 1, p1: 0, p2: 0 } };
+    expect(tun(play, p, { type: 'play', card: num(0, 1) }, 'p1')).toBe(play);
+    expect(tun(play, p, { type: 'play', card: num(0, 1) }, 'p0').hands.p0).toEqual([]);
+  });
+
+  it('nimmt fremdes Weitergeben, fremden Hexentausch und fremde Wolkenwahl nicht an', () => {
+    const p = spieler(3);
+    const s = fixed(p, [[num(0, 1)], [num(0, 2)], [num(0, 3)]]);
+    const pass: State = { ...s, phase: 'pass', turn: '' };
+    expect(tun(pass, p, { type: 'pass', card: num(0, 1) }, 'p1')).toBe(pass);
+    expect(tun(pass, p, { type: 'pass', card: num(0, 1) }, 'p0').passes.p0).toBe(num(0, 1));
+    const cloud: State = { ...s, phase: 'wolke', turn: 'p0', bids: { p0: 0 } };
+    expect(tun(cloud, p, { type: 'cloud', who: 'p0', value: 1 }, 'p1')).toBe(cloud);
+    const witch: State = {
+      ...s,
+      phase: 'hexe',
+      turn: 'p0',
+      trick: [{ card: M1, by: 'p1' }],
+    };
+    expect(tun(witch, p, { type: 'hexe', card: num(0, 1), take: M1 }, 'p1')).toBe(witch);
+  });
+
   it('startet im Einrichten und gibt beim Austeilen jeder Person die Rundenkarten', () => {
     const p = spieler(4);
     let s = createState(p);
@@ -491,7 +525,7 @@ describe('Autopilot', () => {
     let s = tun(createState(p), p, { type: 'deal' });
     // Trumpfwahl oder Werwolf zuerst erledigen, falls nötig.
     while (s.phase === 'trump' || s.phase === 'werwolf') {
-      s = reduce(s, { type: 'chooseTrump', suit: 0, by: 'p0' } as GameAction, p);
+      s = reduce(s, { type: 'chooseTrump', suit: 0, by: s.turn } as GameAction, p);
     }
     const dran = s.turn;
     expect(tun(s, p, { type: 'autopilot', who: dran })).toBe(s);
@@ -715,6 +749,33 @@ describe('Ganze Partien', () => {
 });
 
 describe('Einrichten', () => {
+  it('lässt nur den aktuellen Host Regeln ändern oder die Karten austeilen', () => {
+    const p = spieler(3);
+    const s = createState(p);
+    for (const action of [
+      { type: 'preset', preset: 'klassisch' },
+      { type: 'toggleSpecial', special: 'hexe' },
+      { type: 'rule', rule: 'forehead', on: true },
+      { type: 'length', length: 'kurz' },
+      { type: 'deal' },
+    ]) {
+      expect(tun(s, p, action, 'p1')).toBe(s);
+    }
+    const newHost = p.map((player) => ({ ...player, isHost: player.id === 'p1' }));
+    expect(tun(s, newHost, { type: 'preset', preset: 'klassisch' }, 'p0')).toBe(s);
+    expect(tun(s, newHost, { type: 'preset', preset: 'klassisch' }, 'p1').options.specials).toEqual(
+      [],
+    );
+    expect(tun(s, newHost, { type: 'deal' }, 'p1').phase).not.toBe('setup');
+  });
+
+  it('beginnt keine Partie, wenn vor dem Austeilen nur noch zwei Leute da sind', () => {
+    const p = spieler(3);
+    const s = createState(p);
+    const left = p.map((player) => ({ ...player, online: player.id !== 'p2' }));
+    expect(tun(s, left, { type: 'deal' }, 'p0')).toBe(s);
+  });
+
   it('schaltet Sonderkarten einzeln und per Voreinstellung', () => {
     const p = spieler(4);
     let s = createState(p);

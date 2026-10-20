@@ -63,6 +63,15 @@ interface State {
   losses: Record<string, number>;
 }
 
+function explode(state: State): State {
+  const loser = state.order[state.holderIndex];
+  return {
+    ...state,
+    phase: 'boom',
+    losses: { ...state.losses, [loser]: (state.losses[loser] ?? 0) + 1 },
+  };
+}
+
 export const wortbombe: GameDefinition<State> = {
   ...meta,
 
@@ -97,21 +106,26 @@ export const wortbombe: GameDefinition<State> = {
       }
       case 'pass': {
         if (state.phase !== 'running') return state;
+        // A tap can arrive before the polling timer notices the deadline.
+        // The holder at expiry loses, rather than passing an expired bomb on.
+        if ((action.at ?? Date.now()) >= state.explodesAt) return explode(state);
         const ids = new Set(players.map((p) => p.id));
         const order = [
           ...state.order.filter((id) => ids.has(id)),
           ...players.filter((p) => !state.order.includes(p.id)).map((p) => p.id),
         ];
-        return { ...state, order, holderIndex: (state.holderIndex + 1) % Math.max(1, order.length) };
+        // Removing a player before the holder shifts array indices. Follow
+        // the old seating order to the next remaining player instead.
+        const nextId = Array.from(
+          { length: state.order.length },
+          (_, i) => state.order[(state.holderIndex + i + 1) % state.order.length],
+        ).find((id) => ids.has(id));
+        const holderIndex = nextId ? order.indexOf(nextId) : 0;
+        return { ...state, order, holderIndex };
       }
       case 'boom': {
         if (state.phase !== 'running') return state;
-        const loser = state.order[state.holderIndex];
-        return {
-          ...state,
-          phase: 'boom',
-          losses: { ...state.losses, [loser]: (state.losses[loser] ?? 0) + 1 },
-        };
+        return explode(state);
       }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf

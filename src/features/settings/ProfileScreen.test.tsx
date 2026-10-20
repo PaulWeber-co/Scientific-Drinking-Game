@@ -63,4 +63,21 @@ describe('Alkoholfrei und Fahren im Profil', () => {
     expect(usePlayer.getState().profile).toMatchObject({ designatedDriver: false, alcoholFree: false });
     expect(screen.getByRole('switch', { name: 'Ich fahre heute' })).toHaveAttribute('aria-checked', 'false');
   });
+
+  it('lässt nach dem alkoholfreien Einstieg die Angaben und Spielweise im Profil ergänzen', () => {
+    usePlayer.setState({
+      profile: { ...defaultProfile(), name: 'Lea', alcoholFree: true },
+      currentDrinkId: 'soft',
+    });
+    renderProfile();
+    expect(screen.getByText(/Für alkoholfreies Mitspielen brauchst du keine Körperdaten/)).toBeInTheDocument();
+    expect(screen.getByText('Gewicht')).toBeInTheDocument();
+    expect(screen.getByText('Magen')).toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Zielpegel' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('switch', { name: 'Alkoholfrei' }));
+    expect(usePlayer.getState().profile?.alcoholFree).toBe(false);
+    // Die Entscheidung für ein alkoholisches Getränk bleibt ausdrücklich.
+    expect(usePlayer.getState().currentDrinkId).toBe('soft');
+    expect(screen.queryByText(/Für alkoholfreies Mitspielen brauchst du keine Körperdaten/)).not.toBeInTheDocument();
+  });
 });

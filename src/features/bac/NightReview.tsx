@@ -3,7 +3,7 @@ import { formatBac, formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { Icon } from '../../components/icons';
 import { Sheet } from '../../components/ui';
-import { usePlayer } from '../../store/player';
+import { useBacEvents, usePlayer } from '../../store/player';
 import { buildNightSummary } from './nightSummary';
 import { shareNightCard } from './shareCard';
 
@@ -21,11 +21,12 @@ export function NightReview({
 }) {
   const profile = usePlayer((s) => s.profile);
   const log = usePlayer((s) => s.log);
+  const events = useBacEvents();
   const water = usePlayer((s) => s.waterCount);
 
   const summary = useMemo(
-    () => (profile && open ? buildNightSummary(log, profile, water) : null),
-    [profile, log, water, open],
+    () => (profile && open ? buildNightSummary(log, profile, water, Date.now(), events) : null),
+    [profile, log, events, water, open],
   );
 
   if (!summary || !profile) {
@@ -107,10 +108,8 @@ export function NightReview({
 /**
  * Schließt den Abend ab.
  *
- * Der Trink-Log wird geleert, damit der Restalkohol-Rechner morgen nicht
- * mit den Zahlen von heute weiterrechnet – der Abend selbst bleibt aber als
- * Rückblick erhalten. Deshalb steht hier kein Warnton mehr wie bei einer
- * echten Löschung.
+ * Der Trink-Log des Abends wird archiviert. Noch nicht abgebauter Alkohol
+ * bleibt für Pegel und Prognose erhalten, bis er rechnerisch abgebaut ist.
  */
 function EndButton({ onEnd, onClose }: { onEnd: () => void; onClose: () => void }) {
   return (

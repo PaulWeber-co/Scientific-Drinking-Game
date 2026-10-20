@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { LogDrinkSheet } from './LogDrinkSheet';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { findDrink, sipsPerServing } from '../../engine/drinks';
@@ -83,10 +83,20 @@ describe('Eintragen', () => {
 
   it('bucht ein halbes Glas als halbe Schluckzahl', () => {
     mount();
-    fireEvent.click(screen.getByText('Halbes'));
+    fireEvent.click(screen.getByText('½ Glas'));
     fireEvent.click(tile(/^½ Glas Bier \(Pils\) eintragen$/));
 
     expect(onLog.mock.calls[0][2]).toBe(Math.round(PILS / 2));
+  });
+
+  it('zeigt auf der Kachel die echte Menge zur gewählten Größe', () => {
+    // „Ganzes" und „Halbes" sagten nicht, wie viel. Die Kachel muss beim
+    // Umschalten mitrechnen, sonst steht dort eine falsche Menge.
+    mount();
+    const weizen = () => tile(/Weißbier eintragen$/);
+    expect(within(weizen()).getByText('0,5 l · 5,4 %')).toBeTruthy();
+    fireEvent.click(screen.getByText('2 Gläser'));
+    expect(within(weizen()).getByText('1 l · 5,4 %')).toBeTruthy();
   });
 
   it('datiert „1 Std her" um eine Stunde zurück', () => {
@@ -97,9 +107,56 @@ describe('Eintragen', () => {
 
     expect(onLog.mock.calls[0][3]).toBe(JETZT - STUNDE);
   });
+
+  it('bietet 0,5-l-Pils mit exakter Menge und sichtbarer Stärke an', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: '0,5 l' }));
+    const pils = tile(/^0,5 l Bier \(Pils\) eintragen$/);
+    expect(within(pils).getByText('0,5 l · 5 %')).toBeInTheDocument();
+    fireEvent.click(pils);
+    expect(onLog.mock.calls[0][4]).toBe(500);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('lässt eine eigene Menge per Tastatur eingeben und kehrt zur Standardbuchung zurück', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Eigene Menge' }), { detail: 0 });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Menge in ml' }), { target: { value: '237' } });
+    fireEvent.click(tile(/^0,237 l Bier \(Pils\) eintragen$/), { detail: 0 });
+    expect(onLog.mock.calls[0][4]).toBe(237);
+    expect(tile(/^1 Glas Bier \(Pils\) eintragen$/)).toBeInTheDocument();
+  });
+
+  it.each(['', '-10', '0', 'NaN', 'Infinity', '2001'])('blockiert ungültige eigene Menge %s', (value) => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Eigene Menge' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Menge in ml' }), { target: { value } });
+    expect(screen.getByRole('alert')).toHaveTextContent('zwischen 1 und 2000 ml');
+    expect(screen.getByRole('button', { name: 'Bier (Pils) – Menge eingeben' })).toBeDisabled();
+    expect(onLog).not.toHaveBeenCalled();
+  });
+
+  it('macht aus einem halben Shot tatsächlich 1 cl', () => {
+    mount();
+    fireEvent.click(screen.getByText('½ Glas'));
+    const shot = tile(/^½ Glas Tequila \/ Wodka eintragen$/);
+    expect(within(shot).getByText('1 cl · 38 %')).toBeInTheDocument();
+    fireEvent.click(shot);
+    expect(onLog.mock.calls[0][4]).toBe(10);
+  });
 });
 
 describe('Reihenfolge', () => {
+  it('deutet gelöschte eigene Getränke nicht als weitere Pils-Kacheln um', () => {
+    const deleted = { ...findDrink('wine-white'), id: 'custom-deleted', name: 'Hauswein' };
+    usePlayer.setState({ log: [makeDrinkEvent(deleted, 2), makeDrinkEvent(findDrink('beer-pils'), PILS)] });
+    mount();
+    expect(screen.getAllByRole('button', { name: '1 Glas Bier (Pils) eintragen' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Hauswein/ })).toBeNull();
+    fireEvent.click(tile(/^1 Glas Bier \(Pils\) eintragen$/));
+    expect(onLog.mock.calls[0][1].id).toBe('beer-pils');
+  });
+
   it('stellt das eingestellte und die zuletzt getrunkenen Getränke nach vorn', () => {
     usePlayer.setState({
       log: [

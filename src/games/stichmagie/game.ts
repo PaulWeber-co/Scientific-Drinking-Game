@@ -33,16 +33,16 @@ import { botMove } from './bot';
 /**
  * Stichmagie – der Spielablauf als Reducer.
  *
- * Läuft nur beim Host (online) bzw. direkt im Gerät (Pass & Play). Jede
- * Aktion prüft ihre Phase selbst: online wendet der Host die Inbox
+ * Läuft beim Host der Online-Lobby. Jede Aktion prüft ihre Phase selbst:
+ * Der Host wendet die Inbox
  * nacheinander an, und zwei fast gleichzeitige Taps sind auf einer Party der
  * Normalfall, nicht die Ausnahme.
  *
- * Wer eine Aktion ausführt, steht NICHT in `action.by` – im Pass & Play trägt
- * jede Aktion die Kennung des Gerätebesitzers. Stattdessen gilt:
- *  - Karten sind eindeutig. Wer eine Karte legt, ist, wer sie in der Hand hat.
- *  - Ansagen und Wolken-Entscheidungen tragen `who`. Ein doppelter Tap landet
- *    so nicht bei der nächsten Person.
+ * Stichmagie benötigt eigene Geräte. `action.by` ist deshalb die Person,
+ * die handeln darf; eine mitgeschickte fremde Kennung oder Karte gibt keine
+ * Kontrolle über andere Hände. Der explizite Autopilot arbeitet intern für
+ * die freigegebene Person. Ansagen und Wolken-Entscheidungen tragen zusätzlich
+ * `who`, damit ein doppelter Tap nicht bei der nächsten Person landet.
  */
 
 export interface Seat {
@@ -401,6 +401,12 @@ function isLength(v: unknown): v is Length {
 
 /** Der eigentliche Reducer – ohne Zähler, damit der Autopilot ihn nutzen kann. */
 function core(state: State, action: GameAction, players: GamePlayer[]): State {
+  if (
+    ['toggleSpecial', 'preset', 'rule', 'length', 'deal'].includes(action.type) &&
+    !players.some((player) => player.id === action.by && player.isHost)
+  ) {
+    return state;
+  }
   switch (action.type) {
     // ----- Tisch einrichten -----
     case 'toggleSpecial': {
@@ -446,7 +452,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
     case 'deal': {
       if (state.phase !== 'setup') return state;
       const seats = toSeats(rosterOf(players));
-      if (seats.length < 2) return state;
+      if (seats.length < 3) return state;
       const plan = planFor(seats.length, state.options.length);
       const fresh: State = {
         ...state,
@@ -462,6 +468,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
 
     // ----- Trumpf -----
     case 'chooseTrump': {
+      if (action.by !== state.turn) return state;
       const suit = action.suit;
       if (state.phase === 'trump') {
         if (!isSuit(suit)) return state;
@@ -491,7 +498,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
     case 'bid': {
       if (state.phase !== 'bid') return state;
       const who = String(action.who ?? '');
-      if (!who || who !== state.turn) return state;
+      if (!who || who !== state.turn || action.by !== who) return state;
       const value = action.value;
       const cards = cardsThisRound(state);
       if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > cards) {
@@ -509,7 +516,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
 
     // ----- Stich -----
     case 'play': {
-      if (state.phase !== 'play') return state;
+      if (state.phase !== 'play' || action.by !== state.turn) return state;
       const card = action.card;
       const who = state.turn;
       const hand = state.hands[who];
@@ -551,7 +558,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
     case 'cloud': {
       if (state.phase !== 'wolke') return state;
       const who = String(action.who ?? '');
-      if (who !== state.turn) return state;
+      if (who !== state.turn || action.by !== who) return state;
       const shift = action.value;
       if (shift !== 1 && shift !== -1) return state;
       const bid = (state.bids[who] ?? 0) + shift;
@@ -564,7 +571,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
       const card = action.card;
       if (!isCard(card)) return state;
       const owner = state.seats.find((x) => state.hands[x.id]?.includes(card))?.id;
-      if (!owner || state.passes[owner] !== undefined) return state;
+      if (!owner || owner !== action.by || state.passes[owner] !== undefined) return state;
       const passes = { ...state.passes, [owner]: card };
       const st = { ...state, passes };
       if (pendingPassers(st).length) return st;
@@ -580,7 +587,7 @@ function core(state: State, action: GameAction, players: GamePlayer[]): State {
     }
 
     case 'hexe': {
-      if (state.phase !== 'hexe') return state;
+      if (state.phase !== 'hexe' || action.by !== state.turn) return state;
       const who = state.turn;
       const hand = state.hands[who] ?? [];
       const give = action.card;

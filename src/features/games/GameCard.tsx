@@ -22,7 +22,7 @@ export function GameCard({
 }: {
   game: GameMeta;
   onClick: () => void;
-  /** Zu wenige Leute für dieses Spiel. Die Kachel bleibt tippbar – warum,
+  /** Gruppengröße passt nicht zu diesem Spiel. Die Kachel bleibt tippbar – warum,
       erklärt die Spielseite; eine gesperrte Kachel erklärt gar nichts. */
   dimReason?: string;
 }) {
@@ -45,7 +45,7 @@ export function GameCard({
       <span className="gametile__rand">
         <span className="gametile__title t-display">{game.name}</span>
         <span className="gametile__stempel">
-          {dimReason ? `ab ${game.minPlayers}` : `${game.minPlayers}–${game.maxPlayers}`}
+          {dimReason ?? `${game.minPlayers}–${game.maxPlayers}`}
         </span>
       </span>
     </button>

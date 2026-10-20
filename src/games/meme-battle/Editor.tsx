@@ -4,7 +4,7 @@ import { haptic } from '../../lib/haptics';
 import { markTextsSeen } from '../../store/seen';
 import { WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GamePlayer } from '../types';
-import { creators, type State } from './game';
+import { creators, rerollScopeOf, type State } from './game';
 import { Label, MemeImage, MemePrint } from './Meme';
 import { TopicNote } from './parts';
 import { maxCharsFor, templateOf } from './templates';
@@ -39,6 +39,15 @@ export function Editor({
   const [active, setActive] = useState(0);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const autoSent = useRef<string>('');
+  const [expiredDeadline, setExpiredDeadline] = useState<number | null>(null);
+  const timeUp =
+    state.deadline !== null && (expiredDeadline === state.deadline || Date.now() >= state.deadline);
+  useEffect(() => {
+    if (state.deadline === null) return;
+    const deadline = state.deadline;
+    const t = setTimeout(() => setExpiredDeadline(deadline), Math.max(0, deadline - Date.now()));
+    return () => clearTimeout(t);
+  }, [state.deadline]);
 
   // Neue Vorlage (Würfeln, neue Runde) = leerer Entwurf. Beim „Nochmal
   // ändern" kommt der abgeschickte Text zurück in die Felder.
@@ -60,7 +69,7 @@ export function Editor({
 
   // Wer mitten in der Runde dazukommt, holt sich seine Vorlage selbst.
   useEffect(() => {
-    if (!templateId) dispatch({ type: 'claim' });
+    if (!templateId) dispatch({ type: 'claim', round: state.round });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Fehlen
   }, [templateId]);
 
@@ -90,12 +99,12 @@ export function Editor({
   useEffect(() => {
     if (submitted || state.deadline === null) return;
     const t = setInterval(() => {
-      if (Date.now() < (state.deadline ?? Infinity) - 300) return;
+      if (Date.now() < (state.deadline ?? Infinity)) return;
       const key = `${state.round}|${templateId}`;
       if (autoSent.current === key || !texts.some((x) => x?.trim())) return;
       autoSent.current = key;
       haptic('press');
-      dispatch({ type: 'submit', texts });
+      dispatch({ type: 'submit', texts, round: state.round, template: templateId });
     }, 200);
     return () => clearInterval(t);
     // `dispatch` kommt stabil aus dem Kontext; `texts` muss mit, sonst
@@ -172,6 +181,7 @@ export function Editor({
                   value={texts[i] ?? ''}
                   placeholder={template.boxes.length === 1 ? 'Dein Text' : `Text ${i + 1}`}
                   maxLength={maxCharsFor(template, i)}
+                  disabled={timeUp}
                   enterKeyHint={i < template.boxes.length - 1 ? 'next' : 'done'}
                   autoComplete="off"
                   autoCorrect="on"
@@ -192,10 +202,10 @@ export function Editor({
               <>
                 <button
                   className="btn btn--glass md-actions__back"
-                  disabled={!state.prev[me.id]}
+                  disabled={timeUp || !state.prev[me.id]}
                   onClick={() => {
                     haptic('select');
-                    dispatch({ type: 'back' });
+                    dispatch({ type: 'back', round: state.round, template: templateId });
                   }}
                   aria-label="Vorige Vorlage"
                 >
@@ -203,24 +213,24 @@ export function Editor({
                 </button>
                 <button
                   className="btn btn--glass md-actions__reroll"
-                  disabled={left <= 0}
+                  disabled={timeUp || left <= 0}
                   onClick={() => {
                     haptic('select');
-                    dispatch({ type: 'reroll' });
+                    dispatch({ type: 'reroll', round: state.round, template: templateId });
                   }}
-                  aria-label={`Neue Vorlage, noch ${left}`}
+                  aria-label={`Vorlage wechseln, noch ${left} ${rerollScopeOf(state.options) === 'round' ? 'in dieser Runde' : 'im ganzen Spiel'}`}
                 >
                   <Icon name="shuffle" size={18} />
-                  Neu · {left}
+                  Wechseln · {left}
                 </button>
               </>
             )}
             <button
               className="btn btn--brand btn--lg grow"
-              disabled={!hasText}
+              disabled={!hasText || timeUp}
               onClick={() => {
                 haptic('success');
-                dispatch({ type: 'submit', texts });
+                dispatch({ type: 'submit', texts, round: state.round, template: templateId });
               }}
             >
               Fertig
@@ -231,16 +241,34 @@ export function Editor({
         <>
           <button
             className="btn btn--glass btn--block"
+            disabled={timeUp}
             onClick={() => {
               haptic('tap');
               setDrafts((d) => ({ ...d, [templateId]: mine.x }));
-              dispatch({ type: 'edit' });
+              dispatch({ type: 'edit', round: state.round, template: templateId });
             }}
           >
             <Icon name="brush" size={18} /> Nochmal ändern
           </button>
           <WaitingFor names={missing} what="Basteln noch" />
         </>
+      )}
+      {!same && state.options.rerolls > 0 && !submitted && (
+        <p className="t-caption t-center">
+          {left} Vorlagenwechsel{' '}
+          {rerollScopeOf(state.options) === 'round' ? 'in dieser Runde' : 'im ganzen Spiel'} übrig.
+          {state.prev[me.id]
+            ? ' Die vorige Vorlage kannst du kostenlos zurückholen; ihr Text bleibt erhalten.'
+            : ''}
+        </p>
+      )}
+      {timeUp && !submitted && (
+        <p className="notice notice--neutral" role="status">
+          Zeit vorbei.{' '}
+          {hasText
+            ? 'Dein Meme wird abgegeben …'
+            : 'Du hast keinen Text eingegeben. Gleich geht die Abstimmung los.'}
+        </p>
       )}
     </div>
   );

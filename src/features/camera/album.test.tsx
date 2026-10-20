@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { useFilm, type Photo } from '../../store/film';
@@ -48,7 +48,67 @@ beforeEach(() => {
   usePlayer.setState({ nightStartedAt: Date.now() });
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe('Album: die Sperre an ihrer Wirkstelle', () => {
+  it('kann den Abend abschliessen und gibt seine Fotos trotzdem erst zur Entwicklungszeit frei', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    usePlayer.setState({ profile: null, log: [], carryoverLog: [], waterCount: 0 });
+    useFilm.setState({ photos: [foto({ developAt: now + 1_000 })] });
+    zeige();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abend beenden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abend abschließen' }));
+
+    expect(usePlayer.getState().nightStartedAt).toBeNull();
+    expect(useFilm.getState().photos[0].nightId).toBe(useNights.getState().nights[0].id);
+    expect(screen.getByLabelText('Noch nicht entwickelt')).toBeInTheDocument();
+    expect(photoUrl).not.toHaveBeenCalled();
+
+    await act(async () => vi.advanceTimersByTime(1_000));
+
+    expect(screen.queryByLabelText('Noch nicht entwickelt')).toBeNull();
+    expect(photoUrl).toHaveBeenCalledWith('a.jpg');
+  });
+
+  it('gibt Bilder im offenen Album genau zur jeweiligen Entwicklungszeit frei', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    useFilm.setState({
+      photos: [
+        foto({ id: 'p1', file: 'erstes.jpg', developAt: now + 1_000 }),
+        foto({ id: 'p2', file: 'zweites.jpg', developAt: now + 2_000 }),
+      ],
+    });
+    zeige();
+    expect(screen.getAllByLabelText('Noch nicht entwickelt')).toHaveLength(2);
+    await act(async () => vi.advanceTimersByTime(999));
+    expect(photoUrl).not.toHaveBeenCalled();
+
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(screen.getAllByLabelText('Noch nicht entwickelt')).toHaveLength(1);
+    expect(photoUrl).toHaveBeenCalledWith('erstes.jpg');
+    expect(photoUrl).not.toHaveBeenCalledWith('zweites.jpg');
+
+    await act(async () => vi.advanceTimersByTime(1_000));
+    expect(screen.queryByLabelText('Noch nicht entwickelt')).toBeNull();
+    expect(screen.getAllByRole('img')).toHaveLength(2);
+  });
+
+  it('aktualisiert die Sperre nach der Rückkehr aus dem Hintergrund', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    useFilm.setState({ photos: [foto({ developAt: now + 1_000 })] });
+    zeige();
+    vi.setSystemTime(now + 2_000);
+
+    await act(async () => fireEvent(document, new Event('visibilitychange')));
+
+    expect(screen.queryByLabelText('Noch nicht entwickelt')).toBeNull();
+    expect(photoUrl).toHaveBeenCalledWith('a.jpg');
+  });
+
   it('zeigt ein unentwickeltes Bild nicht und fragt es gar nicht erst ab', async () => {
     useFilm.setState({ photos: [foto({ developAt: Date.now() + 3_600_000 })] });
     zeige();

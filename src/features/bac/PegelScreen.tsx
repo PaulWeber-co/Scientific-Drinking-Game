@@ -6,8 +6,7 @@ import {
   BETA_TYPICAL,
 } from '../../engine/constants';
 import { ZONE_META, bacZone, drivingLight, estimateBac, residualBac, soberAt } from '../../engine/bac';
-import { findDrink } from '../../engine/drinks';
-import { formatEntry } from '../../engine/tally';
+import { eventDrink, formatEntry } from '../../engine/tally';
 import { formatBac, formatDuration, formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { NavBar, Stepper } from '../../components/ui';
@@ -21,13 +20,15 @@ import { NightReview } from './NightReview';
 import { NightsList } from './NightsList';
 import { Stat } from './Stat';
 import { GAMES } from '../../games/registry';
-import { useCurrentDrink, usePlayer } from '../../store/player';
+import { useBacEvents, useCurrentDrink, usePlayer } from '../../store/player';
 
 const HOUR = 3_600_000;
 
 export function PegelScreen() {
   const profile = usePlayer((s) => s.profile);
   const log = usePlayer((s) => s.log);
+  const carryoverLog = usePlayer((s) => s.carryoverLog);
+  const events = useBacEvents();
   const customs = usePlayer((s) => s.customDrinks);
   const undoLast = usePlayer((s) => s.undoLast);
   const removeEvent = usePlayer((s) => s.removeEvent);
@@ -37,18 +38,19 @@ export function PegelScreen() {
   const drink = useCurrentDrink();
   const { estimate, now } = useLiveBac();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addFor, setAddFor] = useState<string | null>(null);
+  const [driveOpen, setDriveOpen] = useState(false);
   const [driveHour, setDriveHour] = useState(8);
   const [reviewOpen, setReviewOpen] = useState(false);
 
   const sober = useMemo(
-    () => (profile && log.length ? soberAt(log, profile, now) : null),
-    [log, profile, now],
+    () => (profile && events.length ? soberAt(events, profile, now) : null),
+    [events, profile, now],
   );
 
   const series = useMemo(() => {
-    if (!profile || !log.length) return [];
-    const start = Math.min(...log.map((e) => e.at)) - 15 * 60_000;
+    if (!profile || !events.length) return [];
+    const start = Math.min(...events.map((e) => e.at)) - 15 * 60_000;
     // Bis kurz hinter die Nüchternzeit – sonst wäre der halbe Chart eine
     // flache Null-Linie und die eigentliche Kurve zusammengedrückt.
     const horizon = sober ? sober + 20 * 60_000 : now + HOUR;
@@ -56,10 +58,10 @@ export function PegelScreen() {
     const points: { t: number; bac: number }[] = [];
     for (let i = 0; i <= 36; i++) {
       const t = start + ((end - start) * i) / 36;
-      points.push({ t, bac: estimateBac(log, profile, t).bac });
+      points.push({ t, bac: estimateBac(events, profile, t).bac });
     }
     return points;
-  }, [log, profile, now, sober]);
+  }, [events, profile, now, sober]);
 
   const driveTarget = useMemo(() => {
     const d = new Date(now);
@@ -69,8 +71,8 @@ export function PegelScreen() {
   }, [now, driveHour]);
 
   const driveBac = useMemo(
-    () => (profile && log.length ? residualBac(log, profile, driveTarget) : 0),
-    [log, profile, driveTarget],
+    () => (driveOpen && profile && events.length ? residualBac(events, profile, driveTarget) : 0),
+    [driveOpen, events, profile, driveTarget],
   );
 
   if (!profile) return null;
@@ -96,6 +98,20 @@ export function PegelScreen() {
             }
           />
           <p className="t-sub t-center t-balance">{zone.note}</p>
+          {carryoverLog.length > 0 && (estimate?.effective ?? 0) > 0.01 && (
+            <p className="t-caption t-center">
+              Restalkohol aus abgeschlossenen Abenden wird weiter berücksichtigt.
+            </p>
+          )}
+          <button
+            className="btn btn--brand btn--block"
+            onClick={() => {
+              haptic('tap');
+              setAddFor(party.me.id);
+            }}
+          >
+            <Icon name="plus" size={17} /> Getränk eintragen
+          </button>
         </section>
 
         <DriverCard />
@@ -121,39 +137,56 @@ export function PegelScreen() {
           </section>
         )}
 
+        {/* Eingeklappt, bis jemand fahren muss: sonst nimmt die Rechnung
+            jedem den Platz, der heute gar nicht fährt. */}
         <section className="card stack-3">
-          <div className="t-upper">Fahrtauglichkeit</div>
-          <p className="t-sub">Ich muss fahren um …</p>
-          <Stepper value={driveHour} onChange={setDriveHour} min={0} max={23} unit=":00 Uhr" />
-          <div className={`lightbox lightbox--${light}`}>
-            <div className="lightbox__dot" />
-            <div className="grow">
-              <div className="t-headline">
-                {light === 'green'
-                  ? 'Rechnerisch nüchtern'
-                  : light === 'yellow'
-                    ? 'Noch Restalkohol'
-                    : 'Auf keinen Fall fahren'}
+          <button
+            className="row-between pressable"
+            style={{ width: '100%', textAlign: 'left' }}
+            aria-expanded={driveOpen}
+            onClick={() => {
+              haptic('tap');
+              setDriveOpen((o) => !o);
+            }}
+          >
+            <span className="t-upper">Fahrtauglichkeit</span>
+            <Icon name={driveOpen ? 'chevronDown' : 'chevronRight'} size={17} />
+          </button>
+          {driveOpen && (
+            <>
+              <p className="t-sub">Ich muss fahren um …</p>
+              <Stepper value={driveHour} onChange={setDriveHour} min={0} max={23} unit=":00 Uhr" />
+              <div className={`lightbox lightbox--${light}`}>
+                <div className="lightbox__dot" />
+                <div className="grow">
+                  <div className="t-headline">
+                    {light === 'green'
+                      ? 'Rechnerisch nüchtern'
+                      : light === 'yellow'
+                        ? 'Noch Restalkohol'
+                        : 'Auf keinen Fall fahren'}
+                  </div>
+                  <div className="t-caption">
+                    Geschätzt {formatBac(driveBac)} ‰ um {String(driveHour).padStart(2, '0')}:00
+                    Uhr · konservativ mit {de(BETA_CONSERVATIVE, 2)} ‰/h gerechnet
+                  </div>
+                </div>
               </div>
-              <div className="t-caption">
-                Geschätzt {formatBac(driveBac)} ‰ um {String(driveHour).padStart(2, '0')}:00
-                Uhr · konservativ mit {de(BETA_CONSERVATIVE, 2)} ‰/h gerechnet
+              {sober && (
+                <div className="t-caption">
+                  Voraussichtlich nüchtern gegen <strong>{formatTime(sober)}</strong> (in{' '}
+                  {formatDuration(sober - now)}). Der Durchschnittswert liegt bei{' '}
+                  {de(BETA_TYPICAL, 2)} ‰/h – wir rechnen absichtlich langsamer.
+                </div>
+              )}
+              <div className="notice notice--red">
+                Auch bei „grün" gilt: Die Rechnung ist eine Schätzung. Wer getrunken hat, fährt nicht.
               </div>
-            </div>
-          </div>
-          {sober && (
-            <div className="t-caption">
-              Voraussichtlich nüchtern gegen <strong>{formatTime(sober)}</strong> (in{' '}
-              {formatDuration(sober - now)}). Der Durchschnittswert liegt bei{' '}
-              {de(BETA_TYPICAL, 2)} ‰/h – wir rechnen absichtlich langsamer.
-            </div>
+            </>
           )}
-          <div className="notice notice--red">
-            Auch bei „grün" gilt: Die Rechnung ist eine Schätzung. Wer getrunken hat, fährt nicht.
-          </div>
         </section>
 
-        <TableTally />
+        <TableTally onAdd={setAddFor} />
 
         <section className="stack-3">
           <div className="row-between">
@@ -169,23 +202,12 @@ export function PegelScreen() {
               <span className="chip__text">{drink.name}</span>
             </button>
           </div>
-          <div className="grid-2">
-            <button
-              className="btn btn--glass"
-              onClick={() => {
-                haptic('tap');
-                setAddOpen(true);
-              }}
-            >
-              <Icon name="plus" size={17} /> Selbst getrunken
-            </button>
-            <button className="btn btn--gray" disabled={!log.length} onClick={() => {
-              haptic('warn');
-              undoLast();
-            }}>
-              Rückgängig
-            </button>
-          </div>
+          <button className="btn btn--gray btn--block" disabled={!log.length} onClick={() => {
+            haptic('warn');
+            undoLast();
+          }}>
+            Rückgängig
+          </button>
           {log.length ? (
             <div className="list">
               {/* Nach Uhrzeit, nicht nach Eingabe: ein nachgetragener
@@ -197,7 +219,7 @@ export function PegelScreen() {
                   <div key={e.id} className="list__item">
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
-                        {formatEntry(findDrink(e.drinkId, customs), e.sips, e.drinkName)}
+                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName, e.volumeMl)}
                       </span>
                       <span className="t-caption">
                         {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
@@ -246,12 +268,13 @@ export function PegelScreen() {
       {/* Auf einem geteilten Handy kann hier auch für die Gäste eingetragen
           werden – online gehört das Handy genau einer Person. */}
       <LogDrinkSheet
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
+        open={addFor !== null}
+        onClose={() => setAddFor(null)}
         players={party.mode === 'local' ? party.players : [party.me]}
         meId={party.me.id}
-        onLog={(playerId, d, sips, at) =>
-          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at })
+        initialPlayerId={addFor ?? undefined}
+        onLog={(playerId, d, sips, at, volumeMl) =>
+          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at, volumeMl })
         }
       />
     </div>

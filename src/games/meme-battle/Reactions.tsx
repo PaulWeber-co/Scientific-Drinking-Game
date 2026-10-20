@@ -17,7 +17,13 @@ const COOLDOWN_MS = 600;
 const FLIGHT_MS = 2_400;
 
 /** Die vier Reaktionsknöpfe unter der Abstimmung. */
-export function ReactionBar({ dispatch }: { dispatch: (a: GameActionInput) => void }) {
+export function ReactionBar({
+  dispatch,
+  target,
+}: {
+  dispatch: (a: GameActionInput) => void;
+  target: string;
+}) {
   const last = useRef(0);
   return (
     <div className="md-reactbar" role="group" aria-label="Reagieren">
@@ -31,7 +37,7 @@ export function ReactionBar({ dispatch }: { dispatch: (a: GameActionInput) => vo
             if (now - last.current < COOLDOWN_MS) return;
             last.current = now;
             haptic('tap');
-            dispatch({ type: 'react', kind: k });
+            dispatch({ type: 'react', kind: k, target });
           }}
         >
           <Icon name={LOOK[k].icon} size={24} />

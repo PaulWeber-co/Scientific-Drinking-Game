@@ -1,10 +1,12 @@
 import { Icon } from '../../components/icons';
 import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { keepScreenAwake } from '../../lib/wakelock';
 import { GameSettings, type HeatControl, type SpicyControl } from './GameSettings';
 import { GlassButton } from './GlassButton';
+import { useParty } from '../../features/party/PartyContext';
 
 interface Props {
   title: string;
@@ -30,6 +32,8 @@ export function GameFrame({
   children,
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
+  const nav = useNavigate();
+  const { otherBuild } = useParty();
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
   // fällt beim Verlassen von selbst wieder weg.
   useEffect(() => keepScreenAwake(), []);
@@ -37,8 +41,9 @@ export function GameFrame({
   return (
     <div className="game korn" style={{ ['--accent' as string]: accent }}>
       <header className="game__bar">
+        <div className="game__bar-content">
         <button
-          className="game__close"
+          className="game__close game__quit"
           aria-label="Spiel beenden"
           onClick={() => {
             haptic('tap');
@@ -46,6 +51,19 @@ export function GameFrame({
           }}
         >
           <Icon name="close" size={16} strokeWidth={2.1} />
+        </button>
+        {/* Einwegkamera mitten im Spiel: der Spielstand liegt im
+            PartyContext und überlebt den Abstecher, zurück geht es per
+            Schließen im Sucher. Links, damit der Kopf symmetrisch bleibt. */}
+        <button
+          className="game__close game__camera"
+          aria-label="Einwegkamera"
+          onClick={() => {
+            haptic('tap');
+            nav('/kamera');
+          }}
+        >
+          <Icon name="camera" size={18} />
         </button>
         <div className="game__titles">
           <div className="t-headline">{title}</div>
@@ -56,8 +74,17 @@ export function GameFrame({
           <GlassButton />
           <GameSettings heat={heat} spicy={spicy} />
         </div>
+        </div>
       </header>
-      <div className="game__body">{children}</div>
+      <div className="game__body">
+        {otherBuild && (
+          <div className="notice notice--neutral" role="status">
+            Ihr spielt mit verschiedenen App-Versionen. Wenn etwas komisch aussieht:
+            alle auf die neueste Version aktualisieren.
+          </div>
+        )}
+        {children}
+      </div>
 
       {/* Der Knopf sitzt am Daumen und beendet die Runde für alle. Ohne
           Rückfrage kostet ein Fehlgriff der ganzen Gruppe das Spiel. */}

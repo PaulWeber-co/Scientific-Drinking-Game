@@ -5,6 +5,7 @@ import { WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GamePlayer } from '../types';
 import {
   REROLL_OPTIONS,
+  rerollScopeOf,
   RIDER_BONUS,
   ROUND_OPTIONS,
   TIMER_OPTIONS,
@@ -63,6 +64,8 @@ export function Setup({
   const enough = count >= 3;
   const host = players.find((p) => p.isHost);
   const { mode, seconds, trittbrett, rerolls } = state.options;
+  const scope = rerollScopeOf(state.options);
+  const period = scope === 'round' ? 'pro Runde' : 'für das ganze Spiel';
 
   return (
     <div className="md-setup stack">
@@ -83,7 +86,9 @@ export function Setup({
         })}
       </div>
       <p className="t-sub t-center t-balance">
-        Vorlage ziehen, Text rein, abstimmen. Das beste Meme holt die Punkte, das schwächste trinkt.
+        {mode === 'entspannt'
+          ? 'Vorlage ziehen, Text rein, gemeinsam lachen. Ohne Punkte und ohne Trinkansagen.'
+          : 'Vorlage ziehen, Text rein, abstimmen. Das beste Meme holt die Punkte, das schwächste trinkt.'}
       </p>
 
       <section className="stack-3">
@@ -136,7 +141,7 @@ export function Setup({
         </section>
         {mode !== 'gleich' && (
           <section className="stack-3">
-            <span className="t-upper">Neu würfeln</span>
+            <span className="t-upper">Vorlagenwechsel</span>
             {isHost ? (
               <Segmented<string>
                 value={String(rerolls)}
@@ -147,11 +152,40 @@ export function Setup({
                 }))}
               />
             ) : (
-              <div className="t-sub">{rerolls ? `${rerolls}× pro Partie` : 'Aus'}</div>
+              <div className="t-sub">{rerolls ? `${rerolls}× ${period}` : 'Aus'}</div>
             )}
           </section>
         )}
       </div>
+
+      {mode !== 'gleich' && rerolls > 0 && (
+        <section className="stack-3">
+          <span className="t-upper">Vorlagenwechsel gelten</span>
+          {isHost ? (
+            <Segmented<string>
+              value={scope}
+              onChange={(v) => dispatch({ type: 'rerollScope', scope: v })}
+              options={[
+                { value: 'round', label: 'Pro Runde' },
+                { value: 'game', label: 'Für das ganze Spiel' },
+              ]}
+            />
+          ) : (
+            <div className="t-sub">{scope === 'round' ? 'Pro Runde' : 'Für das ganze Spiel'}</div>
+          )}
+          <p className="t-caption">
+            {scope === 'round'
+              ? `Jede Person kann in jeder Runde ${rerolls}× die Vorlage wechseln.`
+              : `Jede Person kann insgesamt ${rerolls}× die Vorlage wechseln. Das Budget wird zwischen den Runden nicht aufgefüllt.`}
+          </p>
+        </section>
+      )}
+
+      {mode === 'gleich' && (
+        <p className="notice notice--neutral">
+          Alle spielen mit derselben Vorlage. Deshalb gibt es hier keine Vorlagenwechsel.
+        </p>
+      )}
 
       {mode !== 'entspannt' && (
         <div className={`md-option ${isHost ? '' : 'md-option--locked'}`}>
@@ -174,8 +208,8 @@ export function Setup({
 
       <p className="t-caption t-center">
         {state.goal ? `${state.goal} Runden` : 'Ohne Ende'} ·{' '}
-        {mode === 'gleich' || !rerolls ? 'ohne Würfeln' : `${rerolls}× neu würfeln`} ·{' '}
-        {TEMPLATES.length} Vorlagen
+        {mode === 'gleich' || !rerolls ? 'ohne Vorlagenwechsel' : `${rerolls}× wechseln ${period}`}{' '}
+        · {TEMPLATES.length} Vorlagen
       </p>
 
       {!enough && (

@@ -118,7 +118,7 @@ export function GamesScreen() {
                 // Wer allein stöbert, soll alles ungedimmt sehen. Erst wenn
                 // eine Runde zusammensteht, zeigen wir zu große Spiele an.
                 dimReason={
-                  count > 1 && count < g.minPlayers ? `Braucht ${g.minPlayers}` : undefined
+                  count > g.maxPlayers ? `Max. ${g.maxPlayers}` : count > 1 && count < g.minPlayers ? `Ab ${g.minPlayers}` : undefined
                 }
               />
             ))}
@@ -134,6 +134,8 @@ export function GameDetail() {
   const nav = useNavigate();
   const party = useParty();
   const markGamePlayed = useApp((s) => s.markGamePlayed);
+  const blanksOn = useApp((s) => s.blanks[id] === true);
+  const toggleBlanks = useApp((s) => s.toggleBlanks);
   const gameLength = useApp((s) => s.gameLength);
   const game = getGame(id);
   const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln'>(null);
@@ -151,15 +153,17 @@ export function GameDetail() {
 
   const count = party.players.length;
   const tooFew = count < game.minPlayers;
+  const tooMany = count > game.maxPlayers;
   const needsDevices = game.requiresOwnDevice && party.mode !== 'online';
   // Manche Spiele rechnen ihre Runden aus der Gruppengröße (Stichmagie: das
   // Deck gibt sie vor). Die fragen wir selbst, alle anderen wie bisher.
   const rounds = game.rounds
-    ? game.rounds(Math.max(count, game.minPlayers), gameLength)
+    ? game.rounds(Math.min(game.maxPlayers, Math.max(count, game.minPlayers)), gameLength)
     : roundGoal(baseFor(game.id), gameLength);
   const endless = gameLength === 'endlos' && !game.rounds;
 
   const start = async () => {
+    if (tooFew || tooMany || needsDevices) return;
     markGamePlayed(game.id);
     await party.startGame(game.id);
     nav('/spiel');
@@ -197,16 +201,28 @@ export function GameDetail() {
           Erklärsatz daneben. Wer nichts ändern will, tippt nur den Startknopf. */}
       <div className="detailchips">
         <button
-          className={`chip pressable ${tooFew ? 'chip--warn' : ''}`}
+          className={`chip pressable ${tooFew || tooMany ? 'chip--warn' : ''}`}
           onClick={() => nav('/lobby')}
         >
           <Icon name="people" size={13} />
-          {tooFew ? `${count} von ${game.minPlayers} Spielern` : `${count} Spieler`}
+          {tooFew ? `${count} von ${game.minPlayers} Spielern` : tooMany ? `${count} Spieler · maximal ${game.maxPlayers}` : `${count} Spieler`}
         </button>
         <button className="chip pressable" onClick={() => setSheet('laenge')}>
           {endless ? 'Endlos' : `${rounds} Runden`}
         </button>
         {game.allowSpicy && <SpicyToggle game={game} />}
+        {game.allowBlanks && (
+          <button
+            className={`chip pressable ${blanksOn ? 'chip--on' : ''}`}
+            aria-pressed={blanksOn}
+            onClick={() => {
+              haptic('tap');
+              toggleBlanks(game.id);
+            }}
+          >
+            <Icon name="cards" size={13} /> {blanksOn ? 'Mit Blankokarten' : 'Ohne Blankokarten'}
+          </button>
+        )}
         {game.allowCustomCards && (
           <button className="chip pressable" onClick={() => setSheet('karten')}>
             <Icon name="plus" size={13} /> Eigene Karten
@@ -225,12 +241,17 @@ export function GameDetail() {
           {game.name} braucht mindestens {game.minPlayers} Leute.
         </p>
       )}
+      {tooMany && (
+        <p className="detailhinweis">
+          {game.name} ist für höchstens {game.maxPlayers} Leute ausgelegt. Passt eure Runde an oder wählt ein anderes Spiel.
+        </p>
+      )}
 
       {/* Kein gesperrter Knopf: Er sagt stattdessen, was als Nächstes fehlt. */}
       <div className="detailstart">
-        {tooFew || needsDevices ? (
+        {tooFew || tooMany || needsDevices ? (
           <button className="btn btn--brand btn--block btn--lg" onClick={() => nav('/lobby')}>
-            {needsDevices ? 'Online-Lobby starten' : 'Leute hinzufügen'}
+            {tooMany ? 'Runde anpassen' : needsDevices ? 'Online-Lobby starten' : 'Leute hinzufügen'}
           </button>
         ) : (
           <button className="btn btn--brand btn--block btn--lg" onClick={start}>

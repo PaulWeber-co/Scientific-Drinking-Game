@@ -40,7 +40,7 @@ const profile: Profile = { ...defaultProfile(), name: 'Toby' };
 beforeEach(() => {
   localStorage.clear();
   useNights.setState({ nights: [], current: [] });
-  usePlayer.setState({ profile, log: [], nightStartedAt: null, waterCount: 0 });
+  usePlayer.setState({ profile, log: [], carryoverLog: [], nightStartedAt: null, waterCount: 0 });
 });
 
 describe('Teilnehmer sammeln', () => {

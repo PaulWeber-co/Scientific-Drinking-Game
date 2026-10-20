@@ -3,6 +3,7 @@ import {
   DEVELOP_CHOICES,
   ROLL_SIZE,
   developAt,
+  rollDevelopAt,
   filmStand,
   isDeveloped,
   myShotsLeft,
@@ -71,6 +72,16 @@ describe('Entwicklungszeit', () => {
     const d = new Date(developAt(nachts, 0));
     expect(d.getDate()).toBe(6);
     expect(d.getHours()).toBe(9);
+  });
+
+  it('rechnet ab dem ersten Foto, nicht ab einem Abendbeginn am Vormittag', () => {
+    const foto = (at: number, nightId: string | null = null) =>
+      ({ id: String(at), nightId, at, developAt: 0, file: 'x' });
+    const erstes = abends8 + 3_600_000;
+    const alt = foto(abends8 - 86_400_000, 'n1');
+    const d = new Date(rollDevelopAt([foto(erstes + 60_000), foto(erstes), alt], 0));
+    expect(d.getDate()).toBe(6);
+    expect(rollDevelopAt([alt], 4, erstes)).toBe(erstes + 4 * 3_600_000);
   });
 
   it('bietet nur gerastete Werte an', () => {

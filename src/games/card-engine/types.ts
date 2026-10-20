@@ -92,4 +92,8 @@ export interface CardGameState {
   winner: string | null;
   /** Nach so vielen vollen Runden ist Schluss. `null` = ohne Ende. */
   goal: number | null;
+  /** Nur online mit `drink: 'self-declare'`: wer was zur liegenden Karte
+   *  gesagt hat. Alle sehen es, wie am echten Tisch. Fehlt in Zuständen,
+   *  die ein älterer Stand angelegt hat. */
+  declared?: Record<string, 'yes' | 'no'>;
 }

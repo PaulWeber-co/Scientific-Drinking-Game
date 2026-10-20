@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { haptic } from '../../lib/haptics';
 import { shuffle } from '../../lib/format';
 import { customCardsFor } from '../../store/cards';
@@ -6,12 +6,13 @@ import { isSpicyOn } from '../../store/app';
 import { markTextsSeen, orderByFreshness } from '../../store/seen';
 import { HeatIcons, Icon } from '../../components/icons';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
-import { BigCard, Choice, PlayerChip } from '../shared/pieces';
+import { BigCard, Choice, PlayerChip, WaitingFor } from '../shared/pieces';
 import { Avatar } from '../../components/ui/Avatar';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { fitsGroup } from '../shared/prompts';
+import { fromHost } from '../shared/host';
 import type { GameAction, GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 
@@ -90,6 +91,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
       phase: startsWithChoice ? 'choose' : 'card',
       outcome: null,
       winner: null,
+      declared: {},
     };
   };
 
@@ -98,6 +100,11 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     action: GameAction,
     players: GamePlayer[],
   ): CardGameState => {
+    // Several phones can finish the same card before the next state arrives.
+    // Actions from that view must not advance or resolve the following turn.
+    if (action.turnKey !== undefined && action.turnKey !== `${state.round}:${state.turnIndex}`) {
+      return state;
+    }
     switch (action.type) {
       case 'setHeat': {
         const heat = Number(action.heat) as Heat;
@@ -107,7 +114,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         // wird. Ist die Karte schon aufgelöst, bleibt sie stehen – dort hängt
         // eine Trinkansage dran, die niemand unter den Fingern wegziehen darf.
         if (state.phase === 'resolved') return { ...state, heat, deck };
-        return { ...state, heat, deck: deck.slice(1), drawn: deck[0] ?? null };
+        return { ...state, heat, deck: deck.slice(1), drawn: deck[0] ?? null, declared: {} };
       }
       case 'pickMode': {
         const mode = String(action.mode);
@@ -118,11 +125,12 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           drawn: deck[0] ?? null,
           deck: deck.slice(1),
           phase: 'card',
+          declared: {},
         };
       }
       case 'draw': {
         const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
-        return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card' };
+        return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card', declared: {} };
       }
       case 'resolve':
         return {
@@ -133,11 +141,21 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         };
       case 'pickWinner':
         return { ...state, winner: String(action.winner) };
+      case 'declare': {
+        // Jedes Gerät antwortet für seine Person – `by` ist hier richtig,
+        // denn den Weg gibt es nur online.
+        if (config.drink !== 'self-declare' || state.phase !== 'card') return state;
+        const answer = action.answer === 'yes' ? 'yes' : 'no';
+        return { ...state, declared: { ...(state.declared ?? {}), [action.by]: answer } };
+      }
       case 'next': {
-        // Nur von einer liegenden oder aufgelösten Karte aus. Zwei fast
-        // gleichzeitige Taps würden sonst zwei Runden zählen und eine Karte
-        // überspringen; die Inbox wendet Aktionen nacheinander an.
+        // A self-declared card advances directly; other games resolve first.
+        // turnKey above also guards the direct card-to-card transition.
         if (state.phase !== 'card' && state.phase !== 'resolved') return state;
+        // Wer selbst auskunftet, schaltet nicht für alle weiter: das tut nur
+        // der Host (User-Entscheid 2026-10-14). Vorher konnte, wer zuerst
+        // geantwortet hatte, allen anderen die Karte wegziehen.
+        if (config.drink === 'self-declare' && !fromHost(action, players)) return state;
         const order = syncOrder(state.order, players);
         const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
         const round = turnIndex === 0 ? state.round + 1 : state.round;
@@ -156,6 +174,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           drawn: startsWithChoice ? null : (deck[0] ?? null),
           deck: startsWithChoice ? deck : deck.slice(1),
           phase: startsWithChoice ? 'choose' : 'card',
+          declared: {},
         };
       }
       case 'restart':
@@ -166,9 +185,6 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
   };
 
   function Component({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<CardGameState>) {
-    // Bei "Ich hab noch nie" entscheidet jede Person für sich – das bleibt
-    // lokal, es muss niemand erfahren, wer was angetippt hat.
-    const [declared, setDeclared] = useState<'yes' | 'no' | null>(null);
     const actor = useMemo(() => {
       if (config.actor === 'none') return null;
       const id = state.order[state.turnIndex % Math.max(1, state.order.length)];
@@ -177,9 +193,6 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
     const card = state.drawn;
     const cardText = card?.text;
-    // Wechselt die Karte unter einer schon getroffenen Entscheidung weg (etwa
-    // weil jemand den Härtegrad verstellt), gilt die Entscheidung nicht mehr.
-    useEffect(() => setDeclared(null), [cardText]);
     // Jedes Geraet merkt sich, was es gezeigt bekommen hat. Online sehen alle
     // dieselbe Karte, der Stapel entsteht aber beim Host - dessen Gedaechtnis
     // ist deshalb das der Runde.
@@ -194,10 +207,18 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     // Eindeutig pro Karte: sonst bliebe der "Getrunken"-Button der letzten
     // Karte auch auf der naechsten noch gesperrt.
     const callKey = `${state.round}-${state.turnIndex}-${card?.text ?? ''}`;
+    // Online antwortet jede Person auf ihrem Handy, und alle sehen die
+    // Antworten – wie am echten Tisch, wo man sieht, wer trinkt
+    // (User-Entscheid 2026-10-14). Wechselt die Karte, leert der Reducer die
+    // Antworten; eine Entscheidung zur alten Karte kann nicht hängen bleiben.
+    const answers = state.declared ?? {};
+    const declared = answers[me.id] ?? null;
+    const waiting = players.filter((p) => p.online !== false && !answers[p.id]);
+    const host = players.find((p) => p.isHost);
 
     const send = (action: GameActionInput) => {
       haptic('select');
-      dispatch(action);
+      dispatch({ ...action, turnKey: `${state.round}:${state.turnIndex}` });
     };
 
     return (
@@ -322,7 +343,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 ]}
                 onPick={(id) => {
                   haptic(id === 'yes' ? 'warn' : 'success');
-                  setDeclared(id as 'yes' | 'no');
+                  dispatch({ type: 'declare', answer: id, turnKey: `${state.round}:${state.turnIndex}` });
                 }}
               />
             ) : declared === 'yes' ? (
@@ -338,16 +359,47 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 {config.declare?.clean ?? 'Sauber geblieben. Diese Runde kostet dich nichts.'}
               </div>
             )}
-            <button
-              className="btn btn--brand btn--block btn--lg"
-              disabled={declared === null}
-              onClick={() => {
-                setDeclared(null);
-                send({ type: 'next' });
-              }}
-            >
-              {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächste Karte'}
-            </button>
+            {waiting.length > 0 ? (
+              <WaitingFor names={waiting.map((p) => p.name)} what="Warten auf" />
+            ) : (
+              <div className="stack-2" aria-label="Antworten">
+                {(['yes', 'no'] as const).map((answer) => {
+                  const who = players.filter((p) => answers[p.id] === answer);
+                  if (!who.length) return null;
+                  return (
+                    <div key={answer} className="stack-2">
+                      <div className="t-upper t-center">
+                        {answer === 'yes' ? config.declare?.yes ?? 'Hab ich' : config.declare?.no ?? 'Nie gemacht'}
+                      </div>
+                      <div className="row wrap" style={{ justifyContent: 'center', gap: 8 }}>
+                        {who.map((p) => (
+                          <span key={p.id} className="pchip">
+                            <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
+                            <span className="pchip__name">{p.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {isHost ? (
+              <button
+                className={`btn btn--block btn--lg ${waiting.length ? 'btn--glass' : 'btn--brand'}`}
+                onClick={() => send({ type: 'next' })}
+              >
+                {waiting.length
+                  ? 'Nicht mehr warten – weiter'
+                  : isOver(state.round + 1, state.goal)
+                    ? 'Endstand'
+                    : 'Nächste Karte'}
+              </button>
+            ) : (
+              waiting.length === 0 && (
+                <div className="t-caption t-center">{host?.name ?? 'Der Host'} schaltet weiter.</div>
+              )
+            )}
           </div>
         )}
 
@@ -459,10 +511,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
               disabled={
                 Boolean(config.pickWinner) && state.outcome !== 'refused' && state.winner === null
               }
-              onClick={() => {
-                setDeclared(null);
-                send({ type: 'next' });
-              }}
+              onClick={() => send({ type: 'next' })}
             >
               {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächster'}
             </button>

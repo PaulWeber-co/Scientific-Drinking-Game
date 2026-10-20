@@ -1044,6 +1044,11 @@ button.chip--outline {
   font-weight: 650;
   line-height: 1.2;
 }
+.drinktile__vol {
+  font-size: 11px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
 /* Mitten im Spiel zaehlt Hoehe: vier statt drei Spalten, damit unter dem
    Raster noch Zielpegel und Schalter ins Bild passen. */
 .drinkgrid--compact {
@@ -1846,6 +1851,28 @@ button.chip--outline {
   color: rgba(255, 255, 255, 0.8);
   text-align: center;
   margin: 0;
+}
+/* Brennweite wie in der Kamera-App: runde Werte in einer dunklen Pille. */
+.lensswitch {
+  display: flex;
+  gap: var(--s-1);
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.lensswitch__opt {
+  min-width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font: 600 13px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+}
+.lensswitch__opt.is-on {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffd60a;
 }
 .shutter {
   width: 76px;

@@ -11,6 +11,9 @@ import { FilmSetup } from './FilmSetup';
 import { usePhotoUrl } from './usePhotoUrl';
 import { makePrint } from './print';
 import { sweepOrphans } from './sweep';
+import { NightReview } from '../bac/NightReview';
+import { usePlayer } from '../../store/player';
+import { shareFile } from '../../lib/shareFile';
 
 /**
  * Das Album des Abends.
@@ -25,6 +28,26 @@ export function AlbumScreen() {
   const nights = useNights((s) => s.nights);
   const { remaining, mineLeft, running } = useFilmStatus();
   const [open, setOpen] = useState<Photo | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const endNight = usePlayer((s) => s.endNight);
+
+  useEffect(() => {
+    const next = Math.min(...photos.filter((p) => p.developAt > now).map((p) => p.developAt));
+    if (!Number.isFinite(next)) return;
+    // Ein offenes Album muss den Abzug zur Entwicklungszeit freigeben,
+    // auch wenn sich weder Film noch Lobby in der Zwischenzeit ändern.
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(2_147_483_647, Math.max(0, next - Date.now())));
+    return () => clearTimeout(timer);
+  }, [photos, now]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setNow(Date.now());
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, []);
 
   // Bilder ohne Abend wegräumen – siehe `sweep.ts`.
   useEffect(() => {
@@ -64,6 +87,16 @@ export function AlbumScreen() {
             >
               <Icon name="camera" size={18} /> Foto machen
             </button>
+            {/* Hier sucht man es: wer den Film abschließt, schließt den Abend. */}
+            <button
+              className="btn btn--glass btn--block"
+              onClick={() => {
+                haptic('press');
+                setReviewOpen(true);
+              }}
+            >
+              Abend beenden
+            </button>
           </section>
         )}
 
@@ -86,7 +119,7 @@ export function AlbumScreen() {
             </div>
             <div className="photogrid">
               {bilder.map((p) => (
-                <Frame key={p.id} photo={p} onOpen={() => setOpen(p)} />
+                <Frame key={p.id} photo={p} now={now} onOpen={() => setOpen(p)} />
               ))}
             </div>
           </section>
@@ -94,6 +127,7 @@ export function AlbumScreen() {
       </div>
 
       <PhotoSheet photo={open} onClose={() => setOpen(null)} />
+      <NightReview open={reviewOpen} onClose={() => setReviewOpen(false)} onEnd={endNight} />
     </div>
   );
 }
@@ -109,8 +143,8 @@ function groupByNight(photos: readonly Photo[]): [string | null, Photo[]][] {
   return [...map.entries()];
 }
 
-function Frame({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
-  const fertig = isDeveloped(photo);
+function Frame({ photo, now, onOpen }: { photo: Photo; now: number; onOpen: () => void }) {
+  const fertig = isDeveloped(photo, now);
   const url = usePhotoUrl(fertig ? photo.file : null);
 
   if (!fertig) {
@@ -174,17 +208,5 @@ async function sharePhoto(url: string | null, photo: Photo): Promise<void> {
   const blob = await fetch(url).then((r) => r.blob());
   // Der Rahmen muss in die Datei hinein: CSS reist nicht mit.
   const abzug = await makePrint(blob);
-  const datei = new File([abzug], `pegel-${photo.at}.jpg`, { type: 'image/jpeg' });
-  if (navigator.canShare?.({ files: [datei] })) {
-    await navigator.share({ files: [datei] }).catch(() => {});
-    return;
-  }
-  // Kein Teilen-Menü (Desktop-Browser): dann wenigstens herunterladen.
-  const ziel = URL.createObjectURL(abzug);
-  const a = document.createElement('a');
-  a.href = ziel;
-  a.download = datei.name;
-  a.click();
-  // Sofortiges Freigeben bricht den Download in manchen Browsern ab.
-  setTimeout(() => URL.revokeObjectURL(ziel), 10_000);
+  await shareFile(abzug, `pegel-${photo.at}.jpg`);
 }

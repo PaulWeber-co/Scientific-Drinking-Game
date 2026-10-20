@@ -32,7 +32,13 @@ export interface GamePlayer {
    * diesem einen Gerät mitgeführt werden. Online bleiben diese Daten
    * ausschließlich auf dem jeweils eigenen Gerät.
    */
-  local?: { profile: Profile; drinkId: string; log: DrinkEvent[] };
+  local?: {
+    profile: Profile;
+    drinkId: string;
+    log: DrinkEvent[];
+    /** Vorige Abende: nur noch für den weiterhin laufenden Alkoholabbau. */
+    carryoverLog?: DrinkEvent[];
+  };
 }
 
 /** Was eine Komponente absetzt – der Absender wird von der Runtime ergänzt. */
@@ -133,6 +139,8 @@ export interface GameMeta {
   allowCustomCards?: boolean;
   /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */
   allowSpicy?: boolean;
+  /** true = das Spiel lässt sich mit Blankokarten spielen (selbst beschriebene Antworten). */
+  allowBlanks?: boolean;
   /**
    * Rundenzahl, wenn sie nicht aus `ROUND_BASES` folgt, sondern aus der
    * Gruppengröße – etwa bei einem Stichspiel, in dem das Deck die Runden

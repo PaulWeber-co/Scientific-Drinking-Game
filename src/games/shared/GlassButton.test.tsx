@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { GlassButton } from './GlassButton';
-import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
+import { PartyCtx, PartyProvider, useParty, type PartyValue } from '../../features/party/PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { sipsPerServing } from '../../engine/drinks';
 import { findDrink } from '../../engine/drinks';
@@ -25,7 +25,7 @@ const mia: GamePlayer = {
 };
 
 const logSipsFor = vi.fn();
-const undoLastFor = vi.fn();
+const removeEventFor = vi.fn();
 
 function mount(patch: Partial<PartyValue> = {}) {
   const value = {
@@ -33,7 +33,7 @@ function mount(patch: Partial<PartyValue> = {}) {
     players: [me],
     me,
     logSipsFor,
-    undoLastFor,
+    removeEventFor,
     ...patch,
   } as unknown as PartyValue;
   return render(
@@ -49,8 +49,9 @@ const glas = () => screen.getByRole('button', { name: /^Glas .* eintragen$/ });
 const PILS = sipsPerServing(findDrink('beer-pils'));
 
 beforeEach(() => {
-  logSipsFor.mockClear();
-  undoLastFor.mockClear();
+  logSipsFor.mockReset().mockReturnValue('glass-entry');
+  removeEventFor.mockClear();
+  sessionStorage.clear();
   usePlayer.setState({
     profile: { ...defaultProfile(), name: 'Paul' },
     onboarded: true,
@@ -65,6 +66,23 @@ afterEach(() => {
 });
 
 describe('Glas-Knopf im Spielrahmen', () => {
+  it.each(['online', 'local'] as const)('öffnet den sichtbaren erweiterten Eintrag auch %s ohne langen Druck', (mode) => {
+    mount({ mode });
+    fireEvent.click(screen.getByRole('button', { name: 'Anderes Getränk oder andere Menge eintragen' }), { detail: 0 });
+    expect(screen.getByRole('dialog', { name: 'Getränk eintragen' })).toBeInTheDocument();
+    expect(logSipsFor).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '0,5 l' }));
+    fireEvent.click(screen.getByRole('button', { name: '0,5 l Bier (Pils) eintragen' }), { detail: 0 });
+    expect(logSipsFor).toHaveBeenCalledWith('p0', 13, 'glas', { drinkId: 'beer-pils', volumeMl: 500, at: expect.any(Number) });
+    expect(screen.getByRole('status')).toHaveTextContent('0,5 l Bier (Pils) eingetragen');
+  });
+  it('bucht auch über native Tastatur- oder Screenreader-Aktivierung ohne Pointer', () => {
+    mount();
+    fireEvent.click(glas(), { detail: 0 });
+
+    expect(logSipsFor).toHaveBeenCalledExactlyOnceWith('p0', PILS, 'glas', { volumeMl: 330 });
+  });
+
   it('nennt das eingestellte Getränk, damit der Tap keine Überraschung ist', () => {
     mount();
     expect(glas().getAttribute('aria-label')).toBe('Glas Bier (Pils) eintragen');
@@ -74,9 +92,10 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     expect(logSipsFor).toHaveBeenCalledTimes(1);
-    expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas');
+    expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas', { volumeMl: 330 });
   });
 
   it('rechnet das Glas aus dem Getränk, nicht aus einer festen Zahl', () => {
@@ -86,8 +105,9 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
-    expect(logSipsFor).toHaveBeenCalledWith('p0', sipsPerServing(findDrink('shot-tequila')), 'glas');
+    expect(logSipsFor).toHaveBeenCalledWith('p0', sipsPerServing(findDrink('shot-tequila')), 'glas', { volumeMl: 20 });
     expect(sipsPerServing(findDrink('shot-tequila'))).not.toBe(PILS);
   });
 
@@ -95,9 +115,10 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }));
-    expect(undoLastFor).toHaveBeenCalledWith('p0');
+    expect(removeEventFor).toHaveBeenCalledWith('p0', 'glass-entry');
   });
 
   it('nimmt das Rückgängig nach acht Sekunden weg', () => {
@@ -105,6 +126,7 @@ describe('Glas-Knopf im Spielrahmen', () => {
     mount();
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
     expect(screen.queryByRole('button', { name: 'Rückgängig' })).toBeTruthy();
 
     // Kurz davor steht es noch – sonst pruefte der Test nur, dass es
@@ -121,10 +143,11 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     // Der lange Druck darf NICHT zusätzlich ein Glas buchen.
     expect(logSipsFor).not.toHaveBeenCalled();
-    expect(screen.getByText('Halbes')).toBeTruthy();
+    expect(screen.getByText('½ Glas')).toBeTruthy();
     expect(screen.getByText('1 Std her')).toBeTruthy();
   });
 
@@ -134,12 +157,14 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
-    fireEvent.click(screen.getByText('Halbes'));
+    fireEvent.click(screen.getByText('½ Glas'));
     fireEvent.click(screen.getByRole('button', { name: '½ Glas Bier (Pils) eintragen' }));
 
     expect(logSipsFor).toHaveBeenCalledWith('p0', Math.round(PILS / 2), 'glas', {
       drinkId: 'beer-pils',
+      volumeMl: 165,
       at: expect.any(Number),
     });
     expect(screen.getByText('½ Glas Bier (Pils) eingetragen')).toBeTruthy();
@@ -153,11 +178,13 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerDown(glas());
     act(() => vi.advanceTimersByTime(500));
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     fireEvent.click(screen.getByRole('button', { name: '1× Tequila / Wodka eintragen' }));
 
     expect(logSipsFor).toHaveBeenCalledWith('p0', 1, 'glas', {
       drinkId: 'shot-tequila',
+      volumeMl: 20,
       at: expect.any(Number),
     });
     expect(usePlayer.getState().currentDrinkId).toBe('beer-pils');
@@ -173,15 +200,24 @@ describe('Glas-Knopf im Spielrahmen', () => {
     fireEvent.pointerLeave(glas());
     act(() => vi.advanceTimersByTime(500));
 
-    expect(screen.queryByText('Halbes')).toBeNull();
+    expect(screen.queryByText('½ Glas')).toBeNull();
   });
 });
 
 describe('Glas-Knopf auf einem geteilten Handy', () => {
+  it('öffnet die Personenauswahl auch ohne Pointer-Ereignisse', () => {
+    mount({ mode: 'local', players: [me, mia] });
+    fireEvent.click(glas(), { detail: 0 });
+
+    expect(screen.getByText('Wer hat ausgetrunken?')).toBeInTheDocument();
+    expect(logSipsFor).not.toHaveBeenCalled();
+  });
+
   it('fragt zuerst, wer ausgetrunken hat', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
     // Kein stiller Eintrag auf den Gerätebesitzer: bei Pass & Play sitzen
     // mehrere Leute an einem Handy.
@@ -193,22 +229,25 @@ describe('Glas-Knopf auf einem geteilten Handy', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
     fireEvent.click(screen.getByRole('button', { name: /Mia/ }));
 
-    expect(logSipsFor).toHaveBeenCalledWith('p1', PILS, 'glas');
+    expect(logSipsFor).toHaveBeenCalledWith('p1', sipsPerServing(findDrink('wine-red')), 'glas', { volumeMl: 200 });
   });
 
   it('führt aus der Rückfrage zum vollen Eintragen – der zweite Weg neben dem langen Druck', () => {
     mount({ mode: 'local', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
-    fireEvent.click(screen.getByRole('button', { name: /Anderes Getränk/ }));
+    fireEvent.click(glas(), { detail: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Anderes Getränk oder andere Menge …' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Mia' }));
     fireEvent.click(screen.getByRole('button', { name: '1 Glas Rotwein eintragen' }));
 
     expect(logSipsFor).toHaveBeenCalledWith('p1', sipsPerServing(findDrink('wine-red')), 'glas', {
       drinkId: 'wine-red',
+      volumeMl: 200,
       at: expect.any(Number),
     });
     expect(screen.getByText('1 Glas Rotwein für Mia eingetragen')).toBeTruthy();
@@ -220,7 +259,42 @@ describe('Glas-Knopf auf einem geteilten Handy', () => {
     mount({ mode: 'online', players: [me, mia] });
     fireEvent.pointerDown(glas());
     fireEvent.pointerUp(glas());
+    fireEvent.click(glas(), { detail: 1 });
 
-    expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas');
+    expect(logSipsFor).toHaveBeenCalledWith('p0', PILS, 'glas', { volumeMl: 330 });
+  });
+});
+
+describe('Rückgängig nach zwischenzeitlichen Spielansagen', () => {
+  it.each(['ich', 'gast'] as const)('entfernt bei %s das Glas und behält den neueren Spieleintrag', (target) => {
+    let party!: PartyValue;
+    function Probe() {
+      party = useParty();
+      return <GlassButton />;
+    }
+    render(<PartyProvider><Probe /></PartyProvider>);
+    act(() => party.startLocal());
+    if (target === 'gast') {
+      act(() => party.addLocalPlayer({
+        name: 'Mia', color: 'pink',
+        profile: { ...defaultProfile(), name: 'Mia' }, drinkId: 'wine-red',
+      }));
+    }
+    const playerId = target === 'ich' ? party.me.id : party.players.find((p) => p.name === 'Mia')!.id;
+    const log = () => target === 'ich'
+      ? usePlayer.getState().log
+      : party.players.find((p) => p.id === playerId)!.local!.log;
+
+    fireEvent.click(glas());
+    if (target === 'gast') fireEvent.click(screen.getByRole('button', { name: /Mia/ }));
+    const glassId = log()[0].id;
+    act(() => { party.logSipsFor(playerId, 3, 'kings-cup'); });
+    const gameId = log()[1].id;
+    expect(log()).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }));
+
+    expect(log()).toHaveLength(1);
+    expect(log()[0]).toMatchObject({ id: gameId, source: 'kings-cup' });
+    expect(log().some((entry) => entry.id === glassId)).toBe(false);
   });
 });

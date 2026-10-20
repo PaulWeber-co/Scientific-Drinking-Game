@@ -210,12 +210,16 @@ export function nightPeak(
   events: DrinkEvent[],
   profile: Profile,
   now: number = Date.now(),
+  startedAt?: number,
 ): { peakBac: number; peakAt: number } {
   if (!events.length) return { peakBac: 0, peakAt: now };
-  const from = Math.min(...events.map((e) => e.at));
+  const first = Math.min(...events.map((e) => e.at));
+  // Frühere Drinks können noch wirken, ihr vergangener Höchststand gehört
+  // aber nicht zum gerade begonnenen Abend.
+  const from = Math.max(first, startedAt ?? first);
   let peakBac = 0;
   let peakAt = from;
-  const until = Math.max(...events.map((e) => e.at)) + 180 * MS_PER_MIN;
+  const until = Math.max(from, Math.max(...events.map((e) => e.at)) + 180 * MS_PER_MIN);
   for (let t = from; t <= until; t += 5 * MS_PER_MIN) {
     const { bac } = estimateBac(events, profile, t);
     if (bac > peakBac) {

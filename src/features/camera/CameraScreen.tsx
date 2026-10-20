@@ -4,7 +4,8 @@ import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { plural } from '../../lib/format';
 import { uid } from '../../lib/id';
-import { useFilm } from '../../store/film';
+import { rollDevelopAt, useFilm } from '../../store/film';
+import { usePlayer } from '../../store/player';
 import { developFrame } from './develop';
 import { photoFormat } from './filmLook';
 import { savePhoto } from './photoStore';
@@ -29,15 +30,18 @@ const FLASH_LEAD_MS = 220;
  */
 export default function CameraScreen() {
   const nav = useNavigate();
-  const { videoRef, state, hasTorch, setTorch, streamSize } = useViewfinder();
+  const { videoRef, state, hasTorch, setTorch, streamSize, canWide, wide, setWide } =
+    useViewfinder();
   // Bis der Stream steht, ein hohes Fenster: so hält man das Handy.
   const format = streamSize ? photoFormat(streamSize.w, streamSize.h) : photoFormat(1, 2);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const frame = useFit(stageRef, format.w / format.h);
-  const { mineLeft, remaining, developsAt } = useFilmStatus();
+  const { mineLeft, remaining, developAfterH } = useFilmStatus();
+  const beginNight = usePlayer((s) => s.beginNight);
   const addPhoto = useFilm((s) => s.addPhoto);
   const [busy, setBusy] = useState(false);
   const [blitz, setBlitz] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const zuletzt = useRef(0);
 
   const auslösen = useCallback(async () => {
@@ -49,24 +53,36 @@ export default function CameraScreen() {
 
     setBusy(true);
     setBlitz(true);
+    setCaptureError(null);
     haptic('heavy');
     try {
-      await setTorch(true);
-      await new Promise((r) => setTimeout(r, FLASH_LEAD_MS));
-      const blob = await developFrame(video, video.videoWidth, video.videoHeight);
-      await setTorch(false);
-      if (blob) {
-        const name = `${uid('f_')}.jpg`;
-        await savePhoto(name, blob);
-        addPhoto(name, developsAt);
-        void scheduleDevelopNotice(developsAt);
-        haptic('success');
+      let blob: Blob | null;
+      try {
+        await setTorch(true);
+        await new Promise((r) => setTimeout(r, FLASH_LEAD_MS));
+        blob = await developFrame(video, video.videoWidth, video.videoHeight);
+      } finally {
+        // Auch ein fehlgeschlagenes Auslesen des Videobilds muss die
+        // Taschenlampe wieder ausschalten.
+        await setTorch(false);
       }
+      if (!blob) throw new Error('Kein Kamerabild');
+      const name = `${uid('f_')}.jpg`;
+      await savePhoto(name, blob);
+      // Ein Foto ist Aktivität: liegt der Abend lange zurück, wird er erst
+      // abgeschlossen, und dieses Bild eröffnet den neuen.
+      beginNight();
+      const developsAt = rollDevelopAt(useFilm.getState().photos, developAfterH);
+      addPhoto(name, developsAt);
+      void scheduleDevelopNotice(developsAt);
+      haptic('success');
+    } catch {
+      setCaptureError('Das Foto konnte nicht aufgenommen oder gespeichert werden. Bitte versuch es noch einmal.');
     } finally {
       setBlitz(false);
       setBusy(false);
     }
-  }, [videoRef, busy, mineLeft, setTorch, addPhoto, developsAt]);
+  }, [videoRef, busy, mineLeft, setTorch, addPhoto, beginNight, developAfterH]);
 
   return (
     <div className="viewfinder">
@@ -114,11 +130,30 @@ export default function CameraScreen() {
 
       {state === 'live' ? (
         <div className="viewfinder__bottom">
+          {captureError && <div className="notice notice--red" role="alert">{captureError}</div>}
           <p className="viewfinder__hint">
             {mineLeft > 0
               ? `Noch ${mineLeft} ${plural(mineLeft, 'Bild', 'Bilder')} für dich. Wie es geworden ist, siehst du morgen.`
               : 'Dein Anteil am Film ist verbraucht.'}
           </p>
+          {canWide && (
+            // Wie in der Kamera-App: zwei Werte in einer Pille über dem Auslöser.
+            <div className="lensswitch" role="group" aria-label="Brennweite">
+              {([true, false] as const).map((w) => (
+                <button
+                  key={String(w)}
+                  className={`lensswitch__opt pressable${wide === w ? ' is-on' : ''}`}
+                  aria-pressed={wide === w}
+                  onClick={() => {
+                    haptic('select');
+                    setWide(w);
+                  }}
+                >
+                  {w ? '0,5' : '1×'}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             className="shutter pressable"
             disabled={busy || mineLeft <= 0}
@@ -127,7 +162,7 @@ export default function CameraScreen() {
           >
             <span className="shutter__ring" />
           </button>
-          {!hasTorch && (
+          {!hasTorch && !wide && (
             <p className="t-caption">Dieses Gerät kann den Blitz nicht schalten.</p>
           )}
         </div>

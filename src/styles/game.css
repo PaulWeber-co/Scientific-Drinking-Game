@@ -11,13 +11,16 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
+  container: gameframe / inline-size;
   padding: calc(var(--safe-top) + var(--s-2)) var(--s-3) var(--s-2);
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.game__bar-content {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
 }
 .game__titles {
   flex: 1;
@@ -40,6 +43,38 @@
   gap: var(--s-1);
   justify-content: flex-end;
   flex-shrink: 0;
+}
+@container gameframe (max-width: 520px) {
+  .game__bar-content {
+    display: grid;
+    grid-template-columns: 44px 44px minmax(0, 1fr);
+    row-gap: var(--s-1);
+  }
+  .game__titles {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .game__titles .t-headline {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .game__titles .t-caption {
+    overflow-wrap: anywhere;
+  }
+  .game__quit {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .game__camera {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .game__action {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
 }
 .game__settings {
   /* Gleiche Zielflaeche wie der Beenden-Knopf gegenueber. */
@@ -81,6 +116,22 @@
 }
 .sipbtn:active {
   transform: scale(0.88);
+}
+.sipbtn__drink {
+  position: relative;
+  display: flex;
+}
+.sipbtn__plus {
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+.logdrink__volumes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
 }
 .sipnote {
   /* Haengt unter der Kopfzeile, statt das Spielfeld zu verschieben. */
@@ -973,6 +1024,10 @@
   position: relative;
   z-index: 1;
 }
+/* Mehrzeiliger Inhalt sitzt unten: der Deckel gibt nur den unteren Teil frei. */
+.peekcard__low {
+  align-self: end;
+}
 /* Entwickelt: genau an der Leseschwelle, wo auch die Haptik tickt. */
 .peekcard--open .peekcard__under {
   filter: none;
@@ -1045,6 +1100,9 @@
   font-weight: 800;
   letter-spacing: -0.8px;
   text-wrap: balance;
+  /* Ein Wort wie „Junggesellenabschied" ist breiter als die Karte. */
+  hyphens: auto;
+  overflow-wrap: anywhere;
   color: #fff;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
@@ -1189,30 +1247,6 @@
     transform: rotate(-160deg) scale(0.6);
     opacity: 0;
   }
-}
-
-/* ---------- Mäxchen-Ansagen ---------- */
-.rankgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: var(--s-2);
-}
-.rankchip {
-  min-height: 44px;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.rankchip--max {
-  grid-column: 1 / -1;
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--accent);
-}
-.rankchip:disabled {
-  opacity: 0.4;
 }
 
 /* ---------- Reaktions-Duell ---------- */
@@ -1420,12 +1454,6 @@
   44% { transform: translate3d(-6px, 3px, 0) rotate(-0.4deg); }
   62% { transform: translate3d(5px, -2px, 0); }
   80% { transform: translate3d(-3px, 1px, 0); }
-}
-
-/* ---------- Mäxchen: Pasch hervorheben ---------- */
-.rankchip--pair {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 /* ---------- Tabu: Punktestand ---------- */
@@ -1904,6 +1932,8 @@
    55 % abgeloest. Das Umdrehen ist damit ein eigener Schlag, kein Mitdrehen
    auf der Strecke (User-Entscheid 2026-09-10). Eine gestauchte Vorderseite
    waere lesbar gewesen und haette den Schlag vorweggenommen. */
+/* Ohne Flug unsichtbar: nur das ziehende Handy misst einen Weg. Auf allen
+   anderen bliebe die Rueckseite sonst liegen und verdeckte die Karte. */
 .kings-zug__ruecken {
   position: absolute;
   inset: 0;
@@ -1911,6 +1941,7 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  opacity: 0;
 }
 .kings-zug--los .kings-zug__ruecken {
   animation: kings-ruecken 380ms linear both;
@@ -1982,6 +2013,12 @@
   box-shadow: var(--shadow-md);
   position: relative;
   transition: transform var(--dur-fast) var(--ease-spring);
+}
+.lf-card--blank {
+  /* Gestrichelt wie ein leeres Formularfeld: sofort als „hier schreibst du"
+     lesbar, ohne eigene Farbe neben den weissen Karten. */
+  border: 2px dashed #999;
+  color: #555;
 }
 .lf-card--picked {
   transform: translateY(-10px);

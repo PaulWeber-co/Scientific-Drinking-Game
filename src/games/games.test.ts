@@ -17,6 +17,7 @@ const players = (n: number): GamePlayer[] =>
     name: `Spieler ${i}`,
     color: 'indigo',
     online: true,
+    isHost: i === 0,
   }));
 
 const act = (type: string, by = 'p0', extra: Record<string, unknown> = {}): GameAction => ({
@@ -101,12 +102,19 @@ const VARIANTS: Record<string, unknown>[] = [
   { rank: 0, value: 1, index: 2, answer: 'innen' },
   { rank: 14, value: 100, answer: 'tief' },
   { rank: 20, answer: '1' },
+  // Mäxchen: das Urteil nach dem Aufdecken. Ich hab noch nie: die eigene Antwort.
+  { lied: true, answer: 'yes' },
+  { lied: false, answer: 'no' },
   { outcome: 'refused' },
+  // Card-engine actions carry the originating turn to reject delayed taps.
+  { turnKey: '1:0' },
   // Nur der NAME. Eine gueltige Handkarte ist ein Index in einen gemischten
   // Stapel von 600 – den trifft kein fester Wert. Die echten Werte liefert
   // `handVariants()` aus dem Zustand. `card` ist dasselbe fuer die einzelne
   // Karte, die im Busfahrer auf die Pyramide gelegt wird.
   { cards: [], card: -1, to: '' },
+  // Lückenfüller: Text zu einer Blankokarte.
+  { texts: ['frei geschrieben'] },
   // Ring of Fire: der Finger waehlt einen Platz im Kranz. 51 prueft den Rand,
   // 200 einen Platz, den es gar nicht gibt.
   { slot: 51 },
@@ -121,8 +129,11 @@ const VARIANTS: Record<string, unknown>[] = [
   // Meme-Duell: Texte fürs Meme, Bastelzeit und ein Modus, den es dort gibt.
   // Die Stimme selbst hängt am gerade gezeigten Meme – die liefert
   // `memeVariants()` aus dem Zustand.
-  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich', kind: 'lachen', rounds: 3, count: 8 },
-  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen', kind: 'herz', rounds: 0, count: 0 },
+  { texts: ['Oben', 'Unten'], seconds: 60, mode: 'gleich', kind: 'lachen', rounds: 3, count: 8, scope: 'round' },
+  { texts: ['', 'Nur unten'], seconds: 45, mode: 'themen', kind: 'herz', rounds: 0, count: 0, scope: 'game' },
+  // Runde und Vorlage binden neue Editor-Aktionen an den Entwurf. Die
+  // tatsächlich passenden Werte liefert `memeVariants()` aus dem Zustand.
+  { round: 1, template: 'drake' },
 ];
 
 /**
@@ -214,12 +225,22 @@ function turnVariants(state: unknown): Record<string, unknown>[] {
 }
 
 /**
- * Stimmen fürs Meme-Duell – aus dem ZUSTAND. Eine Stimme gilt nur für das
+ * Entwürfe und Stimmen fürs Meme-Duell – aus dem ZUSTAND. Neue Editor-Aktionen
+ * sind an Runde und Vorlage gebunden; geraten träfen sie höchstens zufällig.
+ * Eine Stimme gilt nur für das
  * Meme, das gerade läuft (`target` = Autor), und nur mit -1, 0 oder 1. Eine
  * geratene Kombination aus Person und Wert trifft das selten.
  */
 function memeVariants(state: unknown): Record<string, unknown>[] {
-  const s = state as { phase?: string; order?: unknown; showing?: unknown } | null;
+  const s = state as {
+    phase?: string; order?: unknown; showing?: unknown;
+    round?: unknown; drawn?: Record<string, unknown>;
+  } | null;
+  if (s?.phase === 'create' && typeof s.round === 'number' && s.drawn) {
+    return Object.values(s.drawn)
+      .filter((template) => typeof template === 'string')
+      .map((template) => ({ round: s.round, template, texts: ['Oben', 'Unten'] }));
+  }
   if (s?.phase !== 'vote' || !Array.isArray(s.order) || typeof s.showing !== 'number') return [];
   const target = s.order[s.showing];
   return [1, 0, -1].map((value) => ({ target, value }));
@@ -380,20 +401,19 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
     );
   });
 
-  it('bleibt bei Maexchen ansagbar, wenn Maexchen steht', () => {
-    // Der konkrete Fall, an dem die Runde vorher starb: Maexchen angesagt,
-    // der Naechste glaubt – dann hatte niemand mehr einen Knopf.
+  it('beendet die Runde, wenn jemand ein Maexchen glaubt', () => {
+    // Der konkrete Fall, an dem die Runde einmal starb: Maexchen angesagt,
+    // der Naechste glaubt – dann hatte niemand mehr einen Knopf. Heute
+    // verliert, wer es glaubt, und die naechste Runde ist erreichbar.
     const g = getLoadedGame('maexchen')!;
     const roster = players(3);
     let s = g.createState(roster);
     s = g.reduce(s, act('roll', 'p0'), roster);
-    s = g.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = g.reduce(s, act('believe', 'p1'), roster);
-    s = g.reduce(s, act('roll', 'p1'), roster);
-    expect(s.phase).toBe('announce');
-    expect(hasEscape(g, s, roster), 'maexchen nach angesagtem Maexchen').toBe(true);
-    const weiter = g.reduce(s, act('announce', 'p1', { rank: 20 }), roster);
-    expect(weiter.phase).toBe('decide');
+    s = g.reduce(s, act('pass', 'p0'), roster);
+    s = g.reduce(s, act('believeMaexchen', 'p1'), roster);
+    expect(s.phase).toBe('reveal');
+    expect(hasEscape(g, s, roster), 'maexchen nach geglaubtem Maexchen').toBe(true);
+    expect(g.reduce(s, act('nextRound', 'p0'), roster).phase).toBe('roll');
   });
 });
 
@@ -833,7 +853,7 @@ describe('Undercover', () => {
     const roster = players(6);
     const s = game.createState(roster);
     expect(roster.map((p) => p.id)).toContain(s.undercoverId);
-    expect(s.words[0]).not.toBe(s.words[1]);
+    expect(s.hint).not.toBe(s.word);
   });
 
   it('startet die Beschreibungsrunde, wenn alle ihr Wort gesehen haben', () => {
@@ -853,9 +873,9 @@ describe('Undercover', () => {
     for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: s.undercoverId }), roster);
     expect(s.phase).toBe('guess');
     expect(s.eliminated).toContain(s.undercoverId);
-    expect(s.guessOptions).toContain(s.words[0]);
+    expect(s.guessOptions).toContain(s.word);
 
-    const daneben = s.guessOptions.find((w: string) => w !== s.words[0])!;
+    const daneben = s.guessOptions.find((w: string) => w !== s.word)!;
     s = game.reduce(s, act('guess', s.undercoverId, { word: daneben }), roster);
     expect(s.phase).toBe('over');
     expect(s.winner).toBe('gruppe');
@@ -943,38 +963,23 @@ describe('Zwei Wahrheiten, eine Lüge', () => {
 describe('Mäxchen', () => {
   const game = getLoadedGame('maexchen')!;
 
-  it('lässt nur höhere Ansagen zu', () => {
-    const roster = players(3);
+  /** Bis zum Aufdecken: würfeln, weitergeben, aufdecken. */
+  function aufgedeckt(roster: ReturnType<typeof players>) {
     let s = game.createState(roster);
     s = game.reduce(s, act('roll'), roster);
-    s = game.reduce(s, act('announce', 'p0', { rank: 5 }), roster);
-    expect(s.announced).toBe(5);
-    s = game.reduce(s, act('believe'), roster);
-    s = game.reduce(s, act('roll'), roster);
-    const tooLow = game.reduce(s, act('announce', 'p1', { rank: 3 }), roster);
-    expect(tooLow.announced).toBeNull();
-    const ok = game.reduce(s, act('announce', 'p1', { rank: 9 }), roster);
-    expect(ok.announced).toBe(9);
-  });
+    s = game.reduce(s, act('pass'), roster);
+    return game.reduce(s, act('doubt'), roster);
+  }
 
-  it('bestraft beim Aufdecken die richtige Person', () => {
+  it('bestraft nach „Gelogen" den Ansager', () => {
     const roster = players(3);
-    let s = game.createState(roster);
-    // Gelogen: 1+1 ist der niedrigste Pasch, angesagt wird Mäxchen.
-    s = { ...s, phase: 'announce', dice: [1, 1] };
-    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = game.reduce(s, act('doubt'), roster);
-    expect(s.reveal?.truthful).toBe(false);
+    const s = game.reduce(aufgedeckt(roster), act('judge', 'p0', { lied: true }), roster);
     expect(s.reveal?.loserId).toBe(s.order[0]);
   });
 
-  it('bestraft den Zweifler, wenn die Ansage stimmte', () => {
+  it('bestraft nach „Stimmt" den Zweifler', () => {
     const roster = players(3);
-    let s = game.createState(roster);
-    s = { ...s, phase: 'announce', dice: [2, 1] }; // Mäxchen
-    s = game.reduce(s, act('announce', 'p0', { rank: 20 }), roster);
-    s = game.reduce(s, act('doubt'), roster);
-    expect(s.reveal?.truthful).toBe(true);
+    const s = game.reduce(aufgedeckt(roster), act('judge', 'p0', { lied: false }), roster);
     expect(s.reveal?.loserId).toBe(s.order[1]);
   });
 });

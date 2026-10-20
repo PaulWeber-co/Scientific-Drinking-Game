@@ -59,7 +59,7 @@ export function GameSettings({ heat, spicy }: Props) {
           setOpen(true);
         }}
       >
-        <Icon name={drink.icon} size={19} />
+        <Icon name="settings" size={19} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Deine Einstellungen">
         <SettingsBody heat={heat} spicy={spicy} />

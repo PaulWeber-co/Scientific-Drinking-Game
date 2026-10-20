@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Fingerabdruck der Spiellogik, gesetzt in `vite.config.ts`. */
+declare const __GAME_BUILD__: string;

@@ -57,12 +57,13 @@ export function buildNightSummary(
   profile: Profile,
   water: number,
   now = Date.now(),
+  events = log,
 ): NightSummary | null {
   if (!log.length) return null;
   return {
     ...logFigures(log, water, now),
-    ...nightPeak(log, profile, now),
-    soberAt: soberAt(log, profile, now),
+    ...nightPeak(events, profile, now, Math.min(...log.map((e) => e.at))),
+    soberAt: soberAt(events, profile, now),
   };
 }
 

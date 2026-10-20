@@ -1,7 +1,7 @@
 import { formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { Icon } from '../../components/icons';
-import { usePlayer } from '../../store/player';
+import { useBacEvents, usePlayer } from '../../store/player';
 
 /**
  * Eigene Bühne für die Person, die heute fährt: sichtbar, mit Wasserzähler
@@ -12,7 +12,7 @@ export function DriverCard() {
   const profile = usePlayer((s) => s.profile);
   const water = usePlayer((s) => s.waterCount);
   const addWater = usePlayer((s) => s.addWater);
-  const log = usePlayer((s) => s.log);
+  const log = useBacEvents();
 
   if (!profile?.designatedDriver) return null;
   const lastDrink = log.length ? Math.max(...log.map((e) => e.at)) : null;

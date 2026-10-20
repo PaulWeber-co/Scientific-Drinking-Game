@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { render } from '../../test/render';
 import { busfahrer } from './index';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { cardFromIndex } from '../shared/deck';
@@ -101,6 +102,13 @@ describe('Busfahrer: Fragerunde', () => {
     expect(s.pyramid).toHaveLength(10);
   });
 
+  it('verbraucht die letzten Karten, bevor neu gemischt wird', () => {
+    const state = { ...busfahrer.createState(roster), deck: [karte(4), karte(5)] };
+    const result = run(state, act('answer', 'p0', { answer: 'schwarz' }));
+    expect(result.hand).toEqual([karte(4)]);
+    expect(result.deck).toEqual([karte(5)]);
+  });
+
   it('haelt die Pyramide auch dann sauber, wenn der Stapel NACHGEMISCHT wird', () => {
     // Der Test darueber sieht nur den Startzustand und ist dort trivial wahr.
     // Erst waehrend der Fragerunde geht der Vorrat zur Neige: zehn Karten
@@ -132,6 +140,21 @@ describe('Busfahrer: Fragerunde', () => {
 });
 
 describe('Busfahrer: Pyramide', () => {
+  it('legt bei doppelter Handkarte nur eine der beiden Kopien ab', () => {
+    const duplicate = karte(11, 3);
+    const state = gestellt({ hands: { p0: [], p1: [duplicate, duplicate, karte(4, 2)], p2: [] } });
+    const result = run(
+      state,
+      act('pyFlip'),
+      act('pyClaim', 'p1', { who: 'p1' }),
+      act('pyPick', 'p1', { card: duplicate }),
+      act('pyAccept'),
+      act('pyGive', 'p1', { to: 'p0' }),
+      act('pyDone'),
+    );
+    expect(result.hands.p1).toEqual([duplicate, karte(4, 2)]);
+  });
+
   it('deckt von unten auf und fragt dann, wer ablegt', () => {
     const s = run(gestellt(), act('pyFlip'));
     expect(s.pyUp).toBe(1);
@@ -294,9 +317,10 @@ describe('Busfahrer: zu zweit und am Rand', () => {
     expect(s.phase).toBe('pyramid');
     for (let i = 0; i < 10; i++) s = lauf(s, act('pyFlip'), act('pyPass'));
     expect(s.phase).toBe('bus');
-    // Und die Fahrt zu Ende. 60 Schritte sind reichlich: fuenf Plaetze, und
-    // gut ein Drittel des Stapels wirft zurueck.
-    for (let i = 0; i < 60 && s.phase === 'bus'; i++) {
+    // Und die Fahrt zu Ende. Gemessen an 2000 Fahrten brauchen 1,5 % mehr als
+    // 60 Schritte, die laengste 112 – mit 60 als Grenze war der Test bei
+    // Pech rot. 500 laesst Luft und faengt eine Endlosschleife trotzdem.
+    for (let i = 0; i < 500 && s.phase === 'bus'; i++) {
       s = s.busPenalty > 0 ? lauf(s, act('restartBus')) : lauf(s, act('flip'));
     }
     expect(s.phase, 'die Fahrt kommt an').toBe('done');
