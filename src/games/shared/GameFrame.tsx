@@ -33,7 +33,8 @@ export function GameFrame({
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
   const nav = useNavigate();
-  const { otherBuild } = useParty();
+  const { otherBuild, mode, isHost } = useParty();
+  const nurIch = mode === 'online' && !isHost;
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
   // fällt beim Verlassen von selbst wieder weg.
   useEffect(() => keepScreenAwake(), []);
@@ -44,7 +45,7 @@ export function GameFrame({
         <div className="game__bar-content">
         <button
           className="game__close game__quit"
-          aria-label="Spiel beenden"
+          aria-label={nurIch ? 'Spiel verlassen' : 'Spiel beenden'}
           onClick={() => {
             haptic('tap');
             setAskQuit(true);
@@ -86,12 +87,18 @@ export function GameFrame({
         {children}
       </div>
 
-      {/* Der Knopf sitzt am Daumen und beendet die Runde für alle. Ohne
-          Rückfrage kostet ein Fehlgriff der ganzen Gruppe das Spiel. */}
-      <Sheet open={askQuit} onClose={() => setAskQuit(false)} title="Spiel beenden?">
+      {/* Der Knopf sitzt am Daumen und beendet beim Host die Runde für alle.
+          Ohne Rückfrage kostet ein Fehlgriff der ganzen Gruppe das Spiel. */}
+      <Sheet
+        open={askQuit}
+        onClose={() => setAskQuit(false)}
+        title={nurIch ? 'Spiel verlassen?' : 'Spiel beenden?'}
+      >
         <div className="stack-3">
           <div className="notice notice--orange">
-            Damit endet {title} für die ganze Runde. Der Trink-Log bleibt erhalten.
+            {nurIch
+              ? 'Die anderen spielen weiter. Über die Leiste unten steigst du wieder ein.'
+              : `Damit endet ${title} für die ganze Runde. Der Trink-Log bleibt erhalten.`}
           </div>
           <button
             className="btn btn--danger btn--block btn--lg"
@@ -101,7 +108,7 @@ export function GameFrame({
               onQuit();
             }}
           >
-            Beenden
+            {nurIch ? 'Verlassen' : 'Beenden'}
           </button>
           <button
             className="btn btn--glass btn--block"

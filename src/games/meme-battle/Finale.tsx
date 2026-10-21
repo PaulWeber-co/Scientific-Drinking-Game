@@ -82,7 +82,7 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
                     <Avatar
                       name={r.player.name}
                       color={r.player.color}
-                      photo={r.player.id === me.id ? me.photo : undefined}
+                      photo={r.player.photo}
                       size={place === 0 ? 'lg' : 'md'}
                     />
                   </div>
@@ -120,7 +120,7 @@ export function Finale({ state, players, me, dispatch, quit }: GameRuntime<State
               <Avatar
                 name={r.player.name}
                 color={r.player.color}
-                photo={r.player.id === me.id ? me.photo : undefined}
+                photo={r.player.photo}
                 size="sm"
               />
               <div className="grow">

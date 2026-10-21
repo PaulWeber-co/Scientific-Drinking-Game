@@ -1,7 +1,11 @@
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I, O, 0, 1
 
-/** Kurzer, gut vorlesbarer Lobby-Code. */
-export function lobbyCode(length = 4): string {
+/**
+ * Gut vorlesbarer Lobby-Code. Sechs Zeichen, weil der Code der einzige
+ * Schlüssel zur Lobby ist: vier Zeichen (rund eine Million Codes) ließen
+ * sich in kurzer Zeit durchprobieren.
+ */
+export function lobbyCode(length = 6): string {
   let out = '';
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   for (let i = 0; i < length; i++) out += ALPHABET[bytes[i] % ALPHABET.length];

@@ -33,14 +33,15 @@ export function GameInvite() {
     haptic('success');
   }, [key, startedByMe]);
 
-  if (!game || !key || startedByMe || pathname === '/spiel') return null;
+  // Wer selbst gestartet und dann verlassen hat, braucht den Weg zurück auch.
+  if (!game || !key || (startedByMe && !party.leftRound) || pathname === '/spiel') return null;
 
   const join = () => {
     haptic('select');
     nav('/spiel');
   };
 
-  if (dismissed === key) {
+  if (dismissed === key || party.leftRound) {
     return (
       <button className="joinbar" onClick={join}>
         <span className="joinbar__dot" />
@@ -59,7 +60,7 @@ export function GameInvite() {
           <Icon name={game.icon} size={30} strokeWidth={1.5} />
         </div>
         <div className="invite__who">
-          {host && <Avatar name={host.name} color={host.color} size="sm" />}
+          {host && <Avatar name={host.name} color={host.color} photo={host.photo} size="sm" />}
           <span>{host ? `${host.name} hat gestartet` : 'Die Runde hat gestartet'}</span>
         </div>
         <h2 className="t-title t-balance">{game.name}</h2>
