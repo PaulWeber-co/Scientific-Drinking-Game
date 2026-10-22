@@ -61,7 +61,9 @@ export function PartyScreen() {
       online={party.mode === 'online'}
       dispatch={party.dispatch}
       quit={() => {
-        party.endGame();
+        // Online gehört die Runde dem Host. Alle anderen gehen nur selbst.
+        if (party.mode === 'online' && !party.isHost) party.leaveRound();
+        else party.endGame();
         nav('/lobby', { replace: true });
       }}
     />

@@ -5,10 +5,10 @@ import { PORTRAIT, applyFilmLook } from '../camera/filmLook';
  *
  * Es gibt genau einen Weg, wie ein Bild in dieses Profil kommt: jemand wählt
  * es selbst aus. Danach liegt es als kleines JPEG im Profil und damit im
- * `localStorage` dieses Geräts – wie Name, Gewicht und Trink-Log. Es geht
- * NICHT in die Lobby: dorthin gehen Spitzname, Avatarfarbe und Getränkesymbol,
- * und dabei bleibt es. Ein Gesicht ist eine andere Kategorie von Datum als ein
- * Spitzname, und ein Partyserver ist kein Ort dafür.
+ * `localStorage` dieses Geräts – wie Name, Gewicht und Trink-Log. Ein Gesicht
+ * ist eine andere Kategorie von Datum als ein Spitzname: in die Lobby geht es
+ * nur, wenn jemand „Für Mitspieler sichtbar" einschaltet, und dann nur als
+ * kleine Kopie (`makeShareCopy`), die Firebase beim Verbindungsabbruch löscht.
  *
  * Warum als Data-URL im Profil und nicht als Datei im Foto-Verzeichnis wie die
  * Album-Bilder: Der Avatar erscheint in Listen, Chips und Ranglisten hundertfach
@@ -108,4 +108,40 @@ function ladeBild(file: File): Promise<HTMLImageElement | null> {
     };
     img.src = url;
   });
+}
+
+/** Kantenlänge der Kopie für Mitspieler. Reicht für die 40-px-Avatare in Lobby und Spiel. */
+export const SHARE_PX = 128;
+
+/** Muss zur Grenze für `avatars` in `database.rules.json` passen – ein Test prüft das. */
+export const SHARE_MAX = 24_000;
+
+/**
+ * Kleine Kopie des Profilbilds für die Lobby.
+ *
+ * Jedes Bild in der Lobby lädt jedes andere Handy herunter, nach jedem
+ * Wiederverbinden erneut. Deshalb nicht das 256er-Original, sondern 128 px.
+ * `null`, wenn das Bild nicht lesbar ist oder nicht unter die Grenze kommt.
+ */
+export async function makeShareCopy(photo: string): Promise<string | null> {
+  const bild = await new Promise<HTMLImageElement | null>((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = photo;
+  });
+  if (!bild) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = SHARE_PX;
+  canvas.height = SHARE_PX;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(bild, 0, 0, SHARE_PX, SHARE_PX);
+
+  for (const q of [0.7, 0.5, 0.35]) {
+    const url = canvas.toDataURL('image/jpeg', q);
+    if (url.length <= SHARE_MAX) return url;
+  }
+  return null;
 }

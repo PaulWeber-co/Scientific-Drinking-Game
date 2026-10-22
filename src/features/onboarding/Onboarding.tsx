@@ -87,7 +87,7 @@ export function Onboarding() {
       <div className="onboarding__body">
         {current === 'start' && <StepStart />}
         {current === 'name' && (
-          <StepShell title="Wie heißt du?" sub="Nur dein Spitzname wird an Mitspieler weitergegeben.">
+          <StepShell title="Wie heißt du?" sub="Mitspieler sehen deinen Spitznamen, nie Alter oder Gewicht. Dein Bild nur, wenn du es freigibst.">
             <input
               className="input input--center"
               placeholder="Spitzname"
@@ -100,8 +100,10 @@ export function Onboarding() {
               name={p.name}
               color={p.color}
               photo={p.photo}
+              shared={p.sharePhoto === true}
               onColor={(color: AvatarColor) => patch({ color })}
               onPhoto={(photo) => patch({ photo })}
+              onShared={(sharePhoto) => patch({ sharePhoto })}
             />
           </StepShell>
         )}
