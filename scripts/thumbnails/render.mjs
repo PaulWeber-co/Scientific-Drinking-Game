@@ -47,6 +47,7 @@ const IDS = [
   'busfahrer',
   'kategorien',
   'erste-zeile',
+  'wer-bin-ich',
 ];
 const wanted = process.argv.slice(2);
 const ids = wanted.length ? IDS.filter((id) => wanted.includes(id)) : IDS;

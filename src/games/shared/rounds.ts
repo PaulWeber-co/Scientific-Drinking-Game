@@ -44,6 +44,8 @@ export const ROUND_BASES: Record<string, number> = {
   'top-ten': 6,
   maexchen: 8,
   wortbombe: 8,
+  // Eine Runde dauert, bis alle bis auf eine Person ihren Begriff haben.
+  'wer-bin-ich': 3,
   'kings-cup': 0,
   // Die Rundenzahl gibt das Deck vor (siehe `rounds` in stichmagie/meta.ts).
   // Der Wert hier greift nur, wo jemand die Funktion nicht fragt.

@@ -2188,6 +2188,89 @@ function ErsteZeile() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Wer bin ich
+// ---------------------------------------------------------------------------
+
+function WerBinIch() {
+  return (
+    <g>
+      <defs>
+        <linearGradient id="wbi-face" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#f6c9a4" />
+          <stop offset="1" stopColor="#c98a68" />
+        </linearGradient>
+        <linearGradient id="wbi-hair" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4a2a18" />
+          <stop offset="1" stopColor="#1e0f07" />
+        </linearGradient>
+        <linearGradient id="wbi-shirt" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3a3a46" />
+          <stop offset="1" stopColor="#15151c" />
+        </linearGradient>
+        <linearGradient id="wbi-note" x1="0" y1="0" x2="0.2" y2="1">
+          <stop offset="0" stopColor="#fff6b8" />
+          <stop offset="1" stopColor="#ffd23f" />
+        </linearGradient>
+      </defs>
+      <Halo x={180} y={236} r={150} color="#ffb347" o={0.6} />
+      {/* Fragezeichen, die um den Kopf schwirren */}
+      {[
+        { x: 62, y: 168, s: 58, r: -16, o: 0.9, c: '#fff' },
+        { x: 304, y: 176, s: 46, r: 14, o: 0.85, c: '#ffe7a3' },
+        { x: 300, y: 330, s: 34, r: 10, o: 0.7, c: '#fff' },
+        { x: 58, y: 326, s: 30, r: -8, o: 0.7, c: '#ffe7a3' },
+      ].map((q) => (
+        <text
+          key={`${q.x}-${q.y}`}
+          x={q.x}
+          y={q.y}
+          textAnchor="middle"
+          fontFamily="Anton"
+          fontSize={q.s}
+          fill={q.c}
+          opacity={q.o}
+          transform={`rotate(${q.r} ${q.x} ${q.y})`}
+          filter="url(#shs)"
+        >
+          ?
+        </text>
+      ))}
+      <g filter="url(#sh)">
+        {/* Schultern */}
+        <path d="M64 470c8-78 50-116 116-116s108 38 116 116z" fill="url(#wbi-shirt)" />
+        <path d="M150 356l30 30 30-30" fill="none" stroke="#ff9f0a" strokeWidth={6} />
+        <rect x={160} y={318} width={40} height={44} rx={10} fill="#c98a68" />
+        {/* Kopf */}
+        <ellipse cx={116} cy={270} rx={11} ry={16} fill="#d9997a" />
+        <ellipse cx={244} cy={270} rx={11} ry={16} fill="#d9997a" />
+        <ellipse cx={180} cy={262} rx={64} ry={76} fill="url(#wbi-face)" />
+        <path d="M116 256c-6-64 28-100 64-100s70 36 64 100c-12-32-36-48-64-48s-52 16-64 48z" fill="url(#wbi-hair)" />
+        {/* Blick nach oben – zum Zettel, den man nicht lesen kann */}
+        <path d="M146 262q12-8 24-2M190 260q12-6 24 2" stroke="#3a1f10" strokeWidth={4} fill="none" strokeLinecap="round" />
+        <circle cx={160} cy={280} r={6.5} fill="#2a1a12" />
+        <circle cx={200} cy={280} r={6.5} fill="#2a1a12" />
+        <circle cx={162} cy={277} r={2} fill="#fff" />
+        <circle cx={202} cy={277} r={2} fill="#fff" />
+        <path d="M168 312q12 -6 24 0" stroke="#8a4a36" strokeWidth={3.5} fill="none" strokeLinecap="round" />
+        <path d="M132 232c4-20 14-34 30-42" stroke="#fff" strokeWidth={3} fill="none" opacity={0.18} strokeLinecap="round" />
+      </g>
+      {/* Der Zettel auf der Stirn */}
+      <g transform="rotate(-7 180 212)" filter="url(#shs)">
+        <path d="M136 172h88v70l-16 16h-72z" fill="url(#wbi-note)" />
+        <path d="M208 258l16-16h-12a4 4 0 0 0-4 4z" fill="#e0a800" />
+        <rect x={136} y={172} width={88} height={10} fill="#000" opacity={0.06} />
+        <text x={180} y={238} textAnchor="middle" fontFamily="Anton" fontSize={56} fill="#c25e00">
+          ?
+        </text>
+      </g>
+      <Sparkle x={250} y={118} r={3.5} fill="#ffe7a3" />
+      <Sparkle x={104} y={110} r={3} />
+      <Sparkle x={322} y={252} r={2.5} />
+    </g>
+  );
+}
+
 export const SCENES: Scene[] = [
   { id: 'truth-or-dare', light: '#d77cff', mid: '#6d2194', deep: '#1a0628', art: TruthOrDare },
   {
@@ -2212,4 +2295,5 @@ export const SCENES: Scene[] = [
   { id: 'busfahrer', light: '#ffe35c', mid: '#a88000', deep: '#261c00', art: Busfahrer },
   { id: 'kategorien', light: '#7ae6e0', mid: '#16726c', deep: '#031e1c', art: Kategorien },
   { id: 'erste-zeile', light: '#ff6a90', mid: '#96103a', deep: '#22030e', art: ErsteZeile },
+  { id: 'wer-bin-ich', light: '#ffb347', mid: '#b35a00', deep: '#2a1000', art: WerBinIch },
 ];

@@ -1,0 +1,181 @@
+/* ---------- Wer bin ich ---------- */
+
+/* Wer hat wie abgestimmt: Chips wie in der Lobby, die Stimme färbt den Rand. */
+.wbi-votes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+}
+.wbi-vote--ja {
+  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
+}
+.wbi-vote--neu {
+  border-color: color-mix(in srgb, var(--orange) 55%, transparent);
+}
+.wbi-vote__status {
+  font-weight: 500;
+  color: var(--label-2);
+}
+.wbi-vote--ja .wbi-vote__status {
+  color: var(--mint);
+}
+.wbi-vote--neu .wbi-vote__status {
+  color: var(--orange);
+}
+
+.wbi-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+/* Auslosung: die Person, für die man schreibt, groß im Abzug. */
+.wbi-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding-block: var(--s-4);
+  font-size: 34px;
+  font-weight: 750;
+}
+.wbi-target .avatar {
+  transform: scale(1.6);
+  margin-block: var(--s-4);
+}
+
+.wbi-input {
+  font-size: var(--t-title3);
+  font-weight: 600;
+}
+
+/* Die Kategorie bleibt beim Raten als Etikett über allem stehen. */
+.wbi-cat {
+  align-self: center;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  font-size: var(--t-footnote);
+  font-weight: 600;
+  text-align: center;
+  color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--orange) 40%, transparent);
+}
+
+/* Der eigene Begriff: kleiner Abzug, unbelichtet, bis er erraten ist. */
+.wbi-own .abzug__foto {
+  min-height: 150px;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s-2);
+  text-align: center;
+}
+
+/* „Richtig" ist eine Bestätigung, keine Hauptaktion: grün getönt. */
+.wbi-right {
+  --tint: var(--green);
+}
+
+.wbi-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.wbi-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 64px;
+  padding: var(--s-2) var(--s-3);
+}
+.wbi-row + .wbi-row {
+  border-top: 1px solid var(--hairline);
+}
+.wbi-row__text {
+  min-width: 0;
+}
+.wbi-row__term {
+  font-size: var(--t-title3);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+.wbi-row--done .wbi-row__term {
+  opacity: 0.5;
+}
+.wbi-row__place {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-weight: 650;
+  color: var(--green);
+}
+
+/* Rückgängig: schwebt über dem Daumen, solange die Frist läuft. */
+.wbi-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + var(--s-4));
+  z-index: 20;
+  width: min(calc(100vw - 2 * var(--s-4)), var(--content-max));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--t-subhead);
+  font-weight: 600;
+}
+
+.wbi-guess--toast {
+  padding-bottom: 88px;
+}
+
+.wbi-deal-open {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  text-align: left;
+}
+.wbi-deal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+.wbi-deal__pick {
+  width: 100%;
+  min-height: 52px;
+}
+.wbi-deal__pick--on {
+  border-color: color-mix(in srgb, var(--orange) 60%, transparent);
+}
+.wbi-deal__count {
+  min-width: 26px;
+  height: 26px;
+  border-radius: var(--r-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+}
+.wbi-deal__pick--on .wbi-deal__count {
+  background: var(--orange);
+  color: #2a1700;
+}
+
+.wbi-note--first {
+  color: var(--orange);
+  font-weight: 650;
+}
+.wbi-note--last {
+  color: var(--red);
+  font-weight: 650;
+}
