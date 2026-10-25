@@ -66,4 +66,18 @@ describe('frisch eingetragenes Getränk', () => {
     expect(result.current!.pending).toBeGreaterThan(0.1);
     expect(result.current!.effective).toBeGreaterThan(vorher + 0.1);
   });
+
+  it('rechnet nicht in eine verstellte Zukunft', () => {
+    const { result } = renderHook(() => useLiveBac().estimate, { wrapper });
+    const vorher = result.current!;
+    // Ein Eintrag Tage voraus (Uhr verstellt) zählt nicht mit und lässt die
+    // Rechnung nicht über Tage laufen.
+    act(() =>
+      usePlayer.setState((s) => ({
+        log: [...s.log, makeDrinkEvent(findDrink('beer-helles'), 40, 'glas', NOW + 3 * 86_400_000)],
+      })),
+    );
+    expect(result.current!.bac).toBe(vorher.bac);
+    expect(result.current!.pending).toBe(vorher.pending);
+  });
 });

@@ -38,3 +38,9 @@ it('ordnet jede Gruppe ihrem Glas zu, Alkoholfrei teilt sich das Longdrinkglas',
   for (const c of CATEGORY_ORDER) expect(shapeFor(c), c).toBe(erwartet[c]);
   expect(new Set(CATEGORY_ORDER.map(shapeFor)).size).toBe(6);
 });
+
+it('fällt bei einer unbekannten Gruppe aus dem Speicher auf das neutrale Glas zurück', () => {
+  const kaputt = { ...DRINK_CATALOG[0], id: 'custom-alt', category: 'punsch' as never };
+  expect(shapeFor(kaputt.category)).toBe('highball');
+  expect(liquidFor(kaputt).top).toMatch(/^#[0-9a-f]{6}$/i);
+});

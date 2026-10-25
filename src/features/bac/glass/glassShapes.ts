@@ -10,8 +10,10 @@ const SHAPES: Record<DrinkCategory, GlassShape> = {
   soft: 'highball',
   spirit: 'shot',
 };
+// Eigene Getränke kommen aus dem Speicher: eine unbekannte Gruppe bekommt das
+// neutrale Glas, statt den Pegel-Tab abstürzen zu lassen.
 export function shapeFor(category: DrinkCategory): GlassShape {
-  return SHAPES[category];
+  return SHAPES[category] ?? 'highball';
 }
 
 export interface GlassProfile {
@@ -111,6 +113,6 @@ const FALLBACK: Record<DrinkCategory, string[]> = {
   soft: CLEAR,
 };
 export function liquidFor(drink: DrinkDefinition): Liquid {
-  const [top, mid, bottom] = COLORS[drink.id] ?? FALLBACK[drink.category];
+  const [top, mid, bottom] = COLORS[drink.id] ?? FALLBACK[drink.category] ?? CLEAR;
   return { top, mid, bottom, foam: drink.category === 'beer', cloudy: drink.id === 'beer-wheat' };
 }
