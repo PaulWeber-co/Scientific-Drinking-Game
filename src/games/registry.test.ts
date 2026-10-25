@@ -30,3 +30,22 @@ describe('Registry: Metadaten statisch, Module nachgeladen', () => {
     await expect(loadGame('gibt-es-nicht')).rejects.toThrow(/Unbekanntes Spiel/);
   });
 });
+
+describe('Registry: Farbraum und Lebenszeichen', () => {
+  // Der Farbraum trägt hellen Text (Titel, Chips): ein heller Ton dort wäre
+  // unlesbar. Lebenszeichen liegen als Anteil im Bild, sonst sitzt die Lampe
+  // neben dem Foto.
+  it('gibt jedem Spiel einen dunklen Farbraum und ein Lebenszeichen im Bild', () => {
+    expect(GAMES.length).toBeGreaterThanOrEqual(20);
+    for (const g of GAMES) {
+      expect(g.world, g.id).toMatch(/^#[0-9a-f]{6}$/i);
+      const [r, gr, b] = [1, 3, 5].map((i) => parseInt(g.world.slice(i, i + 2), 16));
+      expect(0.2126 * r + 0.7152 * gr + 0.0722 * b, g.id).toBeLessThan(60);
+      expect(g.ambient, g.id).toBeDefined();
+      for (const v of [g.ambient!.x, g.ambient!.y]) {
+        expect(v, g.id).toBeGreaterThanOrEqual(0);
+        expect(v, g.id).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});

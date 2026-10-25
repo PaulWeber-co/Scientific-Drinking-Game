@@ -209,6 +209,22 @@ export function ProfileScreen() {
               />
             </div>
             <div className="list__item">
+              <span className="grow">
+                <span className="t-headline" style={{ display: 'block' }}>
+                  Bewegung reduzieren
+                </span>
+                <span className="t-caption" id="bewegung-hinweis">
+                  Hält Glas, Fotos und Effekte still. Hilft auf älteren Handys.
+                </span>
+              </span>
+              <Toggle
+                checked={app.calmMotion}
+                onChange={() => app.toggleCalmMotion()}
+                label="Bewegung reduzieren"
+                describedBy="bewegung-hinweis"
+              />
+            </div>
+            <div className="list__item">
               <span className="grow t-headline">Wasser-Erinnerung</span>
               <Toggle checked={app.waterReminder} onChange={() => app.toggleWaterReminder()} label="Wasser-Erinnerung" />
             </div>

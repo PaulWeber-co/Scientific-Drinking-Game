@@ -50,3 +50,20 @@ describe('laufende Berechnung nach Abendabschluss', () => {
     expect(result.current.dose!.sips).toBeGreaterThan(0);
   });
 });
+
+describe('frisch eingetragenes Getränk', () => {
+  it('zählt sofort mit, nicht erst beim nächsten Takt', () => {
+    const { result } = renderHook(() => useLiveBac().estimate, { wrapper });
+    const vorher = result.current!.effective;
+    // Die Uhr läuft weiter, der 20-s-Takt aber noch nicht: genau die Lücke
+    // zwischen Tipp und nächstem Neuberechnen.
+    vi.setSystemTime(NOW + 15_000);
+    act(() =>
+      usePlayer.setState((s) => ({
+        log: [...s.log, makeDrinkEvent(findDrink('beer-helles'), 40, 'glas', NOW + 15_000)],
+      })),
+    );
+    expect(result.current!.pending).toBeGreaterThan(0.1);
+    expect(result.current!.effective).toBeGreaterThan(vorher + 0.1);
+  });
+});

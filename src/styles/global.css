@@ -10,6 +10,14 @@
   src: url('../assets/fonts/anton-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
 }
+@font-face {
+  font-family: 'Permanent Marker';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/permanent-marker-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
+}
 
 /* ---------- Reset ---------- */
 *,
@@ -58,7 +66,7 @@ button {
   touch-action: manipulation;
 }
 a {
-  color: var(--blue);
+  color: var(--brand);
   text-decoration: none;
 }
 /* Doppeltipp-Zoom aus, Pinch-Zoom bleibt – ersetzt user-scalable=no. */
@@ -80,7 +88,7 @@ select,
   border-radius: var(--r-full);
 }
 :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: var(--r-xs);
 }
@@ -95,20 +103,46 @@ select,
   isolation: isolate;
 }
 
-/* Ruhiger Farbschimmer am oberen Rand statt wandernder Farbwolken:
-   gibt dem schwarzen Grund Tiefe, ohne vom Inhalt abzulenken. */
+/* Lampenlicht am oberen Rand: eine Barlampe ueber dem Tisch, die leise
+   atmet. Gibt dem dunklen Grund Waerme, ohne vom Inhalt abzulenken. */
 .aurora {
   position: fixed;
   inset: 0 0 auto 0;
-  height: 46vh;
+  height: 52vh;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 24%, transparent), transparent 70%);
+  background: radial-gradient(110% 90% at 50% -25%, var(--lamp), transparent 70%);
+  animation: lamp 7s ease-in-out infinite;
 }
-[data-theme='light'] .aurora {
-  background:
-    radial-gradient(120% 100% at 50% -30%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 70%);
+@keyframes lamp {
+  50% {
+    opacity: 0.72;
+  }
+}
+
+/* Koernung ueber allem, wie auf einem Abzug. Ohne Mischmodus: der kostet
+   auf alten iPhones bei jedem Scrollen Bildrate. */
+.app::after {
+  content: '';
+  position: fixed;
+  inset: -40px;
+  z-index: 2147483000;
+  pointer-events: none;
+  background-image: var(--grain);
+  background-size: 120px 120px;
+  opacity: var(--grain-app);
+  animation: grain 0.9s steps(4) infinite;
+}
+@keyframes grain {
+  25% {
+    transform: translate3d(-6px, 4px, 0);
+  }
+  50% {
+    transform: translate3d(4px, -5px, 0);
+  }
+  75% {
+    transform: translate3d(-3px, -2px, 0);
+  }
 }
 
 .screen {
@@ -139,6 +173,14 @@ select,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+/* Derselbe Riegel fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* ---------- Typography ---------- */
@@ -284,8 +326,8 @@ select,
 
 /* ---------- Buttons ---------- */
 .btn {
-  --btn-bg: var(--blue);
-  --btn-fg: #fff;
+  --btn-bg: var(--brand);
+  --btn-fg: var(--brand-ink);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -328,8 +370,8 @@ select,
   border-radius: var(--r-sm);
 }
 .btn--tinted {
-  --btn-bg: color-mix(in srgb, var(--tint, var(--blue)) 18%, transparent);
-  --btn-fg: var(--tint, var(--blue));
+  --btn-bg: color-mix(in srgb, var(--tint, var(--brand)) 18%, transparent);
+  --btn-fg: var(--tint, var(--brand));
 }
 .btn--gray {
   --btn-bg: var(--surface-2);
@@ -337,7 +379,7 @@ select,
 }
 .btn--plain {
   --btn-bg: transparent;
-  --btn-fg: var(--blue);
+  --btn-fg: var(--brand);
   min-height: 44px;
   padding: 0 var(--s-2);
   font-weight: 550;
@@ -890,45 +932,72 @@ button.chip--outline {
   gap: 1px;
 }
 
-/* ---------- Pegel-Anzeige ---------- */
-.gauge {
+/* ---------- Pegel-Abzug ---------- */
+/* Ein Abzug wie auf der Spielewand, nur mit dem eigenen Glas als Motiv.
+   Leicht schräg, als läge er auf dem Tisch. */
+.pegelabzug {
+  align-self: center;
+  width: 300px;
+  max-width: 100%;
+  margin: var(--s-2) auto 0;
+  padding: 10px 10px 0;
+  background: var(--paper);
+  border-radius: 3px;
+  rotate: -1.6deg;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+[data-theme='light'] .pegelabzug {
+  box-shadow: var(--shadow-lg);
+}
+.pegelabzug__bild {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
-.gauge__svg {
-  width: 100%;
-  max-width: 260px;
-}
-.gauge__value {
-  transition: stroke-dasharray var(--dur-slow) var(--ease-out);
-}
-.gauge__center {
+/* Der Wert als Datumsstempel in der Ecke des Fotos. */
+.pegelabzug__stempel {
   position: absolute;
-  top: 34%;
-  left: 0;
-  right: 0;
-  text-align: center;
+  top: 12px;
+  right: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--stamp);
+  text-shadow: var(--stamp-glow);
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.gauge__value-text {
-  font-size: 46px;
-  font-weight: 800;
-  letter-spacing: -2px;
-  line-height: 1;
+.pegelabzug__stempel--rot {
+  color: #ff5a3c;
+  text-shadow: 0 0 7px rgba(255, 90, 60, 0.9);
 }
-.gauge__unit {
-  font-size: var(--t-caption);
-  color: var(--label-3);
-  font-weight: 600;
-  letter-spacing: 0.4px;
-}
-.gauge__foot {
+.pegelabzug__rand {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
-  margin-top: calc(var(--s-2) * -1);
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: 48px;
+  padding: 0 4px;
+}
+/* Zone als Punkt plus Tinte: die Zonenfarben selbst sind auf Papier zu hell. */
+.pegelabzug__zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-ink);
+  font-size: var(--t-footnote);
+  font-weight: 650;
+}
+.pegelabzug__punkt {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(23, 17, 10, 0.25);
+}
+.pegelabzug__getraenk {
+  color: var(--paper-ink);
+  font-family: var(--font-marker);
+  font-size: 18px;
+  line-height: 1.1;
 }
 
 /* ---------- Onboarding ---------- */
@@ -1461,16 +1530,6 @@ button.chip--outline {
   }
 }
 
-/* Der Pegelzeiger baut sich beim Erscheinen auf */
-.gauge__value {
-  animation: sweep var(--dur-slow) var(--ease-emph) both;
-}
-@keyframes sweep {
-  from {
-    stroke-dasharray: 0 999;
-  }
-}
-
 /* ---------- Spieleinladung ---------- */
 .invite-backdrop {
   position: fixed;
@@ -1963,16 +2022,38 @@ button.chip--outline {
 .wandraster {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--s-2);
-  padding: 0 var(--s-4);
+  gap: 22px 16px;
+  padding: var(--s-1) var(--s-4) 26px;
+}
+/* Auf der Wand liegen die Abzüge wie auf den Tisch geworfen: jeder etwas
+   schräg, die rechte Spalte ein Stück tiefer. `rotate` statt `transform`,
+   damit das Eindrücken (.pressable:active) die Neigung nicht aufhebt. Die
+   Verzögerung verteilt die Lebenszeichen, sonst atmen alle im Gleichtakt. */
+.wandraster:not(.wandraster--flach) > .gametile:nth-child(4n + 1) {
+  rotate: -2.2deg;
+  --kb-delay: 0s;
+}
+.wandraster:not(.wandraster--flach) > .gametile:nth-child(4n + 2) {
+  rotate: 1.8deg;
+  margin-top: 26px;
+  --kb-delay: -4.2s;
+}
+.wandraster:not(.wandraster--flach) > .gametile:nth-child(4n + 3) {
+  rotate: 1.2deg;
+  --kb-delay: -8.4s;
+}
+.wandraster:not(.wandraster--flach) > .gametile:nth-child(4n + 4) {
+  rotate: -1.6deg;
+  margin-top: 26px;
+  --kb-delay: -12.6s;
 }
 
 /* Die Kachel ist ein Abzug: Motiv im Papier, Titel als Tinte im unteren
    Rand. Anders als beim grossen Abzug sind die Ecken rund - die Kachel ist
    ein Knopf im Raster, kein Bild in der Hand. */
 .gametile {
-  --tile-rand-h: 30px;
-  --tile-title: 13px;
+  --tile-rand-h: 36px;
+  --tile-title: 16px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1980,11 +2061,13 @@ button.chip--outline {
   /* Papierrand. Unten traegt er den Titel, deshalb keine Polsterung dort. */
   padding: 5px 5px 0;
   border: 0;
-  border-radius: var(--r-sm);
+  border-radius: 3px;
   overflow: hidden;
   text-align: left;
   background: var(--paper);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.4);
 }
 .gametile--dim {
   opacity: 0.55;
@@ -2022,6 +2105,155 @@ button.chip--outline {
 .gametile:active .gametile__img {
   transform: scale(1.06);
 }
+/* Langsamer Zoom, solange die Kachel zu sehen ist. Eigene Eigenschaften
+   (`scale`, `translate`), damit er sich mit dem Antipp-Zoom addiert. */
+.lebt .gametile__img {
+  animation: kachel-zoom 16s ease-in-out var(--kb-delay, 0s) infinite alternate;
+}
+@keyframes kachel-zoom {
+  from {
+    scale: 1.02;
+  }
+  to {
+    scale: 1.1;
+    translate: -2% -2%;
+  }
+}
+/* Was im Motiv lebt (Kachel und Spielseite). Läuft nur unter `.lebt`.
+   Alles nur über Deckkraft und Transform, damit der Browser es auf der
+   Grafikkarte rechnet und nicht jedes Bild neu malt. */
+.licht {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.licht::after {
+  content: '';
+  position: absolute;
+  opacity: 0;
+}
+/* Die Tischlampe im Motiv flackert wie eine Kerze. */
+.licht--lamp::after {
+  left: var(--ax);
+  top: var(--ay);
+  width: 48%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 176, 96, 0.6), rgba(255, 140, 60, 0));
+}
+.lebt .licht--lamp::after {
+  animation: lampe-flackern 3.4s linear var(--kb-delay, 0s) infinite;
+}
+@keyframes lampe-flackern {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  22% {
+    opacity: 0.6;
+  }
+  41% {
+    opacity: 0.4;
+  }
+  63% {
+    opacity: 0.75;
+  }
+  80% {
+    opacity: 0.45;
+  }
+}
+/* Ein Lichtreflex wandert über Karten und Glas. */
+.licht--glint::after {
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 45%;
+  opacity: 1;
+  translate: -120% 0;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 240, 210, 0),
+    rgba(255, 240, 210, 0.32),
+    rgba(255, 240, 210, 0)
+  );
+}
+.lebt .licht--glint::after {
+  animation: glanz 6s ease-in-out var(--kb-delay, 0s) infinite;
+}
+@keyframes glanz {
+  0%,
+  55% {
+    translate: -120% 0;
+  }
+  85%,
+  100% {
+    translate: 260% 0;
+  }
+}
+/* Die Lunte der Wortbombe glimmt. */
+.licht--spark::after {
+  left: var(--ax);
+  top: var(--ay);
+  width: 18%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 250, 220, 1) 0%,
+    rgba(255, 190, 80, 0.85) 25%,
+    rgba(255, 120, 40, 0) 70%
+  );
+}
+.lebt .licht--spark::after {
+  animation: funke 1.3s ease-in-out infinite;
+}
+@keyframes funke {
+  0%,
+  100% {
+    opacity: 0.55;
+    scale: 0.8;
+  }
+  18% {
+    opacity: 1;
+    scale: 1.25;
+  }
+  30% {
+    opacity: 0.7;
+    scale: 0.95;
+  }
+  52% {
+    opacity: 1;
+    scale: 1.1;
+  }
+  70% {
+    opacity: 0.6;
+    scale: 0.85;
+  }
+}
+/* Unter dem Würfelbecher wandert ein Schatten. */
+.licht--shadow::after {
+  left: calc(var(--ax) - 40%);
+  top: calc(var(--ay) - 25%);
+  width: 80%;
+  height: 50%;
+  opacity: 1;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+.lebt .licht--shadow::after {
+  animation: schatten 7s ease-in-out infinite;
+}
+@keyframes schatten {
+  0%,
+  100% {
+    translate: -18% 4%;
+  }
+  50% {
+    translate: 14% -3%;
+  }
+}
 /* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
 .gametile__mark {
   position: absolute;
@@ -2041,8 +2273,10 @@ button.chip--outline {
 }
 .gametile__title {
   /* Tinte auf Papier statt Weiss auf Foto: der Kontrast haengt nicht mehr
-     davon ab, welche Farbe das Motiv gerade hat. */
+     davon ab, welche Farbe das Motiv gerade hat. Mit Filzstift beschriftet,
+     wie ein Abzug, den jemand auf den Tisch gelegt hat. */
   color: var(--paper-ink);
+  font-family: var(--font-marker);
   font-size: var(--tile-title);
   line-height: 1.06;
   /* Zwei Zeilen fassen auch den laengsten Namen. */
@@ -2065,13 +2299,14 @@ button.chip--outline {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   font-weight: 600;
-  color: var(--stamp);
-  text-shadow: var(--stamp-glow);
+  color: var(--stamp-ink);
+  text-shadow: var(--stamp-ink-glow);
   font-variant-numeric: tabular-nums;
 }
 
 /* --- Spielseite --- */
 .screen--detail {
+  --welt-grund: var(--welt);
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
@@ -2079,46 +2314,56 @@ button.chip--outline {
      klebt am Text statt am Daumen. */
   min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--tabbar-h));
 }
-.detailkopf {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Der Farbraum des Spiels hinter der ganzen Seite. Hell bleibt es Papier,
+   dort färbt der Ton nur den Titel. */
+[data-theme='light'] .screen--detail {
+  --welt-grund: var(--bg);
 }
-.detailkopf__hilfe {
-  color: var(--label-2);
+.detailwelt {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--welt);
 }
-/* Der Kopf der Spielseite ist derselbe Abzug wie die Kachel, nur gross und
-   quer: Bild im Papier, Titel als Tinte im unteren Rand. Hier ohne runde
-   Ecken - das ist ein Bild, kein Knopf im Raster. */
-.detailbild {
-  background: var(--paper);
-  padding: var(--paper-pad) var(--paper-pad) 0;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.62);
+[data-theme='light'] .detailwelt {
+  display: none;
 }
-/* Auf hellem Grund verschwindet cremefarbenes Papier ohne Kante. */
-[data-theme='light'] .detailbild {
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-md);
-}
-/* 3:2 quer - dasselbe Format wie ein Abzug im Album. */
-.detailbild__foto {
+/* Das Foto als Bühne: randlos bis unter die Statusleiste, unten läuft es in
+   den Farbraum aus. Beim Öffnen hebt sich der Abzug von der Wand an. */
+.detailbuehne {
   position: relative;
-  aspect-ratio: 3 / 2;
+  height: min(60vh, 500px);
+  margin: calc(-1 * (var(--safe-top) + var(--s-3))) calc(-1 * var(--s-4)) 0;
   overflow: hidden;
+  animation: abzug-heben 0.5s var(--ease-emph) both;
+}
+@keyframes abzug-heben {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 40px, 0) scale(0.72) rotate(-3deg);
+    border-radius: 24px;
+  }
+  60% {
+    opacity: 1;
+  }
+}
+.detailbuehne__foto {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     168deg,
     var(--accent),
     color-mix(in srgb, var(--accent) 26%, black 74%)
   );
 }
-.detailbild__foto img {
+.detailbuehne__foto img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   /* Langsamer Schwenk über das Motiv: die Seite wirkt lebendig, ohne dass
-     sich etwas Lesbares bewegt. Reduzierte Bewegung schaltet ihn ab. */
+     sich etwas Lesbares bewegt. Reduzierte Bewegung hält ihn an. */
   animation: detail-schwenk 16s ease-in-out infinite alternate;
 }
 @keyframes detail-schwenk {
@@ -2126,9 +2371,56 @@ button.chip--outline {
     transform: scale(1.08) translate3d(0, -2%, 0);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .detailbild__foto img {
-    animation: none;
+/* Oben ein Schleier für die Knöpfe, unten der Übergang in den Farbraum. */
+.detailbuehne::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.38) 0%,
+    rgba(0, 0, 0, 0) 22%,
+    rgba(0, 0, 0, 0) 50%,
+    var(--welt-grund) 100%
+  );
+}
+.detailbuehne__knopf {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--safe-top) + var(--s-3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(13, 10, 8, 0.5);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #f7f1e8;
+}
+.detailbuehne__knopf--zurueck {
+  left: var(--s-4);
+}
+.detailbuehne__knopf--hilfe {
+  right: var(--s-4);
+}
+.detailtitel {
+  position: relative;
+  margin-top: -72px;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--label);
+  animation: detail-auf 0.45s 0.15s var(--ease-out) both;
+}
+[data-theme='light'] .detailtitel {
+  color: var(--welt);
+}
+@keyframes detail-auf {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
   }
 }
 /* Das Spiel-Icon als Wasserzeichen, solange kein Motiv da ist. */
@@ -2138,12 +2430,6 @@ button.chip--outline {
   top: 8px;
   color: #fff;
   opacity: 0.16;
-}
-.detailbild__titel {
-  padding: 10px 4px 14px;
-  color: var(--paper-ink);
-  font-size: 28px;
-  line-height: 1.05;
 }
 /* Anzeige UND Knopf in einem: Was eingestellt ist, steht da – ein Tipp
    ändert es. Das ersetzt fünf Blöcke mit Erklärtexten. */
@@ -2155,6 +2441,11 @@ button.chip--outline {
 .chip--warn {
   background: color-mix(in srgb, var(--orange) 20%, transparent);
   color: var(--orange);
+}
+/* Auf Papier ist das System-Orange zu hell zum Lesen (2:1); auf dem
+   pfirsichfarbenen Chipgrund braucht es noch dunkler als --brand (5,1:1). */
+[data-theme='light'] .chip--warn {
+  color: #963c00;
 }
 .chip--hot {
   background: color-mix(in srgb, var(--red) 20%, transparent);
@@ -2174,10 +2465,11 @@ button.chip--outline {
    halten den Abschnitt kurz, statt den halben Bildschirm zu fuellen. */
 .wandraster--flach {
   grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-2);
   padding: 0;
 }
 .wandraster--flach .gametile {
-  --tile-rand-h: 22px;
+  --tile-rand-h: 24px;
   --tile-title: 11px;
 }
 /* Drei Spalten sind zu schmal fuer Titel UND Stempel. In der Lobby stehen

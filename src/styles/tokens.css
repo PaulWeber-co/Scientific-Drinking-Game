@@ -1,26 +1,27 @@
-/* Design tokens -- an iOS/Apple-inspired system.
-   Dark is the default (partys sind dunkel), Light wird ueber [data-theme] gesetzt. */
+/* Design tokens -- Bedienung nach iOS, Optik "Partynacht auf Fotopapier".
+   Dark is the default (partys sind dunkel), Light wird ueber [data-theme] gesetzt:
+   dunkel = warme Nacht mit Abzuegen, hell = helles Papier mit Tinte. */
 :root {
   color-scheme: dark;
 
   /* --- Backgrounds ---
-     Angelehnt an iOS: ein dunkler Grund, darauf klar abgesetzte, deckende
-     Flaechen. Transparenz gibt es nur dort, wo iOS sie auch benutzt:
-     Navigationsleiste, Tab-Leiste und Sheets. */
-  --bg: #000000;
-  --bg-grouped: #16161a;
-  --surface: #1c1c1e;
-  --surface-solid: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --surface-3: #3a3a3c;
-  --hairline: rgba(235, 235, 245, 0.11);
-  --hairline-strong: rgba(235, 235, 245, 0.2);
+     Ein warmer, fast schwarzer Grund wie eine Bar nach Mitternacht, darauf
+     klar abgesetzte, deckende Flaechen. Transparenz gibt es nur dort, wo iOS
+     sie auch benutzt: Navigationsleiste, Tab-Leiste und Sheets. */
+  --bg: #0d0a08;
+  --bg-grouped: #15100c;
+  --surface: #1d1611;
+  --surface-solid: #1d1611;
+  --surface-2: #2a211a;
+  --surface-3: #3a2f26;
+  --hairline: rgba(242, 236, 226, 0.1);
+  --hairline-strong: rgba(242, 236, 226, 0.18);
 
   /* --- Labels --- */
-  --label: #ffffff;
-  --label-2: rgba(235, 235, 245, 0.62);
-  --label-3: rgba(235, 235, 245, 0.38);
-  --label-4: rgba(235, 235, 245, 0.22);
+  --label: #f7f1e8;
+  --label-2: rgba(244, 237, 227, 0.64);
+  --label-3: rgba(244, 237, 227, 0.4);
+  --label-4: rgba(244, 237, 227, 0.24);
 
   /* --- Accents (iOS system colors, dark variants) --- */
   --blue: #0a84ff;
@@ -33,11 +34,15 @@
   --teal: #64d2ff;
   --yellow: #ffd60a;
   --mint: #66d4cf;
-  /* Eine Akzentfarbe fuer die ganze App. Spiele faerben nur ihren eigenen
-     Bildschirm ein – nicht die Navigation. */
-  --brand: #0a84ff;
-  --brand-2: #409cff;
-  --brand-ink: #ffffff;
+  /* Eine Akzentfarbe fuer die ganze App: das Orange des Datumsstempels.
+     Spiele faerben nur ihren eigenen Bildschirm ein – nicht die Navigation.
+     Auf Orange steht Tinte, nicht Weiss (Weiss erreicht dort nur 2,3:1). */
+  --brand: #ff8a1e;
+  --brand-2: #ffa149;
+  --brand-ink: #17110a;
+  /* Lampenlicht ueber jedem Bildschirm, Koernung ueber allem. */
+  --lamp: rgba(255, 146, 52, 0.26);
+  --grain-app: 0.07;
 
   /* --- Einwegkamera (Stage 09) ---
      Der Abzug ist der Grundbaustein: Papier aussen, Farbe innen. Der
@@ -49,6 +54,10 @@
   --paper-pad-b: 30px;
   --stamp: #ff8a1e;
   --stamp-glow: 0 0 7px rgba(255, 138, 30, 0.9);
+  /* Stempel auf Papier: leuchtendes Orange bleibt dort bei 2:1, das tiefere
+     erreicht 4,9:1 und behaelt einen Hauch Leuchten. */
+  --stamp-ink: #a84400;
+  --stamp-ink-glow: 0 0 3px rgba(255, 138, 30, 0.35);
   --vignette: inset 0 0 46px 12px rgba(0, 0, 0, 0.42);
   --grain-opacity: 0.18;
   /* Rauschen als Data-URI: eine Anfrage weniger, und es funktioniert
@@ -82,6 +91,8 @@
   /* Plakative Titel: Spielnamen und Bildschirm-Ueberschriften, immer
      Grossbuchstaben. Fliesstext und Zahlen bleiben bei --font. */
   --font-display: 'Anton', 'Haettenschweiler', 'Arial Narrow', var(--font);
+  /* Handschrift auf dem Papierrand der Abzuege. Nur fuer kurze Namen. */
+  --font-marker: 'Permanent Marker', 'Marker Felt', 'Comic Sans MS', cursive;
   --font-rounded: ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI',
     system-ui, sans-serif;
   --t-large: 34px;
@@ -123,18 +134,18 @@
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg: #f2f2f7;
-  --bg-grouped: #ffffff;
-  --surface: #ffffff;
-  --surface-solid: #ffffff;
-  --surface-2: #e9e9ed;
-  --surface-3: #d1d1d6;
-  --hairline: rgba(60, 60, 67, 0.13);
-  --hairline-strong: rgba(60, 60, 67, 0.22);
-  --label: #000000;
-  --label-2: rgba(60, 60, 67, 0.62);
-  --label-3: rgba(60, 60, 67, 0.38);
-  --label-4: rgba(60, 60, 67, 0.2);
+  --bg: #efe7da;
+  --bg-grouped: #f7f2ea;
+  --surface: #faf6ef;
+  --surface-solid: #faf6ef;
+  --surface-2: #e6dccd;
+  --surface-3: #d6c9b6;
+  --hairline: rgba(23, 17, 10, 0.12);
+  --hairline-strong: rgba(23, 17, 10, 0.22);
+  --label: #17110a;
+  --label-2: rgba(23, 17, 10, 0.66);
+  --label-3: rgba(23, 17, 10, 0.44);
+  --label-4: rgba(23, 17, 10, 0.24);
   --blue: #007aff;
   --green: #34c759;
   --indigo: #5856d6;
@@ -145,8 +156,13 @@
   --teal: #32ade6;
   --yellow: #ffcc00;
   --mint: #00c7be;
-  --brand: #007aff;
-  --brand-2: #3395ff;
+  /* Auf Papier braucht das Orange mehr Tiefe: 4,9:1 als Text, Weiss darauf 6:1. */
+  --brand: #a84400;
+  --brand-2: #c25400;
+  --brand-ink: #ffffff;
+  --paper: #fffaf2;
+  --lamp: rgba(255, 170, 90, 0.22);
+  --grain-app: 0.05;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.09);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.13);

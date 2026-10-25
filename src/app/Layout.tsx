@@ -19,12 +19,13 @@ const TABS: { to: string; icon: IconName; label: string }[] = [
 export function Layout() {
   const theme = useApp((s) => s.theme);
   const { pathname } = useLocation();
+  useMotionSwitch();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#f2f2f7' : '#08080b');
+      ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
   }, [theme]);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export function Layout() {
 /** Vollbild-Layout ohne Tab-Leiste – für Onboarding und laufende Spiele. */
 export function FullLayout() {
   const theme = useApp((s) => s.theme);
+  useMotionSwitch();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -63,4 +65,13 @@ export function FullLayout() {
       <Outlet />
     </div>
   );
+}
+
+/** Der App-Schalter "Bewegung reduzieren" als Attribut, das das CSS liest. */
+function useMotionSwitch() {
+  const calm = useApp((s) => s.calmMotion);
+  useEffect(() => {
+    if (calm) document.documentElement.dataset.motion = 'reduced';
+    else delete document.documentElement.dataset.motion;
+  }, [calm]);
 }

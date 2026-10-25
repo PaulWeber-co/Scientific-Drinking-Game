@@ -170,32 +170,44 @@ export function GameDetail() {
   };
 
   return (
-    <div className="screen screen--detail" style={{ ['--accent' as string]: game.accent }}>
-      <header className="detailkopf">
-        <button className="btn btn--plain" onClick={() => nav(-1)}>
-          <Icon name="chevronLeft" size={17} /> Spiele
-        </button>
-        <button
-          className="detailkopf__hilfe pressable hit"
-          aria-label="Spielregeln"
-          onClick={() => setSheet('regeln')}
-        >
-          <Icon name="info" size={18} />
-        </button>
-      </header>
-
-      {/* Derselbe Abzug wie die Kachel, nur gross: Der Titel steht als Tinte
-          im Papier, nicht weiss auf dem Motiv. */}
-      <div className="detailbild">
-        <div className="detailbild__foto">
+    <div
+      className="screen screen--detail"
+      style={{
+        ['--accent' as string]: game.accent,
+        ['--welt' as string]: game.world,
+        ['--ax' as string]: `${(game.ambient?.x ?? 0.5) * 100}%`,
+        ['--ay' as string]: `${(game.ambient?.y ?? 0.5) * 100}%`,
+      }}
+    >
+      {/* Jedes Spiel hat seinen Farbraum: Das Foto füllt den oberen Rand und
+          läuft in einen dunklen Ton aus dem Motiv aus. Der Abzug von der
+          Wand hebt sich dabei an und wird zur Bühne. */}
+      <div className="detailwelt" aria-hidden />
+      <div className="detailbuehne lebt">
+        <div className="detailbuehne__foto">
           {game.image ? (
             <img src={game.image} alt="" />
           ) : (
             <Icon className="detailbild__mark" name={game.icon} size={120} strokeWidth={1.2} />
           )}
+          {game.ambient && <span className={`licht licht--${game.ambient.kind}`} aria-hidden />}
         </div>
-        <h1 className="t-display detailbild__titel">{game.name}</h1>
+        <button
+          className="detailbuehne__knopf detailbuehne__knopf--zurueck pressable"
+          aria-label="Zurück zu den Spielen"
+          onClick={() => nav(-1)}
+        >
+          <Icon name="chevronLeft" size={20} />
+        </button>
+        <button
+          className="detailbuehne__knopf detailbuehne__knopf--hilfe pressable"
+          aria-label="Spielregeln"
+          onClick={() => setSheet('regeln')}
+        >
+          <Icon name="info" size={19} />
+        </button>
       </div>
+      <h1 className="t-display detailtitel">{game.name}</h1>
 
       {/* Chips sind Anzeige UND Knopf: Was eingestellt ist, steht da – ohne
           Erklärsatz daneben. Wer nichts ändern will, tippt nur den Startknopf. */}

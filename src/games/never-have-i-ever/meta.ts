@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'eyeOff',
   accent: 'var(--teal)',
   image,
+  world: '#2a121d',
+  ambient: { kind: 'lamp', x: 0.86, y: 0.1 },
   minPlayers: 2,
   maxPlayers: 16,
   duration: '10-25 Min',

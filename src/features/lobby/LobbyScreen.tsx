@@ -273,7 +273,7 @@ export function LobbyScreen() {
             {!online && (
               <button
                 className="list__item pressable"
-                style={{ color: 'var(--blue)', width: '100%' }}
+                style={{ color: 'var(--brand)', width: '100%' }}
                 onClick={() => setAddOpen(true)}
               >
                 <Icon name="plus" size={17} /> Mitspieler hinzufügen

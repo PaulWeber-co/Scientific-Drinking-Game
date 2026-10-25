@@ -127,6 +127,17 @@ export interface GameMeta {
    * Verlauf aus `accent` – die App ist ohne Bilder vollständig benutzbar.
    */
   image?: string;
+  /**
+   * Farbraum der Spielseite: ein dunkler Ton aus dem Motiv, in dem die Seite
+   * unter dem Foto weitergeht. Im hellen Modus färbt er den Titel.
+   */
+  world: string;
+  /**
+   * Was im Motiv leise lebt, solange die Kachel zu sehen ist. `x`/`y` sind
+   * Anteile der Bildfläche (0–1), dort sitzt Lampe, Funke oder Schatten;
+   * ein Glanz läuft über das ganze Bild und ignoriert sie.
+   */
+  ambient?: { kind: 'lamp' | 'glint' | 'spark' | 'shadow'; x: number; y: number };
   minPlayers: number;
   maxPlayers: number;
   duration: string;

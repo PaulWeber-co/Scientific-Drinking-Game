@@ -14,6 +14,8 @@ export const meta: GameMeta = {
   icon: 'quotes',
   accent: 'var(--mint)',
   image,
+  world: '#101c2a',
+  ambient: { kind: 'glint', x: 0.5, y: 0.5 },
   minPlayers: 3,
   maxPlayers: 12,
   duration: '15-30 Min',

@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'cards',
   accent: 'var(--purple)',
   image,
+  world: '#1f190b',
+  ambient: { kind: 'lamp', x: 0.67, y: 0.1 },
   minPlayers: 3,
   maxPlayers: 10,
   duration: '20-40 Min',

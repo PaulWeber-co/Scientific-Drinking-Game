@@ -1242,3 +1242,26 @@
     display: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .md-print--develop,
+[data-motion='reduced'] .md-print--develop .md-print__foto::after,
+[data-motion='reduced'] .md-print--winner,
+[data-motion='reduced'] .md-print--winner .md-print__foto::before,
+[data-motion='reduced'] .md-print--flip,
+[data-motion='reduced'] .md-print--lift,
+[data-motion='reduced'] .md-label--slap,
+[data-motion='reduced'] .md-deal,
+[data-motion='reduced'] .md-rise,
+[data-motion='reduced'] .md-topic,
+[data-motion='reduced'] .md-fan__print,
+[data-motion='reduced'] .md-podium__place,
+[data-motion='reduced'] .md-hero__kicker,
+[data-motion='reduced'] .md-gallery__title,
+[data-motion='reduced'] .md-votebtn[aria-pressed='true'],
+[data-motion='reduced'] .md-timer--hot .md-timer__s {
+  animation: none;
+}
+[data-motion='reduced'] .md-print--develop .md-print__foto::after,
+[data-motion='reduced'] .md-print--winner .md-print__foto::before {
+  display: none;
+}

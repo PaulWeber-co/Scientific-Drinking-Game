@@ -1,4 +1,4 @@
-import type { GameTag } from '../types';
+import type { GameMeta, GameTag } from '../types';
 import type { IconName } from '../../components/icons';
 
 export type Heat = 1 | 2 | 3;
@@ -34,6 +34,9 @@ export interface CardGameConfig {
   accent: string;
   /** Kachelmotiv aus `meta.ts` – ohne das fiele es beim Laden weg. */
   image?: string;
+  /** Farbraum und Lebenszeichen aus `meta.ts`, aus demselben Grund. */
+  world: string;
+  ambient?: GameMeta['ambient'];
   minPlayers: number;
   maxPlayers: number;
   duration: string;

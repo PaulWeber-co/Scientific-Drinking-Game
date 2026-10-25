@@ -528,6 +528,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     icon: config.icon,
     accent: config.accent,
     image: config.image,
+    world: config.world,
+    ambient: config.ambient,
     minPlayers: config.minPlayers,
     maxPlayers: config.maxPlayers,
     duration: config.duration,

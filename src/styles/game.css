@@ -848,6 +848,18 @@
     opacity: 0;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .bombe__zittern,
+[data-motion='reduced'] .bombe__koerper,
+[data-motion='reduced'] .bombe__glut,
+[data-motion='reduced'] .bombe__funke-kern,
+[data-motion='reduced'] .bombe__funke-hof,
+[data-motion='reduced'] .bombe__splitter {
+  animation: none;
+}
+[data-motion='reduced'] .bombe__splitter {
+  opacity: 0;
+}
 
 /* ---------- Top Ten: geheime Zahl ---------- */
 .secret {
@@ -1154,6 +1166,10 @@
     animation: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .peekcard__label svg {
+  animation: none;
+}
 /* Solange der Deckel oben ist, tritt der Rest des Bildschirms zurueck. Das
    ist kein Schmuck: bei einem Geheimwort sieht der Nachbar dadurch weniger,
    und der Blick des Lesenden liegt dort, wo er hingehoert. */
@@ -1441,6 +1457,13 @@
   .boom__rauch {
     display: none;
   }
+}
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .boom__ball,
+[data-motion='reduced'] .boom__ring,
+[data-motion='reduced'] .boom__shard,
+[data-motion='reduced'] .boom__rauch {
+  display: none;
 }
 
 /* Bildschirm wackelt kurz mit */
@@ -1762,6 +1785,11 @@
     display: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .game .btn--brand::after {
+  animation: none !important;
+  display: none;
+}
 
 /* ---------- Ring of Fire: Kranz und Becher ----------
    `--kranz` MUSS eine aufgeloeste Laenge sein. Der erste Entwurf hatte hier
@@ -1976,6 +2004,10 @@
   .kings-zug--los .playcard {
     animation-delay: 0ms;
   }
+}
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .kings-zug--los .playcard {
+  animation-delay: 0ms;
 }
 
 /* --- Lückenfüller ---------------------------------------------------- */

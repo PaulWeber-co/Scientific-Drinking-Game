@@ -9,8 +9,9 @@ import { ZONE_META, bacZone, drivingLight, estimateBac, residualBac, soberAt } f
 import { eventDrink, formatEntry } from '../../engine/tally';
 import { formatBac, formatDuration, formatTime } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
+import { useReducedMotion } from '../../lib/motion';
 import { NavBar, Stepper } from '../../components/ui';
-import { BacGauge } from './BacGauge';
+import { Glass } from './glass/Glass';
 import { useLiveBac } from './useLiveBac';
 import { DrinkPicker } from '../drinks/DrinkPicker';
 import { TableTally } from '../drinks/TableTally';
@@ -37,6 +38,7 @@ export function PegelScreen() {
   const nightStartedAt = usePlayer((s) => s.nightStartedAt);
   const drink = useCurrentDrink();
   const { estimate, now } = useLiveBac();
+  const still = useReducedMotion();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addFor, setAddFor] = useState<string | null>(null);
   const [driveOpen, setDriveOpen] = useState(false);
@@ -77,7 +79,8 @@ export function PegelScreen() {
 
   if (!profile) return null;
 
-  const zone = ZONE_META[bacZone(estimate?.bac ?? 0)];
+  const zoneKey = bacZone(estimate?.bac ?? 0);
+  const zone = ZONE_META[zoneKey];
   const totalG = log.reduce((s, e) => s + e.alcoholGrams, 0);
   const standardDrinks = totalG / 12; // 1 Standardglas = 12 g reiner Alkohol
   const light = drivingLight(driveBac);
@@ -87,16 +90,37 @@ export function PegelScreen() {
       <NavBar title="Pegel" />
       <div className="stack-6">
         <section className="card card--pad-lg stack-3">
-          <BacGauge
-            bac={estimate?.bac ?? 0}
-            pending={estimate?.pending ?? 0}
-            target={profile.targetBac}
-            label={
-              estimate && estimate.pending > 0.01
-                ? `+${formatBac(estimate.pending)} noch im Magen`
-                : `Ziel ${formatBac(profile.targetBac)}`
-            }
-          />
+          {/* Der Pegel als Abzug aus der Bar: das eigene Glas, darauf der
+              Wert als Datumsstempel, im Rand Getränk und Zone. */}
+          <figure className="pegelabzug">
+            <div className="pegelabzug__bild">
+              <Glass
+                bac={estimate?.bac ?? 0}
+                pending={estimate?.pending ?? 0}
+                target={profile.targetBac}
+                drink={drink}
+                showTarget={!profile.designatedDriver}
+                still={still}
+              />
+              <span className={`pegelabzug__stempel ${zoneKey === 'over' ? 'pegelabzug__stempel--rot' : ''}`}>
+                {formatBac(estimate?.bac ?? 0)} ‰
+              </span>
+            </div>
+            <figcaption className="pegelabzug__rand">
+              <span className="pegelabzug__getraenk">{drink.name}</span>
+              <span className="pegelabzug__zone">
+                <span className="pegelabzug__punkt" style={{ background: zone.color }} />
+                {zone.label}
+              </span>
+            </figcaption>
+          </figure>
+          <p className="t-caption t-center">
+            {estimate && estimate.pending > 0.01
+              ? `+${formatBac(estimate.pending)} noch im Magen`
+              : profile.designatedDriver
+                ? 'Du fährst heute'
+                : `Ziel ${formatBac(profile.targetBac)}`}
+          </p>
           <p className="t-sub t-center t-balance">{zone.note}</p>
           {carryoverLog.length > 0 && (estimate?.effective ?? 0) > 0.01 && (
             <p className="t-caption t-center">

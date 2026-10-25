@@ -1,0 +1,37 @@
+/* Das Glas steht in einem dunklen Foto, auch im hellen Modus: es ist ein
+   Abzug aus der Bar, kein Bedienelement. */
+.glass {
+  width: 280px;
+}
+.glass__canvas {
+  display: block;
+  width: 280px;
+  height: 270px;
+  touch-action: none;
+  cursor: grab;
+  background: radial-gradient(120% 90% at 50% 100%, #3a2412, #1b110a 55%, #0b0705);
+}
+.glass__canvas:active {
+  cursor: grabbing;
+}
+.glass__frage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+}
+.glass__frage-text {
+  flex: 1 0 100%;
+  color: var(--paper-ink);
+  font-weight: 600;
+}
+/* Die Frage steht auf dem Papierrand: Tinte statt Akzent, denn Orange auf
+   Papier bleibt unter dem Kontrastminimum. */
+.glass__frage .btn--tinted {
+  --btn-bg: var(--paper-ink);
+  --btn-fg: var(--paper);
+}
+.glass__frage .btn--plain {
+  --btn-fg: var(--paper-ink);
+}
