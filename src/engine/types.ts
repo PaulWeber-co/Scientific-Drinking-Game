@@ -31,11 +31,13 @@ export interface Profile {
    * Eigenes Profilbild als Data-URL (kleines JPEG, ~20 KB).
    *
    * Liegt bewusst IM Profil und damit im localStorage dieses Geräts – wie
-   * Gewicht und Trink-Log. Es wird nie in eine Lobby geschrieben: dorthin
-   * gehen Spitzname, Farbe und Getränkesymbol. Siehe
+   * Gewicht und Trink-Log. In eine Lobby geht nur mit `sharePhoto` eine
+   * kleine Kopie, und nur solange das Gerät verbunden ist. Siehe
    * `features/profile/portrait.ts`.
    */
   photo?: string;
+  /** „Für Mitspieler sichtbar" – ausdrückliche Zustimmung, Default aus. */
+  sharePhoto?: boolean;
   age: number;
   weightKg: number;
   /** Optional – schaltet die präzisere Watson-Schätzung frei. */

@@ -128,3 +128,30 @@ it('öffnet die Einstellungen mit den verfügbaren Optionen', () => {
   fireEvent.click(settings);
   expect(screen.getByRole('dialog', { name: 'Deine Einstellungen' })).toBeInTheDocument();
 });
+
+describe('Beenden-Knopf online', () => {
+  function mountAs(isHost: boolean) {
+    const party = { mode: 'online', players: [me], me, isHost } as unknown as PartyValue;
+    render(
+      <PartyCtx.Provider value={party}>
+        <GameFrame title="Test" accent="var(--blue)" onQuit={() => {}}>
+          <p>Inhalt</p>
+        </GameFrame>
+      </PartyCtx.Provider>,
+    );
+  }
+
+  it('lässt Gäste nur selbst verlassen', () => {
+    mountAs(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Spiel verlassen' }));
+    expect(screen.getByRole('button', { name: 'Verlassen' })).toBeInTheDocument();
+    expect(screen.getByText(/Die anderen spielen weiter/)).toBeInTheDocument();
+  });
+
+  it('lässt den Host die Runde für alle beenden', () => {
+    mountAs(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Spiel beenden' }));
+    expect(screen.getByRole('button', { name: 'Beenden' })).toBeInTheDocument();
+    expect(screen.getByText(/für die ganze Runde/)).toBeInTheDocument();
+  });
+});

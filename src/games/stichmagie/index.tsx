@@ -157,7 +157,7 @@ function Finale({ state, players, me, dispatch, quit }: GameRuntime<State>) {
                 <Avatar
                   name={r.player.name}
                   color={r.player.color}
-                  photo={r.player.id === me.id ? me.photo : undefined}
+                  photo={r.player.photo}
                   size={i === 1 ? 'lg' : 'md'}
                 />
                 <span className="sm-podium__name">

@@ -103,7 +103,7 @@ export function SeatStrip({
               .join(' ')}
           >
             <span className="sm-seat__avatar">
-              <Avatar name={p.name} color={p.color} photo={mine ? me.photo : undefined} size="sm" />
+              <Avatar name={p.name} color={p.color} photo={playerFor(p, players).photo} size="sm" />
               {seat.id === dealer && (
                 <span className="sm-seat__dealer" title="gibt diese Runde">
                   G
