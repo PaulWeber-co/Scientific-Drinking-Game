@@ -164,7 +164,13 @@ export function TabBar() {
       render();
     };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    // Auch wenn nur die Leiste ihre Breite ändert (Schrift lädt, Rand ändert sich).
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+    if (bar.current) observer?.observe(bar.current);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      observer?.disconnect();
+    };
   }, [home, slotX, render]);
 
   useEffect(

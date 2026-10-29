@@ -1840,7 +1840,7 @@ button.chip--outline {
   position: fixed;
   left: var(--s-3);
   right: var(--s-3);
-  bottom: calc(var(--tabbar-space) + var(--s-3));
+  bottom: calc(var(--safe-bottom) + var(--s-3));
   max-width: calc(var(--content-max) - 16px);
   margin: 0 auto;
   z-index: 50;
@@ -1852,6 +1852,11 @@ button.chip--outline {
   background: var(--surface-solid);
   border: 1px solid var(--hairline-strong);
   box-shadow: var(--shadow-md);
+}
+/* Der Hinweis hängt außerhalb der Seiten: über der Tab-Leiste nur, wo es
+   eine gibt – in Spielen und im Onboarding sitzt er am unteren Rand. */
+body:has(.tabbar) .updatebar {
+  bottom: calc(var(--tabbar-space) + var(--s-3));
 }
 
 /* ---------- Rechtstexte ---------- */
@@ -2660,6 +2665,12 @@ button.chip--outline {
 .detailstart {
   margin-top: auto;
   padding-top: var(--s-4);
+  /* Der Startknopf bleibt über der schwebenden Tab-Leiste stehen, auch wenn
+     das Foto die Seite höher macht als den Bildschirm – sonst lag er beim
+     Öffnen genau unter der Leiste. */
+  position: sticky;
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+  z-index: 2;
 }
 
 /* In der Lobby stehen nur die passenden Vorschlaege – drei schmale Spalten

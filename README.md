@@ -26,6 +26,8 @@ Handy oder mit einer Lobby, in der jede Person ihr eigenes Gerät benutzt.
 | Plugin-System für neue Spiele | fertig |
 | Alkoholfreier Modus, Altersprüfung, Wasser-Erinnerung | fertig |
 | Dark & Light Mode, installierbar als PWA-Shortcut | fertig |
+| Bedienung wie iOS: Wisch zurück, Sheets nach unten wegziehen, schwebende Tab-Leiste aus Glas | fertig |
+| Pegel als Glas des eigenen Getränks, das beim Kippen echt schwappt und überläuft | fertig |
 | Eigenes SVG-Icon-Set statt Emojis, Monogramm-Avatare | fertig |
 | Eigenes Profilbild im Einwegkamera-Look (bleibt lokal) | fertig |
 | Haptik über die Taptic Engine, wenn die App nativ läuft | fertig |
