@@ -13,6 +13,7 @@ import { Impressum } from '../legal/Impressum';
 import { Datenschutz } from '../legal/Datenschutz';
 import { usePlayer } from '../store/player';
 import { useParty } from '../features/party/PartyContext';
+import { useNavDirection } from './navigation';
 
 /**
  * Rechtstexte muessen ohne Umweg erreichbar sein – auch fuer jemanden, der die
@@ -23,6 +24,7 @@ const PUBLIC_PATHS = ['/onboarding', '/impressum', '/datenschutz'];
 export function Router() {
   const onboarded = usePlayer((s) => s.onboarded);
   const location = useLocation();
+  useNavDirection();
 
   if (!onboarded && !PUBLIC_PATHS.includes(location.pathname)) {
     return (

@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useGoBack } from '../app/navigation';
+import { useSwipeBack } from '../lib/gestures';
 import { NavBar } from '../components/ui';
 import { LEGAL, hasPlaceholders } from './site';
 
@@ -10,13 +11,16 @@ import { LEGAL, hasPlaceholders } from './site';
  * direkt aufrufbar sein, ein halb geöffnetes Overlay ist das nicht.
  */
 export function LegalScreen({ title, children }: { title: string; children: ReactNode }) {
-  const nav = useNavigate();
+  // Wer direkt über den Link kommt, landet beim Zurück in der App statt
+  // außerhalb – ohne Profil leitet der Router von dort ins Onboarding.
+  const goBack = useGoBack('/');
+  const swipeRef = useSwipeBack<HTMLDivElement>(goBack);
   return (
-    <div className="screen">
+    <div className="screen" ref={swipeRef}>
       <NavBar
         title={title}
         left={
-          <button className="btn btn--plain" onClick={() => nav(-1)}>
+          <button className="btn btn--plain" onClick={goBack}>
             Zurück
           </button>
         }

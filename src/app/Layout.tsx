@@ -1,25 +1,14 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
-import { haptic } from '../lib/haptics';
-import { Icon, type IconName } from '../components/icons';
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
+import { useEffect, useLayoutEffect } from 'react';
 import { useApp } from '../store/app';
 import { WaterReminder } from '../features/bac/WaterReminder';
 import { GameInvite } from '../features/party/GameInvite';
-
-// Vier statt fünf: Der alte Start war ein zweites Spiele-Menü mit
-// Promille-Anzeige davor. Die Spiele sind jetzt selbst der Start, die
-// Promille-Anzeige lebt vollständig im Pegel-Tab.
-const TABS: { to: string; icon: IconName; label: string }[] = [
-  { to: '/', icon: 'games', label: 'Spiele' },
-  { to: '/lobby', icon: 'people', label: 'Runde' },
-  { to: '/pegel', icon: 'chart', label: 'Pegel' },
-  { to: '/album', icon: 'album', label: 'Album' },
-];
+import { TabBar } from './TabBar';
 
 export function Layout() {
   const theme = useApp((s) => s.theme);
-  const { pathname } = useLocation();
   useMotionSwitch();
+  useScrollMemory();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -28,43 +17,13 @@ export function Layout() {
       ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
   }, [theme]);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-  }, [pathname]);
-
   return (
     <div className="app">
       <div className="aurora" aria-hidden />
       <Outlet />
       <WaterReminder />
       <GameInvite />
-      <nav className="tabbar" aria-label="Hauptnavigation">
-        <div className="tabbar__inner">
-          {TABS.map((t) => {
-            const content = (
-              <>
-                <Icon name={t.icon} size={23} className="tabbar__icon" />
-                {t.label}
-              </>
-            );
-            return t.to === '/' ? (
-              <Link
-                key={t.to}
-                to={t.to}
-                aria-current={pathname === '/' || pathname.startsWith('/spiele/') ? 'page' : undefined}
-                className="tabbar__item"
-                onClick={() => haptic('tap')}
-              >
-                {content}
-              </Link>
-            ) : (
-              <NavLink key={t.to} to={t.to} className="tabbar__item" onClick={() => haptic('tap')}>
-                {content}
-              </NavLink>
-            );
-          })}
-        </div>
-      </nav>
+      <TabBar />
     </div>
   );
 }
@@ -91,4 +50,26 @@ function useMotionSwitch() {
     if (calm) document.documentElement.dataset.motion = 'reduced';
     else delete document.documentElement.dataset.motion;
   }, [calm]);
+}
+
+/** Scrollstand je Verlaufseintrag – nur für diese Sitzung. */
+const scrollMemory = new Map<string, number>();
+
+/**
+ * Neue Seiten beginnen oben, beim Zurück steht man wieder dort, wo man war.
+ *
+ * Vorher sprang die Spielewand nach jedem Blick in ein Spiel an den Anfang,
+ * und man musste das nächste Spiel erneut suchen. Wie unter iOS behält die
+ * darunterliegende Ebene ihren Stand.
+ */
+function useScrollMemory() {
+  const { key } = useLocation();
+  const type = useNavigationType();
+  useLayoutEffect(() => {
+    const saved = type === 'POP' ? scrollMemory.get(key) : undefined;
+    window.scrollTo({ top: saved ?? 0 });
+    const remember = () => scrollMemory.set(key, window.scrollY);
+    window.addEventListener('scroll', remember, { passive: true });
+    return () => window.removeEventListener('scroll', remember);
+  }, [key, type]);
 }

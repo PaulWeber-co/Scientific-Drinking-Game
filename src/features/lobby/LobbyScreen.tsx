@@ -27,6 +27,8 @@ import { usePlayer } from '../../store/player';
 import { PreloadSheet } from '../drinks/PreloadSheet';
 import { LogDrinkSheet } from '../../games/shared/LogDrinkSheet';
 import { formatGlassCount, tally } from '../../engine/tally';
+import { useGoBack } from '../../app/navigation';
+import { useSwipeBack } from '../../lib/gestures';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -45,6 +47,10 @@ export function LobbyScreen() {
   const myLog = usePlayer((s) => s.log);
   const customDrinks = usePlayer((s) => s.customDrinks);
   const lastCode = useApp((s) => s.lastLobbyCode);
+  // Aus einem Spiel hierher geschickt: dann ist die Runde eine Ebene über dem
+  // Spiel, und Zurück – Knopf wie Wisch – führt wieder dorthin.
+  const backToGame = useGoBack(returnGame ? `/spiele/${returnGame.id}` : '/');
+  const swipeRef = useSwipeBack<HTMLDivElement>(backToGame, { enabled: !!returnGame });
 
   const online = party.mode === 'online' && !!party.code;
   const players = party.players;
@@ -85,7 +91,7 @@ export function LobbyScreen() {
   };
 
   return (
-    <div className="screen">
+    <div className="screen" ref={swipeRef}>
       <NavBar
         title="Runde"
         right={
@@ -108,7 +114,10 @@ export function LobbyScreen() {
         {returnGame && (
           <button
             className="btn btn--plain btn--block"
-            onClick={() => nav(`/spiele/${returnGame.id}`)}
+            onClick={() => {
+              haptic('tap');
+              backToGame();
+            }}
           >
             Zurück zu {returnGame.name} ›
           </button>

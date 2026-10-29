@@ -15,6 +15,8 @@ import { useCurrentDrink, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 import { DrinkPicker } from '../drinks/DrinkPicker';
 import { usePartyOptional } from '../party/PartyContext';
+import { useGoBack } from '../../app/navigation';
+import { useSwipeBack } from '../../lib/gestures';
 
 export function ProfileScreen() {
   const nav = useNavigate();
@@ -25,6 +27,8 @@ export function ProfileScreen() {
   const app = useApp();
   const party = usePartyOptional();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const goBack = useGoBack('/');
+  const swipeRef = useSwipeBack<HTMLDivElement>(goBack);
 
   if (!profile) return null;
   const gate = ageGate(profile.age);
@@ -32,7 +36,7 @@ export function ProfileScreen() {
   const tbw = bodyWaterLiters(profile);
 
   return (
-    <div className="screen">
+    <div className="screen" ref={swipeRef}>
       <NavBar
         title="Profil"
         left={
@@ -40,7 +44,7 @@ export function ProfileScreen() {
             className="btn btn--plain"
             onClick={() => {
               haptic('tap');
-              nav(-1);
+              goBack();
             }}
           >
             Zurück

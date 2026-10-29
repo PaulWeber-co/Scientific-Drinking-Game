@@ -128,7 +128,12 @@
   /* --- Layout --- */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --tabbar-h: 56px;
+  /* Schwebende Tab-Leiste: Höhe der Kapsel, ihr Abstand zum unteren Rand
+     (über dem Home-Indikator, nicht darunter) und beides zusammen – so viel
+     Platz braucht der Inhalt unten frei. */
+  --tabbar-h: 62px;
+  --tabbar-gap: max(10px, calc(var(--safe-bottom) - 12px));
+  --tabbar-space: calc(var(--tabbar-h) + var(--tabbar-gap));
   --content-max: 520px;
 }
 

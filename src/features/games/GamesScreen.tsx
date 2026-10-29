@@ -17,6 +17,8 @@ import { usePlayer } from '../../store/player';
 import { useParty } from '../party/PartyContext';
 import { useApp, type GameLength } from '../../store/app';
 import { Link } from 'react-router-dom';
+import { useGoBack } from '../../app/navigation';
+import { useSwipeBack } from '../../lib/gestures';
 
 /**
  * Abschnitte statt Filterzeile: Ein Filter kann angeschaltet bleiben, dann
@@ -139,10 +141,14 @@ export function GameDetail() {
   const gameLength = useApp((s) => s.gameLength);
   const game = getGame(id);
   const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln'>(null);
+  const goBack = useGoBack('/');
+  // Wisch nach rechts führt zurück zur Spielewand – der Knopf oben links
+  // ist mit einer Hand am Tisch kaum zu erreichen.
+  const swipeRef = useSwipeBack<HTMLDivElement>(goBack);
 
   if (!game) {
     return (
-      <div className="screen">
+      <div className="screen" ref={swipeRef}>
         <p className="t-sub">Dieses Spiel gibt es nicht.</p>
         <button className="btn btn--glass" onClick={() => nav('/')}>
           Zu den Spielen
@@ -171,6 +177,7 @@ export function GameDetail() {
 
   return (
     <div
+      ref={swipeRef}
       className="screen screen--detail"
       style={{
         ['--accent' as string]: game.accent,
@@ -195,7 +202,10 @@ export function GameDetail() {
         <button
           className="detailbuehne__knopf detailbuehne__knopf--zurueck pressable"
           aria-label="Zurück zu den Spielen"
-          onClick={() => nav(-1)}
+          onClick={() => {
+            haptic('tap');
+            goBack();
+          }}
         >
           <Icon name="chevronLeft" size={20} />
         </button>
