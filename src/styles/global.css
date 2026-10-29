@@ -36,6 +36,10 @@ body,
 }
 html {
   -webkit-text-size-adjust: 100%;
+  /* Kein Gummiband am Dokument. Am <body> allein greift das nicht: die
+     Seite scrollt über das Wurzelelement. Ohne diese Zeile wippen auf
+     kurzen Seiten wie der Runde beide Leisten beim Ziehen mit. */
+  overscroll-behavior: none;
 }
 body {
   font-family: var(--font);
@@ -317,7 +321,14 @@ select,
   place-items: center;
 }
 
-/* ---------- Nav bar ---------- */
+/* ---------- Nav bar ----------
+   Wie unter iOS reicht die Leiste bis unter die Statusleiste, nur ihr Inhalt
+   sitzt darunter. Vorher begann sie unterhalb der Statusleiste und rutschte
+   beim Scrollen bis ganz nach oben – der Titel lag dann unter Uhr und
+   Dynamic Island. So steht sie von Anfang an dort, wo sie klebt.
+
+   In Ruhe ist sie durchsichtig, das Lampenlicht scheint durch. Erst wenn
+   Inhalt darunter scrollt, bekommt sie ihr Milchglas (NavBar.tsx). */
 .navbar {
   position: sticky;
   top: 0;
@@ -325,12 +336,19 @@ select,
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  min-height: 44px;
-  margin: 0 calc(var(--s-4) * -1) var(--s-3);
-  padding: var(--s-2) var(--s-3);
+  min-height: calc(44px + var(--safe-top) + var(--s-3));
+  margin: calc(-1 * (var(--safe-top) + var(--s-3))) calc(var(--s-4) * -1) var(--s-3);
+  padding: calc(var(--safe-top) + var(--s-3) + var(--s-2)) var(--s-3) var(--s-2);
+  background: transparent;
+  transition:
+    background-color var(--dur-fast) linear,
+    box-shadow var(--dur-fast) linear;
+}
+.navbar--edge {
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: saturate(180%) blur(24px);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
+  box-shadow: 0 0.5px 0 var(--hairline);
 }
 .navbar__title {
   font-size: var(--t-headline);

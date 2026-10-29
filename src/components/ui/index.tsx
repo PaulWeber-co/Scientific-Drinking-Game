@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../icons';
 import { AVATAR_COLORS, avatarStyle, type AvatarColor } from './Avatar';
 import { createPortal } from 'react-dom';
@@ -14,8 +14,16 @@ export function NavBar({
   left?: ReactNode;
   right?: ReactNode;
 }) {
+  // Milchglas erst, wenn Inhalt unter die Leiste scrollt – wie unter iOS.
+  const [edge, setEdge] = useState(false);
+  useEffect(() => {
+    const update = () => setEdge(window.scrollY > 2);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
   return (
-    <header className="navbar">
+    <header className={`navbar${edge ? ' navbar--edge' : ''}`}>
       <div className="navbar__slot">{left}</div>
       <div className="navbar__title">{title}</div>
       <div className="navbar__slot navbar__slot--end">{right}</div>
