@@ -85,7 +85,7 @@ export interface BacEstimate {
 
 export type BacZone = 'sober' | 'warmup' | 'sweet' | 'edge' | 'over';
 
-export type SipPhase = 'reaching' | 'maintaining' | 'over' | 'blocked';
+export type SipPhase = 'reaching' | 'maintaining' | 'over' | 'alcoholFree';
 
 /** Wie weit jemand über dem Ziel liegt – bestimmt Wortwahl und Farbe. */
 export type OverSeverity = 'water' | 'pause' | 'stop' | 'danger';
@@ -94,6 +94,8 @@ export interface SipResult {
   /** Wie viele Schlucke dieser Spieler jetzt wirklich trinken soll. */
   sips: number;
   phase: SipPhase;
+  /** Getränk für die Buchung, falls es vom eingestellten abweicht. */
+  drinkId?: string;
   /** Nur bei phase 'over': Stufe der Ansage. */
   severity?: OverSeverity;
   /** Kurzer Erklärtext für die UI. */

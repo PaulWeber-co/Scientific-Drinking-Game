@@ -825,8 +825,9 @@ button.chip--outline {
   gap: var(--s-3);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--s-4);
   -webkit-overflow-scrolling: touch;
-  padding: var(--s-1) var(--s-4);
+  padding: var(--s-2) var(--s-4);
   margin: 0 calc(var(--s-4) * -1);
   scrollbar-width: none;
 }
@@ -1752,6 +1753,15 @@ button.chip--outline {
   color: color-mix(in srgb, var(--paper-ink) 45%, transparent);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
+.album-empty {
+  text-align: center;
+  padding-block: var(--s-4);
+}
+.album-empty__print {
+  width: 60%;
+  margin-inline: auto;
+  transform: rotate(-5deg);
+}
 .photoframe img {
   width: 100%;
   height: 100%;
@@ -1775,6 +1785,9 @@ button.chip--outline {
     #201b1d 6px,
     #201b1d 12px
   );
+}
+.album-empty__print::before {
+  background: color-mix(in srgb, var(--paper-ink) 12%, var(--paper));
 }
 .photoframe--latent > * {
   position: relative;
@@ -1975,7 +1988,7 @@ button.chip--outline {
 }
 .wandkopf__sub {
   font-size: var(--t-footnote);
-  color: var(--label-3);
+  color: var(--label-2);
   letter-spacing: 0.04em;
 }
 
@@ -2017,7 +2030,7 @@ button.chip--outline {
   font-weight: 600;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--label-3);
+  color: var(--label-2);
 }
 .wandraster {
   display: grid;
@@ -2404,6 +2417,9 @@ button.chip--outline {
   left: var(--s-4);
 }
 .detailbuehne__knopf--hilfe {
+  width: auto;
+  padding: 0 var(--s-4);
+  border-radius: 22px;
   right: var(--s-4);
 }
 .detailtitel {
@@ -2479,4 +2495,31 @@ button.chip--outline {
 }
 .wandraster--flach .gametile__stempel {
   display: none;
+}
+
+.lobbychoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+.lobbychoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: var(--s-4) var(--s-2);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--label);
+  text-align: center;
+}
+.lobbychoice--aktiv {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+}
+.lobbychoice:disabled {
+  opacity: 0.6;
 }

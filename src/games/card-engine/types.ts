@@ -67,6 +67,8 @@ export interface CardGameConfig {
   cardKicker?: string;
   /** Wenn gesetzt: der Spieler darf kneifen und trinkt stattdessen. */
   refuseLabel?: string;
+  /** Wenn gesetzt: eine andere Karte im selben Modus, ohne Schlucke. */
+  skipLabel?: string;
   refuseSips?: number;
   /** Beschriftung der Trinkansage nach dem Kneifen-Knopf. Standard: „gekniffen". */
   refuseCallLabel?: string;

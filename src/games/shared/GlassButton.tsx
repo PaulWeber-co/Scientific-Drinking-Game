@@ -23,15 +23,18 @@ const NOTE_MS = 8000;
 /**
  * Ein Glas eintragen, ohne das Spiel zu verlassen.
  *
- * Ein Tap ist ein volles Glas des eingestellten Getränks. Der sichtbare
- * Pfeil und langer Druck öffnen anderes Getränk, andere Menge und Zeitpunkt.
+ * Ein Tap ist ein volles Glas des eingestellten Getränks. Langer Druck
+ * und das Mehr-Menü öffnen anderes Getränk, andere Menge und Zeitpunkt.
  * Danach steht acht Sekunden ein Rückgängig darunter — ein Fehlgriff im
  * Dunkeln darf den Abend nicht verfälschen.
  *
  * Die Schluckzahl kommt aus `sipsPerServing()`, nie aus einer eigenen Zahl:
  * ein Glas ist je Getränk verschieden viele Schlucke, ein Shot ist einer.
  */
-export function GlassButton() {
+export function GlassButton({ moreOpen = false, onMoreClose }: {
+  moreOpen?: boolean;
+  onMoreClose?: () => void;
+}) {
   const { players, me, mode, logSipsFor, removeEventFor } = useParty();
   const drink = useCurrentDrink();
   const customDrinks = usePlayer((s) => s.customDrinks);
@@ -137,18 +140,6 @@ export function GlassButton() {
           <Icon name="plus" size={10} className="sipbtn__plus" />
         </span>
       </button>
-      <button
-        className="game__settings logdrink__more"
-        aria-label="Anderes Getränk oder andere Menge eintragen"
-        title="Anderes Getränk oder andere Menge"
-        onClick={() => {
-          haptic('tap');
-          setSheet('more');
-        }}
-      >
-        <Icon name="chevronDown" size={17} />
-      </button>
-
       {note && (
         <div className="sipnote" role="status">
           <span className="grow">{note}</span>
@@ -195,8 +186,11 @@ export function GlassButton() {
       </Sheet>
 
       <LogDrinkSheet
-        open={sheet === 'more'}
-        onClose={() => setSheet(null)}
+        open={moreOpen || sheet === 'more'}
+        onClose={() => {
+          setSheet(null);
+          onMoreClose?.();
+        }}
         players={[me, ...guests]}
         meId={me.id}
         onLog={logAny}

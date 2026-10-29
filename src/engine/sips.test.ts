@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { estimateBac } from './bac';
-import { OVER_DANGER_BAC, OVER_PAUSE_BAC, OVER_STOP_BAC } from './constants';
-import { DRINK_CATALOG, findDrink } from './drinks';
+import {
+  MAX_SIPS_PER_TURN,
+  MIN_AGE_ALCOHOL,
+  OVER_DANGER_BAC,
+  OVER_PAUSE_BAC,
+  OVER_STOP_BAC,
+} from './constants';
+import { DRINK_CATALOG, findDrink, sipUnit } from './drinks';
 import { overTargetCall, personalSips } from './sips';
 import type { BacEstimate, DrinkEvent, Profile } from './types';
 
@@ -124,4 +130,82 @@ describe('Härte 0', () => {
     const r = personalSips({ profile: paul, drink: shot, events: [], baseSips: 1, now: NOW });
     expect(r.sips).toBe(1);
   });
+});
+
+describe('Alkoholfrei mittrinken', () => {
+  const reasons: { name: string; patch: Partial<Profile>; drinkId: string; hint: string }[] = [
+    {
+      name: 'Fahrer',
+      patch: { designatedDriver: true },
+      drinkId: beer.id,
+      hint: 'Du fährst heute – trink alkoholfrei mit.',
+    },
+    {
+      name: 'Minderjährig',
+      patch: { age: MIN_AGE_ALCOHOL - 1 },
+      drinkId: beer.id,
+      hint: `Unter ${MIN_AGE_ALCOHOL}: trink alkoholfrei mit.`,
+    },
+    {
+      name: 'Profil',
+      patch: { alcoholFree: true },
+      drinkId: beer.id,
+      hint: 'Alkoholfrei – trink mit.',
+    },
+    { name: 'Getränk', patch: {}, drinkId: 'soft', hint: 'Alkoholfreies Getränk – trink mit.' },
+  ];
+  it.each(reasons)(
+    '$name bekommt die Härte als alkoholfreie Schluckzahl',
+    ({ patch, drinkId, hint }) => {
+      for (const baseSips of [-1, 0, 0.2, 1, 3, 9]) {
+        const result = personalSips({
+          profile: { ...paul, ...patch },
+          drink: findDrink(drinkId),
+          events: [],
+          baseSips,
+          now: NOW,
+        });
+        const sips =
+          baseSips > 0 ? Math.min(Math.max(1, Math.round(baseSips)), MAX_SIPS_PER_TURN) : 0;
+        expect(result).toMatchObject({
+          sips,
+          alcoholGrams: 0,
+          phase: 'alcoholFree',
+          drinkId: 'soft',
+          hint: sips > 0 ? hint : 'Diesmal nichts zu trinken.',
+          unit: sipUnit(findDrink('soft'), sips),
+        });
+      }
+    },
+  );
+});
+
+describe('Alkoholfrei mittrinken: jede Kombination der vier Gründe', () => {
+  // Alle 16 Kombinationen: sobald einer der Gründe greift, wird alkoholfrei
+  // gebucht – und nur dann.
+  const schalter: [string, Partial<Profile> | null][] = [
+    ['Fahrer', { designatedDriver: true }],
+    ['Minderjährig', { age: MIN_AGE_ALCOHOL - 1 }],
+    ['Profil', { alcoholFree: true }],
+    ['Getränk', null],
+  ];
+  for (let maske = 0; maske < 1 << schalter.length; maske++) {
+    const aktiv = schalter.filter((_, i) => maske & (1 << i));
+    it(aktiv.map(([n]) => n).join(' + ') || 'kein Grund', () => {
+      const profile = { ...paul, ...Object.assign({}, ...aktiv.map(([, p]) => p ?? {})) };
+      const drink = aktiv.some(([, p]) => p === null) ? findDrink('soft') : beer;
+      const result = personalSips({ profile, drink, events: [], baseSips: 3, now: NOW });
+      if (aktiv.length) {
+        expect(result).toMatchObject({
+          phase: 'alcoholFree',
+          drinkId: 'soft',
+          alcoholGrams: 0,
+          sips: 3,
+        });
+      } else {
+        expect(result.phase).not.toBe('alcoholFree');
+        expect(result.drinkId).toBeUndefined();
+      }
+    });
+  }
 });

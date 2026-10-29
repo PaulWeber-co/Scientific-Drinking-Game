@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { LobbyScreen } from './LobbyScreen';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import type { GamePlayer } from '../../games/types';
 import { findDrink, sipsPerServing } from '../../engine/drinks';
+import { gamesForGroup } from '../../games/registry';
 import { makeDrinkEvent } from '../../engine/sips';
 
 const me: GamePlayer = { id: 'me', name: 'Paul', color: 'blue', online: true, isHost: true };
@@ -262,5 +263,73 @@ describe('Gast-Formular: Abbrechen und Fertig', () => {
     const add = openGuestSheet();
     expect(submitted(add).name).toBe('Anna');
     expect(screen.queryByPlaceholderText('Name')).toBeNull();
+  });
+});
+
+
+function CurrentPath() {
+  return <p>{useLocation().pathname}</p>;
+}
+
+describe('Spielweise und Spieleauswahl', () => {
+  function mount(value = party()) {
+    render(
+      <MemoryRouter initialEntries={['/lobby']}>
+        <PartyCtx.Provider value={value}>
+          <Routes>
+            <Route path="/lobby" element={<LobbyScreen />} />
+            <Route path="/spiele/:id" element={<CurrentPath />} />
+          </Routes>
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+  }
+
+  it('zeigt das geteilte Handy als aktiv und bietet Mitspieler nur einmal an', () => {
+    const value = party();
+    mount(value);
+    // Der laufende Zustand ist kein Knopf, sondern als aktuell markiert.
+    expect(screen.queryByRole('button', { name: /Ein Handy für alle/ })).toBeNull();
+    const shared = screen.getByText('Ein Handy für alle').closest('.lobbychoice');
+    expect(shared).toHaveAttribute('aria-current', 'true');
+    fireEvent.click(shared!);
+    expect(value.createOnline).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('button', { name: 'Mitspieler hinzufügen' })).toHaveLength(1);
+    expect(screen.queryByText(/Für diese Gruppengröße/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Zurück zu/ })).toBeNull();
+  });
+
+  it('erstellt mit eigenen Handys eine Lobby und zeigt den Wartezustand', async () => {
+    let finish!: (code: string) => void;
+    const createOnline = vi.fn(() => new Promise<string>((resolve) => { finish = resolve; }));
+    mount(party({ createOnline }));
+    fireEvent.click(screen.getByRole('button', { name: /Eigene Handys/ }));
+    expect(createOnline).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Lobby wird erstellt …/ })).toBeDisabled();
+    finish('ABC123');
+    await waitFor(() => expect(screen.getByRole('button', { name: /Eigene Handys/ })).toBeEnabled());
+  });
+
+  it('zeigt Fehler beim Erstellen und gibt den Knopf wieder frei', async () => {
+    mount(party({ createOnline: vi.fn().mockRejectedValue(new Error()), error: 'Keine Verbindung' }));
+    fireEvent.click(screen.getByRole('button', { name: /Eigene Handys/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Eigene Handys/ })).toBeEnabled());
+    expect(screen.getByText('Keine Verbindung')).toBeInTheDocument();
+  });
+
+  it('öffnet das Beitreten über den Textknopf', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Mit Code beitreten ›' }));
+    expect(screen.getByPlaceholderText('CODE')).toBeInTheDocument();
+  });
+
+  it('öffnet passende Spiele zur Ansicht ohne sie zu starten', () => {
+    const value = party({ players: [me, { ...me, id: 'other', name: 'Anna' }] });
+    mount(value);
+    const card = document.querySelector('.gametile')!;
+    const game = gamesForGroup(2, false)[0];
+    fireEvent.click(card);
+    expect(screen.getByText(`/spiele/${game.id}`)).toBeInTheDocument();
+    expect(value.startGame).not.toHaveBeenCalled();
   });
 });

@@ -6,10 +6,9 @@ import { render } from '../test/render';
 import { useState } from 'react';
 import { DrinkCall, DrinkCallList } from './shared/DrinkCall';
 import { PartyCtx, type PartyValue } from '../features/party/PartyContext';
-import { usePlayer, defaultProfile } from '../store/player';
+import { usePlayer } from '../store/player';
 import { useApp } from '../store/app';
 import { useSeen } from '../store/seen';
-import { TASKS } from '../engine/tasks';
 import { getLoadedGame, loadGame } from './registry';
 import type { GameAction, GameActionInput, GamePlayer } from './types';
 
@@ -315,22 +314,20 @@ describe('Aufgaben statt leerer Ansagen', () => {
     useApp.setState({ taskOnSkip: 'immer' });
   });
 
-  it('gibt dem Fahrer eine echte Aufgabe statt nur der Überschrift', () => {
-    // Das Versprechen steht an sieben Stellen in der App. Bis hierher war
-    // "Aufgabe" eine Ueberschrift ohne Inhalt.
+  it('lässt Fahrer alkoholfrei mittrinken statt eine Aufgabe zu geben', () => {
     usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
     zeigen();
-    expect(document.querySelector('.call__big')!.textContent).toBe('Aufgabe');
-    const text = aufgabe();
-    expect(text, 'keine Aufgabe angezeigt').not.toBeNull();
-    expect(TASKS.some((t) => t.text === text)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Getrunken' })).toBeEnabled();
+    expect(screen.getByText('Du fährst heute – trink alkoholfrei mit.')).toBeInTheDocument();
+    expect(aufgabe()).toBeNull();
   });
 
-  it('gibt sie dem Fahrer auch dann, wenn Aufgaben beim Aussetzen abgeschaltet sind', () => {
+  it('lässt Fahrer auch bei abgeschalteten Aufgaben mittrinken', () => {
     useApp.setState({ taskOnSkip: 'aus' });
     usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
     zeigen();
-    expect(aufgabe()).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Getrunken' })).toBeEnabled();
+    expect(aufgabe()).toBeNull();
   });
 
   it('schweigt beim Aussetzen, wenn der Schalter auf „Nie" steht', () => {
@@ -378,7 +375,7 @@ describe('Aufgaben statt leerer Ansagen', () => {
   it('behält dieselbe Aufgabe über einen Re-Render', () => {
     // Das Gedaechtnis merkt sich die Aufgabe, sobald sie einmal dastand. Ohne
     // das Einfrieren stuende beim naechsten Render eine andere da.
-    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    trunken(40);
     function Wrap() {
       const [, force] = useState(0);
       return (
@@ -390,6 +387,7 @@ describe('Aufgaben statt leerer Ansagen', () => {
     }
     render(<Wrap />);
     const erst = aufgabe();
+    expect(erst).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Neu rendern' }));
     expect(aufgabe()).toBe(erst);
   });
@@ -423,19 +421,19 @@ describe('Aufgaben statt leerer Ansagen', () => {
   it('gibt jedem Spieler am selben Gerät eine eigene Aufgabe', () => {
     // Pass & Play: DrinkCallList rendert alle lokalen Spieler. Bekaeme die
     // Auswahl keinen Spieler-Anteil im Seed, stuende bei allen dasselbe.
-    const fahrer = (id: string, name: string): GamePlayer => ({
+    trunken(40);
+    const guest = (id: string, name: string): GamePlayer => ({
       id,
       name,
       color: 'pink',
       online: true,
       local: {
-        profile: { ...defaultProfile(), name, designatedDriver: true, alcoholFree: true },
+        profile: { ...usePlayer.getState().profile!, name },
         drinkId: 'beer-pils',
-        log: [],
+        log: usePlayer.getState().log,
       },
     });
-    const runde = [me, fahrer('g1', 'Anna'), fahrer('g2', 'Ben'), fahrer('g3', 'Cem')];
-    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    const runde = [me, guest('g1', 'Anna'), guest('g2', 'Ben'), guest('g3', 'Cem')];
     render(
       <PartyCtx.Provider value={party(runde, { mode: 'local', gameId: 'kings-cup' })}>
         <DrinkCallList players={runde} baseSips={3} source="test" resetKey="karte-1" />
@@ -447,7 +445,7 @@ describe('Aufgaben statt leerer Ansagen', () => {
   });
 
   it('gibt in der nächsten Runde eine andere Aufgabe', () => {
-    usePlayer.setState({ profile: { ...usePlayer.getState().profile!, designatedDriver: true } });
+    trunken(40);
     function Wrap() {
       const [n, setN] = useState(0);
       return (
@@ -459,6 +457,7 @@ describe('Aufgaben statt leerer Ansagen', () => {
     }
     render(<Wrap />);
     const erst = aufgabe();
+    expect(erst).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(aufgabe()).not.toBe(erst);
   });

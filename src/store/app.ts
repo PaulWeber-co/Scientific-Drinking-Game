@@ -29,10 +29,7 @@ export interface AppState {
   blanks: Record<string, boolean>;
   /** Wie lang eine Partie laufen soll. Gilt für alle Spiele. */
   gameLength: GameLength;
-  /**
-   * Wie oft es beim Aussetzen eine Aufgabe gibt. Wer gesperrt ist (Fahrer,
-   * unter 18, alkoholfrei), bekommt unabhängig davon immer eine.
-   */
+  /** Wie oft es beim Aussetzen eine Aufgabe gibt. */
   taskOnSkip: TaskFrequency;
 
   setTheme: (t: Theme) => void;

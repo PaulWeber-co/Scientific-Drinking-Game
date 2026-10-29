@@ -56,7 +56,9 @@ export function ProfileScreen() {
             onColor={(color: AvatarColor) => patch({ color })}
             onPhoto={(photo) => patch({ photo })}
           />
+          <label className="list-header t-upper" htmlFor="profile-name">Spitzname</label>
           <input
+            id="profile-name"
             className="input input--center"
             value={profile.name}
             maxLength={16}
@@ -142,7 +144,7 @@ export function ProfileScreen() {
                 <span className="t-headline" style={{ display: 'block' }}>
                   Alkoholfrei mitspielen
                 </span>
-                <span className="t-caption">Du bekommst Aufgaben statt Schlucken</span>
+                <span className="t-caption">Du trinkst alkoholfrei mit</span>
               </span>
               <Toggle
                 checked={profile.alcoholFree}

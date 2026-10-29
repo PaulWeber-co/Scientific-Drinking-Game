@@ -101,8 +101,8 @@ export function GamesScreen() {
           )}
         </div>
         <p className="wandkopf__sub">
-          {GAMES.length} Stück · für {Math.min(...GAMES.map((g) => g.minPlayers))}–
-          {Math.max(...GAMES.map((g) => g.maxPlayers))}
+          {GAMES.length} Spiele · {Math.min(...GAMES.map((g) => g.minPlayers))}–
+          {Math.max(...GAMES.map((g) => g.maxPlayers))} Personen
         </p>
       </header>
 
@@ -201,26 +201,27 @@ export function GameDetail() {
         </button>
         <button
           className="detailbuehne__knopf detailbuehne__knopf--hilfe pressable"
-          aria-label="Spielregeln"
           onClick={() => setSheet('regeln')}
         >
-          <Icon name="info" size={19} />
+          Regeln
         </button>
       </div>
       <h1 className="t-display detailtitel">{game.name}</h1>
+      <p className="t-sub">{game.tagline}</p>
 
       {/* Chips sind Anzeige UND Knopf: Was eingestellt ist, steht da – ohne
           Erklärsatz daneben. Wer nichts ändern will, tippt nur den Startknopf. */}
       <div className="detailchips">
         <button
           className={`chip pressable ${tooFew || tooMany ? 'chip--warn' : ''}`}
-          onClick={() => nav('/lobby')}
+          onClick={() => nav('/lobby', { state: { from: game.id } })}
         >
           <Icon name="people" size={13} />
           {tooFew ? `${count} von ${game.minPlayers} Spielern` : tooMany ? `${count} Spieler · maximal ${game.maxPlayers}` : `${count} Spieler`}
         </button>
         <button className="chip pressable" onClick={() => setSheet('laenge')}>
           {endless ? 'Endlos' : `${rounds} Runden`}
+          <Icon name="chevronDown" size={13} />
         </button>
         {game.allowSpicy && <SpicyToggle game={game} />}
         {game.allowBlanks && (
@@ -262,7 +263,7 @@ export function GameDetail() {
       {/* Kein gesperrter Knopf: Er sagt stattdessen, was als Nächstes fehlt. */}
       <div className="detailstart">
         {tooFew || tooMany || needsDevices ? (
-          <button className="btn btn--brand btn--block btn--lg" onClick={() => nav('/lobby')}>
+          <button className="btn btn--brand btn--block btn--lg" onClick={() => nav('/lobby', { state: { from: game.id } })}>
             {tooMany ? 'Runde anpassen' : needsDevices ? 'Online-Lobby starten' : 'Leute hinzufügen'}
           </button>
         ) : (

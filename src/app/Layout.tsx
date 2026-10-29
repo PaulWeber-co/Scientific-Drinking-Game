@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { haptic } from '../lib/haptics';
 import { Icon, type IconName } from '../components/icons';
@@ -40,12 +40,29 @@ export function Layout() {
       <GameInvite />
       <nav className="tabbar" aria-label="Hauptnavigation">
         <div className="tabbar__inner">
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tabbar__item" onClick={() => haptic('tap')}>
-              <Icon name={t.icon} size={23} className="tabbar__icon" />
-              {t.label}
-            </NavLink>
-          ))}
+          {TABS.map((t) => {
+            const content = (
+              <>
+                <Icon name={t.icon} size={23} className="tabbar__icon" />
+                {t.label}
+              </>
+            );
+            return t.to === '/' ? (
+              <Link
+                key={t.to}
+                to={t.to}
+                aria-current={pathname === '/' || pathname.startsWith('/spiele/') ? 'page' : undefined}
+                className="tabbar__item"
+                onClick={() => haptic('tap')}
+              >
+                {content}
+              </Link>
+            ) : (
+              <NavLink key={t.to} to={t.to} className="tabbar__item" onClick={() => haptic('tap')}>
+                {content}
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
     </div>

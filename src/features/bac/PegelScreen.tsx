@@ -42,6 +42,8 @@ export function PegelScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addFor, setAddFor] = useState<string | null>(null);
   const [driveOpen, setDriveOpen] = useState(false);
+  const [entriesOpen, setEntriesOpen] = useState(false);
+  const [calculationOpen, setCalculationOpen] = useState(false);
   const [driveHour, setDriveHour] = useState(8);
   const [reviewOpen, setReviewOpen] = useState(false);
 
@@ -114,6 +116,7 @@ export function PegelScreen() {
               </span>
             </figcaption>
           </figure>
+          <p className="t-caption t-center">Schätzung, kein Messwert</p>
           <p className="t-caption t-center">
             {estimate && estimate.pending > 0.01
               ? `+${formatBac(estimate.pending)} noch im Magen`
@@ -138,17 +141,88 @@ export function PegelScreen() {
           </button>
         </section>
 
-        <DriverCard />
-
-        <section className="statgrid">
-          <Stat label="Reiner Alkohol" value={`${totalG.toFixed(0)} g`} />
-          <Stat label="Standardgläser" value={de(standardDrinks, 1)} />
-          <Stat label="Ansagen" value={String(log.length)} />
-          <Stat
-            label="Verteilungsfaktor"
-            value={estimate ? de(estimate.r, 2) : '–'}
-            hint={estimate?.rSource === 'watson' ? 'Watson' : 'Standard'}
-          />
+        <section className="stack-3">
+          <div className="row-between">
+            <h2 className="t-title2">Heute</h2>
+            <button
+              className="chip chip--shrink pressable"
+              onClick={() => {
+                haptic('tap');
+                setPickerOpen(true);
+              }}
+            >
+              <Icon name={drink.icon} size={15} />
+              <span className="chip__text">{drink.name}</span>
+            </button>
+          </div>
+          <button className="btn btn--gray btn--block" disabled={!log.length} onClick={() => {
+            haptic('warn');
+            undoLast();
+          }}>
+            Rückgängig
+          </button>
+          {log.length ? (
+            <div className="list">
+              {/* Nach Uhrzeit, nicht nach Eingabe: ein nachgetragener
+                  Eintrag von vorhin gehört nach unten, nicht nach oben. */}
+              {[...log]
+                .sort((a, b) => b.at - a.at)
+                .slice(0, entriesOpen ? log.length : 3)
+                .map((e) => (
+                  <div key={e.id} className="list__item">
+                    <span className="grow">
+                      <span className="t-headline" style={{ display: 'block' }}>
+                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName, e.volumeMl)}
+                      </span>
+                      <span className="t-caption">
+                        {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
+                        {sourceLabel(e.source) ? ` · ${sourceLabel(e.source)}` : ''}
+                      </span>
+                    </span>
+                    {/* Jeder Eintrag einzeln, nicht nur der letzte: der
+                        Fehlgriff von vor einer Stunde ist sonst nicht mehr
+                        zu korrigieren. */}
+                    <button
+                      className="btn btn--plain"
+                      aria-label={`Eintrag ${formatTime(e.at)} entfernen`}
+                      onClick={() => {
+                        haptic('warn');
+                        removeEvent(e.id);
+                      }}
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="notice notice--neutral">
+              Noch nichts getrunken. Trinkansagen aus den Spielen landen automatisch hier.
+            </div>
+          )}
+          {log.length > 3 && (
+            <button
+              className="btn btn--plain"
+              aria-expanded={entriesOpen}
+              onClick={() => {
+                haptic('tap');
+                setEntriesOpen((o) => !o);
+              }}
+            >
+              {entriesOpen ? 'Weniger zeigen' : `Alle Einträge (${log.length})`}
+            </button>
+          )}
+          {(log.length > 0 || nightStartedAt) && (
+            <button
+              className="btn btn--glass btn--block"
+              onClick={() => {
+                haptic('press');
+                setReviewOpen(true);
+              }}
+            >
+              <Icon name="trophy" size={18} /> Abend abschließen
+            </button>
+          )}
         </section>
 
         {series.length > 1 && (
@@ -160,6 +234,8 @@ export function PegelScreen() {
             <BacChart points={series} now={now} target={profile.targetBac} />
           </section>
         )}
+
+        <DriverCard />
 
         {/* Eingeklappt, bis jemand fahren muss: sonst nimmt die Rechnung
             jedem den Platz, der heute gar nicht fährt. */}
@@ -212,75 +288,29 @@ export function PegelScreen() {
 
         <TableTally onAdd={setAddFor} />
 
-        <section className="stack-3">
-          <div className="row-between">
-            <h2 className="t-title2">Trink-Log</h2>
-            <button
-              className="chip chip--shrink pressable"
-              onClick={() => {
-                haptic('tap');
-                setPickerOpen(true);
-              }}
-            >
-              <Icon name={drink.icon} size={15} />
-              <span className="chip__text">{drink.name}</span>
-            </button>
-          </div>
-          <button className="btn btn--gray btn--block" disabled={!log.length} onClick={() => {
-            haptic('warn');
-            undoLast();
-          }}>
-            Rückgängig
+        <section className="card stack-3">
+          <button
+            className="row-between pressable"
+            style={{ width: '100%', textAlign: 'left' }}
+            aria-expanded={calculationOpen}
+            onClick={() => {
+              haptic('tap');
+              setCalculationOpen((o) => !o);
+            }}
+          >
+            <span className="t-upper">So rechnet Pegel</span>
+            <Icon name={calculationOpen ? 'chevronDown' : 'chevronRight'} size={17} />
           </button>
-          {log.length ? (
-            <div className="list">
-              {/* Nach Uhrzeit, nicht nach Eingabe: ein nachgetragener
-                  Eintrag von vorhin gehört nach unten, nicht nach oben. */}
-              {[...log]
-                .sort((a, b) => b.at - a.at)
-                .slice(0, 20)
-                .map((e) => (
-                  <div key={e.id} className="list__item">
-                    <span className="grow">
-                      <span className="t-headline" style={{ display: 'block' }}>
-                        {formatEntry(eventDrink(e, customs), e.sips, e.drinkName, e.volumeMl)}
-                      </span>
-                      <span className="t-caption">
-                        {formatTime(e.at)} · {e.alcoholGrams.toFixed(1)} g
-                        {sourceLabel(e.source) ? ` · ${sourceLabel(e.source)}` : ''}
-                      </span>
-                    </span>
-                    {/* Jeder Eintrag einzeln, nicht nur der letzte: der
-                        Fehlgriff von vor einer Stunde ist sonst nicht mehr
-                        zu korrigieren. */}
-                    <button
-                      className="btn btn--plain"
-                      aria-label={`Eintrag ${formatTime(e.at)} entfernen`}
-                      onClick={() => {
-                        haptic('warn');
-                        removeEvent(e.id);
-                      }}
-                    >
-                      <Icon name="trash" size={16} />
-                    </button>
-                  </div>
-                ))}
+          {calculationOpen && (
+            <div className="statgrid">
+              <Stat label="Reiner Alkohol" value={`${totalG.toFixed(0)} g`} />
+              <Stat label="Standardgläser" value={de(standardDrinks, 1)} />
+              <Stat
+                label="Körperwasser-Anteil"
+                value={estimate ? de(estimate.r, 2) : '–'}
+                hint={`Widmark-Faktor · ${estimate?.rSource === 'watson' ? 'Watson' : 'Standard'} · bleibt auf diesem Handy`}
+              />
             </div>
-          ) : (
-            <div className="notice notice--neutral">
-              Noch nichts getrunken. Trinkansagen aus den Spielen landen automatisch hier.
-            </div>
-          )}
-          {(log.length > 0 || nightStartedAt) && (
-            <button
-              className="btn btn--glass btn--block"
-              onClick={() => {
-                haptic('press');
-                setReviewOpen(true);
-              }}
-            >
-              <Icon name="trophy" size={18} /> Abend abschließen
-            </button>
           )}
         </section>
 

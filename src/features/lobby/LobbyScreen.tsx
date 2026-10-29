@@ -1,6 +1,6 @@
 import { GroupLevel } from './GroupLevel';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   DEFAULT_TARGET_BAC,
   MAX_TARGET_BAC,
@@ -18,7 +18,7 @@ import { haptic } from '../../lib/haptics';
 import { isNativeApp } from '../../lib/platform';
 import { LEGAL } from '../../legal/site';
 import { formatBac } from '../../lib/format';
-import { gamesForGroup } from '../../games/registry';
+import { GAMES, gamesForGroup } from '../../games/registry';
 import type { GamePlayer } from '../../games/types';
 import { GameCard } from '../games/GameCard';
 import { useParty } from '../party/PartyContext';
@@ -31,6 +31,8 @@ import { formatGlassCount, tally } from '../../engine/tally';
 export function LobbyScreen() {
   const party = useParty();
   const nav = useNavigate();
+  const { state } = useLocation();
+  const returnGame = GAMES.find((game) => game.id === state?.from);
   const [joinOpen, setJoinOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<GamePlayer | null>(null);
@@ -43,7 +45,6 @@ export function LobbyScreen() {
   const myLog = usePlayer((s) => s.log);
   const customDrinks = usePlayer((s) => s.customDrinks);
   const lastCode = useApp((s) => s.lastLobbyCode);
-  const markGamePlayed = useApp((s) => s.markGamePlayed);
 
   const online = party.mode === 'online' && !!party.code;
   const players = party.players;
@@ -104,6 +105,14 @@ export function LobbyScreen() {
       />
 
       <div className="stack-6">
+        {returnGame && (
+          <button
+            className="btn btn--plain btn--block"
+            onClick={() => nav(`/spiele/${returnGame.id}`)}
+          >
+            Zurück zu {returnGame.name} ›
+          </button>
+        )}
         {online ? (
           <section className="card card--pad-lg stack-3">
             <div className="t-upper t-center">Lobby-Code</div>
@@ -133,41 +142,37 @@ export function LobbyScreen() {
         ) : (
           <section className="stack-3">
             <h1 className="t-large t-balance">Wie spielt ihr?</h1>
-            <button
-              className="btn btn--brand btn--block btn--lg"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await party.createOnline();
-                  haptic('success');
-                } catch {
-                  /* Fehler steht in party.error */
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? (
-                'Lobby wird erstellt …'
-              ) : (
-                <>
-                  <Icon name="phone" size={19} /> Jeder mit eigenem Handy
-                </>
-              )}
-            </button>
-            <div className="grid-2">
-              <button className="btn btn--glass" onClick={() => setJoinOpen(true)}>
-                <Icon name="qr" size={17} /> Code eingeben
-              </button>
-              <button className="btn btn--glass" onClick={() => setAddOpen(true)}>
-                <Icon name="plus" size={17} /> Mitspieler
+            <div className="lobbychoices">
+              {/* Ohne Lobby ist das der laufende Zustand, keine Aktion: darum
+                  kein Knopf, nur als aktuell markiert. */}
+              <div className="lobbychoice lobbychoice--aktiv" aria-current="true">
+                <Icon name="phone" size={24} />
+                <span className="t-headline">Ein Handy für alle</span>
+                <span className="t-caption">Reihum weitergeben</span>
+              </div>
+              <button
+                className="lobbychoice pressable"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await party.createOnline();
+                    haptic('success');
+                  } catch {
+                    /* Fehler steht in party.error */
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <Icon name="people" size={24} />
+                <span className="t-headline">{busy ? 'Lobby wird erstellt …' : 'Eigene Handys'}</span>
+                <span className="t-caption">Code teilen, jeder spielt mit</span>
               </button>
             </div>
-            <p className="t-caption t-center t-balance">
-              Ohne Lobby läuft alles auf diesem einen Handy. Trag deine Mitspieler ein – dann
-              rechnet die App auch für sie individuell.
-            </p>
+            <button className="btn btn--plain btn--block" onClick={() => setJoinOpen(true)}>
+              Mit Code beitreten ›
+            </button>
             {lastCode && (
               <button
                 className="btn btn--plain btn--block"
@@ -288,32 +293,32 @@ export function LobbyScreen() {
           )}
         </section>
 
-        <section className="stack-3">
-          <h2 className="t-title2">Passt zu euch</h2>
-          {suitable.length ? (
-            // Dasselbe Raster wie auf der Spielewand: Die Kachel ist 3:4 hoch,
-            // untereinander gestapelt fuellt schon eine den halben Bildschirm.
-            <div className="wandraster wandraster--flach">
-              {/* Nur zwei Reihen: Die vollstaendige Auswahl steht einen Tab
-                  weiter, hier geht es um den schnellen Einstieg. */}
-              {suitable.slice(0, 6).map((g) => (
-                <GameCard
-                  key={g.id}
-                  game={g}
-                  onClick={async () => {
-                    markGamePlayed(g.id);
-                    await party.startGame(g.id);
-                    nav('/spiel');
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="notice notice--neutral">
-              Für diese Gruppengröße ist noch nichts dabei. Trag mehr Spieler ein.
-            </div>
-          )}
-        </section>
+        {/* Allein steht der Hinweis schon über der Liste – eine leere
+            Überschrift darunter sagte dasselbe noch einmal. */}
+        {players.length >= 2 && (
+          <section className="stack-3">
+            <h2 className="t-title2">Passt zu euch</h2>
+            {suitable.length ? (
+              // Dasselbe Raster wie auf der Spielewand: Die Kachel ist 3:4 hoch,
+              // untereinander gestapelt fuellt schon eine den halben Bildschirm.
+              <div className="wandraster wandraster--flach">
+                {/* Nur zwei Reihen: Die vollstaendige Auswahl steht einen Tab
+                    weiter, hier geht es um den schnellen Einstieg. */}
+                {suitable.slice(0, 6).map((g) => (
+                  <GameCard
+                    key={g.id}
+                    game={g}
+                    onClick={() => nav(`/spiele/${g.id}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="notice notice--neutral">
+                Für diese Gruppengröße ist noch nichts dabei. Trag mehr Spieler ein.
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <JoinSheet
@@ -523,7 +528,7 @@ function GuestForm({
       </div>
       {age < MIN_AGE_ALCOHOL && (
         <div className="notice notice--neutral">
-          Unter {MIN_AGE_ALCOHOL}: {who} bekommt Aufgaben statt Schlucke.
+          Unter {MIN_AGE_ALCOHOL}: {who} trinkt alkoholfrei mit.
         </div>
       )}
       <div className="field">
@@ -546,7 +551,7 @@ function GuestForm({
             <span className="t-headline" style={{ display: 'block' }}>
               Alkoholfrei mitspielen
             </span>
-            <span className="t-caption">Bekommt Aufgaben statt Schlucke</span>
+            <span className="t-caption">Trinkt alkoholfrei mit</span>
           </span>
           <Toggle checked={alcoholFree} onChange={setDry} label="Alkoholfrei" />
         </div>
@@ -561,7 +566,7 @@ function GuestForm({
         </div>
       </div>
       {alcoholFree ? (
-        <div className="notice notice--neutral">{who} bekommt Aufgaben statt Schlucke.</div>
+        <div className="notice notice--neutral">{who} trinkt alkoholfrei mit.</div>
       ) : (
         <>
           <div className="field">

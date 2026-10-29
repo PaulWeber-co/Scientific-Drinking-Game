@@ -81,3 +81,12 @@ describe('Alkoholfrei und Fahren im Profil', () => {
     expect(screen.queryByText(/Für alkoholfreies Mitspielen brauchst du keine Körperdaten/)).not.toBeInTheDocument();
   });
 });
+
+it('beschriftet den Spitznamen und speichert Änderungen', () => {
+  usePlayer.setState({ profile: { ...defaultProfile(), name: 'Paul' } });
+  renderProfile();
+  const input = screen.getByLabelText('Spitzname');
+  expect(input).toHaveValue('Paul');
+  fireEvent.change(input, { target: { value: 'Lea' } });
+  expect(usePlayer.getState().profile?.name).toBe('Lea');
+});

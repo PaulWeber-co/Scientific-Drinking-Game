@@ -29,7 +29,7 @@ const OVER_LABEL: Record<OverSeverity, string> = {
  */
 function reasonFor(res: SipResult | null): TaskReason | null {
   if (!res || res.sips > 0) return null;
-  if (res.phase === 'blocked') return 'blocked';
+  if (res.phase === 'alcoholFree') return null;
   if (res.phase === 'over') return res.severity === 'water' ? 'water' : null;
   return 'maintaining';
 }
@@ -88,7 +88,7 @@ interface Props {
  * Zahl – auf dem eigenen Gerät berechnet, aus den eigenen Körperdaten.
  */
 export function DrinkCall({ player, baseSips, label, source, compact, resetKey }: Props) {
-  const { logSipsFor, me } = useParty();
+  const { logSipsFor, me, players } = useParty();
   const res = useSipsForPlayer(player, baseSips);
   // Nach dem Eintragen wird die Zahl eingefroren. Sonst rechnet
   // useSipsForPlayer sofort mit dem frischen Log neu und die Karte zeigt
@@ -100,7 +100,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   } | null>(null);
   const round = resetKey ?? '';
   const done = confirmed !== null && confirmed.key === round;
-  const mine = player.id === me.id;
+  const mine = player.id === me.id && !players.some((p) => p.id !== me.id && p.local);
   // Was WIRKLICH auf dem Schirm steht, nicht was gerade gerechnet wird: nach
   // dem Eintragen faellt `res.sips` sofort auf 0, angezeigt bleibt aber die
   // eingefrorene Zahl. Ohne diese Unterscheidung waehlte der Haken darunter
@@ -111,7 +111,7 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
   const confirm = () => {
     if (!res) return;
     haptic('success');
-    logSipsFor(player.id, res.sips, source);
+    logSipsFor(player.id, res.sips, source, { drinkId: res.drinkId });
     setConfirmed({ key: round, sips: res.sips, unit: res.unit });
   };
 
@@ -130,7 +130,6 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
 
   if (shownSips === 0) {
     const severity = res.phase === 'over' ? res.severity : undefined;
-    const blocked = res.phase === 'blocked';
     return (
       <div
         className={`call call--skip ${severity ? `call--${severity}` : ''} ${compact ? 'call--compact' : ''}`}
@@ -139,13 +138,12 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
           <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" /> {mine ? 'Du' : player.name}
         </div>
         <div className="call__big">
-          {blocked ? 'Aufgabe' : severity ? OVER_LABEL[severity] : 'Aussetzen'}
+          {severity ? OVER_LABEL[severity] : 'Aussetzen'}
         </div>
         <div className="t-sub t-balance">{res.hint}</div>
         {task && (
           <div className="call__task">
-            {/* Bei "Aufgabe" steht die Überschrift schon oben. */}
-            {!blocked && <div className="t-upper">Stattdessen</div>}
+            <div className="t-upper">Stattdessen</div>
             <p className="call__tasktext t-balance">{task.text}</p>
           </div>
         )}
@@ -157,8 +155,8 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
     return (
       <div className={`callrow ${done ? 'call--done' : ''}`}>
         <Avatar name={player.name} color={player.color} photo={player.photo} size="sm" />
-        <span className="grow">
-          <span className="callrow__name">{mine ? 'Du' : player.name}</span>
+        <span className="callrow__name grow">
+          <span>{mine ? 'Du' : player.name}</span>
           {label && <span className="t-caption"> · {label}</span>}
         </span>
         <span className="callrow__num t-mono-num">
@@ -172,7 +170,13 @@ export function DrinkCall({ player, baseSips, label, source, compact, resetKey }
           aria-label={`${player.name} hat getrunken`}
           onClick={confirm}
         >
-          <Icon name="check" size={16} strokeWidth={2.2} />
+          {done ? (
+            <>
+              <Icon name="check" size={16} strokeWidth={2.2} /> Eingetragen
+            </>
+          ) : (
+            'Eintragen'
+          )}
         </button>
       </div>
     );

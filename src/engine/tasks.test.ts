@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { seenKey } from '../lib/seen';
-import { TASKS, taskFor, type TaskContext, type TaskFrequency, type TaskReason } from './tasks';
+import { TASKS, taskFor, type TaskContext, type TaskReason } from './tasks';
 
 const ctx = (patch: Partial<TaskContext> = {}): TaskContext => ({
-  reason: 'blocked',
+  reason: 'maintaining',
   seed: 'p1|runde-1',
   spicy: false,
-  frequency: 'manchmal',
+  frequency: 'immer',
   seen: {},
   ...patch,
 });
@@ -47,16 +47,6 @@ describe('Katalog', () => {
 });
 
 describe('Wer eine Aufgabe bekommt', () => {
-  it('gibt Gesperrten immer eine – auch wenn Aufgaben abgeschaltet sind', () => {
-    // Fahrer, unter 18 und alkoholfrei bekommen den ganzen Abend keine
-    // Schlucke. Fuer sie ist die Aufgabe das Spiel, nicht die Zugabe.
-    for (const frequency of ['aus', 'manchmal', 'immer'] as TaskFrequency[]) {
-      for (const seed of seeds.slice(0, 50)) {
-        expect(taskFor(ctx({ reason: 'blocked', frequency, seed })), frequency).not.toBeNull();
-      }
-    }
-  });
-
   it('schweigt beim Aussetzen, wenn der Schalter auf „Nie" steht', () => {
     for (const reason of ['maintaining', 'water'] as TaskReason[]) {
       for (const seed of seeds.slice(0, 50)) {
@@ -97,19 +87,19 @@ describe('Welche Aufgabe', () => {
     expect(texte.size).toBeGreaterThan(1);
   });
 
-  it('gibt Gesperrten überwiegend Einfluss, Aussetzern überwiegend etwas zu tun', () => {
+  it('gibt Aussetzern überwiegend etwas zu tun, ab und zu Einfluss', () => {
     const anteil = (reason: TaskReason, kind: 'share' | 'action') => {
-      const alle = seeds.map((seed) => taskFor(ctx({ reason, frequency: 'immer', seed })));
+      const alle = seeds.map((seed) => taskFor(ctx({ reason, seed })));
       return alle.filter((t) => t?.kind === kind).length / alle.length;
     };
     // Je Prüfzeile eine Ober- UND eine Untergrenze: „überwiegend" allein
     // bliebe auch dann grün, wenn die Bevorzugung zur Ausschließlichkeit
     // würde und die andere Sorte nie käme.
-    expect(anteil('blocked', 'share')).toBeGreaterThan(0.6);
-    expect(anteil('blocked', 'share')).toBeLessThan(0.9);
-    expect(anteil('maintaining', 'action')).toBeGreaterThan(0.6);
-    expect(anteil('maintaining', 'action')).toBeLessThan(0.9);
-    expect(anteil('blocked', 'action')).toBeGreaterThan(0.1);
+    for (const reason of ['maintaining', 'water'] as TaskReason[]) {
+      expect(anteil(reason, 'action'), reason).toBeGreaterThan(0.6);
+      expect(anteil(reason, 'action'), reason).toBeLessThan(0.9);
+      expect(anteil(reason, 'share'), reason).toBeGreaterThan(0.1);
+    }
   });
 
   it('hält Spicy-Aufgaben zurück, solange der Schalter aus ist', () => {
@@ -134,16 +124,18 @@ describe('Gedächtnis', () => {
     const seen: Record<string, number> = {};
     let cursor = 0;
     const gezogen: string[] = [];
-    // Obergrenze ist der KLEINERE der beiden Töpfe: bei 'blocked' fallen rund
-    // drei Viertel der Züge auf 'share'. Zöge man so oft wie es Aufgaben
-    // insgesamt gibt, wäre der share-Topf zu Recht durch und der Test würde
-    // eine erlaubte Wiederholung als Fehler melden.
-    const zuege = TASKS.filter((t) => t.kind === 'share' && !t.spicy).length;
+    // Obergrenze ist der KLEINERE der beiden Töpfe: rund drei Viertel der
+    // Züge fallen auf 'action'. Zöge man so oft wie es Aufgaben insgesamt
+    // gibt, wäre ein Topf zu Recht durch und der Test würde eine erlaubte
+    // Wiederholung als Fehler melden.
+    const topf = (kind: 'share' | 'action') =>
+      TASKS.filter((t) => t.kind === kind && !t.spicy).length;
+    const zuege = Math.min(topf('share'), topf('action'));
     // Untergrenze: schrumpfte der Topf auf null, liefe die Schleife nicht und
     // beide Zusicherungen unten wären 0 === 0 – grün ohne eine echte Prüfung.
     expect(zuege).toBeGreaterThan(10);
     for (let i = 0; i < zuege; i++) {
-      const task = taskFor(ctx({ reason: 'blocked', seed: `p1|runde-${i}`, seen }));
+      const task = taskFor(ctx({ seed: `p1|runde-${i}`, seen }));
       expect(task, `Zug ${i} lieferte keine Aufgabe`).not.toBeNull();
       gezogen.push(task!.text);
       seen[seenKey(task!.text)] = ++cursor;
@@ -155,7 +147,7 @@ describe('Gedächtnis', () => {
   it('macht weiter, wenn alles gesehen ist, statt nichts mehr zu liefern', () => {
     const seen: Record<string, number> = {};
     TASKS.forEach((t, i) => (seen[seenKey(t.text)] = i + 1));
-    expect(taskFor(ctx({ reason: 'blocked', seen }))).not.toBeNull();
+    expect(taskFor(ctx({ seen }))).not.toBeNull();
   });
 
   it('nimmt danach das am längsten Zurückliegende', () => {
@@ -163,7 +155,7 @@ describe('Gedächtnis', () => {
     // Nummern in Katalogreihenfolge: der erste Eintrag jeder Sorte ist damit
     // der am längsten zurückliegende.
     TASKS.forEach((t, i) => (seen[seenKey(t.text)] = i + 1));
-    const task = taskFor(ctx({ reason: 'blocked', seed: 'p1|runde-1', seen }));
+    const task = taskFor(ctx({ seed: 'p1|runde-1', seen }));
     expect(task).not.toBeNull();
     // Ohne Fallunterscheidung: geprüft wird gegen die Sorte, die tatsächlich
     // gezogen wurde – sonst liefe der Test bei der anderen Sorte leer durch.

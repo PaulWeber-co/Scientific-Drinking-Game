@@ -128,6 +128,18 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           declared: {},
         };
       }
+      case 'skip': {
+        if (state.phase !== 'card' || !config.skipLabel) return state;
+        const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
+        return {
+          ...state,
+          drawn: deck[0] ?? null,
+          deck: deck.slice(1),
+          outcome: null,
+          winner: null,
+          declared: {},
+        };
+      }
       case 'draw': {
         const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
         return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card', declared: {} };
@@ -422,7 +434,26 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
             >
               {config.resolveLabel ?? 'Erledigt'}
             </button>
-            {config.refuseLabel && (
+            {config.skipLabel ? (
+              <div className="grid-2">
+                <button
+                  className="btn btn--glass btn--stack"
+                  onClick={() => send({ type: 'skip' })}
+                >
+                  <span>{config.skipLabel}</span>{' '}
+                  <span className="t-caption">kostet nichts</span>
+                </button>
+                {config.refuseLabel && (
+                  <button
+                    className="btn btn--glass btn--stack"
+                    onClick={() => send({ type: 'resolve', outcome: 'refused' })}
+                  >
+                    <span>{config.refuseLabel}</span>{' '}
+                    <span className="t-caption">Strafschlucke</span>
+                  </button>
+                )}
+              </div>
+            ) : config.refuseLabel && (
               <button
                 className="btn btn--glass btn--block"
                 onClick={() => send({ type: 'resolve', outcome: 'refused' })}

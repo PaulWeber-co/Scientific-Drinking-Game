@@ -13,7 +13,7 @@ import {
   OVER_STOP_BAC,
   OVER_TOLERANCE_BAC,
 } from './constants';
-import { alcoholPerSip, sipUnit } from './drinks';
+import { alcoholPerSip, findDrink, sipUnit } from './drinks';
 import type {
   BacEstimate,
   DrinkDefinition,
@@ -57,22 +57,25 @@ export function personalSips(ctx: SipContext): SipResult {
   const now = ctx.now ?? Date.now();
   const unit = (n: number) => sipUnit(drink, n);
 
-  const blockedReason = profile.designatedDriver
-    ? 'Du fährst heute. Für dich gibt es die Aufgabe statt der Schlucke.'
+  const alcoholFreeReason = profile.designatedDriver
+    ? 'Du fährst heute – trink alkoholfrei mit.'
     : profile.age < MIN_AGE_ALCOHOL
-      ? `Unter ${MIN_AGE_ALCOHOL}: für dich gibt es die Aufgabe statt der Schlucke.`
+      ? `Unter ${MIN_AGE_ALCOHOL}: trink alkoholfrei mit.`
       : profile.alcoholFree
-        ? 'Alkoholfrei – du machst stattdessen die Aufgabe.'
+        ? 'Alkoholfrei – trink mit.'
         : drink.abvPercent <= 0
-          ? 'Alkoholfreies Getränk – für dich zählt die Aufgabe.'
+          ? 'Alkoholfreies Getränk – trink mit.'
           : null;
 
-  if (blockedReason) {
+  if (alcoholFreeReason) {
+    const soft = findDrink('soft');
+    const sips = baseSips > 0 ? Math.min(MAX_SIPS_PER_TURN, Math.max(1, Math.round(baseSips))) : 0;
     return {
-      sips: 0,
-      phase: 'blocked',
-      hint: blockedReason,
-      unit: unit(0),
+      sips,
+      phase: 'alcoholFree',
+      drinkId: soft.id,
+      hint: sips > 0 ? alcoholFreeReason : 'Diesmal nichts zu trinken.',
+      unit: sipUnit(soft, sips),
       alcoholGrams: 0,
     };
   }

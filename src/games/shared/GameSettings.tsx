@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Sheet, Slider, Toggle } from '../../components/ui';
 import { MAX_TARGET_BAC, MIN_TARGET_BAC } from '../../engine/constants';
@@ -7,7 +6,7 @@ import { formatBac } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
 import { useApp } from '../../store/app';
 import type { TaskFrequency } from '../../engine/tasks';
-import { useCurrentDrink, usePlayer } from '../../store/player';
+import { usePlayer } from '../../store/player';
 import type { Heat } from '../card-engine/types';
 
 export interface HeatControl {
@@ -45,26 +44,15 @@ const TASK_OPTIONS: { id: TaskFrequency; label: string }[] = [
   { id: 'immer', label: 'Immer' },
 ];
 
-export function GameSettings({ heat, spicy }: Props) {
-  const [open, setOpen] = useState(false);
-  const drink = useCurrentDrink();
-
+/** Das Sheet öffnet das Mehr-Menü im Spielkopf. */
+export function GameSettings({ heat, spicy, open, onClose }: Props & {
+  open: boolean;
+  onClose: () => void;
+}) {
   return (
-    <>
-      <button
-        className="game__settings hit"
-        aria-label={`Einstellungen. Getränk: ${drink.name}`}
-        onClick={() => {
-          haptic('tap');
-          setOpen(true);
-        }}
-      >
-        <Icon name="settings" size={19} />
-      </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Deine Einstellungen">
-        <SettingsBody heat={heat} spicy={spicy} />
-      </Sheet>
-    </>
+    <Sheet open={open} onClose={onClose} title="Deine Einstellungen">
+      <SettingsBody heat={heat} spicy={spicy} />
+    </Sheet>
   );
 }
 
@@ -86,7 +74,7 @@ function SettingsBody({ heat, spicy }: Props) {
     <div className="stack">
       {profile.alcoholFree ? (
         <div className="notice notice--neutral">
-          Du spielst alkoholfrei und bekommst Aufgaben statt Schlucke.
+          Du spielst alkoholfrei und trinkst die Ansagen alkoholfrei mit.
         </div>
       ) : (
         <>
@@ -131,7 +119,7 @@ function SettingsBody({ heat, spicy }: Props) {
             <span className="t-headline" style={{ display: 'block' }}>
               Alkoholfrei weiterspielen
             </span>
-            <span className="t-caption">Du bekommst Aufgaben statt Schlucke</span>
+            <span className="t-caption">Du trinkst alkoholfrei mit</span>
           </span>
           <Toggle
             checked={profile.alcoholFree}
