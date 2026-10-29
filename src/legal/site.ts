@@ -91,7 +91,7 @@ export const LEGAL: LegalConfig = {
     zip: '22927',
     city: 'Großhansdorf',
     country: 'Deutschland',
-    email: 'PaulWeber@protonmail.ch',
+    email: 'scientificdrinkinggame@gmail.com',
     phone: undefined,
   },
 
