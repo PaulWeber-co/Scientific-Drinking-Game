@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/icons';
 import { haptic, hapticRamp } from '../../lib/haptics';
+import { motionReduced } from '../../lib/motion';
 import { renderMeme, shareMeme } from './render';
 import { templateOf } from './templates';
 
@@ -128,9 +129,7 @@ export function CountTo({
 }) {
   const [value, setValue] = useState(from);
   useEffect(() => {
-    const still =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const still = motionReduced();
     if (from === to || still || typeof requestAnimationFrame === 'undefined') {
       setValue(to);
       return;

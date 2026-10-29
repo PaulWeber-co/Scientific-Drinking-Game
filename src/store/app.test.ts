@@ -33,6 +33,11 @@ describe('Migration der App-Einstellungen', () => {
     expect(migrateApp(alt, 4).sound).toBe(true);
   });
 
+  it('gibt Bestandsnutzern volle Bewegung', () => {
+    const alt = { theme: 'dark', gameLength: 'kurz', taskOnSkip: 'aus', sound: true } as unknown;
+    expect(migrateApp(alt, 5).calmMotion).toBe(false);
+  });
+
   it('lässt einen aktuellen Stand unangetastet', () => {
     // Gegenprobe: eine Migration, die immer schreibt, wuerde die Wahl des
     // Nutzers bei jedem Start ueberbuegeln.
@@ -41,11 +46,13 @@ describe('Migration der App-Einstellungen', () => {
       gameLength: 'kurz',
       taskOnSkip: 'aus',
       sound: false,
+      calmMotion: true,
     } as unknown;
-    const neu = migrateApp(aktuell, 5);
+    const neu = migrateApp(aktuell, 6);
     expect(neu.taskOnSkip).toBe('aus');
     expect(neu.gameLength).toBe('kurz');
     expect(neu.sound).toBe(false);
+    expect(neu.calmMotion).toBe(true);
   });
 });
 

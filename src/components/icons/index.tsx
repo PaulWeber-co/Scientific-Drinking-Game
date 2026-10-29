@@ -10,7 +10,7 @@ import type { CSSProperties, ReactNode } from 'react';
  */
 export type IconName =
   // Navigation
-  | 'home' | 'games' | 'people' | 'chart' | 'person' | 'settings'
+  | 'more' | 'home' | 'games' | 'people' | 'chart' | 'person' | 'settings'
   // Aktionen
   | 'plus' | 'minus' | 'close' | 'check' | 'chevronRight' | 'chevronLeft' | 'chevronUp' | 'chevronDown'
   | 'share' | 'undo' | 'trash' | 'refresh' | 'phone' | 'qr'
@@ -38,6 +38,7 @@ const P: Record<IconName, ReactNode> = {
   people: <><circle cx="9" cy="8" r="3.1" /><path d="M3.4 19.4c.5-2.9 2.8-4.7 5.6-4.7s5.1 1.8 5.6 4.7" /><path d="M16.2 6.2a3 3 0 0 1 0 5.9" /><path d="M17.6 14.9c1.7.6 2.8 2 3.1 4.1" /></>,
   chart: <><path d="M3.4 20.2h17.2" /><path d="M4.4 16.2c2.6 0 3.4-7.4 6-7.4s3 5.2 5 5.2 2.4-4.4 4.2-6.6" /></>,
   person: <><circle cx="12" cy="8.2" r="3.6" /><path d="M4.6 20.4c.7-3.8 3.6-6.1 7.4-6.1s7 2.3 7.7 6.1" /></>,
+  more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
   settings: <><circle cx="12" cy="12" r="2.9" /><path d="M12 2.8v2.4M12 18.8v2.4M4.5 12H2.1M21.9 12h-2.4M6.7 6.7 5 5M19 19l-1.7-1.7M6.7 17.3 5 19M19 5l-1.7 1.7" /></>,
 
   plus: <path d="M12 5.2v13.6M5.2 12h13.6" />,

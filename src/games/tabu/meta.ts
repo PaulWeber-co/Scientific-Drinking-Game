@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'ban',
   accent: 'var(--indigo)',
   image,
+  world: '#2a1408',
+  ambient: { kind: 'lamp', x: 0.7, y: 0.07 },
   minPlayers: 4,
   maxPlayers: 16,
   duration: '15-25 Min',

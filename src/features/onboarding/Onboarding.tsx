@@ -20,7 +20,7 @@ type Step = (typeof STEPS)[number];
 type PlayMode = 'alcohol' | 'alcoholFree' | 'driver';
 const PLAY_MODES = [
   { value: 'alcohol', label: 'Mit Alkohol', description: 'Ansagen passend zu dir und deinem Getränk', icon: 'beerMug' },
-  { value: 'alcoholFree', label: 'Alkoholfrei', description: 'Aufgaben statt Schlucken · ohne Körperdaten', icon: 'water' },
+  { value: 'alcoholFree', label: 'Alkoholfrei', description: 'Ansagen ohne Alkohol mittrinken · ohne Körperdaten', icon: 'water' },
   { value: 'driver', label: 'Ich fahre', description: 'Alkoholfrei · für deine Runde sichtbar', icon: 'car' },
 ] as const;
 

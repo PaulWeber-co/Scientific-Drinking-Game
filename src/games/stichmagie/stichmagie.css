@@ -1358,3 +1358,33 @@
     filter: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .sm-play,
+[data-motion='reduced'] .sm-hand__card,
+[data-motion='reduced'] .sm-flip,
+[data-motion='reduced'] .sm-hero__card,
+[data-motion='reduced'] .sm-spark,
+[data-motion='reduced'] .sm-seat--turn::after,
+[data-motion='reduced'] .sm-podium__place,
+[data-motion='reduced'] .sm-podium__crown,
+[data-motion='reduced'] .sm-banner,
+[data-motion='reduced'] .sm-row,
+[data-motion='reduced'] .sm-play--takeable .smcard,
+[data-motion='reduced'] .sm-burst,
+[data-motion='reduced'] .sm-hand--active .sm-hand__area::before,
+[data-motion='reduced'] .sm-hand__card--fresh .smcard::after {
+  animation: none !important;
+}
+[data-motion='reduced'] .sm-splash {
+  animation-duration: 0.01s !important;
+  animation-delay: 1.4s !important;
+}
+[data-motion='reduced'] .sm-hand__card {
+  transition: none;
+}
+[data-motion='reduced'] .sm-felt--gone .sm-play,
+[data-motion='reduced'] .sm-felt--poof .sm-play {
+  transition: opacity 0.2s;
+  transform: none;
+  filter: none;
+}

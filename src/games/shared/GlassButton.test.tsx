@@ -66,9 +66,13 @@ afterEach(() => {
 });
 
 describe('Glas-Knopf im Spielrahmen', () => {
-  it.each(['online', 'local'] as const)('öffnet den sichtbaren erweiterten Eintrag auch %s ohne langen Druck', (mode) => {
+  it.each(['online', 'local'] as const)('öffnet den erweiterten Eintrag mit langem Druck auch %s', (mode) => {
     mount({ mode });
-    fireEvent.click(screen.getByRole('button', { name: 'Anderes Getränk oder andere Menge eintragen' }), { detail: 0 });
+    vi.useFakeTimers();
+    fireEvent.pointerDown(glas());
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerUp(glas());
+    vi.useRealTimers();
     expect(screen.getByRole('dialog', { name: 'Getränk eintragen' })).toBeInTheDocument();
     expect(logSipsFor).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '0,5 l' }));

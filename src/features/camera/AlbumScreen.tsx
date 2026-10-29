@@ -103,10 +103,15 @@ export function AlbumScreen() {
         {running && <FilmSetup />}
 
         {!photos.length && (
-          <div className="notice notice--neutral">
-            Noch kein Bild geschossen. Was hier landet, siehst du erst am nächsten Morgen – wie
-            bei einer Einwegkamera.
-          </div>
+          <section className="album-empty stack-6">
+            <div className="photoframe photoframe--latent album-empty__print" aria-hidden="true" />
+            <div className="stack-3">
+              <h2 className="t-title2">Hier sammelt sich euer Abend</h2>
+              <p className="t-sub">
+                Was hier landet, siehst du erst am nächsten Morgen – wie bei einer Einwegkamera.
+              </p>
+            </div>
+          </section>
         )}
 
         {gruppen.map(([nightId, bilder]) => (

@@ -2,6 +2,7 @@
 /* Schwarzer Grund: Die Spielfarbe steckt im Abzug, nicht im Rahmen. Ein
    zweites Mal eingefaerbt wuerde beides gegeneinander arbeiten. */
 .game {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -43,38 +44,6 @@
   gap: var(--s-1);
   justify-content: flex-end;
   flex-shrink: 0;
-}
-@container gameframe (max-width: 520px) {
-  .game__bar-content {
-    display: grid;
-    grid-template-columns: 44px 44px minmax(0, 1fr);
-    row-gap: var(--s-1);
-  }
-  .game__titles {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-  .game__titles .t-headline {
-    display: block;
-    overflow-wrap: anywhere;
-  }
-  .game__titles .t-caption {
-    overflow-wrap: anywhere;
-  }
-  .game__quit {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .game__camera {
-    grid-column: 2;
-    grid-row: 2;
-  }
-  .game__action {
-    grid-column: 3;
-    grid-row: 2;
-    min-width: 0;
-    flex-wrap: wrap;
-  }
 }
 .game__settings {
   /* Gleiche Zielflaeche wie der Beenden-Knopf gegenueber. */
@@ -848,6 +817,18 @@
     opacity: 0;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .bombe__zittern,
+[data-motion='reduced'] .bombe__koerper,
+[data-motion='reduced'] .bombe__glut,
+[data-motion='reduced'] .bombe__funke-kern,
+[data-motion='reduced'] .bombe__funke-hof,
+[data-motion='reduced'] .bombe__splitter {
+  animation: none;
+}
+[data-motion='reduced'] .bombe__splitter {
+  opacity: 0;
+}
 
 /* ---------- Top Ten: geheime Zahl ---------- */
 .secret {
@@ -1154,6 +1135,10 @@
     animation: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .peekcard__label svg {
+  animation: none;
+}
 /* Solange der Deckel oben ist, tritt der Rest des Bildschirms zurueck. Das
    ist kein Schmuck: bei einem Geheimwort sieht der Nachbar dadurch weniger,
    und der Blick des Lesenden liegt dort, wo er hingehoert. */
@@ -1442,6 +1427,13 @@
     display: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .boom__ball,
+[data-motion='reduced'] .boom__ring,
+[data-motion='reduced'] .boom__shard,
+[data-motion='reduced'] .boom__rauch {
+  display: none;
+}
 
 /* Bildschirm wackelt kurz mit */
 .shake {
@@ -1497,10 +1489,15 @@
   animation: rise var(--dur) var(--ease-emph) both;
 }
 .callrow__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--t-subhead);
   font-weight: 650;
 }
 .callrow__num {
+  flex-shrink: 0;
   display: flex;
   align-items: baseline;
   gap: 4px;
@@ -1515,7 +1512,9 @@
   letter-spacing: 0;
 }
 .callrow .btn--sm {
-  min-width: 44px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: 112px;
   padding: 0 var(--s-2);
 }
 
@@ -1762,6 +1761,11 @@
     display: none;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .game .btn--brand::after {
+  animation: none !important;
+  display: none;
+}
 
 /* ---------- Ring of Fire: Kranz und Becher ----------
    `--kranz` MUSS eine aufgeloeste Laenge sein. Der erste Entwurf hatte hier
@@ -1977,6 +1981,10 @@
     animation-delay: 0ms;
   }
 }
+/* Derselbe Block fuer den Schalter "Bewegung reduzieren" in der App. */
+[data-motion='reduced'] .kings-zug--los .playcard {
+  animation-delay: 0ms;
+}
 
 /* --- Lückenfüller ---------------------------------------------------- */
 
@@ -2127,4 +2135,57 @@
   height: 10px;
   border-radius: 2px;
   background: linear-gradient(135deg, var(--brand-2), var(--brand));
+}
+
+.game-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.game-menu__items {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: min(290px, calc(100vw - 24px));
+  margin-top: var(--s-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-lg);
+  color: var(--label);
+  overflow: hidden;
+}
+.game-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 0;
+}
+.game-menu__item + .game-menu__item {
+  border-top: 1px solid var(--hairline);
+}
+.game-menu__item:focus-visible,
+.game-menu__item:hover {
+  background: var(--surface-2);
+}
+.game-menu__detail {
+  display: block;
+  color: var(--label-2);
+  font-size: var(--t-caption);
+}
+
+/* Zwei gleich große Knöpfe mit Unterzeile: bricht die Beschriftung des einen
+   um, stehen die Unterzeilen trotzdem auf einer Linie. */
+.btn--stack {
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2px;
+  padding-block: var(--s-2);
+  white-space: normal;
 }

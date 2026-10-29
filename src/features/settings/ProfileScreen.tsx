@@ -58,7 +58,9 @@ export function ProfileScreen() {
             onPhoto={(photo) => patch({ photo })}
             onShared={(sharePhoto) => patch({ sharePhoto })}
           />
+          <label className="list-header t-upper" htmlFor="profile-name">Spitzname</label>
           <input
+            id="profile-name"
             className="input input--center"
             value={profile.name}
             maxLength={16}
@@ -144,7 +146,7 @@ export function ProfileScreen() {
                 <span className="t-headline" style={{ display: 'block' }}>
                   Alkoholfrei mitspielen
                 </span>
-                <span className="t-caption">Du bekommst Aufgaben statt Schlucken</span>
+                <span className="t-caption">Du trinkst alkoholfrei mit</span>
               </span>
               <Toggle
                 checked={profile.alcoholFree}
@@ -208,6 +210,22 @@ export function ProfileScreen() {
                 onChange={() => app.toggleSound()}
                 label="Töne"
                 describedBy="ton-hinweis"
+              />
+            </div>
+            <div className="list__item">
+              <span className="grow">
+                <span className="t-headline" style={{ display: 'block' }}>
+                  Bewegung reduzieren
+                </span>
+                <span className="t-caption" id="bewegung-hinweis">
+                  Hält Glas, Fotos und Effekte still. Hilft auf älteren Handys.
+                </span>
+              </span>
+              <Toggle
+                checked={app.calmMotion}
+                onChange={() => app.toggleCalmMotion()}
+                label="Bewegung reduzieren"
+                describedBy="bewegung-hinweis"
               />
             </div>
             <div className="list__item">

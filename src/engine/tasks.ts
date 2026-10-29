@@ -4,10 +4,8 @@ import { freshestFirst, seenKey } from '../lib/seen';
 /**
  * Aufgaben für die Runden ohne Schlucke.
  *
- * Die App verspricht an sieben Stellen „Aufgaben statt Schlucke" – für
- * Fahrer, unter 18 und alkoholfrei. Bis hierher war das nur eine
- * Überschrift. Dazu kommt der häufigste Fall überhaupt: ab der zweiten
- * Stunde sind je nach Getränk 51–86 % aller Ansagen ein Aussetzer.
+ * Der häufigste Fall überhaupt: ab der zweiten Stunde sind je nach Getränk
+ * 51–86 % aller Ansagen ein Aussetzer.
  *
  * Zwei Sorten, weil die beiden Lagen verschieden sind:
  *  - `share`  gibt Macht ab: wer nicht trinkt, bestimmt über die Runde.
@@ -22,9 +20,9 @@ import { freshestFirst, seenKey } from '../lib/seen';
 export type TaskKind = 'share' | 'action';
 
 /** Warum es gerade keine Schlucke gibt. Leitet sich aus `SipResult` ab. */
-export type TaskReason = 'blocked' | 'maintaining' | 'water';
+export type TaskReason = 'maintaining' | 'water';
 
-/** Wie oft es beim Aussetzen eine Aufgabe gibt. Gesperrte bekommen immer eine. */
+/** Wie oft es beim Aussetzen eine Aufgabe gibt. */
 export type TaskFrequency = 'aus' | 'manchmal' | 'immer';
 
 export interface TaskDef {
@@ -50,24 +48,17 @@ export interface TaskContext {
 /**
  * Die Aufgabe für diese Ansage – oder `null`, wenn es diesmal keine gibt.
  *
- * Gesperrte Spieler bekommen immer eine: für sie ist es der ganze Abend.
- * Beim Aussetzen entscheidet die Einstellung, bei „manchmal" etwa jedes
- * zweite Mal. Alles hängt am Seed, nichts an `Math.random` – die Auswahl
- * läuft in einer Komponente und muss über Re-Render hinweg stehen bleiben.
+ * Die Einstellung entscheidet, bei „manchmal" etwa jedes zweite Mal. Alles
+ * hängt am Seed, nichts an `Math.random` – die Auswahl läuft in einer
+ * Komponente und muss über Re-Render hinweg stehen bleiben.
  */
 export function taskFor(ctx: TaskContext): TaskDef | null {
-  if (ctx.reason !== 'blocked') {
-    if (ctx.frequency === 'aus') return null;
-    if (ctx.frequency === 'manchmal' && hash32(`${ctx.seed}·ob`) % 2 === 0) return null;
-  }
+  if (ctx.frequency === 'aus') return null;
+  if (ctx.frequency === 'manchmal' && hash32(`${ctx.seed}·ob`) % 2 === 0) return null;
 
-  // Wer gesperrt ist, sitzt den ganzen Abend daneben und bekommt deshalb
-  // bevorzugt Einfluss auf die Runde. Wer nur gerade über dem Pegel liegt,
-  // ist gleich wieder dabei – für den reicht etwas zu tun. „Bevorzugt"
-  // heißt drei von vier Mal, sonst wäre es zwei getrennte Kataloge.
-  const preferred: TaskKind = ctx.reason === 'blocked' ? 'share' : 'action';
-  const kind: TaskKind =
-    hash32(`${ctx.seed}·art`) % 4 === 0 ? (preferred === 'share' ? 'action' : 'share') : preferred;
+  // Wer gerade über dem Pegel liegt, ist gleich wieder dabei – meist reicht
+  // etwas zu tun. Jedes vierte Mal bestimmt er stattdessen über die Runde.
+  const kind: TaskKind = hash32(`${ctx.seed}·art`) % 4 === 0 ? 'share' : 'action';
 
   const pool = TASKS.filter((t) => t.kind === kind && (ctx.spicy || !t.spicy));
   const varied = shuffle(pool, mulberry32(hash32(ctx.seed)));

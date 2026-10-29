@@ -5,6 +5,8 @@ import type { GamePlayer } from '../../games/types';
 import { useApp } from '../../store/app';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
+import { LobbyScreen } from '../lobby/LobbyScreen';
+import { GAMES } from '../../games/registry';
 import { GameDetail, GamesScreen } from './GamesScreen';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
@@ -21,7 +23,7 @@ function mount(count: number, path = '/spiele/top-ten') {
         <Routes>
           <Route path="/spiele" element={<GamesScreen />} />
           <Route path="/spiele/:id" element={<GameDetail />} />
-          <Route path="/lobby" element={<p>Runde bearbeiten</p>} />
+          <Route path="/lobby" element={<LobbyScreen />} />
           <Route path="/spiel" element={<p>Spiel gestartet</p>} />
         </Routes>
       </PartyCtx.Provider>
@@ -48,7 +50,7 @@ describe('Spielergrenzen in der Spieleauswahl', () => {
     expect(screen.queryByRole('button', { name: "Los geht's" })).toBeNull();
     expect(screen.getByText(/Top Ten ist für höchstens 10 Leute/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Runde anpassen' }));
-    expect(screen.getByText('Runde bearbeiten')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zurück zu Top Ten ›' })).toBeInTheDocument();
     expect(startGame).not.toHaveBeenCalled();
   });
 
@@ -58,4 +60,27 @@ describe('Spielergrenzen in der Spieleauswahl', () => {
     expect(startGame).toHaveBeenCalledExactlyOnceWith('top-ten');
     expect(await screen.findByText('Spiel gestartet')).toBeInTheDocument();
   });
+});
+
+
+it.each(['Leute hinzufügen', '1 von 2 Spielern'])('kehrt nach %s zur Spielseite zurück', (label) => {
+  const startGame = mount(1, '/spiele/kings-cup');
+  fireEvent.click(screen.getByRole('button', { name: label }));
+  fireEvent.click(screen.getByRole('button', { name: 'Zurück zu Ring of Fire ›' }));
+  expect(screen.getByRole('heading', { name: 'Ring of Fire' })).toBeInTheDocument();
+  expect(startGame).not.toHaveBeenCalled();
+});
+
+it('zeigt den Kurztext und öffnet die Regeln über den beschrifteten Knopf', () => {
+  mount(2, '/spiele/kings-cup');
+  expect(screen.getByText(GAMES.find((game) => game.id === 'kings-cup')!.tagline)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Regeln' }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+});
+
+it('zeigt die Anzahl der Spiele und ihre Personengrenzen', () => {
+  mount(2, '/spiele');
+  const min = Math.min(...GAMES.map((game) => game.minPlayers));
+  const max = Math.max(...GAMES.map((game) => game.maxPlayers));
+  expect(screen.getByText(`${GAMES.length} Spiele · ${min}–${max} Personen`)).toBeVisible();
 });

@@ -209,37 +209,37 @@ describe('personalSips', () => {
     expect(res.sips).toBe(0);
   });
 
-  it('gibt einem designierten Fahrer nie Schlucke', () => {
+  it('gibt einem designierten Fahrer alkoholfreie Schlucke', () => {
     const res = personalSips({
       profile: { ...max, designatedDriver: true },
       drink: beer,
       events: [],
       baseSips: 6,
     });
-    expect(res.sips).toBe(0);
-    expect(res.phase).toBe('blocked');
+    expect(res.sips).toBeGreaterThan(0);
+    expect(res.phase).toBe('alcoholFree');
     expect(res.hint).toMatch(/f[äa]hrst/i);
   });
 
-  it('blockt bei alkoholfreiem Modus komplett', () => {
+  it('lässt im alkoholfreien Modus mittrinken', () => {
     const res = personalSips({
       profile: { ...max, alcoholFree: true },
       drink: beer,
       events: [],
       baseSips: 5,
     });
-    expect(res.sips).toBe(0);
-    expect(res.phase).toBe('blocked');
+    expect(res.sips).toBeGreaterThan(0);
+    expect(res.phase).toBe('alcoholFree');
   });
 
-  it('blockt unter 18', () => {
+  it('lässt unter 18 alkoholfrei mittrinken', () => {
     const res = personalSips({ profile: { ...max, age: 17 }, drink: beer, events: [], baseSips: 3 });
-    expect(res.phase).toBe('blocked');
+    expect(res.phase).toBe('alcoholFree');
     // Der Hinweis muss den echten Grund nennen – "alkoholfrei" waere gelogen.
     expect(res.hint).toMatch(/18/);
   });
 
-  it('nennt beim Blocken den richtigen Grund', () => {
+  it('nennt beim alkoholfreien Mittrinken den richtigen Grund', () => {
     const call = (patch: Partial<typeof max>, drinkId = 'beer-pils') =>
       personalSips({
         profile: { ...max, ...patch },

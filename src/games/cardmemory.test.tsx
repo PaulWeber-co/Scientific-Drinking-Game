@@ -51,6 +51,7 @@ const spiel = createCardGame({
   tagline: 'Test',
   icon: 'cards',
   accent: 'var(--blue)',
+  world: '#000000',
   minPlayers: 2,
   maxPlayers: 8,
   duration: '10 min',

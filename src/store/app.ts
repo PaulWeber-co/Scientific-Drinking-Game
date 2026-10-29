@@ -15,6 +15,9 @@ export interface AppState {
   /** Kurze Klaenge. Getrennt von der Vibration: die beiden Kanaele bedienen
    *  verschiedene Leute. */
   sound: boolean;
+  /** Animationen anhalten, unabhängig von der Systemeinstellung. Für Geräte,
+   *  denen die lebendige Optik zu viel wird. */
+  calmMotion: boolean;
   waterReminder: boolean;
   disclaimerAccepted: boolean;
   lastLobbyCode: string | null;
@@ -26,15 +29,13 @@ export interface AppState {
   blanks: Record<string, boolean>;
   /** Wie lang eine Partie laufen soll. Gilt für alle Spiele. */
   gameLength: GameLength;
-  /**
-   * Wie oft es beim Aussetzen eine Aufgabe gibt. Wer gesperrt ist (Fahrer,
-   * unter 18, alkoholfrei), bekommt unabhängig davon immer eine.
-   */
+  /** Wie oft es beim Aussetzen eine Aufgabe gibt. */
   taskOnSkip: TaskFrequency;
 
   setTheme: (t: Theme) => void;
   toggleHaptics: () => void;
   toggleSound: () => void;
+  toggleCalmMotion: () => void;
   toggleWaterReminder: () => void;
   acceptDisclaimer: () => void;
   setLastLobbyCode: (c: string | null) => void;
@@ -52,6 +53,7 @@ export const useApp = create<AppState>()(
       theme: 'dark',
       haptics: true,
       sound: true,
+      calmMotion: false,
       waterReminder: true,
       disclaimerAccepted: false,
       lastLobbyCode: null,
@@ -72,6 +74,7 @@ export const useApp = create<AppState>()(
           setSoundEnabled(!s.sound);
           return { sound: !s.sound };
         }),
+      toggleCalmMotion: () => set((s) => ({ calmMotion: !s.calmMotion })),
       toggleWaterReminder: () => set((s) => ({ waterReminder: !s.waterReminder })),
       acceptDisclaimer: () => set({ disclaimerAccepted: true }),
       setLastLobbyCode: (lastLobbyCode) => set({ lastLobbyCode }),
@@ -87,7 +90,7 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'sdg.app',
-      version: 5,
+      version: 6,
       migrate: migrateApp,
       onRehydrateStorage: () => rehydrateApp,
     },
@@ -133,6 +136,7 @@ export function migrateApp(persisted: unknown, version: number): AppState {
   // `onRehydrateStorage` schaltete den Ton stumm, ohne dass jemand ihn
   // ausgeschaltet hat.
   if (version < 5) state.sound = true;
+  if (version < 6) state.calmMotion = false;
   return state as AppState;
 }
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { GameMeta } from '../../games/types';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
@@ -14,6 +15,10 @@ import { haptic } from '../../lib/haptics';
  * Solange kein Bild hinterlegt ist, trägt das Foto den Verlauf der
  * Akzentfarbe und das Spiel-Icon als Wasserzeichen. Das ist der Zustand,
  * in dem die App ausgeliefert wird – er soll fertig aussehen, nicht leer.
+ *
+ * Im Motiv lebt etwas (`ambient`: Lampe, Glanz, Funke, Schatten), aber nur,
+ * solange die Kachel zu sehen ist. Zwanzig gleichzeitig laufende Kacheln
+ * kosteten auf alten Handys Akku, ohne dass jemand hinsieht.
  */
 export function GameCard({
   game,
@@ -26,10 +31,17 @@ export function GameCard({
       erklärt die Spielseite; eine gesperrte Kachel erklärt gar nichts. */
   dimReason?: string;
 }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const live = useInView(ref);
   return (
     <button
-      className={`gametile pressable ${dimReason ? 'gametile--dim' : ''}`}
-      style={{ ['--accent' as string]: game.accent }}
+      ref={ref}
+      className={`gametile pressable ${dimReason ? 'gametile--dim' : ''} ${live ? 'lebt' : ''}`}
+      style={{
+        ['--accent' as string]: game.accent,
+        ['--ax' as string]: `${(game.ambient?.x ?? 0.5) * 100}%`,
+        ['--ay' as string]: `${(game.ambient?.y ?? 0.5) * 100}%`,
+      }}
       onClick={() => {
         haptic('select');
         onClick();
@@ -41,13 +53,30 @@ export function GameCard({
         ) : (
           <Icon className="gametile__mark" name={game.icon} size={96} strokeWidth={1.2} />
         )}
+        {game.ambient && (
+          <span className={`licht licht--${game.ambient.kind}`} aria-hidden />
+        )}
       </span>
       <span className="gametile__rand">
-        <span className="gametile__title t-display">{game.name}</span>
+        <span className="gametile__title">{game.name}</span>
         <span className="gametile__stempel">
           {dimReason ?? `${game.minPlayers}–${game.maxPlayers}`}
         </span>
       </span>
     </button>
   );
+}
+
+/** Ob das Element gerade im Bild ist (mit etwas Vorlauf). Ohne Observer
+ *  (Testumgebung) bleibt es aus, dann läuft eben nichts. */
+function useInView(ref: RefObject<HTMLElement | null>) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: '40px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref]);
+  return on;
 }

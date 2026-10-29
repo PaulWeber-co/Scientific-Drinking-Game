@@ -1,11 +1,11 @@
 import { Icon } from '../../components/icons';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { keepScreenAwake } from '../../lib/wakelock';
-import { GameSettings, type HeatControl, type SpicyControl } from './GameSettings';
+import type { HeatControl, SpicyControl } from './GameSettings';
 import { GlassButton } from './GlassButton';
+import { GameMenu } from './GameMenu';
 import { useParty } from '../../features/party/PartyContext';
 
 interface Props {
@@ -32,7 +32,7 @@ export function GameFrame({
   children,
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
-  const nav = useNavigate();
+  const [moreOpen, setMoreOpen] = useState(false);
   const { otherBuild, mode, isHost } = useParty();
   const nurIch = mode === 'online' && !isHost;
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
@@ -40,41 +40,28 @@ export function GameFrame({
   useEffect(() => keepScreenAwake(), []);
 
   return (
-    <div className="game korn" style={{ ['--accent' as string]: accent }}>
+    <div className="game" style={{ ['--accent' as string]: accent }}>
       <header className="game__bar">
         <div className="game__bar-content">
-        <button
-          className="game__close game__quit"
-          aria-label={nurIch ? 'Spiel verlassen' : 'Spiel beenden'}
-          onClick={() => {
-            haptic('tap');
-            setAskQuit(true);
-          }}
-        >
-          <Icon name="close" size={16} strokeWidth={2.1} />
-        </button>
-        {/* Einwegkamera mitten im Spiel: der Spielstand liegt im
-            PartyContext und überlebt den Abstecher, zurück geht es per
-            Schließen im Sucher. Links, damit der Kopf symmetrisch bleibt. */}
-        <button
-          className="game__close game__camera"
-          aria-label="Einwegkamera"
-          onClick={() => {
-            haptic('tap');
-            nav('/kamera');
-          }}
-        >
-          <Icon name="camera" size={18} />
-        </button>
-        <div className="game__titles">
-          <div className="t-headline">{title}</div>
-          {subtitle && <div className="t-caption">{subtitle}</div>}
-        </div>
-        <div className="game__action">
-          {action}
-          <GlassButton />
-          <GameSettings heat={heat} spicy={spicy} />
-        </div>
+          <button
+            className="game__close game__quit"
+            aria-label={nurIch ? 'Spiel verlassen' : 'Spiel beenden'}
+            onClick={() => {
+              haptic('tap');
+              setAskQuit(true);
+            }}
+          >
+            <Icon name="close" size={16} strokeWidth={2.1} />
+          </button>
+          <div className="game__titles">
+            <div className="t-headline">{title}</div>
+            {subtitle && <div className="t-caption">{subtitle}</div>}
+          </div>
+          <div className="game__action">
+            {action}
+            <GlassButton moreOpen={moreOpen} onMoreClose={() => setMoreOpen(false)} />
+            <GameMenu heat={heat} spicy={spicy} onLogDrink={() => setMoreOpen(true)} />
+          </div>
         </div>
       </header>
       <div className="game__body">

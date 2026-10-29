@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'shuffle',
   accent: 'var(--pink)',
   image,
+  world: '#2a0f22',
+  ambient: { kind: 'lamp', x: 0.66, y: 0.3 },
   minPlayers: 2,
   maxPlayers: 16,
   duration: '10-30 Min',

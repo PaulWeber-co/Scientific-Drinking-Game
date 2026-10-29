@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'fork',
   accent: 'var(--purple)',
   image,
+  world: '#2a0d14',
+  ambient: { kind: 'lamp', x: 0.6, y: 0.1 },
   minPlayers: 2,
   maxPlayers: 16,
   duration: '15-40 Min',

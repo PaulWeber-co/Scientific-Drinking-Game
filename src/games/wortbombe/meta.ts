@@ -10,6 +10,8 @@ export const meta: GameMeta = {
   icon: 'bomb',
   accent: 'var(--pink)',
   image,
+  world: '#2a0e09',
+  ambient: { kind: 'spark', x: 0.61, y: 0.45 },
   minPlayers: 2,
   maxPlayers: 16,
   duration: '5-20 Min',

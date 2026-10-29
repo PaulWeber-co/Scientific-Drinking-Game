@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { haptic } from '../lib/haptics';
 import { Icon, type IconName } from '../components/icons';
@@ -19,12 +19,13 @@ const TABS: { to: string; icon: IconName; label: string }[] = [
 export function Layout() {
   const theme = useApp((s) => s.theme);
   const { pathname } = useLocation();
+  useMotionSwitch();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#f2f2f7' : '#08080b');
+      ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
   }, [theme]);
 
   useEffect(() => {
@@ -39,12 +40,29 @@ export function Layout() {
       <GameInvite />
       <nav className="tabbar" aria-label="Hauptnavigation">
         <div className="tabbar__inner">
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tabbar__item" onClick={() => haptic('tap')}>
-              <Icon name={t.icon} size={23} className="tabbar__icon" />
-              {t.label}
-            </NavLink>
-          ))}
+          {TABS.map((t) => {
+            const content = (
+              <>
+                <Icon name={t.icon} size={23} className="tabbar__icon" />
+                {t.label}
+              </>
+            );
+            return t.to === '/' ? (
+              <Link
+                key={t.to}
+                to={t.to}
+                aria-current={pathname === '/' || pathname.startsWith('/spiele/') ? 'page' : undefined}
+                className="tabbar__item"
+                onClick={() => haptic('tap')}
+              >
+                {content}
+              </Link>
+            ) : (
+              <NavLink key={t.to} to={t.to} className="tabbar__item" onClick={() => haptic('tap')}>
+                {content}
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
     </div>
@@ -54,6 +72,7 @@ export function Layout() {
 /** Vollbild-Layout ohne Tab-Leiste – für Onboarding und laufende Spiele. */
 export function FullLayout() {
   const theme = useApp((s) => s.theme);
+  useMotionSwitch();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -63,4 +82,13 @@ export function FullLayout() {
       <Outlet />
     </div>
   );
+}
+
+/** Der App-Schalter "Bewegung reduzieren" als Attribut, das das CSS liest. */
+function useMotionSwitch() {
+  const calm = useApp((s) => s.calmMotion);
+  useEffect(() => {
+    if (calm) document.documentElement.dataset.motion = 'reduced';
+    else delete document.documentElement.dataset.motion;
+  }, [calm]);
 }

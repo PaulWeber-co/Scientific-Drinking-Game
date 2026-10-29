@@ -103,6 +103,7 @@ export const truthOrDare = createCardGame({
   baseSips: 2,
   drink: 'none',
   resolveLabel: 'Gemacht',
+  skipLabel: 'Andere Karte',
   refuseLabel: 'Kneifen und trinken',
   refuseSips: 4,
   heatSelectable: true,

@@ -151,3 +151,15 @@ describe('Album: die Sperre an ihrer Wirkstelle', () => {
     expect(photoUrl).toHaveBeenCalledWith('alt.jpg');
   });
 });
+
+it('begrüßt ein leeres Album mit einem unbelichteten Abzug', () => {
+  const { container } = zeige();
+  expect(screen.getByRole('heading', { name: 'Hier sammelt sich euer Abend' })).toBeVisible();
+  expect(
+    screen.getByText(
+      'Was hier landet, siehst du erst am nächsten Morgen – wie bei einer Einwegkamera.',
+    ),
+  ).toBeVisible();
+  expect(container.querySelector('.notice')).toBeNull();
+  expect(container.querySelector('.photoframe--latent')).toBeInTheDocument();
+});

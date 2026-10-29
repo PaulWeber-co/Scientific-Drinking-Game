@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { neverHaveIEver } from '../never-have-i-ever';
@@ -100,5 +100,91 @@ describe('Karten-Spiele: verspätete Aktionen', () => {
     state = truthOrDare.reduce(state, { type: 'next', by: 'p0', turnKey }, players);
     expect(state.phase).toBe('choose');
     expect(truthOrDare.reduce(state, { type: 'resolve', by: 'p0', turnKey }, players)).toBe(state);
+  });
+});
+
+describe('Andere Karte', () => {
+  it.each(['wahrheit', 'pflicht'])('zieht im Modus %s ohne den Zug weiterzuschalten', (mode) => {
+    const initial = truthOrDare.createState(players);
+    const state = {
+      ...truthOrDare.reduce(initial, { type: 'pickMode', mode, by: 'p0' }, players),
+      drawn: { text: 'Erste Karte', mode },
+      deck: [{ text: 'Zweite Karte', mode }],
+    };
+    const next = truthOrDare.reduce(state, { type: 'skip', by: 'p0' }, players);
+    expect(next.drawn).toEqual({ text: 'Zweite Karte', mode });
+    expect(next.order).toEqual(state.order);
+    expect(next.turnIndex).toBe(state.turnIndex);
+    expect(next.round).toBe(state.round);
+    expect(next.mode).toBe(mode);
+    expect(next.phase).toBe('card');
+    expect(next.outcome).toBeNull();
+    expect(next.deck).toEqual([]);
+  });
+
+  it.each(['wahrheit', 'pflicht'])('füllt den leeren Stapel nur mit %s auf', (mode) => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    try {
+      const initial = truthOrDare.createState(players);
+      const state = {
+        ...truthOrDare.reduce(initial, { type: 'pickMode', mode, by: 'p0' }, players),
+        deck: [],
+      };
+      const next = truthOrDare.reduce(state, { type: 'skip', by: 'p0' }, players);
+      expect(next.drawn?.mode).toBe(mode);
+      expect(next.deck.length).toBeGreaterThan(0);
+      expect(next.deck.every((card) => card.mode === mode)).toBe(true);
+      expect(next.turnIndex).toBe(state.turnIndex);
+      expect(next.round).toBe(state.round);
+      expect(next.outcome).toBeNull();
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it.each(['choose', 'resolved', 'over'] as const)('ignoriert Überspringen in %s', (phase) => {
+    const state = { ...truthOrDare.createState(players), phase };
+    expect(truthOrDare.reduce(state, { type: 'skip', by: 'p0' }, players)).toBe(state);
+  });
+
+  it('ignoriert Überspringen ohne Freigabe', () => {
+    const state = neverHaveIEver.createState(players);
+    expect(neverHaveIEver.reduce(state, { type: 'skip', by: 'p0' }, players)).toBe(state);
+  });
+
+  it('wechselt die sichtbare Karte ohne Getränkebuchung', () => {
+    const logSipsFor = vi.fn();
+    const me = players[0];
+    let state: ReturnType<typeof truthOrDare.createState> = {
+      ...truthOrDare.createState(players),
+      phase: 'card' as const,
+      mode: 'wahrheit',
+      drawn: { text: 'Erste Karte', mode: 'wahrheit' },
+      deck: [{ text: 'Zweite Karte', mode: 'wahrheit' }],
+    };
+    const Game = truthOrDare.Component;
+    const view = () => (
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players, logSipsFor } as unknown as PartyValue}>
+          <Game
+            state={state}
+            players={players}
+            me={me}
+            isHost
+            online={false}
+            dispatch={(action) => {
+              state = truthOrDare.reduce(state, { ...action, by: me.id }, players);
+            }}
+            quit={() => {}}
+          />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+    const rendered = render(view());
+    fireEvent.click(screen.getByRole('button', { name: 'Andere Karte kostet nichts' }));
+    rendered.rerender(view());
+    expect(screen.getByText('Zweite Karte')).toBeInTheDocument();
+    expect(screen.queryByText('Erste Karte')).toBeNull();
+    expect(logSipsFor).not.toHaveBeenCalled();
   });
 });
