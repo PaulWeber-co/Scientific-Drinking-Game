@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../../components/icons';
-import { ColorPicker } from '../../components/ui';
+import { ColorPicker, Toggle } from '../../components/ui';
 import { avatarStyle, initials, type AvatarColor } from '../../components/ui/Avatar';
 import { haptic } from '../../lib/haptics';
 import { formatStamp } from '../../lib/format';
@@ -23,14 +23,19 @@ export function AvatarPicker({
   name,
   color,
   photo,
+  shared,
   onColor,
   onPhoto,
+  onShared,
 }: {
   name: string;
   color: AvatarColor;
   photo?: string;
+  /** „Für Mitspieler sichtbar" – ausdrückliche Zustimmung, Default aus. */
+  shared: boolean;
   onColor: (c: AvatarColor) => void;
   onPhoto: (dataUrl: string | undefined) => void;
+  onShared: (on: boolean) => void;
 }) {
   const datei = useRef<HTMLInputElement | null>(null);
   const [lädt, setLädt] = useState(false);
@@ -96,6 +101,8 @@ export function AvatarPicker({
             onClick={() => {
               haptic('tap');
               onPhoto(undefined);
+              // Ein später gewähltes Bild wird nicht ungefragt geteilt.
+              onShared(false);
             }}
           >
             Entfernen
@@ -104,8 +111,26 @@ export function AvatarPicker({
       </div>
 
       {fehler && <p className="t-caption t-center">{fehler}</p>}
+      {photo && (
+        <div className="row">
+          <div className="grow">
+            <div className="t-headline">Für Mitspieler sichtbar</div>
+            <div className="t-caption" id="avatarpick-teilen">
+              Nur in einer Online-Lobby und nur, solange du verbunden bist.
+            </div>
+          </div>
+          <Toggle
+            checked={shared}
+            label="Für Mitspieler sichtbar"
+            describedBy="avatarpick-teilen"
+            onChange={onShared}
+          />
+        </div>
+      )}
       <p className="t-caption t-center t-balance">
-        Bleibt auf diesem Gerät. In die Runde gehen nur Spitzname und Farbe.
+        {photo && shared
+          ? 'Das Original bleibt auf diesem Gerät. Mitspieler sehen eine kleine Kopie.'
+          : 'Bleibt auf diesem Gerät. In die Runde gehen nur Spitzname und Farbe.'}
       </p>
 
       <ColorPicker value={color} onChange={onColor} />

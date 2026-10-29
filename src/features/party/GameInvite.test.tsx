@@ -55,6 +55,17 @@ describe('Spieleinladung', () => {
     expect(screen.getByRole('button', { name: 'Mitspielen' })).toBeInTheDocument();
   });
 
+  it('zeigt nach dem Verlassen der Runde nur die Leiste', () => {
+    renderInvite(party({ leftRound: true }));
+    expect(screen.queryByText('Lisa hat gestartet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ring of Fire läuft/ })).toBeInTheDocument();
+  });
+
+  it('bringt auch den zurück, der selbst gestartet und dann verlassen hat', () => {
+    renderInvite(party({ startedBy: 'me', leftRound: true }));
+    expect(screen.getByRole('button', { name: /Ring of Fire läuft/ })).toBeInTheDocument();
+  });
+
   it('zeigt nichts, wenn ich selbst gestartet habe', () => {
     const { container } = renderInvite(party({ startedBy: 'me' }));
     expect(container).toBeEmptyDOMElement();

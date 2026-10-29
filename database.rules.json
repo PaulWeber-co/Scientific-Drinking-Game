@@ -4,9 +4,12 @@
     ".write": false,
 
     "lobbies": {
+      ".indexOn": ["meta/expiresAt"],
+
       "$code": {
-        ".read": "$code.matches(/^[A-Z0-9]{4,6}$/)",
-        ".write": "$code.matches(/^[A-Z0-9]{4,6}$/) && (!data.exists() || !data.child('meta/expiresAt').exists() || data.child('meta/expiresAt').val() > now)",
+        ".read": "$code.matches(/^[A-Z0-9]{6}$/)",
+        ".write": "$code.matches(/^[A-Z0-9]{6}$/) && (!data.exists() || data.child('meta/expiresAt').val() > now || !newData.exists())",
+        ".validate": "newData.hasChild('meta')",
 
         "meta": {
           ".validate": "newData.hasChildren(['code', 'host', 'createdAt', 'expiresAt'])",
@@ -46,11 +49,29 @@
           }
         },
 
-        "game": { ".validate": true },
+        "avatars": {
+          "$playerId": {
+            ".write": "!newData.exists()",
+            ".validate": "newData.isString() && newData.val().beginsWith('data:image/jpeg;base64,') && newData.val().length <= 24000 && newData.parent().parent().child('players').child($playerId).exists()"
+          }
+        },
+
+        "game": {
+          ".validate": "newData.hasChildren(['id', 'startedAt', 'state'])",
+          "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "startedAt": { ".validate": "newData.isNumber()" },
+          "state": { ".validate": "newData.isString() && newData.val().length <= 200000" },
+          "build": { ".validate": "newData.isString() && newData.val().length <= 64" },
+          "$other": { ".validate": false }
+        },
 
         "inbox": {
           "$msgId": {
-            ".validate": "newData.hasChildren(['by', 'at']) && newData.child('by').isString() && newData.child('at').isNumber()"
+            ".validate": "newData.hasChildren(['by', 'at', 'action'])",
+            "by": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "at": { ".validate": "newData.isNumber()" },
+            "action": { ".validate": "newData.isString() && newData.val().length <= 4000" },
+            "$other": { ".validate": false }
           }
         },
 

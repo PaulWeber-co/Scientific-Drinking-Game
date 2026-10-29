@@ -53,8 +53,10 @@ export function ProfileScreen() {
             name={profile.name}
             color={profile.color}
             photo={profile.photo}
+            shared={profile.sharePhoto === true}
             onColor={(color: AvatarColor) => patch({ color })}
             onPhoto={(photo) => patch({ photo })}
+            onShared={(sharePhoto) => patch({ sharePhoto })}
           />
           <input
             className="input input--center"
@@ -233,9 +235,10 @@ export function ProfileScreen() {
           <div className="notice notice--neutral">
             <strong>Wo liegen deine Daten?</strong> Name, Alter, Gewicht, Getränk und dein Trink-Log
             liegen ausschließlich im Speicher dieses Browsers. Sie werden nie hochgeladen. In einer
-            Online-Lobby werden nur Spitzname, Avatar und Getränke-Symbol geteilt – über eine
-            Firebase Realtime Database ({new URL(DATABASE_URL).host}, Region Europa). Lobbys löschen
-            sich nach 8 Stunden selbst.
+            Online-Lobby werden nur Spitzname, Avatarfarbe, Getränke-Symbol, grobe Pegel-Zone und
+            „fährt heute" geteilt, dein Profilbild nur mit „Für Mitspieler sichtbar" – über eine
+            Firebase Realtime Database ({new URL(DATABASE_URL).host}, Region Europa). Eine Lobby
+            ist spätestens 9 Stunden, nachdem alle sie verlassen haben, gelöscht.
           </div>
           <div className="notice notice--neutral">
             <strong>Disclaimer.</strong> Alle Werte sind Schätzungen nach der Widmark-Formel mit

@@ -115,14 +115,14 @@ export const LEGAL: LegalConfig = {
     {
       label: 'Online-Lobby (nur wenn du eine startest oder beitrittst)',
       provider: 'Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland',
-      data: 'Spitzname, Avatarfarbe, Getränke-Symbol, Rolle „fährt heute", grobe Pegel-Zone (nüchtern/aufwärmen/sweet spot/grenzbereich), Zeitstempel, zufälliger Gerätecode, Lobby-Code, Spielstand des laufenden Spiels sowie die IP-Adresse der Verbindung',
+      data: 'Spitzname, Avatarfarbe, Getränke-Symbol, Rolle „fährt heute", grobe Pegel-Zone (nüchtern/aufwärmen/sweet spot/grenzbereich), Zeitstempel, zufälliger Gerätecode, Lobby-Code, Spielstand des laufenden Spiels sowie die IP-Adresse der Verbindung. Nur wenn du „Für Mitspieler sichtbar" einschaltest: eine verkleinerte Kopie deines Profilbilds',
       purpose:
         'Damit mehrere Geräte dieselbe Runde sehen. Ohne Lobby wird zu Google keine Verbindung aufgebaut.',
       legalBasis:
-        'Art. 6 Abs. 1 lit. b DSGVO – Durchführung der von dir angeforderten Funktion',
+        'Art. 6 Abs. 1 lit. b DSGVO – Durchführung der von dir angeforderten Funktion. Für das Profilbild Art. 6 Abs. 1 lit. a DSGVO – deine Einwilligung, die du mit dem Schalter jederzeit widerrufst',
       region: 'Firebase Realtime Database, Region europe-west1 (Belgien)',
       retention:
-        'Lobbys löschen sich spätestens 8 Stunden nach der letzten Aktivität selbst. Beim Verlassen wird der eigene Eintrag sofort entfernt.',
+        'Eine Lobby läuft 8 Stunden ab, nachdem das letzte Gerät sie verlassen hat, und wird danach innerhalb einer Stunde gelöscht. Beim Verlassen wird der eigene Eintrag sofort entfernt. Ein geteiltes Profilbild löscht die Datenbank zusätzlich, sobald dein Gerät die Verbindung verliert.',
       privacyUrl: 'https://firebase.google.com/support/privacy',
       thirdCountry:
         'Die Daten liegen in der EU. Ein Zugriff durch Google LLC (USA) im Rahmen von Support und Wartung ist nicht ausgeschlossen; Google ist nach dem EU-U.S. Data Privacy Framework zertifiziert, ergänzend gelten die Standardvertragsklauseln.',

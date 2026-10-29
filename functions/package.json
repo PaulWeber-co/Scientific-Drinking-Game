@@ -1,0 +1,13 @@
+{
+  "name": "functions",
+  "description": "Räumt abgelaufene Lobbys aus der Realtime Database",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "24"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "firebase-functions": "^7.4.0"
+  }
+}

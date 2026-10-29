@@ -1,5 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { squareCrop } from './portrait';
+import { SHARE_MAX, squareCrop } from './portrait';
+
+describe('Kopie für Mitspieler', () => {
+  it('hat dieselbe Grenze wie die Security Rules', () => {
+    const rules = JSON.parse(readFileSync('database.rules.json', 'utf8'));
+    const avatar: string = rules.rules.lobbies.$code.avatars.$playerId['.validate'];
+    expect(avatar).toContain(`newData.val().length <= ${SHARE_MAX} `);
+  });
+});
 
 describe('Zuschnitt fürs Profilbild', () => {
   it('nimmt bei einem Querformat die Mitte', () => {

@@ -33,6 +33,7 @@ import { colorFor, isAvatarColor, type AvatarColor } from '../../components/ui/A
 import { bacZone, estimateBac } from '../../engine/bac';
 import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
+import { makeShareCopy } from '../profile/portrait';
 import type { BacZone, DrinkEvent, Profile } from '../../engine/types';
 import type { GameAction, GameActionInput, GamePlayer } from '../../games/types';
 import { getLoadedGame, loadGame } from '../../games/registry';
@@ -78,6 +79,12 @@ interface LobbySnapshot {
     expiresAt: number;
   };
   players?: Record<string, RemotePlayer>;
+  /**
+   * Profilbilder als kleine JPEG-Data-URL, nur von Geräten mit „Für
+   * Mitspieler sichtbar". Firebase löscht jedes per onDisconnect, sobald
+   * das Gerät die Verbindung verliert.
+   */
+  avatars?: Record<string, string>;
   /** Der Spielstand liegt als JSON-String in der Datenbank – siehe encodeState(). */
   /** `build`: Fingerabdruck der Spiellogik des Hosts. Fehlt bei älteren Ständen. */
   game?: { id: string; startedAt: number; state: string; build?: string };
@@ -128,7 +135,12 @@ export interface PartyValue {
   clearLocalPlayers: () => void;
   /** Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'. */
   startGame: (gameId: string) => Promise<void>;
+  /** Online nur beim Host wirksam: die Runde gehört ihm. */
   endGame: () => void;
+  /** Aus der laufenden Runde in die Lobby; die anderen spielen weiter. */
+  leaveRound: () => void;
+  /** Dieses Gerät hat die laufende Runde verlassen – Einladung nur als Leiste. */
+  leftRound: boolean;
   /** Setzt Filmlänge und Entwicklungszeit für die ganze Runde (nur der Host). */
   setFilm: (patch: { rolls?: number; developAfterH?: number }) => void;
   dispatch: (action: GameActionInput) => void;
@@ -223,8 +235,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       id: myId,
       name: profile?.name || 'Du',
       color: profile?.color ?? 'indigo',
-      // Bleibt lokal: `writeMe` und `createOnline` schreiben es NICHT in die
-      // Lobby. In der Runde sehen die anderen weiterhin nur das Monogramm.
+      // Das Original bleibt lokal. Mit „Für Mitspieler sichtbar" geht nur eine
+      // kleine Kopie nach `avatars/` – siehe den Effekt weiter unten.
       photo: profile?.photo,
       drinkIcon: myDrink.icon,
       driver: profile?.designatedDriver ?? false,
@@ -254,11 +266,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         id: p.id,
         name: p.name,
         color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
-        // Die Online-Liste kommt aus dem Lobby-Abbild, und dort steht kein
-        // Bild – auch nicht das eigene, denn dorthin geht keins. Für die
-        // EIGENE Zeile kommt es deshalb hier aus dem lokalen Profil zurück:
-        // sonst wäre man auf dem eigenen Gerät der Einzige ohne Gesicht.
-        photo: p.id === myId ? profile?.photo : undefined,
+        // Bilder der anderen nur, wenn sie es freigegeben haben. Die EIGENE
+        // Zeile zeigt immer das lokale Original – auch ohne Freigabe wäre
+        // man sonst auf dem eigenen Gerät der Einzige ohne Gesicht.
+        photo: p.id === myId ? profile?.photo : snapshot?.avatars?.[p.id],
         drinkIcon: p.drinkIcon,
         driver: p.driver === true,
         zone: p.zone,
@@ -421,11 +432,54 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [mode, code, lobbyRef]);
 
-  // Heartbeat + Verbindungsabbruch-Markierung
+  // Firebase vergisst eine onDisconnect-Anweisung, sobald sie einmal
+  // gefeuert hat. Deshalb nach JEDEM Wiederverbinden neu anmelden.
+  useEffect(() => {
+    if (mode !== 'online' || !code || connection !== 'online') return;
+    onDisconnect(lobbyRef(code, `/players/${myId}`)).update({ online: false }).catch(() => {});
+  }, [mode, code, connection, myId, lobbyRef]);
+
+  // Profilbild für Mitspieler: nur mit Zustimmung und nur, solange dieses
+  // Gerät verbunden ist. Die Löschung bei Abbruch wird VOR dem Schreiben
+  // angemeldet; nach dem Wiederverbinden fehlt das Bild im Abbild, und der
+  // Effekt schreibt es neu.
+  const sharePhoto = profile?.sharePhoto === true ? profile.photo : undefined;
+  const [shareCopy, setShareCopy] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sharePhoto) return setShareCopy(null);
+    let aktiv = true;
+    makeShareCopy(sharePhoto).then((url) => aktiv && setShareCopy(url));
+    return () => {
+      aktiv = false;
+    };
+  }, [sharePhoto]);
+
+  const sharedAvatar = snapshot?.avatars?.[myId] ?? null;
+  const listed = !!snapshot?.players?.[myId];
+  useEffect(() => {
+    if (mode !== 'online' || !code || connection !== 'online') return;
+    const avatarRef = lobbyRef(code, `/avatars/${myId}`);
+    if (!shareCopy) {
+      onDisconnect(avatarRef).cancel().catch(() => {});
+      if (sharedAvatar) remove(avatarRef).catch(() => {});
+      return;
+    }
+    // Die Regeln nehmen ein Bild nur für einen Spieler der Lobby an.
+    if (!listed || sharedAvatar === shareCopy) return;
+    onDisconnect(avatarRef).remove().catch(() => {});
+    set(avatarRef, shareCopy).catch(() => {});
+  }, [mode, code, connection, myId, lobbyRef, shareCopy, sharedAvatar, listed]);
+
+  // Wer die Runde verlässt, bekommt die Einladung dazu nur noch als Leiste.
+  const roundTag = gameId ? `${gameId}-${startedAt}` : null;
+  const [leftTag, setLeftTag] = useState<string | null>(null);
+  const leaveRound = useCallback(() => setLeftTag(roundTag), [roundTag]);
+  const leftRound = roundTag !== null && leftTag === roundTag;
+
+  // Heartbeat
   useEffect(() => {
     if (mode !== 'online' || !code) return;
     const meRef = lobbyRef(code, `/players/${myId}`);
-    onDisconnect(meRef).update({ online: false }).catch(() => {});
     const beat = () => {
       const { profile: p, log: l, drink, shots } = liveRef.current;
       // Es geht nur die grobe Zone raus – kein Promillewert, kein Gewicht.
@@ -475,7 +529,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       const ps = snapshotRef.current?.players ?? {};
       for (const p of Object.values(ps)) {
         if (p.id !== myId && now - p.lastSeen > PLAYER_STALE_MS * 3) {
-          remove(lobbyRef(code, `/players/${p.id}`)).catch(() => {});
+          update(lobbyRef(code), { [`players/${p.id}`]: null, [`avatars/${p.id}`]: null }).catch(
+            () => {},
+          );
         }
       }
     };
@@ -616,6 +672,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       // Sonst meldet der Server beim nächsten Verbindungsabbruch noch
       // `online: false` für einen Eintrag, den es nicht mehr gibt.
       onDisconnect(meRef).cancel().catch(() => {});
+      onDisconnect(lobbyRef(code, `/avatars/${myId}`)).cancel().catch(() => {});
       // Wer als Letzter geht, nimmt die Lobby mit: sonst bliebe sie samt
       // Namen und Spielstand in der Datenbank liegen. Als „noch da" zählt,
       // wen auch der Host noch nicht als inaktiv entfernen würde.
@@ -623,7 +680,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       const othersLeft = Object.values(snapshotRef.current?.players ?? {}).some(
         (p) => p.id !== myId && now - p.lastSeen <= PLAYER_STALE_MS * 3,
       );
-      remove(othersLeft ? meRef : lobbyRef(code)).catch(() => {});
+      const gone = othersLeft
+        ? update(lobbyRef(code), { [`players/${myId}`]: null, [`avatars/${myId}`]: null })
+        : remove(lobbyRef(code));
+      gone.catch(() => {});
     }
     setMode('local');
     setCode(null);
@@ -679,6 +739,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   const startGame = useCallback(
     async (id: string) => {
+      // Eine laufende Online-Runde gehört dem Host: ein neues Spiel würde sie
+      // für alle ersetzen. Alle anderen landen beim Aufrufer in der Runde.
+      if (mode === 'online' && status === 'playing' && !isHost) return;
       // Erst das Modul, dann der Zustand: der Host-Reducer läuft synchron und
       // darf nie auf ein Spiel treffen, das noch nicht geladen ist.
       const def = await loadGame(id).catch((e) => {
@@ -715,7 +778,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         inbox: null,
       }).catch((e) => setError(describe(e)));
     },
-    [mode, code, lobbyRef, myId],
+    [mode, code, status, isHost, lobbyRef, myId],
   );
 
   /**
@@ -745,7 +808,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setLocalGameState(null);
       return;
     }
-    if (!code) return;
+    if (!code || !isHost) return;
     update(lobbyRef(code), {
       'meta/status': 'lobby',
       'meta/gameId': null,
@@ -755,7 +818,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       game: null,
       inbox: null,
     }).catch(() => {});
-  }, [mode, code, lobbyRef]);
+  }, [mode, code, isHost, lobbyRef]);
 
   const dispatch = useCallback(
     (action: GameActionInput) => {
@@ -906,6 +969,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     clearLocalPlayers,
     startGame,
     endGame,
+    leaveRound,
+    leftRound,
     setFilm,
     dispatch,
     logSipsFor,
@@ -972,7 +1037,7 @@ export function decodeState(raw: unknown): unknown {
 }
 
 /** Wie `lobbyCode()` sie erzeugt und die Security Rules sie zulassen. */
-const LOBBY_CODE_RE = /^[A-Z0-9]{4,6}$/;
+const LOBBY_CODE_RE = /^[A-Z0-9]{6}$/;
 
 const OFFLINE_MSG =
   'Keine Verbindung zur Datenbank. Prüf dein Netz – oder spielt so lange auf einem Handy weiter.';

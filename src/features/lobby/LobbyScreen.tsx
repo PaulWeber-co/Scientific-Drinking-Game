@@ -374,7 +374,7 @@ function JoinSheet({
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
         />
-        <button className="btn btn--brand btn--block btn--lg" disabled={code.length < 4} onClick={onJoin}>
+        <button className="btn btn--brand btn--block btn--lg" disabled={code.length < 6} onClick={onJoin}>
           Beitreten
         </button>
         <p className="t-caption t-center">
