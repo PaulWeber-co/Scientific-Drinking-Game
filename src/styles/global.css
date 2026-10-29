@@ -36,6 +36,10 @@ body,
 }
 html {
   -webkit-text-size-adjust: 100%;
+  /* Kurze Seiten reichen bis zum echten Bildschirmrand – sonst schwebt die
+     Tab-Leiste auf dem Homescreen um die Statusleiste zu hoch. Der Wert ist
+     gemessen und meist 0: lib/viewportFill.ts. */
+  min-height: calc(100% + var(--viewport-fill, 0px));
   /* Kein Gummiband am Dokument. Am <body> allein greift das nicht: die
      Seite scrollt über das Wurzelelement. Ohne diese Zeile wippen auf
      kurzen Seiten wie der Runde beide Leisten beim Ziehen mit. */
