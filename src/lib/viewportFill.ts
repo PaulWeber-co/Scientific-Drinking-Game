@@ -1,12 +1,15 @@
+import { isNativeApp } from './platform';
+
 /**
  * Füllt kurze Seiten bis zum echten Bildschirmrand auf.
  *
- * Als Web-App auf dem Homescreen (Statusleiste durchscheinend) rechnet iOS
- * die Seite um die Höhe der Statusleiste kürzer, als der Bildschirm ist. Ist
- * eine Seite kürzer als der Bildschirm, richtet WebKit fest positionierte
- * Elemente am Ende der Seite aus statt am Bildschirmrand – die Tab-Leiste
- * schwebte in der Runde dadurch rund 59 pt zu hoch. Auf langen Seiten, die
- * scrollen, stimmt alles; deshalb fiel es nur auf kurzen Seiten auf.
+ * Als Web-App auf dem Homescreen oder in der nativen Hülle (Statusleiste
+ * durchscheinend) rechnet iOS die Seite um die Höhe der Statusleiste kürzer,
+ * als der Bildschirm ist. Ist eine Seite kürzer als der Bildschirm, richtet
+ * WebKit fest positionierte Elemente am Ende der Seite aus statt am
+ * Bildschirmrand – die Tab-Leiste schwebte in der Runde dadurch rund 59 pt zu
+ * hoch. Auf langen Seiten, die scrollen, stimmt alles; deshalb fiel es nur
+ * auf kurzen Seiten auf.
  *
  * Gemessen statt geraten: Die Lücke ist die Differenz zwischen sichtbarer
  * Höhe und der Höhe, mit der die Seite rechnet. Sie wird nur ausgeglichen,
@@ -32,14 +35,19 @@ export function viewportFill({ visible, layout, safeTop }: ViewportSizes): numbe
   return gap > 0 && gap <= Math.ceil(safeTop) + 2 ? gap : 0;
 }
 
-function standalone(): boolean {
+/** Vollbild ohne Browserleisten: Homescreen-App oder native Hülle. */
+function fullScreen(): boolean {
   const nav = navigator as Navigator & { standalone?: boolean };
-  return nav.standalone === true || (window.matchMedia?.('(display-mode: standalone)').matches ?? false);
+  return (
+    nav.standalone === true ||
+    isNativeApp() ||
+    (window.matchMedia?.('(display-mode: standalone)').matches ?? false)
+  );
 }
 
-/** Sichtbare Höhe: auf dem Homescreen der ganze Bildschirm, sonst das Fenster. */
+/** Sichtbare Höhe: im Vollbild der ganze Bildschirm, sonst das Fenster. */
 function visibleHeight(): number {
-  if (!standalone() || typeof screen === 'undefined') return window.innerHeight;
+  if (!fullScreen() || typeof screen === 'undefined') return window.innerHeight;
   // iOS meldet die Bildschirmmaße immer im Hochformat.
   const portrait = window.innerHeight >= window.innerWidth;
   const full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
