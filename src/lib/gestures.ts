@@ -94,6 +94,8 @@ export function useSwipeBack<T extends HTMLElement>(
     let offset = 0;
     let fromEdge = false;
     let timer: number | undefined;
+    // Die Seite gleitet gerade hinaus: dann gehört sie niemandem mehr.
+    let leaving = false;
     const samples: { v: number; t: number }[] = [];
 
     const width = () => el.getBoundingClientRect().width || window.innerWidth;
@@ -108,7 +110,15 @@ export function useSwipeBack<T extends HTMLElement>(
     };
 
     const onStart = (e: TouchEvent) => {
-      window.clearTimeout(timer);
+      // Ein neuer Finger darf das Zurück nicht abbrechen – sonst hinge die
+      // Seite unsichtbar neben dem Bildschirm.
+      if (leaving) return;
+      // Federt sie noch zurück, steht sie ab sofort.
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        reset();
+      }
       if (e.touches.length !== 1) {
         if (phase === 'drag') settle(false);
         phase = 'off';
@@ -157,7 +167,10 @@ export function useSwipeBack<T extends HTMLElement>(
       const w = width();
       if (!commit) {
         place(0, motionReduced() ? 0 : 320);
-        timer = window.setTimeout(reset, 330);
+        timer = window.setTimeout(() => {
+          timer = undefined;
+          reset();
+        }, 330);
         return;
       }
       if (stay || motionReduced()) {
@@ -169,16 +182,15 @@ export function useSwipeBack<T extends HTMLElement>(
       // desto kürzer der Rest – wie beim System.
       const v = Math.max(velocity(samples), 0.6);
       const ms = Math.round(Math.min(280, Math.max(120, (w - offset) / v)));
+      leaving = true;
       place(w, ms);
-      timer = window.setTimeout(() => {
+      window.setTimeout(() => {
         back.current();
         // Bleibt die Seite trotzdem stehen (keine Navigation passiert),
         // kommt sie zurück statt unsichtbar außerhalb zu hängen.
-        timer = window.setTimeout(() => {
-          if (el.isConnected) {
-            place(0, 0);
-            reset();
-          }
+        window.setTimeout(() => {
+          leaving = false;
+          if (el.isConnected) reset();
         }, 120);
       }, ms);
     };
@@ -240,6 +252,8 @@ export function useSwipeDown<T extends HTMLElement>(
     let offset = 0;
     let fromGrip = false;
     let timer: number | undefined;
+    // Das Sheet gleitet gerade hinaus und schließt gleich.
+    let closing = false;
     const samples: { v: number; t: number }[] = [];
 
     const place = (y: number, ms = 0) => {
@@ -264,7 +278,14 @@ export function useSwipeDown<T extends HTMLElement>(
     };
 
     const onStart = (e: TouchEvent) => {
-      window.clearTimeout(timer);
+      // Ein neuer Finger darf das Schließen nicht abbrechen – sonst bliebe
+      // der dunkle Hintergrund ohne Sheet stehen.
+      if (closing) return;
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        reset();
+      }
       if (e.touches.length !== 1) {
         phase = 'off';
         return;
@@ -322,27 +343,29 @@ export function useSwipeDown<T extends HTMLElement>(
           return;
         }
         const ms = Math.round(Math.min(260, Math.max(120, (h - offset) / Math.max(v, 0.8))));
+        closing = true;
         place(h, ms);
-        timer = window.setTimeout(() => {
+        window.setTimeout(() => {
           close.current();
           // Lehnt der Besitzer das Schließen ab, kommt das Sheet zurück.
-          timer = window.setTimeout(() => {
-            if (el.isConnected) {
-              place(0, 320);
-              timer = window.setTimeout(reset, 330);
-            }
+          window.setTimeout(() => {
+            closing = false;
+            if (el.isConnected) springBack(320);
           }, 60);
         }, ms);
       } else {
-        place(0, motionReduced() ? 0 : 420);
-        timer = window.setTimeout(reset, 430);
+        springBack(motionReduced() ? 0 : 420);
       }
     };
+    const springBack = (ms: number) => {
+      place(0, ms);
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        reset();
+      }, ms + 10);
+    };
     const onCancel = () => {
-      if (phase === 'drag') {
-        place(0, 320);
-        timer = window.setTimeout(reset, 330);
-      }
+      if (phase === 'drag') springBack(320);
       phase = 'idle';
     };
 

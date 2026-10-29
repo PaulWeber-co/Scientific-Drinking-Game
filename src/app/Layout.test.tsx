@@ -63,3 +63,19 @@ it('scrollt beim erneuten Tipp auf den aktiven Tab nach oben, statt neu zu laden
   fireEvent.click(screen.getByRole('link', { name: 'Pegel' }));
   expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
 });
+
+it('lässt die Leiste nach einem verlorenen Finger wieder bedienbar', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <Layout />
+    </MemoryRouter>,
+  );
+  const bar = document.querySelector('.tabbar__inner')!;
+  fireEvent.pointerDown(bar, { pointerId: 1, button: 0, clientX: 10, clientY: 10 });
+  expect(bar).toHaveClass('is-pressed');
+  fireEvent(bar, Object.assign(new Event('lostpointercapture', { bubbles: true }), { pointerId: 1 }));
+  expect(bar).not.toHaveClass('is-pressed');
+  // Und der nächste Druck wird wieder angenommen.
+  fireEvent.pointerDown(bar, { pointerId: 2, button: 0, clientX: 10, clientY: 10 });
+  expect(bar).toHaveClass('is-pressed');
+});

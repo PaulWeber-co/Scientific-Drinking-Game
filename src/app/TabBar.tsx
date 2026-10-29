@@ -266,6 +266,9 @@ export function TabBar() {
         onPointerMove={onPointerMove}
         onPointerUp={(e) => finish(e, true)}
         onPointerCancel={(e) => finish(e, false)}
+        // Geht der Finger ohne „Loslassen" verloren (App im Hintergrund),
+        // darf die Linse nicht angehoben hängen bleiben.
+        onLostPointerCapture={(e) => finish(e, false)}
       >
         <span ref={lens} className={`tabbar__lens${lifted ? ' is-lifted' : ''}`} aria-hidden />
         {TABS.map((t, i) => {

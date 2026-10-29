@@ -107,6 +107,31 @@ describe('Wisch nach rechts', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  it('lässt sich beim Hinausgleiten nicht von einem neuen Finger aufhalten', () => {
+    const onBack = vi.fn();
+    render(<Page onBack={onBack} />);
+    const page = screen.getByTestId('page');
+    drag(page, [100, 300], [700, 300], 300);
+    // Sofort wieder angetippt, während die Seite noch hinausgleitet.
+    touch(page, 'touchStart', 200, 300, 400);
+    touch(page, 'touchEnd', 200, 300, 450);
+    vi.runAllTimers();
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('steht nach dem Zurückfedern wieder ohne Schatten, auch wenn gleich weitergetippt wird', () => {
+    const onBack = vi.fn();
+    render(<Page onBack={onBack} />);
+    const page = screen.getByTestId('page');
+    drag(page, [100, 300], [160, 300], 900);
+    expect(page.dataset.swiping).toBe('');
+    touch(page, 'touchStart', 200, 500, 1000);
+    expect(page.dataset.swiping).toBeUndefined();
+    expect(page.style.translate).toBe('');
+    vi.runAllTimers();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
   it('springt bei `stay` sofort heim, statt hinauszugleiten', () => {
     const onBack = vi.fn();
     render(<Page onBack={onBack} stay />);
@@ -141,6 +166,17 @@ describe('Sheet nach unten wegziehen', () => {
     expect(screen.getByTestId('scrim').style.backgroundColor).not.toBe('');
     touch(sheet, 'touchMove', 202, 700, 900);
     touch(sheet, 'touchEnd', 202, 700, 900);
+    vi.runAllTimers();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('schließt auch, wenn während des Hinausgleitens erneut getippt wird', () => {
+    const onClose = vi.fn();
+    render(<SheetLike onClose={onClose} />);
+    const sheet = screen.getByTestId('sheet');
+    sheet.getBoundingClientRect = () => ({ top: 0, height: 600, width: 400 }) as DOMRect;
+    drag(sheet, [200, 100], [200, 500], 200);
+    touch(sheet, 'touchStart', 200, 300, 300);
     vi.runAllTimers();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
