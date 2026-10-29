@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { plural } from '../../lib/format';
@@ -12,6 +11,8 @@ import { savePhoto } from './photoStore';
 import { scheduleDevelopNotice } from './notify';
 import { useFilmStatus } from './useFilmStatus';
 import { useViewfinder } from './useViewfinder';
+import { useGoBack } from '../../app/navigation';
+import { useSwipeBack } from '../../lib/gestures';
 
 /** So lange leuchtet der Blitz vor dem Auslösen, damit die Belichtung steht. */
 const FLASH_LEAD_MS = 220;
@@ -29,7 +30,10 @@ const FLASH_LEAD_MS = 220;
  * abgeschnitten, was man beim Zielen noch gesehen hat.
  */
 export default function CameraScreen() {
-  const nav = useNavigate();
+  const goBack = useGoBack('/album');
+  // Vom linken Rand weg wie jede andere Ebene; auf dem Sucher selbst
+  // zielt man, dort zählt nur der Rand.
+  const swipeRef = useSwipeBack<HTMLDivElement>(goBack);
   const { videoRef, state, hasTorch, setTorch, streamSize, canWide, wide, setWide } =
     useViewfinder();
   // Bis der Stream steht, ein hohes Fenster: so hält man das Handy.
@@ -85,7 +89,7 @@ export default function CameraScreen() {
   }, [videoRef, busy, mineLeft, setTorch, addPhoto, beginNight, developAfterH]);
 
   return (
-    <div className="viewfinder">
+    <div className="viewfinder" ref={swipeRef}>
       {blitz && <div className="viewfinder__flash" aria-hidden />}
 
       <div className="viewfinder__top">
@@ -93,7 +97,7 @@ export default function CameraScreen() {
           className="viewfinder__ico hit pressable"
           onClick={() => {
             haptic('tap');
-            nav(-1);
+            goBack();
           }}
           aria-label="Zurück"
         >
@@ -178,7 +182,7 @@ export default function CameraScreen() {
             className="btn btn--glass btn--block"
             onClick={() => {
               haptic('tap');
-              nav(-1);
+              goBack();
             }}
           >
             Zurück zum Album

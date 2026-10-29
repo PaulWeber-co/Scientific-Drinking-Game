@@ -14,6 +14,7 @@ import { haptic } from '../../lib/haptics';
 import { formatBac } from '../../lib/format';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
+import { useSwipeBack } from '../../lib/gestures';
 
 const STEPS = ['start', 'name', 'alter', 'modus', 'koerper', 'magen', 'drink', 'ziel'] as const;
 type Step = (typeof STEPS)[number];
@@ -32,6 +33,8 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [p, setP] = useState<Profile>(defaultProfile);
   const [drinkId, setDrinkId] = useState('beer-pils');
+  // Woher der Schritt kommt: vor gleitet von rechts herein, zurück von links.
+  const [richtung, setRichtung] = useState<'vor' | 'zurueck'>('vor');
 
   const gate = ageGate(p.age);
   const alcoholFree = p.alcoholFree || p.designatedDriver || gate !== 'full';
@@ -68,23 +71,28 @@ export function Onboarding() {
       return;
     }
     haptic('press');
+    setRichtung('vor');
     setStep((s) => s + 1);
   };
   const back = () => {
     haptic('tap');
+    setRichtung('zurueck');
     setStep((s) => Math.max(0, s - 1));
   };
+  // Ein Schritt zurück per Wisch wie in jedem iOS-Assistenten. Der Bildschirm
+  // bleibt derselbe, nur sein Inhalt wechselt.
+  const swipeRef = useSwipeBack<HTMLDivElement>(back, { enabled: step > 0, stay: true });
 
   const canContinue =
     current !== 'name' ? current !== 'alter' || gate !== 'blocked' : p.name.trim().length >= 2;
 
   return (
-    <div className="screen screen--full onboarding">
+    <div className="screen screen--full onboarding" ref={swipeRef}>
       <div className="onboarding__progress" aria-hidden>
         <span style={{ width: `${((Math.min(step, last) + 1) / steps.length) * 100}%` }} />
       </div>
 
-      <div className="onboarding__body">
+      <div key={current} className={`onboarding__body onboarding__body--${richtung}`}>
         {current === 'start' && <StepStart />}
         {current === 'name' && (
           <StepShell title="Wie heißt du?" sub="Mitspieler sehen deinen Spitznamen, nie Alter oder Gewicht. Dein Bild nur, wenn du es freigibst.">

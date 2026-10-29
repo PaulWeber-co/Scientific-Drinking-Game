@@ -149,7 +149,7 @@ select,
   max-width: var(--content-max);
   margin: 0 auto;
   padding: calc(var(--safe-top) + var(--s-3)) var(--s-4)
-    calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-10));
+    calc(var(--tabbar-space) + var(--s-8));
   animation: screen-in var(--dur) var(--ease-out) both;
 }
 .screen--flush {
@@ -164,6 +164,30 @@ select,
     opacity: 0;
     transform: translate3d(0, 10px, 0);
   }
+}
+/* Nach „Zurück" kommt die Seite von links, wie unter iOS die Ebene, die
+   unter der geschlossenen lag. Neu geöffnete Seiten steigen weiter von unten. */
+[data-nav='back'] .screen {
+  animation-name: screen-back;
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease-spring);
+}
+@keyframes screen-back {
+  from {
+    opacity: 0.55;
+    transform: translate3d(-24%, 0, 0);
+  }
+}
+/* Die Spielseite hebt ihren Abzug nur beim Öffnen von der Wand. */
+[data-nav='back'] .detailbuehne,
+[data-nav='back'] .detailtitel {
+  animation: none;
+}
+/* Wischen zum Zurück: die Seite wirft einen Schatten auf das, was unter ihr
+   zum Vorschein kommt. */
+[data-swiping] {
+  box-shadow: -16px 0 36px rgba(0, 0, 0, 0.38);
+  will-change: translate;
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -705,43 +729,184 @@ button.chip--outline {
   color: var(--label-2);
 }
 
-/* ---------- Tab bar ---------- */
+/* ---------- Tab bar (Liquid Glass) ----------
+   Wie seit iOS 26: keine Leiste am Rand, sondern eine schwebende Kapsel aus
+   Glas über dem Inhalt. Das Glas ist klarer als das alte Milchglas – wenig
+   Weichzeichner, viel Sättigung –, eine Lichtkante oben links und ein
+   Schatten darunter heben es vom Grund. Die Linse unter dem aktiven Tab
+   bewegt TabBar.tsx; hier steht nur, wie sie aussieht. */
 .tabbar {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--tabbar-gap);
   z-index: 40;
   display: flex;
-  padding-bottom: var(--safe-bottom);
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border-top: 1px solid var(--hairline);
+  justify-content: center;
+  padding: 0 var(--s-5);
+  pointer-events: none;
+}
+/* Scroll-Kante: Inhalt läuft unter der Kapsel weich aus, statt hart an ihr
+   zu enden. Nur ein Verlauf, kein zweiter Weichzeichner – der kostet auf
+   alten iPhones Bildrate. */
+.tabbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--tabbar-gap));
+  height: calc(var(--tabbar-space) + 28px);
+  z-index: -1;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bg) 82%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 55%,
+    transparent 100%
+  );
 }
 .tabbar__inner {
+  --glass-tint: color-mix(in srgb, var(--bg) 42%, transparent);
+  --glass-rim: rgba(255, 255, 255, 0.5);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  position: relative;
   display: flex;
   width: 100%;
-  max-width: var(--content-max);
-  margin: 0 auto;
+  max-width: 400px;
+  height: var(--tabbar-h);
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.03) 42%,
+      rgba(255, 255, 255, 0) 58%,
+      rgba(255, 255, 255, 0.05) 100%
+    ),
+    var(--glass-tint);
+  backdrop-filter: blur(14px) saturate(190%) brightness(1.06);
+  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.06);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-edge),
+    inset 0 1px 0.5px -0.5px var(--glass-rim),
+    inset 0 -1px 0.5px -0.5px rgba(255, 255, 255, 0.16),
+    0 10px 30px rgba(0, 0, 0, 0.36),
+    0 2px 8px rgba(0, 0, 0, 0.22);
+  transition: transform 420ms var(--ease-spring);
+}
+/* Lichtkante: oben links hell, unten rechts ein Nachglanz – das Licht, das
+   durch dickes Glas an den Rand gebrochen wird. */
+.tabbar__inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 22%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0.06) 78%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+/* Beim Drücken gibt die Kapsel nach wie ein Tropfen, den man antippt. */
+.tabbar__inner.is-pressed {
+  transform: scale(1.025);
+}
+[data-theme='light'] .tabbar__inner {
+  --glass-tint: rgba(255, 252, 246, 0.56);
+  --glass-rim: rgba(255, 255, 255, 0.95);
+  --glass-edge: rgba(23, 17, 10, 0.08);
+  box-shadow:
+    inset 0 0 0 0.5px var(--glass-edge),
+    inset 0 1px 0.5px -0.5px var(--glass-rim),
+    0 10px 28px rgba(60, 40, 20, 0.16),
+    0 1px 4px rgba(60, 40, 20, 0.1);
+}
+
+/* Die Linse: in Ruhe eine getönte Platte unter dem aktiven Tab, gedrückt ein
+   klarer, vergrößernder Tropfen, der über die Kapsel hinausragt. */
+.tabbar__lens {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 25%;
+  border-radius: var(--r-full);
+  pointer-events: none;
+  background: color-mix(in srgb, var(--label) 12%, transparent);
+  transform-origin: 50% 50%;
+  will-change: transform;
+  transition:
+    background-color 220ms linear,
+    box-shadow 220ms linear;
+}
+.tabbar__lens.is-lifted {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.55),
+    inset 0 1.5px 1px -0.5px rgba(255, 255, 255, 0.7),
+    inset 0 -6px 12px -6px rgba(255, 255, 255, 0.22),
+    0 8px 22px rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: saturate(160%) brightness(1.12);
+  backdrop-filter: saturate(160%) brightness(1.12);
+}
+[data-theme='light'] .tabbar__lens {
+  background: color-mix(in srgb, var(--label) 9%, transparent);
+}
+[data-theme='light'] .tabbar__lens.is-lifted {
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(23, 17, 10, 0.12),
+    inset 0 1.5px 1px -0.5px #fff,
+    0 8px 20px rgba(60, 40, 20, 0.18);
 }
 .tabbar__item {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 8px 0 6px;
-  color: var(--label-3);
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  color: var(--label);
   font-size: 10px;
   font-weight: 600;
-  transition: color var(--dur-fast) linear;
+  letter-spacing: 0.1px;
+  -webkit-user-drag: none;
+  transition: color 160ms linear;
 }
-.tabbar__item[aria-current='page'] {
+.tabbar__item.is-lit {
   color: var(--brand);
 }
 .tabbar__icon {
   display: block;
+  transition: transform 360ms var(--ease-spring);
+}
+/* Unter dem gedrückten Tropfen wirkt das Symbol vergrößert wie durch eine Lupe. */
+.tabbar__inner.is-pressed .tabbar__item.is-lit .tabbar__icon {
+  transform: scale(1.12);
+}
+.tabbar__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Sheet / modal ---------- */
@@ -1027,6 +1192,26 @@ button.chip--outline {
   flex-direction: column;
   justify-content: center;
   padding: var(--s-4) 0;
+}
+/* Weiter schiebt den nächsten Schritt von rechts herein, Zurück (Knopf oder
+   Wisch) holt den vorigen von links – die Richtung sagt, wo man ist. */
+.onboarding__body--vor {
+  animation: step-vor var(--dur) var(--ease-out) both;
+}
+.onboarding__body--zurueck {
+  animation: step-zurueck var(--dur) var(--ease-out) both;
+}
+@keyframes step-vor {
+  from {
+    opacity: 0;
+    transform: translate3d(32px, 0, 0);
+  }
+}
+@keyframes step-zurueck {
+  from {
+    opacity: 0;
+    transform: translate3d(-32px, 0, 0);
+  }
 }
 .onboarding__actions {
   display: flex;
@@ -1360,7 +1545,7 @@ button.chip--outline {
   position: fixed;
   left: var(--s-3);
   right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-3));
+  bottom: calc(var(--tabbar-space) + var(--s-3));
   z-index: 45;
   max-width: calc(var(--content-max) - 16px);
   margin: 0 auto;
@@ -1500,14 +1685,14 @@ button.chip--outline {
 
 /* ---------- Bewegung in der Navigation ---------- */
 .tabbar__item[aria-current='page'] .tabbar__icon {
-  animation: tab-pop 340ms var(--ease-spring) both;
+  animation: tab-pop 380ms var(--ease-spring) both;
 }
 @keyframes tab-pop {
   0% {
-    transform: scale(0.82);
+    transform: scale(0.86);
   }
   55% {
-    transform: scale(1.14);
+    transform: scale(1.1);
   }
   100% {
     transform: scale(1);
@@ -1591,7 +1776,7 @@ button.chip--outline {
   position: fixed;
   left: var(--s-3);
   right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-3));
+  bottom: calc(var(--tabbar-space) + var(--s-3));
   z-index: 46;
   max-width: calc(var(--content-max) - 16px);
   margin: 0 auto;
@@ -1655,7 +1840,7 @@ button.chip--outline {
   position: fixed;
   left: var(--s-3);
   right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--s-3));
+  bottom: calc(var(--safe-bottom) + var(--s-3));
   max-width: calc(var(--content-max) - 16px);
   margin: 0 auto;
   z-index: 50;
@@ -1667,6 +1852,11 @@ button.chip--outline {
   background: var(--surface-solid);
   border: 1px solid var(--hairline-strong);
   box-shadow: var(--shadow-md);
+}
+/* Der Hinweis hängt außerhalb der Seiten: über der Tab-Leiste nur, wo es
+   eine gibt – in Spielen und im Onboarding sitzt er am unteren Rand. */
+body:has(.tabbar) .updatebar {
+  bottom: calc(var(--tabbar-space) + var(--s-3));
 }
 
 /* ---------- Rechtstexte ---------- */
@@ -2325,7 +2515,7 @@ button.chip--outline {
   gap: var(--s-4);
   /* Ohne Mindesthöhe greift `margin-top: auto` am Startknopf nicht und er
      klebt am Text statt am Daumen. */
-  min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--tabbar-h));
+  min-height: calc(100dvh - var(--safe-top) - var(--tabbar-space));
 }
 /* Der Farbraum des Spiels hinter der ganzen Seite. Hell bleibt es Papier,
    dort färbt der Ton nur den Titel. */
@@ -2475,6 +2665,12 @@ button.chip--outline {
 .detailstart {
   margin-top: auto;
   padding-top: var(--s-4);
+  /* Der Startknopf bleibt über der schwebenden Tab-Leiste stehen, auch wenn
+     das Foto die Seite höher macht als den Bildschirm – sonst lag er beim
+     Öffnen genau unter der Leiste. */
+  position: sticky;
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+  z-index: 2;
 }
 
 /* In der Lobby stehen nur die passenden Vorschlaege – drei schmale Spalten

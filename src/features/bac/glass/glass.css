@@ -7,7 +7,8 @@
   display: block;
   width: 280px;
   height: 270px;
-  touch-action: none;
+  /* Senkrecht scrollt die Seite weiter, waagerecht schiebt der Finger das Glas. */
+  touch-action: pan-y;
   cursor: grab;
   background: radial-gradient(120% 90% at 50% 100%, #3a2412, #1b110a 55%, #0b0705);
 }

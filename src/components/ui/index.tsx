@@ -1,8 +1,9 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon } from '../icons';
 import { AVATAR_COLORS, avatarStyle, type AvatarColor } from './Avatar';
 import { createPortal } from 'react-dom';
 import { haptic } from '../../lib/haptics';
+import { useSwipeDown } from '../../lib/gestures';
 
 export function NavBar({
   title,
@@ -55,18 +56,23 @@ export function Sheet({
   }, [open, onClose]);
 
   // Ein Sheet ist ein Ebenenwechsel – der gehoert gespuert, egal ueber
-  // welchen der drei Wege es zugeht (Knopf, Hintergrund, Escape).
+  // welchen der Wege es zugeht (Knopf, Hintergrund, Escape, Wisch).
   const schliessen = () => {
     haptic('tap');
     onClose();
   };
+  // Nach unten wegziehen wie unter iOS – der Fertig-Knopf sitzt oben rechts
+  // und damit am weitesten vom Daumen weg.
+  const backdrop = useRef<HTMLDivElement>(null);
+  const swipeRef = useSwipeDown<HTMLDivElement>(schliessen, backdrop);
 
   if (!open) return null;
   // Portal ans <body>: die Screens haben durch ihre Einblend-Animation einen
   // eigenen Stacking-Context, sonst läge das Sheet unter der Tab-Leiste.
   return createPortal(
-    <div className="sheet-backdrop" onClick={schliessen} role="presentation">
+    <div className="sheet-backdrop" ref={backdrop} onClick={schliessen} role="presentation">
       <div
+        ref={swipeRef}
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
