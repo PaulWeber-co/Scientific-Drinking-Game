@@ -37,6 +37,7 @@ export interface CardGameConfig {
   /** Farbraum und Lebenszeichen aus `meta.ts`, aus demselben Grund. */
   world: string;
   ambient?: GameMeta['ambient'];
+  hidden?: GameMeta['hidden'];
   minPlayers: number;
   maxPlayers: number;
   duration: string;

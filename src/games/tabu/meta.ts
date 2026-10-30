@@ -18,6 +18,7 @@ export const meta: GameMeta = {
   intensity: 2,
   tags: ['team', 'schnell', 'reden'],
   requiresOwnDevice: false,
+  hidden: true,
   howTo: [
     'Zwei Teams. Reihum erklärt eine Person Begriffe, ohne die verbotenen Wörter zu benutzen.',
     'Nur die erklärende Person schaut aufs Handy – alle anderen: Bildschirm tabu.',

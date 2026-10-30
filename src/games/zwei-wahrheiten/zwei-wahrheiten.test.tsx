@@ -264,8 +264,13 @@ describe('Zwei Wahrheiten: Ablauf an einem geteilten Handy', () => {
       for (const btn of ersteWahl) fireEvent.click(btn);
       fireEvent.click(screen.getByRole('button', { name: 'Eingetragen' }));
 
-      // Auflösen: der Autor verrät die Lüge.
-      fireEvent.click(screen.getByRole('button', { name: `Erfunden Runde ${runde_}` }));
+      // Auflösen: die Lüge steht seit dem Festlegen fest, also keine zweite
+      // Auswahl – ein Knopf deckt die festgelegte auf.
+      expect(
+        screen.queryAllByRole('button', { name: /^Wahr|^Erfunden/ }),
+        'zweite Lügen-Auswahl',
+      ).toHaveLength(0);
+      fireEvent.click(screen.getByRole('button', { name: 'Lüge aufdecken' }));
       expect(screen.getByText(/Aufgelöst/)).toBeTruthy();
 
       const weiter = runde_ === goal ? 'Endstand' : 'Nächste Person';

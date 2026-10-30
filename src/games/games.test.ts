@@ -464,7 +464,11 @@ describe('Registry', () => {
         'wer-bin-ich',
         'wortbombe',
         'zwei-wahrheiten',
-      ].sort(),
+      ]
+        // Ausgeblendete Spiele tragen die Mechanik weiter, stehen aber in
+        // keiner Auswahl.
+        .filter((id) => !getGame(id)!.hidden)
+        .sort(),
     );
   });
 
