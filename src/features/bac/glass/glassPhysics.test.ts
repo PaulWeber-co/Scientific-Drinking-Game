@@ -10,28 +10,22 @@ import {
   splash,
   stepSim,
   surfaceAt,
+  toCanvas,
+  rimHalfWidth,
   wallX,
 } from './glassPhysics';
-import type { GlassSim, SimInput } from './glassPhysics';
-import { GLASS_PROFILES, contourOf, glassFor, halfWidthAt, liquidFor } from './glassShapes';
-
-const calm: SimInput = { levelGoal: 0.4, pendingGoal: 0, still: false, ambient: false };
-
-function run(s: GlassSim, seconds: number, input: SimInput = calm) {
-  for (let i = 0; i < Math.round(seconds * 120); i++) stepSim(s, 1 / 120, input);
-}
-
-function glass(drinkId: string, level: number) {
-  const drink = findDrink(drinkId);
-  return createSim(level, 0, glassFor(drink), liquidFor(drink));
-}
-
-/** Flüssigkeitsfläche im Glas, gerechnet wie die Physik selbst. */
-function area(s: GlassSim) {
-  let a = 0;
-  for (let i = 0; i < COLUMNS; i++) a += Math.max(0, Math.min(s.surface[i], s.colHi[i]) - s.colLo[i]);
-  return a;
-}
+import { GLASS_PROFILES, glassFor, halfWidthAt, liquidFor } from './glassShapes';
+import {
+  calm,
+  run,
+  glass,
+  area,
+  angle,
+  measureArea,
+  capacity,
+  tiltInput,
+  tiltSlowly,
+} from './glassTestHelpers';
 
 describe('Glasphysik', () => {
   it('beruhigt sich nach dem Einschenken wieder', () => {
@@ -73,7 +67,7 @@ describe('Glasphysik', () => {
     for (let k = 0; k < 120 && !spilled; k++) {
       // Hin und her schieben wie ein ungeduldiger Tisch.
       stepSim(s, 1 / 60, { ...calm, levelGoal: 0.94, hold: k % 20 < 10 ? 60 : -60 });
-      spilled = s.drops.length > 0 || s.rivulets.length > 0;
+      spilled = s.drops.length > 0 || s.rivulets.length > 0 || s.stream.length > 0;
     }
     expect(spilled).toBe(true);
     run(s, 3, { ...calm, levelGoal: 0.94 });
@@ -85,6 +79,7 @@ describe('Glasphysik', () => {
     run(s, 4, { ...calm, levelGoal: 0.5, gravity: { x: 0.2, y: 0.98 } });
     expect(s.drops).toHaveLength(0);
     expect(s.rivulets).toHaveLength(0);
+    expect(s.stream).toHaveLength(0);
   });
 
   it('lässt Eis oben schwimmen und bei fast leerem Glas am Grund liegen', () => {
@@ -153,7 +148,12 @@ describe('Glasphysik', () => {
   it('steht im Ruhebild still und waagerecht', () => {
     const s = createSim(0.5);
     splash(s);
-    stepSim(s, 1 / 60, { levelGoal: 0.5, pendingGoal: 0, still: true, gravity: { x: 0.5, y: 0.8 } });
+    stepSim(s, 1 / 60, {
+      levelGoal: 0.5,
+      pendingGoal: 0,
+      still: true,
+      gravity: { x: 0.5, y: 0.8 },
+    });
     expect(s.surfaceVel).toEqual(new Array(COLUMNS).fill(0));
     expect(Math.max(...s.surface) - Math.min(...s.surface)).toBeLessThan(0.01);
   });
@@ -169,248 +169,12 @@ it('lässt die Füllung steigen, während die Magen-Schicht sinkt', () => {
   expect(s.level + s.pending).toBeCloseTo(0.5, 2);
 });
 
-
-/** Nur echte freie Oberflächen zählen, weder trockener Boden noch volle Wand. */
-function angle(s: GlassSim) {
-  const wet = s.colX
-    .map((x, i) => [x, s.surface[i], i])
-    .filter(([, y, i]) => y > s.colLo[i] + 0.1 && y < s.colHi[i] - 0.1);
-  const mx = wet.reduce((a, [x]) => a + x, 0) / wet.length;
-  const my = wet.reduce((a, [, y]) => a + y, 0) / wet.length;
-  return (
-    (Math.atan(
-      wet.reduce((a, [x, y]) => a + (x - mx) * (y - my), 0) /
-        wet.reduce((a, [x]) => a + (x - mx) ** 2, 0),
-    ) *
-      180) /
-    Math.PI
-  );
-}
-
-/** Unabhängige horizontale Streifenintegration der Profilfläche. */
-function spillAngle(profile: (typeof GLASS_PROFILES)['pint']) {
-  const dy = profile.height / 2000;
-  let target = 0;
-  for (let y = dy / 2; y < profile.height / 2; y += dy) target += 2 * halfWidthAt(profile, y) * dy;
-  let lo = 0;
-  let hi = Math.PI / 2;
-  for (let n = 0; n < 40; n++) {
-    const theta = (lo + hi) / 2;
-    const slope = Math.tan(theta);
-    const center = profile.height - slope * halfWidthAt(profile, profile.height);
-    let volume = 0;
-    for (let y = dy / 2; y < profile.height; y += dy) {
-      const w = halfWidthAt(profile, y);
-      volume += Math.max(0, Math.min(2 * w, w - (y - center) / slope)) * dy;
-    }
-    if (volume > target) lo = theta;
-    else hi = theta;
-  }
-  return (((lo + hi) / 2) * 180) / Math.PI;
-}
-
-/** Feinere Messspalten und horizontale Profilschnitte statt Kern-Geometriedaten. */
-function measureArea(s: GlassSim) {
-  const count = COLUMNS * 4;
-  const half = Math.max(...contourOf(s.profile).map(([w]) => w));
-  const dx = (2 * half) / count;
-  const dy = s.profile.height / 2000;
-  const widths = Array.from({ length: 2000 }, (_, i) => halfWidthAt(s.profile, (i + 0.5) * dy));
-  const columns = Array.from({ length: count }, (_, i) => {
-    const x = -half + (i + 0.5) * dx;
-    const inside = widths.map((w, j) => (w >= Math.abs(x) ? j : -1)).filter((j) => j >= 0);
-    return { x, lo: inside[0] * dy, hi: (inside.at(-1)! + 1) * dy };
-  });
-  return () =>
-    columns.reduce(
-      (sum, { x, lo, hi }) => sum + Math.max(0, Math.min(surfaceAt(s, x), hi) - lo) * dx,
-      0,
-    );
-}
-
-for (const shape of Object.keys(GLASS_PROFILES) as (keyof typeof GLASS_PROFILES)[]) {
-  describe(`Höhenfeld ${shape}`, () => {
-    it('folgt der Neigung bis fünfundachtzig Grad', () => {
-      const measured = [];
-      for (const degrees of [15, 30, 45, 60, 75, 85]) {
-        const s = createSim(0.5, 0, shape);
-        const theta = (degrees * Math.PI) / 180;
-        run(s, 4, { ...calm, levelGoal: 0.5, gravity: { x: Math.sin(theta), y: Math.cos(theta) } });
-        measured.push(angle(s));
-      }
-      measured.forEach((value, i) =>
-        expect(Math.abs(value - [15, 30, 45, 60, 75, 85][i])).toBeLessThanOrEqual(2),
-      );
-    });
-
-    it('läuft am geometrisch berechneten Kippwinkel über', () => {
-      const s = createSim(0.5, 0, shape, { ...liquidFor(findDrink('wine-red')), foam: false });
-      const expected = spillAngle(s.profile);
-      let first = NaN;
-      for (let n = 0; n < (85 * 60) / 5; n++) {
-        const degrees = (n * 5) / 60;
-        const theta = (degrees * Math.PI) / 180;
-        stepSim(s, 1 / 60, {
-          ...calm,
-          levelGoal: 0.5,
-          gravity: { x: Math.sin(theta), y: Math.cos(theta) },
-        });
-        if (s.drops.length || s.rivulets.length) {
-          first = degrees;
-          break;
-        }
-      }
-      expect(Math.abs(first - expected)).toBeLessThanOrEqual(3);
-    });
-
-    it('schwingt mit der Dispersionsfrequenz des Profils', () => {
-      const s = createSim(0.5, 0, shape);
-      const h = s.profile.height / 2;
-      const width = 2 * halfWidthAt(s.profile, h);
-      const k = Math.PI / width;
-      const expected = Math.sqrt(GRAVITY * k * Math.tanh(k * h)) / (2 * Math.PI);
-      // Kleine erste Eigenform, ohne Impuls beim Loslassen.
-      s.surface = s.colX.map((x) => h + 0.3 * Math.sin((Math.PI * x) / width));
-      const crossings: number[] = [];
-      let previous = surfaceAt(s, width / 4) - surfaceAt(s, -width / 4);
-      for (let n = 1; n <= 1200; n++) {
-        stepSim(s, 1 / 240, { ...calm, levelGoal: 0.5 });
-        const value = surfaceAt(s, width / 4) - surfaceAt(s, -width / 4);
-        if (previous < 0 && value >= 0) crossings.push(n / 240);
-        previous = value;
-      }
-      expect(crossings.length).toBeGreaterThanOrEqual(3);
-      const measured = (crossings.length - 1) / (crossings.at(-1)! - crossings[0]);
-      expect(Math.abs(measured / expected - 1)).toBeLessThanOrEqual(0.1);
-    });
-
-    it('hält die Fläche beim Schütteln ohne Überlauf', () => {
-      const s = createSim(0.15, 0, shape);
-      const measuredArea = measureArea(s);
-      const before = measuredArea();
-      let maxError = 0;
-      for (let n = 0; n < 600; n++) {
-        stepSim(s, 1 / 60, {
-          ...calm,
-          levelGoal: 0.15,
-          gravity: { x: 0.5 * Math.sin((2 * Math.PI * 3 * n) / 60), y: 1 },
-        });
-        maxError = Math.max(maxError, Math.abs(measuredArea() / before - 1));
-        expect(s.drops.length + s.rivulets.length).toBe(0);
-      }
-      expect(maxError).toBeLessThanOrEqual(0.01);
-    });
-
-    it('antwortet sichtbar auf Antippen', () => {
-      const s = createSim(0.5, 0, shape);
-      const x = s.width / 4;
-      const rest = surfaceAt(s, x);
-      tap(s, x);
-      let peak = 0;
-      for (let n = 0; n < 60; n++) {
-        stepSim(s, 1 / 120, { ...calm, levelGoal: 0.5 });
-        peak = Math.max(peak, Math.abs(surfaceAt(s, x) - rest));
-      }
-      expect(peak).toBeGreaterThanOrEqual(4);
-    });
-
-    it('regt sich durch vertikales Schütteln an', () => {
-      const s = createSim(0.5, 0, shape);
-      let peak = 0;
-      for (let n = 0; n < 240; n++) {
-        stepSim(s, 1 / 120, {
-          ...calm,
-          levelGoal: 0.5,
-          ambient: true,
-          gravity: { x: 0, y: 1 + 0.8 * Math.sin((2 * Math.PI * 4 * n) / 120) },
-        });
-        peak = Math.max(peak, Math.abs(angle(s)));
-      }
-      expect(peak).toBeGreaterThanOrEqual(2);
-    });
-
-    it('bilanziert den Fluss an jeder gemeinsamen Spaltengrenze', () => {
-      const s = createSim(0.5, 0, shape);
-      const dx = s.colX[1] - s.colX[0];
-      const h = s.profile.height / 2;
-      const k = Math.PI / (2 * halfWidthAt(s.profile, h));
-      const depth = Math.tanh(k * h) / k;
-      const initial = s.surface.slice();
-      const mass = initial.map((y, i) => Math.max(0, Math.min(y, s.colHi[i]) - s.colLo[i]));
-      const mobility = Array.from({ length: COLUMNS + 1 }, (_, i) => {
-        if (i === 0 || i === COLUMNS) return 0;
-        const bed = Math.max(s.colLo[i - 1], s.colLo[i]);
-        const roof = Math.min(s.colHi[i - 1], s.colHi[i]);
-        return Math.min(
-          depth,
-          Math.max(0, Math.min(roof, Math.max(initial[i - 1], initial[i])) - bed),
-        );
-      });
-      const dt = 0.0002;
-      stepSim(s, dt, { ...calm, levelGoal: 0.5, gravity: { x: 0.1, y: 1 } });
-      for (let i = 0; i < COLUMNS; i++) {
-        const actual = Math.max(0, Math.min(s.surface[i], s.colHi[i]) - s.colLo[i]);
-        const expected =
-          mass[i] + (dt / dx) * (mobility[i] * s.flow[i] - mobility[i + 1] * s.flow[i + 1]);
-        expect(Math.abs(actual - expected)).toBeLessThan(1e-6);
-      }
-    });
-
-    it('bleibt bei maximaler Schrittweite endlich und deterministisch', () => {
-      const a = createSim(0.5, 0, shape);
-      const b = createSim(0.5, 0, shape);
-      tap(a, a.width / 4);
-      tap(b, b.width / 4);
-      for (let n = 0; n < 300; n++) {
-        const theta = ((85 * Math.PI) / 180) * Math.sin(n / 30);
-        const input = {
-          ...calm,
-          levelGoal: 0.5,
-          ambient: true,
-          gravity: {
-            x: Math.sin(theta),
-            y: Math.cos(theta) * (1 + 0.8 * Math.sin(n)),
-          },
-        };
-        stepSim(a, 0.033, input);
-        stepSim(b, 0.033, input);
-        expect(a.surface.every(Number.isFinite)).toBe(true);
-        expect(a.flow.every(Number.isFinite)).toBe(true);
-      }
-      expect(a).toEqual(b);
-      run(a, 10, { ...calm, levelGoal: 0.5 });
-      expect(Math.abs(angle(a))).toBeLessThan(2);
-      const expectedArea = area(createSim(0.5, 0, shape));
-      expect(Math.abs(area(a) / expectedArea - 1)).toBeLessThan(0.01);
-      const seed = a.seed;
-      stepSim(a, 0.033, { ...calm, still: true });
-      expect(a.seed).toBe(seed);
-      expect(a.surface.every((y) => y === a.surface[0])).toBe(true);
-    });
-
-    // Ein Bild hat bei 60 Hz 16 ms. Gemessen liegt ein Schritt allein bei
-    // gut 0,5 ms, unter voller Testlast schwankt das um das Doppelte. Die
-    // Grenze fängt einen Rückfall um ein Vielfaches, nicht die Zehntel.
-    it('berechnet einen Schritt im Mittel unter vier Millisekunden', () => {
-      const s = createSim(0.5, 0, shape);
-      tap(s, s.width / 4);
-      const start = performance.now();
-      for (let n = 0; n < 600; n++)
-        stepSim(s, 1 / 60, {
-          ...calm,
-          levelGoal: 0.5,
-          ambient: true,
-          gravity: { x: 0.5 * Math.sin((2 * Math.PI * 3 * n) / 60), y: 1 },
-        });
-      const ms = (performance.now() - start) / 600;
-      expect(ms).toBeLessThan(4);
-    });
-  });
-}
-
 it('behält die Länge der wirksamen Schwerkraft bei vertikaler Beschleunigung', () => {
   const low = createSim(0.5);
   const high = createSim(0.5);
+  // Ein einzelner Beschleunigungswert nach aufrechter Ruhe ist keine flache Lage.
+  run(low, 0.3, { ...calm, levelGoal: 0.5 });
+  run(high, 0.3, { ...calm, levelGoal: 0.5 });
   tap(low, low.width / 4);
   tap(high, high.width / 4);
   stepSim(low, 1 / 60, { ...calm, levelGoal: 0.5, gravity: { x: 0, y: 0.2 } });
@@ -425,3 +189,224 @@ it('erzeugt in einem leeren Glas keine Flüssigkeit', () => {
   run(s, 1, { ...calm, levelGoal: 0 });
   expect(area(s)).toBe(0);
 });
+
+function fullArea(profile: (typeof GLASS_PROFILES)['pint']) {
+  const dy = profile.height / 4000;
+  let result = 0;
+  for (let i = 0; i < 4000 * 0.94; i++) result += 2 * halfWidthAt(profile, (i + 0.5) * dy) * dy;
+  return result;
+}
+
+for (const shape of Object.keys(GLASS_PROFILES) as (keyof typeof GLASS_PROFILES)[]) {
+  describe(`Auslaufen ${shape}`, () => {
+    it('steht bei flach liegendem Handy randvoll ohne neue Teilchen ruhig', () => {
+      const s = createSim(0.94, 0, shape, { ...liquidFor(findDrink('wine-red')), foam: false });
+      let emitted = 0;
+      let peak = 0;
+      for (let n = 0; n < 600; n++) {
+        stepSim(s, 1 / 120, { ...tiltInput(0), gravity: { x: 0.03, y: 0.02 } });
+        emitted += s.drops.length + s.stream.length + s.rivulets.length;
+        peak = Math.max(peak, Math.abs(angle(s)));
+      }
+      expect(emitted).toBe(0);
+      expect(s.lostArea).toBe(0);
+      expect(peak).toBeLessThan(2);
+    });
+
+    for (const seconds of [0.3, 0.6]) {
+      for (const table of [{ x: 0.017, y: 0 }, { x: 0.03, y: 0.02 }]) {
+        it.each([false, true])(
+          `bleibt beim Hinlegen in ${seconds} s auf ${table.x}/${table.y} g ruhig (Tischbewegung: %s)`,
+          (ambient) => {
+            const s = createSim(0.94, 0, shape, {
+              ...liquidFor(findDrink('wine-red')),
+              foam: false,
+            });
+            run(s, 0.5, tiltInput(0));
+            const full = measureArea(s)();
+            let peak = 0;
+            // Neigung des Handys: 90° aufrecht → 0° flach, danach 1 s auf dem Tisch.
+            const steps = Math.round(seconds * 120);
+            for (let n = 1; n <= steps + 120; n++) {
+              const theta = (Math.max(0, 1 - n / steps) * Math.PI) / 2;
+              stepSim(s, 1 / 120, {
+                ...tiltInput(0),
+                ambient,
+                gravity: {
+                  x: table.x * Math.cos(theta),
+                  y: Math.sin(theta) + table.y * Math.cos(theta),
+                },
+              });
+              peak = Math.max(peak, Math.abs(angle(s)));
+            }
+            const measured = JSON.stringify({
+              shape,
+              seconds,
+              table,
+              ambient,
+              peak,
+              spilled: s.spilled,
+            });
+            // Beim Ablegen darf es kurz schwappen wie ein abgestelltes Glas. Ein
+            // randvolles, schnell abgestelltes Glas verliert höchstens ein paar Tropfen.
+            expect(peak, measured).toBeLessThan(12);
+            expect(s.spilled, measured).toBeLessThan(full * 0.01);
+          },
+        );
+      }
+    }
+
+    // Fassung bei 55 Grad und Nachfüllen teilen denselben Kippverlauf.
+    // Die Bilanz bleibt als Messwerte erhalten, bevor das Nachfüllen fortsetzt.
+    const tilted = new Map<number, ReturnType<typeof simulateTilt>>();
+    function simulateTilt(degrees: number) {
+      const s = createSim(0.94, 0, shape);
+      const measured = measureArea(s);
+      tiltSlowly(s, degrees);
+      run(s, 3, tiltInput(degrees));
+      const before = s.spilled;
+      let emitted = 0;
+      for (let i = 0; i < 120; i++) {
+        const drops = new Set(s.drops);
+        stepSim(s, 1 / 120, tiltInput(degrees));
+        emitted += s.stream.filter((p) => p.age === 0).length;
+        emitted += s.drops.filter((d) => !drops.has(d)).length;
+      }
+      return { s, actual: measured(), before, emitted, spilled: s.spilled, level: s.level };
+    }
+    function atTilt(degrees: number) {
+      let result = tilted.get(degrees);
+      if (!result) {
+        result = simulateTilt(degrees);
+        tilted.set(degrees, result);
+      }
+      return result;
+    }
+
+    for (const degrees of [30, 55, 80]) {
+      it(`erreicht bei ${degrees} Grad die Fassung und stoppt bilanziert`, () => {
+        const profile = GLASS_PROFILES[shape];
+        const target = fullArea(profile);
+        const expected = capacity(profile, degrees);
+        if (expected >= target) return;
+        const { actual, before, emitted, spilled, level } = atTilt(degrees);
+        expect(Math.abs(actual / expected - 1)).toBeLessThanOrEqual(0.03);
+        expect(emitted).toBe(0);
+        expect(spilled - before).toBeLessThan(target * 0.005);
+        expect(Math.abs(spilled / (target - actual) - 1)).toBeLessThanOrEqual(0.05);
+        expect(level).toBe(0.94);
+      });
+    }
+
+    it('füllt nach dem Auslaufen bei flach liegendem Handy wieder nach', () => {
+      const s = structuredClone(atTilt(55).s);
+      const measured = measureArea(s);
+      const target = fullArea(s.profile);
+      expect(s.lostArea).toBeGreaterThan(0);
+      run(s, 3, { ...tiltInput(0), gravity: { x: 0.03, y: 0.02 } });
+      const error = Math.abs(measured() / target - 1);
+      expect(error).toBeLessThanOrEqual(0.01);
+    });
+
+    it('füllt erst aufrecht nach einer Pause ruhig wieder nach', () => {
+      const s = atTilt(55).s;
+      const measured = measureArea(s);
+      const target = fullArea(s.profile);
+      const lost = s.lostArea;
+      run(s, 1, tiltInput(30));
+      expect(s.lostArea).toBeGreaterThanOrEqual(lost * 0.999);
+      run(s, 0.5, tiltInput(0));
+      const paused = measured();
+      expect(s.lostArea).toBeGreaterThanOrEqual(lost * 0.999);
+      expect(paused).toBeLessThan(target * 0.95);
+      run(s, 2.5, tiltInput(0));
+      const filled = measured();
+      expect(Math.abs(filled / target - 1)).toBeLessThanOrEqual(0.01);
+      run(s, 0.5, tiltInput(0));
+      expect(Math.abs(angle(s))).toBeLessThan(1);
+    });
+
+    it('bildet ein dünner werdendes Band mit Tropfen und löst es von der Lippe', () => {
+      const s = createSim(0.94, 0, shape);
+      // Gleichmäßiges Ankippen hält den Fluss bis zum Messpunkt bei einer Sekunde.
+      for (let i = 1; i <= 120; i++) stepSim(s, 1 / 120, tiltInput((55 * i) / 120));
+      expect(s.stream?.length ?? 0).toBeGreaterThan(2);
+      const chain = s.stream.filter((p) => p.chain === s.stream.at(-1)!.chain);
+      expect(chain.length).toBeGreaterThan(2);
+      for (let i = 1; i < chain.length; i++) {
+        const a = chain[i - 1];
+        const b = chain[i];
+        const ratio = Math.hypot(a.x - b.x, a.y - b.y) / (2 * Math.max(a.width, b.width));
+        expect(ratio).toBeLessThan(1);
+      }
+      // Array-Reihenfolge: unten/alt zuerst, oben/jung zuletzt.
+      expect(chain[0].width).toBeLessThan(chain.at(-1)!.width);
+      expect(s.drops.some((d) => !d.foam && d.y > chain.at(-1)!.y)).toBe(true);
+      // Die Quelle wird waagerecht und ohne Welle beendet; das freie Band bleibt.
+      s.surface.fill(0.94 * s.profile.height);
+      s.flow.fill(0);
+      const youngest = chain.at(-1)!;
+      const start = { x: youngest.x, y: youngest.y };
+      stepSim(s, 1 / 120, tiltInput(0));
+      expect(Math.hypot(youngest.x - start.x, youngest.y - start.y)).toBeGreaterThan(0.1);
+      expect(youngest.age).toBeGreaterThan(0);
+      run(s, 0.3 - 1 / 120, tiltInput(0));
+      let nearLip = 0;
+      for (const side of [-1, 1]) {
+        const lip = toCanvas(
+          s,
+          side * (rimHalfWidth(s.profile) + s.profile.wall),
+          s.profile.height,
+        );
+        nearLip += s.stream.filter((p) => Math.hypot(p.x - lip.x, p.y - lip.y) < 3).length;
+      }
+      expect(nearLip).toBe(0);
+    });
+
+    it('erhält die Schwerkraftrichtung bei Strahl und Tropfen auch über Kopf', () => {
+      for (const degrees of [80, 120]) {
+        const s = createSim(0.1, 0, shape);
+        const p = {
+          ...toCanvas(s, 0, s.profile.height),
+          vx: 100,
+          vy: 100,
+          q: 10000,
+          width: 16,
+          chain: 1,
+          side: 1 as const,
+          age: 0,
+          distance: 0,
+          duration: 1 / 120,
+        };
+        const drop = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, r: 1, foam: false, age: 0 };
+        s.stream = [p];
+        s.drops = [drop];
+        const input = { ...tiltInput(degrees), levelGoal: 0.1 };
+        const dt = 0.001;
+        stepSim(s, dt, input);
+        const expectedX = 100 + input.gravity!.x * GRAVITY * dt;
+        const expectedY = 100 + input.gravity!.y * GRAVITY * dt;
+        expect(p.vx).toBeCloseTo(expectedX, 8);
+        expect(p.vy).toBeCloseTo(expectedY, 8);
+        expect(drop.vx).toBeCloseTo(expectedX, 8);
+        expect(drop.vy).toBeCloseTo(expectedY, 8);
+      }
+    });
+
+    it('leert einen aktiven Strahl beim Ruhebild und beim Glaswechsel', () => {
+      const s = createSim(0.94, 0, shape);
+      for (let i = 1; i <= 120; i++) stepSim(s, 1 / 120, tiltInput((55 * i) / 120));
+      expect(s.stream?.length ?? 0).toBeGreaterThan(0);
+      const seed = s.seed;
+      stepSim(s, 1 / 120, { ...tiltInput(55), still: true });
+      expect(s.stream).toHaveLength(0);
+      expect(s.seed).toBe(seed);
+      expect(s.spilled).toBe(0);
+      for (let i = 1; i <= 120; i++) stepSim(s, 1 / 120, tiltInput((55 * i) / 120));
+      expect(s.stream?.length ?? 0).toBeGreaterThan(0);
+      setGlass(s, shape, s.look);
+      expect(s.stream).toHaveLength(0);
+      expect(s.spilled).toBe(0);
+    });
+  });
+}
