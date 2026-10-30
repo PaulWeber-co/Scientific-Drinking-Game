@@ -1,34 +1,16 @@
-import { GLASS_PROFILES, halfWidthAt, liquidFor } from './glassShapes';
+import { GLASS_PROFILES, contourOf, halfWidthAt, liquidFor } from './glassShapes';
 import type { GlassProfile, GlassShape, Liquid } from './glassShapes';
 import { DRINK_CATALOG } from '../../../engine/drinks';
 
 /**
- * Flüssigkeit im Glas, wie sie sich wirklich bewegt.
- *
- * Das Schwappen ist eine Überlagerung von Eigenschwingungen (Moden) der
- * Oberfläche – genau so beschreibt es die Strömungslehre für Flüssigkeit in
- * einem Behälter. Jede Mode schwingt mit ihrer eigenen Frequenz aus der
- * Dispersionsrelation für Schwerewellen, ω² = g·k·tanh(k·h): ein schmales
- * Glas schwappt schneller als ein breites, eine flache Pfütze träger als ein
- * volles Glas. Ein Pint liegt so bei gut 3 Hz, wie in echt.
- *
- * Angeregt werden die Moden über die Richtung der wirksamen Schwerkraft
- * relativ zum Glas: Neigen (Sensor), Beschleunigen (Finger, Schütteln) und
- * Einschenken. Die Moden selbst sind linear; das Volumen hält eine eigene
- * Rechnung fest, die auch bei starker Neigung stimmt, wenn die Oberfläche den
- * Boden freilegt oder über den Rand steigt. Was über den Rand steigt,
- * schwappt über: als Tropfen, wenn es schnell geht, als Rinnsal außen am
- * Glas, wenn es nur knapp reicht.
- *
- * Koordinaten: x nach rechts ab der Glasmitte, y nach oben ab dem Innenboden,
- * in Bildpunkten. 1300 px entsprechen einem Meter.
+ * Höhenfeld im Glasrahmen: x nach rechts, y ab Innenboden nach oben, in px.
+ * Benachbarte Spalten tauschen Flüssigkeit über gerichtete Impulsflüsse aus.
+ * Die hydraulische Tiefe begrenzt die Wellengeschwindigkeit im tiefen Glas.
  */
 
 export const PX_PER_M = 1300;
 /** Erdbeschleunigung in px/s². */
 export const GRAVITY = 9.81 * PX_PER_M;
-/** Eigenschwingungen der Oberfläche. Acht reichen bis zu feinen Kräuseln. */
-export const MODES = 8;
 /** Stützstellen quer durchs Glas für Volumen, Zeichnen und Überlauf. */
 export const COLUMNS = 56;
 /** Höchste Füllung (Anteil der Innenhöhe). */
@@ -89,14 +71,15 @@ export interface GlassSim {
   /** Füllung als Anteil der Innenhöhe: im Blut und noch im Magen. */
   level: number;
   pending: number;
-  /** Modenamplituden (px) und ihre Geschwindigkeiten. */
-  amp: number[];
-  vel: number[];
-  /** Quasistatische Neigung der Oberfläche relativ zum Glas (dy/dx). */
-  slope: number;
+  /** Geschwindigkeit an den Zellgrenzen, positive Richtung nach rechts. */
+  flow: number[];
+  /** Optisch verlorene Fläche / Spaltenbreite; der externe Pegel speist nach. */
+  lostArea: number;
+  /** Fläche / Spaltenbreite am Rand, im nächsten Druckschritt lokal entnommen. */
+  outflow: number[];
   /** Mittlere Höhe der Oberfläche, aus dem Volumen bestimmt. */
   center: number;
-  /** Oberfläche an den Stützstellen. */
+  /** Oberfläche an den Stützstellen; außerhalb benetzter Abschnitte der Druckkopf. */
   surface: number[];
   /** Senkrechte Geschwindigkeit der Oberfläche an den Stützstellen. */
   surfaceVel: number[];
@@ -104,11 +87,8 @@ export interface GlassSim {
   colX: number[];
   colLo: number[];
   colHi: number[];
-  /** Ruhebreite der Oberfläche, nach der die Moden bemessen sind. */
+  /** Ruhebreite der freien Oberfläche. */
   width: number;
-  basis: number[][];
-  gamma: number[];
-  omega2: number[];
   /** Glas: seitlicher Versatz (Finger), Tempo, Beschleunigung und Neigung. */
   offset: number;
   offsetVel: number;
@@ -166,9 +146,9 @@ export function createSim(
     look,
     level,
     pending,
-    amp: new Array(MODES).fill(0),
-    vel: new Array(MODES).fill(0),
-    slope: 0,
+    flow: new Array(COLUMNS + 1).fill(0),
+    lostArea: 0,
+    outflow: new Array(COLUMNS).fill(0),
     center: 0,
     surface: new Array(COLUMNS).fill(0),
     surfaceVel: new Array(COLUMNS).fill(0),
@@ -176,9 +156,6 @@ export function createSim(
     colLo: [],
     colHi: [],
     width: 0,
-    basis: [],
-    gamma: [],
-    omega2: [],
     offset: 0,
     offsetVel: 0,
     offsetAcc: 0,
@@ -210,7 +187,8 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
   s.profile = GLASS_PROFILES[shape];
   s.look = look;
   const { profile } = s;
-  const maxHalf = Math.max(...profile.points.map(([w]) => w));
+  const contour = contourOf(profile);
+  const maxHalf = Math.max(...contour.map(([w]) => w));
   s.colX = [];
   s.colLo = [];
   s.colHi = [];
@@ -221,11 +199,14 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
     // der Rand der Spalte nicht oben, sondern dort, wo der Kelch einzieht.
     let lo = Infinity;
     let hi = -Infinity;
-    for (let y = 0; y <= profile.height; y += 0.5) {
-      if (halfWidthAt(profile, y) >= Math.abs(x)) {
-        lo = Math.min(lo, y);
-        hi = Math.max(hi, y);
-      }
+    for (let j = 1; j < contour.length; j++) {
+      const [w0, y0] = contour[j - 1];
+      const [w1, y1] = contour[j];
+      const ax = Math.abs(x);
+      if (w0 < ax && w1 < ax) continue;
+      const crossing = w0 === w1 ? y0 : y0 + ((ax - w0) / (w1 - w0)) * (y1 - y0);
+      lo = Math.min(lo, w0 >= ax ? y0 : crossing);
+      hi = Math.max(hi, w1 >= ax ? y1 : crossing);
     }
     if (lo === Infinity) {
       lo = profile.height;
@@ -235,8 +216,7 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
     s.colHi.push(hi);
   }
   s.width = 0;
-  s.amp.fill(0);
-  s.vel.fill(0);
+  s.flow.fill(0);
   s.bubbles = [];
   s.drops = [];
   s.rivulets = [];
@@ -263,76 +243,163 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
       size: size * (0.9 + random(s) * 0.15),
     });
   }
-  measure(s, true);
+  resetSurface(s);
   settleIce(s);
-  solveSurface(s);
 }
 
-/** Moden für die aktuelle Ruhebreite: Form, Frequenz, Anteil an einer Neigung. */
-function measure(s: GlassSim, force = false): void {
-  const height = s.profile.height;
-  const rest = Math.max(4, (s.level + s.pending) * height);
-  const width = 2 * halfWidthAt(s.profile, rest);
-  if (!force && Math.abs(width - s.width) < 0.5) return;
-  s.width = width;
-  s.basis = [];
-  s.gamma = [];
-  s.omega2 = [];
-  for (let n = 1; n <= MODES; n++) {
-    const k = (n * Math.PI) / width;
-    s.omega2.push(GRAVITY * k * Math.tanh(k * rest));
-    // Anteil dieser Mode an einer schrägen Ebene y = x: nur ungerade Moden.
-    s.gamma.push(n % 2 ? (-4 * width) / (n * n * Math.PI * Math.PI) : 0);
-    s.basis.push(s.colX.map((x) => modeShape(n, x, width)));
-  }
-}
-
-function modeShape(n: number, x: number, width: number): number {
-  const xi = Math.min(1, Math.max(0, (x + width / 2) / width));
-  return Math.cos(n * Math.PI * xi);
-}
-
-/** Fläche unter der horizontalen Linie in Höhe `h`, gerechnet über die Spalten. */
+/** Fläche im Schnitt; die gemeinsame Spaltenbreite kürzt sich heraus. */
 function areaBelow(s: GlassSim, h: number): number {
   let area = 0;
-  for (let i = 0; i < COLUMNS; i++) {
-    area += Math.max(0, Math.min(h, s.colHi[i]) - s.colLo[i]);
-  }
+  for (let i = 0; i < COLUMNS; i++) area += Math.max(0, Math.min(h, s.colHi[i]) - s.colLo[i]);
   return area;
 }
 
+function resetSurface(s: GlassSim): void {
+  s.center = (s.level + s.pending) * s.profile.height;
+  s.width = 2 * halfWidthAt(s.profile, s.center);
+  s.surface.fill(s.center);
+  s.surfaceVel.fill(0);
+  s.flow.fill(0);
+  s.lostArea = 0;
+  s.outflow.fill(0);
+}
+
 /**
- * Oberfläche an den Stützstellen, mit einer Mittelhöhe, die das Volumen hält.
- *
- * Die Moden haben über die Breite den Mittelwert null – in einem geraden Glas
- * stimmt das Volumen damit von selbst. In schrägen Wänden, bei freigelegtem
- * Boden oder über dem Rand nicht mehr; dort sucht eine Halbierung die
- * Mittelhöhe, bei der die Fläche wieder passt.
+ * Semiimplizite Massen- und Impulsbilanz auf einem versetzten Gitter.
+ * Die Speicherkurve einer Spalte ist an Boden und geschlossener Kelchwand
+ * begrenzt. Darüber steht die Höhe für den Druckkopf, nicht für mehr Masse.
+ * Der tridiagonale Druckschritt erhält die lokalen Flüsse auch dort, wo
+ * eine volle Spalte keine zusätzliche Flüssigkeit aufnehmen kann.
  */
-function solveSurface(s: GlassSim): void {
-  const height = s.profile.height;
-  const shape: number[] = s.colX.map((x, i) => {
-    let y = s.slope * x;
-    for (let n = 0; n < MODES; n++) y += (s.amp[n] - s.slope * s.gamma[n]) * s.basis[n][i];
-    return y;
-  });
-  const target = areaBelow(s, (s.level + s.pending) * height);
-  const area = (c: number) => {
-    let a = 0;
-    for (let i = 0; i < COLUMNS; i++) {
-      a += Math.max(0, Math.min(c + shape[i], s.colHi[i]) - s.colLo[i]);
-    }
-    return a;
-  };
-  let lo = -2 * height;
-  let hi = 3 * height;
-  for (let k = 0; k < 22; k++) {
-    const mid = (lo + hi) / 2;
-    if (area(mid) < target) lo = mid;
-    else hi = mid;
+function stepField(s: GlassSim, dt: number, ambient: boolean): void {
+  const rest = Math.max(1, (s.level + s.pending) * s.profile.height);
+  s.width = 2 * halfWidthAt(s.profile, rest);
+  const dx = s.colX[1] - s.colX[0];
+  const k = Math.PI / s.width;
+  // Im tiefen Wasser beteiligt sich nur noch eine Tiefe von ungefähr 1/k.
+  const depth = Math.tanh(k * rest) / k;
+  const axial = s.gy < 0 ? -s.gy : 0.025 * GRAVITY;
+  const frequency = Math.sqrt(axial * k * Math.tanh(k * rest));
+  const before = s.surface.slice();
+  s.lostArea *= Math.exp(-8 * dt);
+  const target = Math.max(0, areaBelow(s, (s.level + s.pending) * s.profile.height) - s.lostArea);
+  const velocity = s.flow;
+  if (target > 0 && s.surface.every((y, i) => y <= s.colLo[i])) {
+    s.surface.fill((s.level + s.pending) * s.profile.height);
   }
-  s.center = (lo + hi) / 2;
-  for (let i = 0; i < COLUMNS; i++) s.surface[i] = s.center + shape[i];
+  if (ambient) {
+    // Eine kleine gerichtete Störung bricht die Symmetrie für parametrische Wellen.
+    const kick = gauss(s) * Math.sqrt(dt) * 35;
+    for (let i = 1; i < COLUMNS; i++)
+      velocity[i] += kick * Math.cos((Math.PI * s.colX[i]) / s.width);
+  }
+  const steps = Math.max(
+    1,
+    Math.ceil(
+      dt /
+        Math.min(
+          0.001,
+          (0.35 * dx) /
+            (Math.sqrt(axial * depth) +
+              Math.sqrt(Math.abs(s.gx) * s.width) +
+              Math.max(...velocity.map(Math.abs))),
+        ),
+    ),
+  );
+  const h = dt / steps;
+  const mobility = new Float64Array(COLUMNS + 1);
+  const predicted = new Float64Array(COLUMNS + 1);
+  const mass = new Float64Array(COLUMNS);
+  const rhs = new Float64Array(COLUMNS);
+  const upper = new Float64Array(COLUMNS);
+  const solved = new Float64Array(COLUMNS);
+  const original = new Float64Array(COLUMNS);
+  const amount = (i: number) => Math.max(0, Math.min(s.surface[i], s.colHi[i]) - s.colLo[i]);
+  for (let n = 0; n < steps; n++) {
+    let total = 0;
+    let free = 0;
+    for (let i = 0; i < COLUMNS; i++) {
+      mass[i] = amount(i);
+      total += mass[i];
+      if (s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i]) free++;
+    }
+    // Externe Pegeländerungen und optischer Nachfluss sind explizite Quellen.
+    const drained = n === 0 ? s.outflow.reduce((sum, value) => sum + value, 0) : 0;
+    const supply = (target - total + drained) / Math.max(1, free);
+    for (let i = 1; i < COLUMNS; i++) {
+      const bed = Math.max(s.colLo[i - 1], s.colLo[i]);
+      const roof = Math.min(s.colHi[i - 1], s.colHi[i]);
+      const wet = Math.max(0, Math.min(roof, Math.max(s.surface[i - 1], s.surface[i])) - bed);
+      mobility[i] = Math.min(depth, wet);
+      const u = velocity[i];
+      const gradient = u >= 0 ? (u - velocity[i - 1]) / dx : (velocity[i + 1] - u) / dx;
+      const drag = 2 * s.look.damping * frequency + Math.abs(u) / Math.max(12, s.width);
+      predicted[i] = (u + h * (s.gx - u * gradient)) / (1 + h * drag);
+    }
+    for (let i = 0; i < COLUMNS; i++) {
+      const source = s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i] ? supply : 0;
+      rhs[i] =
+        mass[i] +
+        source -
+        (n === 0 ? s.outflow[i] : 0) -
+        (h / dx) * (mobility[i + 1] * predicted[i + 1] - mobility[i] * predicted[i]);
+    }
+    const scale = (h * h * axial) / (dx * dx);
+    const energy = () => {
+      let value = 0;
+      for (let i = 0; i < COLUMNS; i++) {
+        const height = s.surface[i] - s.colLo[i];
+        const capacity = s.colHi[i] - s.colLo[i];
+        const wet = Math.max(0, Math.min(height, capacity));
+        value +=
+          0.5 * wet * wet + capacity * Math.max(0, height - capacity) - rhs[i] * s.surface[i];
+        if (i > 0) value += 0.5 * scale * mobility[i] * (s.surface[i] - s.surface[i - 1]) ** 2;
+      }
+      return value;
+    };
+    // Gedämpftes Newton verhindert Sprünge über mehrere Boden-/Wandkontakte.
+    for (let iteration = 0; iteration < 40; iteration++) {
+      let residual = 0;
+      for (let i = 0; i < COLUMNS; i++) {
+        original[i] = s.surface[i];
+        const left = scale * mobility[i];
+        const right = scale * mobility[i + 1];
+        const capacity = s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i] ? 1 : 0;
+        const diagonal = capacity + left + right + 1e-8;
+        const value =
+          rhs[i] -
+          amount(i) -
+          (i > 0 ? left * (s.surface[i] - s.surface[i - 1]) : 0) -
+          (i + 1 < COLUMNS ? right * (s.surface[i] - s.surface[i + 1]) : 0);
+        residual = Math.max(residual, Math.abs(value));
+        const divisor = diagonal + (i > 0 ? left * upper[i - 1] : 0);
+        upper[i] = -right / divisor;
+        solved[i] = (value + (i > 0 ? left * solved[i - 1] : 0)) / divisor;
+      }
+      if (residual < 1e-8) break;
+      for (let i = COLUMNS - 2; i >= 0; i--) solved[i] -= upper[i] * solved[i + 1];
+      const initialEnergy = energy();
+      let fraction = Math.min(1, (2 * s.profile.height) / Math.max(1, ...solved.map(Math.abs)));
+      for (let attempt = 0; attempt < 24; attempt++) {
+        for (let i = 0; i < COLUMNS; i++) s.surface[i] = original[i] + fraction * solved[i];
+        if (energy() <= initialEnergy + 1e-8) break;
+        fraction *= 0.5;
+      }
+    }
+    for (let i = 1; i < COLUMNS; i++) {
+      velocity[i] =
+        mobility[i] > 0 ? predicted[i] - (h * axial * (s.surface[i] - s.surface[i - 1])) / dx : 0;
+    }
+    // Isolierte trockene Druckköpfe tragen keine Masse und brauchen kein Gedächtnis.
+    for (let i = 0; i < COLUMNS; i++) {
+      if (mobility[i] === 0 && mobility[i + 1] === 0 && amount(i) === 0) {
+        s.surface[i] = Math.min(s.colLo[i], rest + (s.gx / axial) * s.colX[i]);
+      }
+    }
+  }
+  s.outflow.fill(0);
+  s.center = sample(s, s.surface, 0);
+  for (let i = 0; i < COLUMNS; i++) s.surfaceVel[i] = dt > 0 ? (s.surface[i] - before[i]) / dt : 0;
 }
 
 /** Oberfläche an beliebiger Stelle, zwischen den Stützstellen linear. */
@@ -382,9 +449,7 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
   if (input.still) {
     s.level = input.levelGoal;
     s.pending = input.pendingGoal;
-    s.amp.fill(0);
-    s.vel.fill(0);
-    s.slope = 0;
+    s.flow.fill(0);
     s.offset = 0;
     s.offsetVel = 0;
     s.offsetAcc = 0;
@@ -394,16 +459,14 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
     s.pour = 0;
     s.drops = [];
     s.rivulets = [];
-    measure(s);
+    resetSurface(s);
     settleIce(s);
-    solveSurface(s);
     return;
   }
   s.time += dt;
   // Füllstand gleitet: ein neues Getränk läuft ein, Abbau sinkt langsam.
   s.level += (input.levelGoal - s.level) * (1 - Math.exp(-2.2 * dt));
   s.pending += (input.pendingGoal - s.pending) * (1 - Math.exp(-2.2 * dt));
-  measure(s);
 
   // --- Das Glas selbst: dem Finger folgen oder zurück in die Mitte gleiten.
   const holding = input.hold !== null && input.hold !== undefined;
@@ -418,13 +481,8 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
   s.tilt += (tiltGoal - s.tilt) * (1 - Math.exp(-10 * dt));
 
   // --- Wirksame Schwerkraft relativ zum Glas.
-  let down = input.gravity ?? { x: 0, y: 1 };
-  // Liegt das Handy flach, fehlt der Schwerkraft in der Bildebene die
-  // Richtung. Ein gedachtes „unten" ergänzt sie, damit das Glas dann
-  // ruhig steht und auf leichtes Kippen trotzdem antwortet.
-  const planar = down.x * down.x + down.y * down.y;
-  down = { x: down.x, y: down.y + 0.75 * Math.max(0, 1 - planar) };
-  const pull = Math.min(1.8, Math.max(0.6, Math.hypot(down.x, down.y)));
+  const down = input.gravity ?? { x: 0, y: 1 };
+  const pull = Math.min(3, Math.hypot(down.x, down.y));
   const norm = Math.hypot(down.x, down.y) || 1;
   // Bildschirm (y unten) minus Scheinkraft des Fingers, dann ins Glas gedreht.
   const sx = (down.x / norm) * pull * GRAVITY - s.offsetAcc;
@@ -435,57 +493,23 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
   const ly = sin * sx + cos * sy;
   s.gx = lx;
   s.gy = -ly;
-  // Kopfüber hält keine Oberfläche: dann höchstens steil.
-  const axial = Math.max(0.15 * GRAVITY, -s.gy);
-  const maxSlope = Math.tan((72 * Math.PI) / 180);
-  s.slope = Math.max(-maxSlope, Math.min(maxSlope, s.gx / axial));
-  const gScale = axial / GRAVITY;
-
-  // --- Anregung: Einschenken, Tisch, Hand.
-  const force = new Array(MODES).fill(0);
+  // Kopfüber bleibt die Rechnung auf eine kleine axiale Restkraft begrenzt.
+  const gScale = s.gy < 0 ? -s.gy / GRAVITY : 0.025;
   if (s.pour > 0) {
     s.pour = Math.max(0, s.pour - dt);
-    const jet = Math.min(1, s.pour / 0.25);
-    for (let n = 0; n < MODES; n++) {
-      // Der Strahl drückt die Oberfläche an seiner Stelle nach unten und
-      // wühlt sie dabei auf.
-      force[n] -= (jet * 420 * modeShape(n + 1, s.pourX, s.width)) / (1 + n * 0.3);
-      force[n] += (jet * gauss(s) * 900) / (n + 1);
-    }
+    const index = Math.max(1, Math.min(COLUMNS - 1, Math.round((s.pourX - s.colX[0]) / (s.colX[1] - s.colX[0]))));
+    s.flow[index] += gauss(s) * 150 * dt;
   }
   const ambient = input.ambient !== false;
   if (ambient && !input.gravity && !holding) {
-    // Ohne Sensor steht das Glas auf einem Tisch, an dem gelacht wird:
-    // feines Zittern und ab und zu ein Stoß gegen den Tisch.
     s.bumpIn -= dt;
     if (s.bumpIn <= 0) {
       s.bumpIn = 5 + random(s) * 9;
       const kick = (random(s) < 0.5 ? -1 : 1) * (30 + random(s) * 45);
-      s.vel[0] += kick;
-      s.vel[2] += kick * 0.3;
+      for (let i = 1; i < COLUMNS; i++) s.flow[i] += kick * Math.cos(Math.PI * s.colX[i] / s.width);
     }
   }
-  for (let n = 0; ambient && n < Math.min(4, MODES); n++) {
-    s.vel[n] += (gauss(s) * Math.sqrt(dt) * (input.gravity ? 5 : 12)) / (n + 1);
-  }
-
-  // --- Moden integrieren, in kleinen Schritten für die schnellen Kräusel.
-  const before = s.surface.slice();
-  const steps = Math.max(1, Math.ceil(dt / 0.004));
-  const h = dt / steps;
-  for (let k2 = 0; k2 < steps; k2++) {
-    for (let n = 0; n < MODES; n++) {
-      const w2 = s.omega2[n] * gScale;
-      const w = Math.sqrt(w2);
-      // Zähigkeit wirkt an der Wand und steigt mit der Wellenzahl.
-      const zeta = s.look.damping * Math.pow(n + 1, 0.75);
-      const acc = w2 * (s.slope * s.gamma[n] - s.amp[n]) - 2 * zeta * w * s.vel[n] + force[n];
-      s.vel[n] += acc * h;
-      s.amp[n] += s.vel[n] * h;
-    }
-  }
-  solveSurface(s);
-  for (let i = 0; i < COLUMNS; i++) s.surfaceVel[i] = dt > 0 ? (s.surface[i] - before[i]) / dt : 0;
+  stepField(s, dt, ambient);
 
   overflow(s, dt);
   wetWalls(s, dt);
@@ -519,7 +543,7 @@ function overflow(s: GlassSim, dt: number): void {
     let feeding = false;
     if (over > 0.4) {
       // Ausfluss über eine Kante: v ≈ √(2·g·h).
-      const speed = Math.sqrt(2 * GRAVITY * over * 0.6);
+      const speed = Math.sqrt(2 * Math.hypot(s.gx, s.gy) * over * 0.6);
       const fling = over > 3 || Math.abs(rising) > 120 || Math.abs(s.offsetVel) > 160;
       if (fling) {
         const count = Math.min(4, Math.ceil(over * dt * 30 + random(s) * 1.2));
@@ -527,13 +551,19 @@ function overflow(s: GlassSim, dt: number): void {
       } else {
         feeding = true;
       }
-      // Energie geht mit dem Überlauf.
-      const loss = Math.exp(-dt * 7 * Math.min(1, over / 5));
-      for (let n = 0; n < MODES; n++) {
-        const rest = s.slope * s.gamma[n];
-        s.amp[n] = rest + (s.amp[n] - rest) * loss;
-        s.vel[n] *= loss;
-      }
+      // Der austretende Impuls fehlt der nächsten Welle; der Pegel bleibt extern vorgegeben.
+      const dx = s.colX[1] - s.colX[0];
+      const index = Math.max(0, Math.min(COLUMNS - 1, Math.round((x - s.colX[0]) / dx)));
+      const available = Math.max(0, Math.min(s.surface[index], s.colHi[index]) - s.colLo[index]);
+      // Optischer Abfluss bleibt klein: der von außen vorgegebene Pegel soll
+      // beim Nachspeisen keine starke Gegenströmung zum Rand erzeugen.
+      const budget = areaBelow(s, (s.level + s.pending) * profile.height) * dt * 0.01;
+      const loss = Math.min(available * 0.2, speed * over * dt / dx, budget);
+
+      s.lostArea += loss;
+      s.outflow[index] += loss;
+      const face = side < 0 ? index + 1 : index;
+      s.flow[face] *= Math.exp(-dt * 7 * Math.min(1, over / 5));
     }
     // Schaum steigt zuerst über: er ist leicht und steht über dem Wasser.
     const foamTop = y + foamHeight(s);
@@ -791,7 +821,7 @@ export function splash(s: GlassSim, strength = 1): void {
   s.pour = 0.75 * Math.min(1.4, strength);
   s.pourX = (random(s) - 0.5) * s.width * 0.3;
   s.foamBoost = Math.min(1, s.foamBoost + 0.65 * strength);
-  for (let n = 0; n < MODES; n++) s.vel[n] += gauss(s) * 6;
+  for (let i = 1; i < COLUMNS; i++) s.flow[i] += gauss(s) * 6;
   if (s.look.bubbles > 0) {
     for (let i = 0; i < 26 && s.bubbles.length < 160; i++) {
       const y = random(s) * Math.max(4, s.surface[COLUMNS >> 1] - 4);
@@ -808,6 +838,9 @@ export function splash(s: GlassSim, strength = 1): void {
 
 /** Antippen: das Glas klingt kurz an, die Oberfläche kräuselt sich. */
 export function tap(s: GlassSim, x: number): void {
-  for (let n = 1; n < MODES; n++) s.vel[n] += (modeShape(n + 1, x, s.width) * 26) / Math.sqrt(n);
-  s.vel[0] += (random(s) - 0.5) * 20;
+  const radius = s.width * 0.12;
+  for (let i = 1; i < COLUMNS; i++) {
+    const distance = ((s.colX[i - 1] + s.colX[i]) / 2 - x) / radius;
+    s.flow[i] += 260 * distance * Math.exp(-distance * distance / 2);
+  }
 }
