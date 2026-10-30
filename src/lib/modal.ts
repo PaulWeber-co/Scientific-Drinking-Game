@@ -33,7 +33,8 @@ export function useModalDialog(ref: RefObject<HTMLElement | null>, open: boolean
         const first = buttons[0];
         const last = buttons[buttons.length - 1];
         if (!first) { event.preventDefault(); el.focus(); }
-        else if (event.shiftKey && (document.activeElement === first || document.activeElement === el)) {
+        // Auch vom Titel aus (nicht in der Liste) rückwärts ans Ende.
+        else if (event.shiftKey && (document.activeElement === first || !buttons.includes(document.activeElement as HTMLElement))) {
           event.preventDefault(); last.focus();
         } else if (!event.shiftKey && document.activeElement === last) {
           event.preventDefault(); first.focus();
@@ -45,7 +46,12 @@ export function useModalDialog(ref: RefObject<HTMLElement | null>, open: boolean
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('focusin', onFocus);
-    if (!el.contains(document.activeElement)) focusFirst();
+    // Ein Sheet-Titel bekommt den Startfokus, damit VoiceOver ihn zuerst liest.
+    if (!el.contains(document.activeElement)) {
+      const title = el.querySelector<HTMLElement>('[data-sheet-title]');
+      if (title) title.focus({ preventScroll: true });
+      else focusFirst();
+    }
     return () => {
       const wasTop = top();
       const index = stack.indexOf(el);

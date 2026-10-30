@@ -42,8 +42,10 @@ it('hält Tab und Shift+Tab im Dialog und verhindert Fokus auf dem Hintergrund',
   render(<><button>Hintergrund</button><Sheet open onClose={() => {}} title="Auswahl"><button>Letzter Knopf</button></Sheet></>);
   const first = screen.getByRole('button', { name: 'Fertig' });
   const last = screen.getByRole('button', { name: 'Letzter Knopf' });
-  expect(first).toHaveFocus();
-  fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+  // Startfokus auf dem Titel, damit VoiceOver ihn zuerst liest.
+  const title = screen.getByText('Auswahl');
+  expect(title).toHaveFocus();
+  fireEvent.keyDown(title, { key: 'Tab', shiftKey: true });
   expect(last).toHaveFocus();
   fireEvent.keyDown(last, { key: 'Tab' });
   expect(first).toHaveFocus();

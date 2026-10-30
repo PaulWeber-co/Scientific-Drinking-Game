@@ -4,7 +4,7 @@ import { setHapticsEnabled } from '../lib/haptics';
 import { setSoundEnabled } from '../lib/sound';
 import type { TaskFrequency } from '../engine/tasks';
 
-type Theme = 'dark' | 'light';
+type Theme = 'system' | 'dark' | 'light';
 
 /** Wie lang eine Partie laufen soll. 'endlos' = kein Abschluss. */
 export type GameLength = 'kurz' | 'mittel' | 'lang' | 'endlos';

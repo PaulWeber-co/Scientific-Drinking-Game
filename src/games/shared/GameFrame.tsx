@@ -33,7 +33,7 @@ export function GameFrame({
 }: Props) {
   const [askQuit, setAskQuit] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const { otherBuild, mode, isHost } = useParty();
+  const { otherBuild, mode, isHost, connection } = useParty();
   const nurIch = mode === 'online' && !isHost;
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
   // fällt beim Verlassen von selbst wieder weg.
@@ -54,7 +54,7 @@ export function GameFrame({
             <Icon name="close" size={16} strokeWidth={2.1} />
           </button>
           <div className="game__titles">
-            <div className="t-headline">{title}</div>
+            <h1 className="t-headline">{title}</h1>
             {subtitle && <div className="t-caption">{subtitle}</div>}
           </div>
           <div className="game__action">
@@ -64,6 +64,12 @@ export function GameFrame({
           </div>
         </div>
       </header>
+      {mode === 'online' && connection !== 'online' && (
+        <div className={`connstate connstate--${connection}`} role="status">
+          <span className="connstate__dot" />
+          Verbindung unterbrochen – verbinde erneut …
+        </div>
+      )}
       <div className="game__body">
         {otherBuild && (
           <div className="notice notice--neutral" role="status">

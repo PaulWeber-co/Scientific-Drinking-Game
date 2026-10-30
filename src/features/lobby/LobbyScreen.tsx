@@ -41,6 +41,8 @@ export function LobbyScreen() {
   const [editing, setEditing] = useState<GamePlayer | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [copied, setCopied] = useState<'ok' | 'fehler' | null>(null);
   const [preloadOpen, setPreloadOpen] = useState(false);
   const [logFor, setLogFor] = useState<string | null>(null);
   const preloadAskedAt = usePlayer((s) => s.preloadAskedAt);
@@ -87,8 +89,17 @@ export function LobbyScreen() {
     const url = inviteUrl;
     const text = `Komm in unsere Runde! Lobby-Code: ${party.code}`;
     haptic('select');
-    if (navigator.share) navigator.share({ title: 'Pegel', text, url }).catch(() => {});
-    else navigator.clipboard?.writeText(`${text}\n${url}`);
+    if (navigator.share) {
+      navigator.share({ title: 'Pegel', text, url }).catch(() => {});
+      return;
+    }
+    // Ohne Teilen-Menü landet die Einladung in der Zwischenablage. Ob das
+    // geklappt hat, sieht man ihr nicht an – darum steht es danach da.
+    const copy = navigator.clipboard?.writeText(`${text}\n${url}`) ?? Promise.reject(new Error('keine Zwischenablage'));
+    copy.then(
+      () => setCopied('ok'),
+      () => setCopied('fehler'),
+    );
   };
 
   return (
@@ -102,7 +113,10 @@ export function LobbyScreen() {
               style={{ color: 'var(--red)' }}
               onClick={() => {
                 haptic('warn');
-                party.leave();
+                const folge = party.isHost
+                  ? 'Die Person, die am längsten dabei ist, übernimmt die Runde.'
+                  : 'Die anderen spielen ohne dich weiter.';
+                if (confirm(`Runde ${party.code} verlassen? ${folge}`)) party.leave();
               }}
             >
               Verlassen
@@ -148,6 +162,16 @@ export function LobbyScreen() {
             <button className="btn btn--glass btn--block" onClick={shareLink}>
               <Icon name="share" size={18} /> Einladung teilen
             </button>
+            {copied === 'ok' && (
+              <p className="t-caption t-center" role="status">
+                Einladung kopiert
+              </p>
+            )}
+            {copied === 'fehler' && (
+              <p className="t-caption t-center" role="status">
+                Kopieren ging nicht. Link zum Markieren: {inviteUrl}
+              </p>
+            )}
           </section>
         ) : (
           <section className="stack-3">
@@ -194,7 +218,7 @@ export function LobbyScreen() {
           </section>
         )}
 
-        {party.error && <div className="notice notice--red">{party.error}</div>}
+        {party.error && !joinOpen && <div className="notice notice--red">{party.error}</div>}
 
         <GroupLevel players={players} />
 
@@ -335,14 +359,20 @@ export function LobbyScreen() {
         open={joinOpen}
         code={code}
         setCode={setCode}
+        busy={joining}
+        error={party.error}
         onClose={() => setJoinOpen(false)}
         onJoin={async () => {
+          if (joining) return;
+          setJoining(true);
           try {
             await party.joinOnline(code);
             haptic('success');
             setJoinOpen(false);
           } catch {
-            /* Fehler steht in party.error */
+            /* Fehler steht in party.error und damit im Sheet */
+          } finally {
+            setJoining(false);
           }
         }}
       />
@@ -368,12 +398,16 @@ function JoinSheet({
   onClose,
   code,
   setCode,
+  busy,
+  error,
   onJoin,
 }: {
   open: boolean;
   onClose: () => void;
   code: string;
   setCode: (v: string) => void;
+  busy: boolean;
+  error: string | null;
   onJoin: () => void;
 }) {
   return (
@@ -389,8 +423,20 @@ function JoinSheet({
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
         />
-        <button className="btn btn--brand btn--block btn--lg" disabled={code.length < 6} onClick={onJoin}>
-          Beitreten
+        {/* Der Fehler gehört dorthin, wo man den Code korrigiert – nicht auf
+            die Seite unter dem offenen Sheet. */}
+        {error && !busy && (
+          <div className="notice notice--red" role="alert">
+            {error}
+          </div>
+        )}
+        <button
+          className="btn btn--brand btn--block btn--lg"
+          disabled={code.length < 6 || busy}
+          aria-busy={busy}
+          onClick={onJoin}
+        >
+          {busy ? 'Beitreten …' : 'Beitreten'}
         </button>
         <p className="t-caption t-center">
           Den Code bekommst du von der Person, die die Runde gestartet hat.
@@ -505,7 +551,7 @@ function GuestForm({
 
       <div className="field" role="group" aria-label="Alter">
         <span className="field__label">Alter</span>
-        <Stepper value={age} onChange={setAge} min={MIN_AGE_APP} max={99} unit="Jahre" />
+        <Stepper label="Alter" value={age} onChange={setAge} min={MIN_AGE_APP} max={99} unit="Jahre" />
       </div>
       <div className="field" role="group" aria-label="Spielweise">
         <span className="field__label">Wie spielt {name.trim() || 'die Person'} heute?</span>
@@ -529,11 +575,11 @@ function GuestForm({
           ]} />
           <div className="field" role="group" aria-label="Gewicht">
             <span className="field__label">Gewicht</span>
-            <Stepper value={weight} onChange={setWeight} min={35} max={200} unit="kg" />
+            <Stepper label="Gewicht" value={weight} onChange={setWeight} min={35} max={200} unit="kg" />
           </div>
           <div className="field" role="group" aria-label="Körpergröße">
             <span className="field__label">Körpergröße (optional)</span>
-            <OptionalStepper value={heightCm} onChange={setHeightCm} defaultValue={175}
+            <OptionalStepper label="Körpergröße" value={heightCm} onChange={setHeightCm} defaultValue={175}
               addLabel="+ Körpergröße angeben (genauer)" removeLabel="Ohne Körpergröße rechnen"
               min={140} max={215} unit="cm" />
           </div>

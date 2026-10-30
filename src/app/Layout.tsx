@@ -6,16 +6,10 @@ import { GameInvite } from '../features/party/GameInvite';
 import { NativeAwareTabBar } from './NativeAwareTabBar';
 
 export function Layout() {
-  const theme = useApp((s) => s.theme);
+  useTheme();
+  usePageFocus();
   useMotionSwitch();
   useScrollMemory();
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
-  }, [theme]);
 
   return (
     <div className="app">
@@ -30,11 +24,9 @@ export function Layout() {
 
 /** Vollbild-Layout ohne Tab-Leiste – für Onboarding und laufende Spiele. */
 export function FullLayout() {
-  const theme = useApp((s) => s.theme);
+  useTheme();
+  usePageFocus();
   useMotionSwitch();
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
   return (
     <div className="app">
       <div className="aurora" aria-hidden />
@@ -72,4 +64,39 @@ function useScrollMemory() {
     window.addEventListener('scroll', remember, { passive: true });
     return () => window.removeEventListener('scroll', remember);
   }, [key, type]);
+}
+
+function useTheme() {
+  const theme = useApp((state) => state.theme);
+  useEffect(() => {
+    const media = theme === 'system' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const update = () => {
+      const resolved = theme === 'system' ? (media?.matches ? 'dark' : 'light') : theme;
+      document.documentElement.dataset.theme = resolved;
+      document.querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', resolved === 'light' ? '#efe7da' : '#0d0a08');
+    };
+    update();
+    media?.addEventListener('change', update);
+    return () => media?.removeEventListener('change', update);
+  }, [theme]);
+}
+
+function usePageFocus() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // Ein Eingabefeld mit autoFocus auf der neuen Seite behält den Fokus,
+    // sonst ginge auf dem Handy die Tastatur gleich wieder zu.
+    if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]')) return;
+    const heading = document.querySelector<HTMLElement>('.app h1')
+      ?? document.querySelector<HTMLElement>('.app .navbar__title');
+    if (!heading) return;
+    if (heading.tagName !== 'H1') {
+      heading.setAttribute('role', 'heading');
+      heading.setAttribute('aria-level', '1');
+    }
+    heading.tabIndex = -1;
+    heading.dataset.pageHeading = '';
+    heading.focus({ preventScroll: true });
+  }, [pathname]);
 }

@@ -8,6 +8,7 @@ vi.mock('../features/party/GameInvite', () => ({ GameInvite: () => null }));
 vi.mock('../lib/haptics', () => ({ haptic: vi.fn() }));
 
 beforeEach(() => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 });
 
@@ -100,4 +101,52 @@ it('verwirft Loslassen weit neben der Tab-Leiste und blockiert danach keine Tast
   expect(screen.getByRole('link', { name: 'Pegel' })).toHaveAttribute('aria-current', 'page');
   fireEvent.click(screen.getByRole('link', { name: 'Album' }), { detail: 0 });
   expect(screen.getByRole('link', { name: 'Album' })).toHaveAttribute('aria-current', 'page');
+});
+
+it('folgt der Systemdarstellung live und respektiert anschließend eine feste Wahl', async () => {
+  const { useApp } = await import('../store/app');
+  const media = new EventTarget();
+  const query = Object.assign(media, { matches: false });
+  vi.stubGlobal('matchMedia', () => query);
+  useApp.setState({ theme: 'system' });
+  const { act } = await import('@testing-library/react');
+  render(<MemoryRouter><Layout /></MemoryRouter>);
+  expect(document.documentElement.dataset.theme).toBe('light');
+  act(() => { query.matches = true; media.dispatchEvent(new Event('change')); });
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  act(() => useApp.getState().setTheme('light'));
+  act(() => { query.matches = true; media.dispatchEvent(new Event('change')); });
+  expect(document.documentElement.dataset.theme).toBe('light');
+});
+
+it('fokussiert nach Pfadwechsel die Hauptüberschrift und lässt Hashwechsel aus', async () => {
+  const { Link, Route, Routes } = await import('react-router-dom');
+  render(<MemoryRouter><Routes><Route element={<Layout />}>
+    <Route path="/" element={<><h1>Start</h1><Link to="/neu">Weiter</Link></>} />
+    <Route path="/neu" element={<><h1>Neue Seite</h1><Link to="#abschnitt">Abschnitt</Link></>} />
+  </Route></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByRole('link', { name: 'Weiter' }));
+  expect(screen.getByRole('heading', { name: 'Neue Seite' })).toHaveFocus();
+  const anchor = screen.getByRole('link', { name: 'Abschnitt' });
+  anchor.focus(); fireEvent.click(anchor);
+  expect(anchor).toHaveFocus();
+});
+
+it('nutzt bei Seiten ohne h1 den Titel der Navigationsleiste als Hauptüberschrift', async () => {
+  const { Route, Routes } = await import('react-router-dom');
+  const { NavBar } = await import('../components/ui');
+  render(<MemoryRouter><Routes><Route element={<Layout />}>
+    <Route path="/" element={<NavBar title="Pegel" />} />
+  </Route></Routes></MemoryRouter>);
+  expect(screen.getByRole('heading', { level: 1, name: 'Pegel' })).toHaveFocus();
+});
+
+it('lässt einem Eingabefeld mit autoFocus auf der neuen Seite den Fokus', async () => {
+  const { Link, Route, Routes } = await import('react-router-dom');
+  render(<MemoryRouter><Routes><Route element={<Layout />}>
+    <Route path="/" element={<><h1>Start</h1><Link to="/feld">Weiter</Link></>} />
+    <Route path="/feld" element={<><h1>Mit Feld</h1><input aria-label="Begriff" autoFocus /></>} />
+  </Route></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByRole('link', { name: 'Weiter' }));
+  expect(screen.getByRole('textbox', { name: 'Begriff' })).toHaveFocus();
 });

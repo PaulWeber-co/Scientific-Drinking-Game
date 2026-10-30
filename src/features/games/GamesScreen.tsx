@@ -80,6 +80,15 @@ export function GamesScreen() {
   }, [recent]);
 
   const zone = ZONE_META[bacZone(estimate?.bac ?? 0)];
+  // Suche nur im Namen: wer tippt, weiß, welches Spiel er will. Ohne
+  // Suchtext bleibt die Wand mit ihren Abschnitten unverändert.
+  const [suche, setSuche] = useState('');
+  const begriff = suche.trim().toLocaleLowerCase('de');
+  const treffer = begriff ? SICHTBAR.filter((g) => g.name.toLocaleLowerCase('de').includes(begriff)) : null;
+  const dimReason = (g: (typeof SICHTBAR)[number]) =>
+    // Wer allein stöbert, soll alles ungedimmt sehen. Erst wenn eine Runde
+    // zusammensteht, zeigen wir zu große Spiele an.
+    count > g.maxPlayers ? `Max. ${g.maxPlayers}` : count > 1 && count < g.minPlayers ? `Ab ${g.minPlayers}` : undefined;
 
   return (
     <div className="screen screen--wand">
@@ -103,13 +112,48 @@ export function GamesScreen() {
             </Link>
           )}
         </div>
+        <label className="wandsuche">
+          <Icon name="search" size={16} className="wandsuche__lupe" />
+          <span className="sr-only">Spiel suchen</span>
+          <input
+            className="wandsuche__feld"
+            type="search"
+            enterKeyHint="search"
+            placeholder="Spiel suchen"
+            value={suche}
+            onChange={(e) => setSuche(e.target.value)}
+          />
+          {suche && (
+            <button className="wandsuche__leeren pressable" aria-label="Suche löschen" onClick={() => setSuche('')}>
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </label>
         <p className="wandkopf__sub">
-          {SICHTBAR.length} Spiele · {Math.min(...SICHTBAR.map((g) => g.minPlayers))}–
-          {Math.max(...SICHTBAR.map((g) => g.maxPlayers))} Personen
+          {treffer
+            ? `${treffer.length} von ${SICHTBAR.length} Spielen`
+            : `${SICHTBAR.length} Spiele · ${Math.min(...SICHTBAR.map((g) => g.minPlayers))}–${Math.max(...SICHTBAR.map((g) => g.maxPlayers))} Personen`}
         </p>
       </header>
 
-      {abschnitte.map((a) => (
+      {treffer && treffer.length === 0 && (
+        <div className="wandleer">
+          <p className="t-headline">Kein Spiel zu „{suche.trim()}"</p>
+          <p className="t-sub">Gesucht wird im Spielnamen.</p>
+          <button className="btn btn--gray" onClick={() => setSuche('')}>
+            Suche löschen
+          </button>
+        </div>
+      )}
+      {treffer && treffer.length > 0 && (
+        <div className="wandraster">
+          {treffer.map((g) => (
+            <GameCard key={g.id} game={g} onClick={() => nav(`/spiele/${g.id}`)} dimReason={dimReason(g)} />
+          ))}
+        </div>
+      )}
+
+      {!treffer && abschnitte.map((a) => (
         <section key={a.titel} className="wandteil">
           <h2 className="wandteil__titel">{a.titel}</h2>
           <div className="wandraster">
@@ -118,11 +162,7 @@ export function GamesScreen() {
                 key={g.id}
                 game={g}
                 onClick={() => nav(`/spiele/${g.id}`)}
-                // Wer allein stöbert, soll alles ungedimmt sehen. Erst wenn
-                // eine Runde zusammensteht, zeigen wir zu große Spiele an.
-                dimReason={
-                  count > g.maxPlayers ? `Max. ${g.maxPlayers}` : count > 1 && count < g.minPlayers ? `Ab ${g.minPlayers}` : undefined
-                }
+                dimReason={dimReason(g)}
               />
             ))}
           </div>
@@ -142,6 +182,7 @@ export function GameDetail() {
   const gameLength = useApp((s) => s.gameLength);
   const game = getGame(id);
   const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln'>(null);
+  const [startet, setStartet] = useState<'nein' | 'laeuft' | 'fehler'>('nein');
   const goBack = useGoBack('/');
   // Wisch nach rechts führt zurück zur Spielewand – der Knopf oben links
   // ist mit einer Hand am Tisch kaum zu erreichen.
@@ -170,9 +211,17 @@ export function GameDetail() {
   const endless = gameLength === 'endlos' && !game.rounds;
 
   const start = async () => {
-    if (tooFew || tooMany || needsDevices) return;
+    if (tooFew || tooMany || needsDevices || startet === 'laeuft') return;
+    // Online lädt erst das Spielmodul und schreibt dann die Runde: das
+    // dauert spürbar. Ohne Rückmeldung tippt man nochmal.
+    setStartet('laeuft');
+    // Scheitert der Start (Modul lädt offline nicht, Runde passt nicht mehr),
+    // bleibt man hier und erfährt warum – statt in einer leeren Runde.
+    if (!(await party.startGame(game.id))) {
+      setStartet('fehler');
+      return;
+    }
     markGamePlayed(game.id);
-    await party.startGame(game.id);
     nav('/spiel');
   };
 
@@ -219,6 +268,9 @@ export function GameDetail() {
       </div>
       <h1 className="t-display detailtitel">{game.name}</h1>
       <p className="t-sub">{game.tagline}</p>
+      <p className="detailmeta">
+        <Icon name="clock" size={13} /> {game.duration} · {game.minPlayers}–{game.maxPlayers} Personen
+      </p>
 
       {/* Chips sind Anzeige UND Knopf: Was eingestellt ist, steht da – ohne
           Erklärsatz daneben. Wer nichts ändern will, tippt nur den Startknopf. */}
@@ -278,9 +330,21 @@ export function GameDetail() {
             {tooMany ? 'Runde anpassen' : needsDevices ? 'Online-Lobby starten' : 'Leute hinzufügen'}
           </button>
         ) : (
-          <button className="btn btn--brand btn--block btn--lg" onClick={start}>
-            Los geht's
-          </button>
+          <>
+            {startet === 'fehler' && (
+              <p className="detailhinweis" role="alert">
+                {party.error ?? 'Das Spiel ließ sich nicht starten.'} Versuch es nochmal.
+              </p>
+            )}
+            <button
+              className="btn btn--brand btn--block btn--lg"
+              onClick={start}
+              disabled={startet === 'laeuft'}
+              aria-busy={startet === 'laeuft'}
+            >
+              {startet === 'laeuft' ? 'Spiel startet …' : startet === 'fehler' ? 'Nochmal versuchen' : "Los geht's"}
+            </button>
+          </>
         )}
       </div>
 

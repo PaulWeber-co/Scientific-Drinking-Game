@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PegelScreen } from './PegelScreen';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
@@ -22,13 +22,14 @@ const JETZT = new Date('2026-09-11T22:00:00Z').getTime();
 const STUNDE = 3_600_000;
 const me: GamePlayer = { id: 'p0', name: 'Paul', color: 'blue', online: true };
 
-function mount() {
+function mount(party: Partial<PartyValue> = {}) {
   const value = {
     mode: 'local',
     players: [me],
     me,
     logSipsFor: vi.fn(),
     removeEventFor: vi.fn(),
+    ...party,
   } as unknown as PartyValue;
   return render(
     <MemoryRouter initialEntries={['/pegel']}>
@@ -66,7 +67,7 @@ it('behält den schnellen Eintrag und berücksichtigt Restalkohol im aufgeklappt
   const toggle = screen.getByRole('button', { name: 'Fahrtauglichkeit' });
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
   fireEvent.click(toggle);
-  for (let i = 0; i < 8; i++) fireEvent.click(screen.getByRole('button', { name: 'weniger' }));
+  for (let i = 0; i < 8; i++) fireEvent.click(screen.getByRole('button', { name: /^Abfahrt verringern/ }));
 
   const target = new Date(JETZT);
   target.setHours(0, 0, 0, 0);
@@ -117,7 +118,73 @@ it('zeigt Heute vor dem Verlauf und erklärt die Schätzung am Glas', () => {
   const today = screen.getByRole('heading', { name: 'Heute' });
   const chart = screen.getByText('Verlauf & Prognose');
   expect(today.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByText('Schätzung, kein Messwert')).toBeVisible();
+  expect(screen.getByText(/^Schätzung · Ziel/)).toBeVisible();
+});
+
+describe('Meldung statt Dauerknopf', () => {
+  it('zeigt ohne Änderung keinen Rückgängig-Knopf, auch mit Einträgen', () => {
+    usePlayer.setState({ log: [makeDrinkEvent(findDrink('beer-pils'), 3, 'glas', JETZT - STUNDE)] });
+    mount();
+    expect(screen.queryByRole('button', { name: 'Rückgängig' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('nimmt genau die gerade eingetragene Buchung zurück', () => {
+    const logSipsFor = vi.fn(() => 'neu-1');
+    const removeEventFor = vi.fn();
+    mount({ logSipsFor, removeEventFor } as Partial<PartyValue>);
+    fireEvent.click(screen.getByRole('button', { name: /Getränk eintragen/ }));
+    const sheet = screen.getByRole('dialog');
+    fireEvent.click(within(sheet).getAllByRole('button', { name: / eintragen$/ })[0]);
+
+    expect(logSipsFor).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status')).toHaveTextContent(/eingetragen/);
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }));
+    expect(removeEventFor).toHaveBeenCalledExactlyOnceWith('p0', 'neu-1');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('stellt einen entfernten Eintrag wieder her', () => {
+    const events = [
+      makeDrinkEvent(findDrink('beer-pils'), 3, 'glas', JETZT - 2 * STUNDE),
+      makeDrinkEvent(findDrink('beer-pils'), 5, 'glas', JETZT - STUNDE),
+    ];
+    usePlayer.setState({ log: events });
+    mount();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Eintrag .* entfernen$/ })[1]);
+    expect(usePlayer.getState().log).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent(/entfernt/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
+    expect(usePlayer.getState().log.map((e) => e.id).sort()).toEqual(events.map((e) => e.id).sort());
+  });
+
+  it('räumt die Meldung nach acht Sekunden weg', () => {
+    usePlayer.setState({ log: [makeDrinkEvent(findDrink('beer-pils'), 3, 'glas', JETZT - STUNDE)] });
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: /^Eintrag .* entfernen$/ }));
+    act(() => vi.advanceTimersByTime(7900));
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+it('liest den Verlauf mit seinen Eckwerten vor', () => {
+  usePlayer.setState({ log: [makeDrinkEvent(findDrink('beer-pils'), 20, 'glas', JETZT - STUNDE)] });
+  mount();
+  expect(screen.getByRole('img', { name: /^Promilleverlauf: jetzt \d,\d\d Promille, höchster Wert \d,\d\d Promille um / })).toBeInTheDocument();
+});
+
+it('nennt den Zonen-Spruch nur, wenn er etwas zu tun gibt', () => {
+  mount();
+  expect(screen.queryByText('Noch nichts passiert.')).not.toBeInTheDocument();
+});
+
+it('warnt über dem Ziel weiter deutlich', () => {
+  usePlayer.setState({ log: [makeDrinkEvent(findDrink('beer-pils'), 120, 'glas', JETZT - STUNDE)] });
+  mount();
+  expect(screen.getByText('Wasser. Jetzt.')).toBeVisible();
 });
 
 it('zeigt die Berechnungsdetails erst nach dem Aufklappen', () => {

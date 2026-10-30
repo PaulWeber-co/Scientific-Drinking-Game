@@ -71,7 +71,8 @@ describe('Alkoholfrei und Fahren im Profil', () => {
     });
     renderProfile();
     expect(screen.getByText(/Für alkoholfreies Mitspielen brauchst du keine Körperdaten/)).toBeInTheDocument();
-    expect(screen.getByText('Gewicht')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Körperwerte ▸'));
+    expect(screen.getByText('Gewicht')).toBeVisible();
     expect(screen.getByText('Magen')).toBeInTheDocument();
     expect(screen.getByRole('slider', { name: 'Zielpegel' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: 'Alkoholfrei' }));
@@ -89,4 +90,20 @@ it('beschriftet den Spitznamen und speichert Änderungen', () => {
   expect(input).toHaveValue('Paul');
   fireEvent.change(input, { target: { value: 'Lea' } });
   expect(usePlayer.getState().profile?.name).toBe('Lea');
+});
+
+it('ordnet Spielmodus und App vor den alkoholfrei eingeklappten Körperwerten an', () => {
+  usePlayer.setState({ profile: { ...defaultProfile(), alcoholFree: true } });
+  renderProfile();
+  const body = screen.getByText('Körperwerte ▸').closest('details')!;
+  expect(body).not.toHaveAttribute('open');
+  const mode = screen.getByRole('switch', { name: 'Alkoholfrei' });
+  const vibration = screen.getByRole('switch', { name: 'Vibration' });
+  expect(mode.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(vibration.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(screen.getByText('Körperwerte ▸'));
+  expect(body).toHaveAttribute('open');
+  fireEvent.click(screen.getByRole('button', { name: /Gewicht erhöhen/ }));
+  expect(usePlayer.getState().profile?.weightKg).toBe(defaultProfile().weightKg + 1);
+  expect(screen.getByRole('button', { name: 'System' })).toBeVisible();
 });

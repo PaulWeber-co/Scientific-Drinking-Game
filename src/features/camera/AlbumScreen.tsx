@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavBar, Sheet } from '../../components/ui';
 import { Icon } from '../../components/icons';
@@ -8,7 +8,7 @@ import { useNights } from '../../store/nights';
 import { isDeveloped, useFilm, type Photo } from '../../store/film';
 import { useFilmStatus } from './useFilmStatus';
 import { FilmSetup } from './FilmSetup';
-import { usePhotoUrl } from './usePhotoUrl';
+import { photoUrl, releasePhotoUrl } from './photoStore';
 import { makePrint } from './print';
 import { sweepOrphans } from './sweep';
 import { NightReview } from '../bac/NightReview';
@@ -55,6 +55,7 @@ export function AlbumScreen() {
   }, []);
 
   const gruppen = useMemo(() => groupByNight(photos), [photos]);
+  const developed = gruppen.flatMap(([, pictures]) => pictures).filter((photo) => isDeveloped(photo, now));
   const titelFor = (nightId: string | null) => {
     if (nightId === null) return 'Heute Abend';
     const n = nights.find((x) => x.id === nightId);
@@ -131,7 +132,7 @@ export function AlbumScreen() {
         ))}
       </div>
 
-      <PhotoSheet photo={open} onClose={() => setOpen(null)} />
+      <PhotoSheet photo={developed.find((photo) => photo.id === open?.id) ?? null} photos={developed} onSelect={setOpen} onClose={() => setOpen(null)} />
       <NightReview open={reviewOpen} onClose={() => setReviewOpen(false)} onEnd={endNight} />
     </div>
   );
@@ -150,7 +151,8 @@ function groupByNight(photos: readonly Photo[]): [string | null, Photo[]][] {
 
 function Frame({ photo, now, onOpen }: { photo: Photo; now: number; onOpen: () => void }) {
   const fertig = isDeveloped(photo, now);
-  const url = usePhotoUrl(fertig ? photo.file : null);
+  const image = useAlbumPhoto(fertig ? photo.file : null);
+  const { url } = image;
 
   if (!fertig) {
     return (
@@ -162,44 +164,101 @@ function Frame({ photo, now, onOpen }: { photo: Photo; now: number; onOpen: () =
   return (
     <button
       className="photoframe pressable"
+      aria-label={image.status === 'error' ? 'Foto gerade nicht verfügbar – erneut laden' : `Foto von ${formatTime(photo.at)} Uhr öffnen`}
       onClick={() => {
         haptic('tap');
-        onOpen();
+        if (image.status === 'error') image.reload();
+        else onOpen();
       }}
     >
-      {url && <img src={url} alt={`Foto von ${formatTime(photo.at)} Uhr`} loading="lazy" />}
+      {image.status === 'loading' && <span role="status">Foto wird geladen …</span>}
+      {image.status === 'error' && <span>Foto gerade nicht verfügbar – erneut laden</span>}
+      {url && <img src={url} alt={`Foto von ${formatTime(photo.at)} Uhr`} loading="lazy" onError={image.fail} />}
     </button>
   );
 }
 
-function PhotoSheet({ photo, onClose }: { photo: Photo | null; onClose: () => void }) {
-  const url = usePhotoUrl(photo && isDeveloped(photo) ? photo.file : null);
-
+function PhotoSheet({ photo, photos, onSelect, onClose }: {
+  photo: Photo | null;
+  photos: Photo[];
+  onSelect: (photo: Photo) => void;
+  onClose: () => void;
+}) {
+  const image = useAlbumPhoto(photo?.file ?? null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const index = photos.findIndex((item) => item.id === photo?.id);
+  const move = (offset: number) => {
+    const next = photos[index + offset];
+    if (next) onSelect(next);
+  };
   return (
     <Sheet open={!!photo} onClose={onClose} title={photo ? `${formatTime(photo.at)} Uhr` : ''}>
       {photo && (
         <div className="stack">
-          {/* Dasselbe Papier wie auf der Spielkarte: Was man sich ansieht,
-              ist ein Abzug, kein Dateivorschaubild. */}
-          {url && (
-            <figure className="abzug abzug--album">
-              <img className="photofull" src={url} alt="" />
-              <figcaption className="abzug__stempel">PEGEL</figcaption>
-            </figure>
-          )}
-          <button
-            className="btn btn--glass btn--block"
-            onClick={() => {
-              haptic('select');
-              void sharePhoto(url, photo);
+          <div className="album-viewer"
+            onTouchStart={(event) => {
+              const touch = event.touches[0];
+              start.current = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null;
             }}
-          >
+            onTouchCancel={() => { start.current = null; }}
+            onTouchEnd={(event) => {
+              const origin = start.current;
+              start.current = null;
+              if (!origin) return;
+              const touch = event.changedTouches[0];
+              const dx = touch.clientX - origin.x;
+              const dy = touch.clientY - origin.y;
+              if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) move(dx < 0 ? 1 : -1);
+            }}>
+            {image.status === 'loading' && <p role="status">Foto wird geladen …</p>}
+            {image.status === 'error' && <button className="btn btn--glass btn--block" onClick={image.reload}>Foto gerade nicht verfügbar – erneut laden</button>}
+            {image.url && (
+              <figure className="abzug abzug--album">
+                <img className="photofull" src={image.url} alt={`Foto von ${formatTime(photo.at)} Uhr`} onError={image.fail} />
+                <figcaption className="abzug__stempel">PEGEL</figcaption>
+              </figure>
+            )}
+          </div>
+          <div className="row-between">
+            <button className="btn btn--plain" disabled={index <= 0} onClick={() => move(-1)}>Zurück</button>
+            <span aria-live="polite">Bild {index + 1} von {photos.length}</span>
+            <button className="btn btn--plain" disabled={index >= photos.length - 1} onClick={() => move(1)}>Vor</button>
+          </div>
+          <button className="btn btn--glass btn--block" disabled={!image.url}
+            onClick={() => { haptic('select'); void sharePhoto(image.url, photo); }}>
             <Icon name="share" size={18} /> Teilen
           </button>
         </div>
       )}
     </Sheet>
   );
+}
+
+// Der bisherige URL-Hook unterscheidet Laden und fehlende Dateien nicht.
+// Dieser lokale Ladezustand hält Wiederholen innerhalb des Albums.
+function useAlbumPhoto(file: string | null) {
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<{ key: string; url: string | null; status: 'loading' | 'ready' | 'error' } | null>(null);
+  const key = `${file}:${attempt}`;
+  useEffect(() => {
+    if (!file) return;
+    let active = true;
+    let owned: string | null = null;
+    photoUrl(file).then((url) => {
+      owned = url;
+      if (!active) { if (url) releasePhotoUrl(url); return; }
+      setResult({ key, url, status: url ? 'ready' : 'error' });
+    }).catch(() => {
+      if (active) setResult({ key, url: null, status: 'error' });
+    });
+    return () => { active = false; if (owned) releasePhotoUrl(owned); };
+  }, [file, key]);
+  const current = result?.key === key ? result : { url: null, status: 'loading' as const };
+  return {
+    ...current,
+    reload: () => setAttempt((value) => value + 1),
+    fail: () => setResult({ key, url: null, status: 'error' }),
+  };
 }
 
 /**

@@ -1215,6 +1215,26 @@ button.chip--outline {
   font-size: 18px;
   line-height: 1.1;
 }
+/* Meldung nach Eintragen/Entfernen: über der Tab-Leiste, verschiebt nichts. */
+.pegelnote {
+  position: fixed;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  color: var(--label);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.pegelnote__action {
+  color: var(--brand);
+  flex-shrink: 0;
+}
 
 /* ---------- Onboarding ---------- */
 .onboarding {
@@ -2234,6 +2254,57 @@ body:has(.native-tabbar-anchor) .updatebar {
   color: var(--label-2);
   letter-spacing: 0.04em;
 }
+/* Suchfeld wie in Apple Fotos: flach, Lupe links, Löschen rechts. */
+.wandsuche {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-1) 0 var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+}
+.wandsuche:focus-within {
+  border-color: var(--brand);
+}
+.wandsuche__lupe {
+  color: var(--label-2);
+  flex-shrink: 0;
+}
+.wandsuche__feld {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  background: transparent;
+  border: none;
+  font-size: var(--t-body);
+  color: var(--label);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.wandsuche__feld:focus {
+  outline: none;
+}
+.wandsuche__feld::-webkit-search-cancel-button {
+  display: none;
+}
+.wandsuche__leeren {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--label-2);
+  flex-shrink: 0;
+}
+.wandleer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-8) var(--s-4);
+  text-align: center;
+}
 
 /* Zone und Wert, nie der Wert allein: „0,42" ohne „Angeheitert" ist eine
    Zahl ohne Bedeutung. Führt in den Pegel-Tab. */
@@ -2715,6 +2786,13 @@ body:has(.native-tabbar-anchor) .updatebar {
   color: var(--label-2);
   line-height: 1.4;
 }
+.detailmeta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--t-footnote);
+  color: var(--label-2);
+}
 .detailstart {
   margin-top: auto;
   padding-top: var(--s-4);
@@ -2771,4 +2849,17 @@ body:has(.native-tabbar-anchor) .updatebar {
 }
 .lobbychoice:disabled {
   opacity: 0.6;
+}
+
+/* Programmatischer Fokus auf Überschriften dient dem Vorlesen. Sie sind
+   nicht bedienbar (tabindex -1), ein Rahmen zeigte nur beim App-Start
+   ohne vorherige Berührung einen Kasten um den Titel. */
+[data-page-heading]:focus,
+.onboarding h1:focus,
+[data-sheet-title]:focus {
+  outline: none;
+}
+
+.album-viewer {
+  touch-action: pan-y pinch-zoom;
 }
