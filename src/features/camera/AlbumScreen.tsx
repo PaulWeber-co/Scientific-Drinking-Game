@@ -98,10 +98,9 @@ export function AlbumScreen() {
             >
               Abend beenden
             </button>
+            <FilmSetup />
           </section>
         )}
-
-        {running && <FilmSetup />}
 
         {!photos.length && (
           <section className="album-empty stack-6">

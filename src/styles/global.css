@@ -54,6 +54,16 @@ body {
   overscroll-behavior-y: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Wie eine App: langes Drücken markiert keinen Text, nur Eingabefelder. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable='true'],
+.markierbar {
+  -webkit-user-select: text;
+  user-select: text;
 }
 img,
 svg {
@@ -1993,6 +2003,25 @@ body:has(.native-tabbar-anchor) .updatebar {
 
 /* ---------- Album & Sucher ---------- */
 
+/* Entwicklungszeit in der Film-Karte: eine leise Zeile mit Wert, wie eine
+   Einstellung in iOS. Die Linie trennt sie von den Knöpfen darüber. */
+.filmzeile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s-3) 0 0;
+  border-top: 1px solid var(--hairline);
+  text-align: left;
+}
+.filmzeile__wert {
+  color: var(--label-2);
+}
+.filmzeile__haken {
+  color: var(--brand);
+}
+
 .photogrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2337,14 +2366,14 @@ body:has(.native-tabbar-anchor) .updatebar {
 .wandteil + .wandteil {
   margin-top: var(--s-6);
 }
+/* Wie die Abschnitte im App Store: groß und fett, damit man zwischen den
+   Abzügen sieht, wo eine neue Gruppe beginnt. */
 .wandteil__titel {
   padding: 0 var(--s-4) var(--s-3);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--t-caption);
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--label-2);
+  font-size: var(--t-title3);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--label);
 }
 .wandraster {
   display: grid;

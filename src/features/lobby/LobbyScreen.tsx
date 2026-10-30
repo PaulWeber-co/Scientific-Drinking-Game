@@ -169,7 +169,7 @@ export function LobbyScreen() {
             )}
             {copied === 'fehler' && (
               <p className="t-caption t-center" role="status">
-                Kopieren ging nicht. Link zum Markieren: {inviteUrl}
+                Kopieren ging nicht. Link zum Markieren: <span className="markierbar">{inviteUrl}</span>
               </p>
             )}
           </section>

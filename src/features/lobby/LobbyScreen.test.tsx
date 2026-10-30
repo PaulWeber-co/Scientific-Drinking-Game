@@ -387,7 +387,15 @@ describe('Spielweise und Spieleauswahl', () => {
     mount(party({ mode: 'online', code: 'ABC123', connection: 'online' }));
     expect(screen.queryByRole('status')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Einladung teilen/ }));
-    expect(await screen.findByText(meldung)).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent(meldung);
+  });
+
+  it('lässt den Ersatzlink markieren, obwohl die App sonst nichts markieren lässt', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.reject(new Error())) }, configurable: true });
+    mount(party({ mode: 'online', code: 'ABC123', connection: 'online' }));
+    fireEvent.click(screen.getByRole('button', { name: /Einladung teilen/ }));
+    const link = await screen.findByText(/#\/lobby\?code=ABC123$/, { selector: '.markierbar' });
+    expect(link).toBeInTheDocument();
   });
 
   it('öffnet passende Spiele zur Ansicht ohne sie zu starten', () => {
