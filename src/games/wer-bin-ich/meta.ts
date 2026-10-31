@@ -1,5 +1,5 @@
 import type { GameMeta } from '../types';
-import image from '../../assets/games/wer-bin-ich.webp';
+import image from '../../assets/games/wer-bin-ich-new.webp';
 
 /** Bleibt im Haupt-Bundle: Übersicht, Filter und Lobby lesen nur das.
  *  Logik, Komponente und Kategorien lädt die Registry erst beim Spielstart. */

@@ -751,6 +751,23 @@ button.chip--outline {
   color: var(--label-2);
 }
 
+/* Getraenkefotos: ein klarer Ausschnitt aus dem jeweiligen Kontaktbogen.
+   Die Glassilhouette muss auch in einer kleinen Auswahlliste erkennbar sein. */
+.drink-photo {
+  display: block;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  background-size: 300% 200%;
+  background-repeat: no-repeat;
+  background-color: transparent;
+}
+.drink-photo--fallback {
+  display: grid;
+  place-items: center;
+  color: var(--label-2);
+}
+
 /* ---------- Tab bar (Liquid Glass) ----------
    Wie seit iOS 26: keine Leiste am Rand, sondern eine schwebende Kapsel aus
    Glas über dem Inhalt. Das Glas ist klarer als das alte Milchglas – wenig
@@ -972,6 +989,17 @@ button.chip--outline {
   background: var(--label-4);
   margin: 0 auto var(--s-4);
 }
+.sheet__header {
+  position: sticky;
+  top: calc(-1 * var(--s-3));
+  z-index: 2;
+  margin: calc(-1 * var(--s-3)) calc(-1 * var(--s-4)) var(--s-3);
+  padding: var(--s-3) var(--s-4) 1px;
+  background: var(--surface-solid);
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.sheet__content { min-width: 0; }
 
 /* ---------- Misc ---------- */
 .divider {
@@ -1292,7 +1320,7 @@ button.chip--outline {
 /* ---------- Getraenke-Kacheln ---------- */
 .drinkgrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-2);
 }
 .drinktile {
@@ -1329,7 +1357,7 @@ button.chip--outline {
 /* Mitten im Spiel zaehlt Hoehe: vier statt drei Spalten, damit unter dem
    Raster noch Zielpegel und Schalter ins Bild passen. */
 .drinkgrid--compact {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s-1);
 }
 .drinkgrid--compact .drinktile {
@@ -1878,6 +1906,9 @@ button.chip--outline {
 /* Der Hinweis hängt außerhalb der Seiten: über der Tab-Leiste nur, wo es
    eine gibt – in Spielen und im Onboarding sitzt er am unteren Rand. */
 body:has(.tabbar) .updatebar {
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+}
+body:has(.native-tabbar-anchor) .updatebar {
   bottom: calc(var(--tabbar-space) + var(--s-3));
 }
 

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../icons';
 import { AVATAR_COLORS, avatarStyle, type AvatarColor } from './Avatar';
 import { createPortal } from 'react-dom';
 import { haptic } from '../../lib/haptics';
 import { useSwipeDown } from '../../lib/gestures';
+import { useModalDialog } from '../../lib/modal';
 
 export function NavBar({
   title,
@@ -52,16 +53,8 @@ export function Sheet({
   closeLabel?: string;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useModalDialog(dialog, open, onClose);
 
   // Ein Sheet ist ein Ebenenwechsel – der gehoert gespuert, egal ueber
   // welchen der Wege es zugeht (Knopf, Hintergrund, Escape, Wisch).
@@ -73,6 +66,10 @@ export function Sheet({
   // und damit am weitesten vom Daumen weg.
   const backdrop = useRef<HTMLDivElement>(null);
   const swipeRef = useSwipeDown<HTMLDivElement>(schliessen, backdrop);
+  const setDialog = useCallback((el: HTMLDivElement | null) => {
+    dialog.current = el;
+    swipeRef(el);
+  }, [swipeRef]);
 
   if (!open) return null;
   // Portal ans <body>: die Screens haben durch ihre Einblend-Animation einen
@@ -80,13 +77,15 @@ export function Sheet({
   return createPortal(
     <div className="sheet-backdrop" ref={backdrop} onClick={schliessen} role="presentation">
       <div
-        ref={swipeRef}
+        ref={setDialog}
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={typeof title === 'string' ? title : undefined}
       >
+        <div className="sheet__header">
         <div className="sheet__grabber" />
         {action ? (
           <>
@@ -121,7 +120,8 @@ export function Sheet({
             </div>
           )
         )}
-        {children}
+        </div>
+        <div className="sheet__content">{children}</div>
       </div>
     </div>,
     document.body,
