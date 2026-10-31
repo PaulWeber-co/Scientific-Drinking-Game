@@ -751,6 +751,18 @@ button.chip--outline {
   color: var(--label-2);
 }
 
+/* Getraenkefotos: ein klarer Ausschnitt aus dem jeweiligen Kontaktbogen.
+   Die Glassilhouette muss auch in einer kleinen Auswahlliste erkennbar sein. */
+.drink-photo {
+  display: block;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  background-size: 300% 200%;
+  background-repeat: no-repeat;
+  background-color: transparent;
+}
+
 /* ---------- Tab bar (Liquid Glass) ----------
    Wie seit iOS 26: keine Leiste am Rand, sondern eine schwebende Kapsel aus
    Glas über dem Inhalt. Das Glas ist klarer als das alte Milchglas – wenig
@@ -1878,6 +1890,9 @@ button.chip--outline {
 /* Der Hinweis hängt außerhalb der Seiten: über der Tab-Leiste nur, wo es
    eine gibt – in Spielen und im Onboarding sitzt er am unteren Rand. */
 body:has(.tabbar) .updatebar {
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+}
+body:has(.native-tabbar-anchor) .updatebar {
   bottom: calc(var(--tabbar-space) + var(--s-3));
 }
 

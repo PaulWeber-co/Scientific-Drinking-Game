@@ -12,6 +12,7 @@ import { Sheet } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
+import { DrinkPhoto } from './DrinkPhoto';
 
 export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const currentId = usePlayer((s) => s.currentDrinkId);
@@ -77,9 +78,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                     className={`list__item ${d.id === currentId ? 'list__item--active' : ''}`}
                     onClick={() => choose(d)}
                   >
-                    <span className="listicon">
-                      <Icon name={d.icon} size={19} />
-                    </span>
+                    <DrinkPhoto id={d.id} />
                     <span className="grow">
                       <span className="t-headline" style={{ display: 'block' }}>
                         {d.name}
