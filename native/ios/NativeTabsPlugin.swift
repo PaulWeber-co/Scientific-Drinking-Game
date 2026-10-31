@@ -14,6 +14,7 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     ]
 
     private var bar: UITabBar?
+    private var height: NSLayoutConstraint?
 
     @objc public func show(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
@@ -37,15 +38,22 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     return item
                 }
                 root.addSubview(bar)
+                // UITabBar allein bekommt keinen Container, der ihre Hoehe
+                // bestimmt. System-Metrik verwenden, auch nach Rotation.
+                let height = bar.heightAnchor.constraint(equalToConstant: 49)
                 NSLayoutConstraint.activate([
                     bar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
                     bar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-                    bar.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+                    bar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+                    height
                 ])
                 self.bar = bar
+                self.height = height
             }
+            self.bar?.overrideUserInterfaceStyle = call.getString("theme") == "light" ? .light : .dark
             self.select(call.getInt("selected") ?? 0)
             self.bar?.isHidden = false
+            self.updateLayout()
             call.resolve()
         }
     }
@@ -69,7 +77,16 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         bar?.selectedItem = items[index]
     }
 
+    // Vom Bridge-Controller in viewDidLayoutSubviews() aufrufen; siehe Anleitung.
+    public func updateLayout() {
+        guard let bar = bar, let root = bridge?.viewController?.view else { return }
+        let preferred = bar.sizeThatFits(CGSize(width: root.bounds.width, height: 0)).height
+        let value = max(49, preferred)
+        if height?.constant != value { height?.constant = value }
+    }
+
     public func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        guard !tabBar.isHidden else { return }
         notifyListeners("tabSelected", data: ["index": item.tag])
     }
 }

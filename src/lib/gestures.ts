@@ -60,6 +60,19 @@ function track(samples: { v: number; t: number }[], v: number, t: number) {
   if (samples.length > 12) samples.shift();
 }
 
+/** Alle Nachlaeufe gehoeren zur konkreten sichtbaren Seite bzw. zum Sheet. */
+function gestureTimers() {
+  const pending = new Set<number>();
+  return {
+    later(callback: () => void, ms: number) {
+      const id = window.setTimeout(() => { pending.delete(id); callback(); }, ms);
+      pending.add(id);
+      return id;
+    },
+    clear() { pending.forEach((id) => window.clearTimeout(id)); pending.clear(); },
+  };
+}
+
 /**
  * Vom Rand oder aus der Fläche nach rechts wischen: die Seite folgt dem
  * Finger und gleitet beim Loslassen hinaus – dann erst geht es zurück.
@@ -87,6 +100,7 @@ export function useSwipeBack<T extends HTMLElement>(
 
   useEffect(() => {
     if (!el || !enabled) return;
+    const timers = gestureTimers();
     let phase: 'idle' | 'pending' | 'drag' | 'off' = 'idle';
     let startX = 0;
     let startY = 0;
@@ -167,7 +181,7 @@ export function useSwipeBack<T extends HTMLElement>(
       const w = width();
       if (!commit) {
         place(0, motionReduced() ? 0 : 320);
-        timer = window.setTimeout(() => {
+        timer = timers.later(() => {
           timer = undefined;
           reset();
         }, 330);
@@ -184,11 +198,11 @@ export function useSwipeBack<T extends HTMLElement>(
       const ms = Math.round(Math.min(280, Math.max(120, (w - offset) / v)));
       leaving = true;
       place(w, ms);
-      window.setTimeout(() => {
+      timers.later(() => {
         back.current();
         // Bleibt die Seite trotzdem stehen (keine Navigation passiert),
         // kommt sie zurück statt unsichtbar außerhalb zu hängen.
-        window.setTimeout(() => {
+        timers.later(() => {
           leaving = false;
           if (el.isConnected) reset();
         }, 120);
@@ -215,6 +229,7 @@ export function useSwipeBack<T extends HTMLElement>(
     el.addEventListener('touchcancel', onCancel);
     return () => {
       window.clearTimeout(timer);
+      timers.clear();
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);
@@ -245,6 +260,7 @@ export function useSwipeDown<T extends HTMLElement>(
 
   useEffect(() => {
     if (!el) return;
+    const timers = gestureTimers();
     let phase: 'idle' | 'pending' | 'drag' | 'off' = 'idle';
     let startX = 0;
     let startY = 0;
@@ -345,10 +361,10 @@ export function useSwipeDown<T extends HTMLElement>(
         const ms = Math.round(Math.min(260, Math.max(120, (h - offset) / Math.max(v, 0.8))));
         closing = true;
         place(h, ms);
-        window.setTimeout(() => {
+        timers.later(() => {
           close.current();
           // Lehnt der Besitzer das Schließen ab, kommt das Sheet zurück.
-          window.setTimeout(() => {
+          timers.later(() => {
             closing = false;
             if (el.isConnected) springBack(320);
           }, 60);
@@ -359,7 +375,7 @@ export function useSwipeDown<T extends HTMLElement>(
     };
     const springBack = (ms: number) => {
       place(0, ms);
-      timer = window.setTimeout(() => {
+      timer = timers.later(() => {
         timer = undefined;
         reset();
       }, ms + 10);
@@ -375,6 +391,7 @@ export function useSwipeDown<T extends HTMLElement>(
     el.addEventListener('touchcancel', onCancel);
     return () => {
       window.clearTimeout(timer);
+      timers.clear();
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);

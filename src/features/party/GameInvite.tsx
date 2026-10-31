@@ -6,6 +6,7 @@ import { haptic } from '../../lib/haptics';
 import { getGame } from '../../games/registry';
 import { TAG_ICON, TAG_LABEL } from '../../games/types';
 import { useParty } from './PartyContext';
+import { useModalDialog } from '../../lib/modal';
 
 /**
  * Wenn jemand in der Lobby eine Runde startet, sollen die anderen nicht selbst
@@ -25,6 +26,9 @@ export function GameInvite() {
   const host = party.players.find((p) => p.id === party.startedBy);
   // Eine Einladung pro Runde: der Zeitstempel macht sie eindeutig.
   const key = running ? `${party.gameId}-${party.startedAt}` : null;
+  const dialog = useRef<HTMLDivElement>(null);
+  const inviteOpen = !!game && !!key && !(startedByMe && !party.leftRound) && pathname !== '/spiel' && dismissed !== key && !party.leftRound;
+  useModalDialog(dialog, inviteOpen, () => setDismissed(key));
 
   useEffect(() => {
     if (!key || startedByMe) return;
@@ -54,7 +58,7 @@ export function GameInvite() {
   }
 
   return (
-    <div className="invite-backdrop" role="dialog" aria-modal="true" aria-label="Spieleinladung">
+    <div ref={dialog} className="invite-backdrop" role="dialog" aria-modal="true" aria-label="Spieleinladung" tabIndex={-1}>
       <div className="invite" style={{ ['--accent' as string]: game.accent }}>
         <div className="invite__icon">
           <Icon name={game.icon} size={30} strokeWidth={1.5} />

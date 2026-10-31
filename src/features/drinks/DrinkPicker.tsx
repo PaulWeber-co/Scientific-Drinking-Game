@@ -43,7 +43,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
             <div className="list">
               {customDrinks.map((d) => (
                 <div key={d.id} className={`list__item ${d.id === currentId ? 'list__item--active' : ''}`}>
-                  <button className="row grow" style={{ textAlign: 'left' }} onClick={() => choose(d)}>
+                  <button className="row grow" aria-pressed={d.id === currentId} style={{ textAlign: 'left' }} onClick={() => choose(d)}>
                     <span className="listicon">
                       <Icon name={d.icon} size={19} />
                     </span>
@@ -56,7 +56,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                       </span>
                     </span>
                   </button>
-                  <button className="btn btn--plain" style={{ color: 'var(--red)' }} onClick={() => removeCustomDrink(d.id)}>
+                  <button className="btn btn--plain" aria-label={`${d.name} löschen`} style={{ color: 'var(--red)' }} onClick={() => removeCustomDrink(d.id)}>
                     Löschen
                   </button>
                 </div>
@@ -75,6 +75,7 @@ export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => v
                 {items.map((d) => (
                   <button
                     key={d.id}
+                    aria-pressed={d.id === currentId}
                     className={`list__item ${d.id === currentId ? 'list__item--active' : ''}`}
                     onClick={() => choose(d)}
                   >
