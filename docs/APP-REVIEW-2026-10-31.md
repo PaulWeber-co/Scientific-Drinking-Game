@@ -84,7 +84,7 @@ Geprüft wurden der neue Web-/Native-Wechsel, die umgebende Navigation, Dialoge 
 
 ## Verifikation
 
-- **1.059 Tests in 89 Dateien bestanden**. Vor der Prüfung waren es 1.047 Tests; die zwölf zusätzlichen Regressionen betreffen die beschriebenen Fehlerfälle.
+- **1.061 Tests in 89 Dateien bestanden**. Vor der Prüfung waren es 1.047 Tests; die vierzehn zusätzlichen Regressionen betreffen die beschriebenen Fehlerfälle.
 - Typecheck, ESLint, Produktionsbuild und `git diff --check` erfolgreich. Der bestehende Vite-Hinweis zu gleichzeitigen statischen/dynamischen Capacitor-Imports ist kein Buildfehler.
 - **Chromium, 320 und 390 px, Hell und Dunkel:** alle 20 Spieldetailseiten und sieben Haupt-/Nebenbereiche besucht. Kein weiterer horizontaler Überlauf außer dem unten dokumentierten Glas-Befund bei 320 px.
 - **Echtes Browser-Onboarding:** Fahrer-Modus endet mit `designatedDriver=true`, alkoholfrei und Getränk `soft`; Alkohol-Modus läuft über Körperdaten/Magen/Getränk/Ziel und übernimmt ausgewähltes Radler.
@@ -104,10 +104,18 @@ Dieser Fehler bleibt bewusst offen, weil der Auftrag den parallel bearbeiteten G
 ## Empfehlungen zur Benutzerfreundlichkeit
 
 1. **Getränkewahl verkürzen:** „Zuletzt gewählt“ bzw. Favoriten oben und bei Bedarf Suche. Name und Stärke sollten zuerst erfassbar sein; die vollständige Schluckrechnung könnte erst auf Nachfrage erscheinen. Die jetzige Liste ist mit 18 Getränken und Berechnungstexten lang.
-2. **Fotos konsistent nutzen:** dieselben freigestellten Motive auch im Onboarding und beim schnellen Eintragen zeigen. Dort werden momentan noch die bisherigen SVG-Symbole verwendet; das erschwert das Wiedererkennen.
-3. **Dialogkopf beim Scrollen stehen lassen:** Titel und Fertig/Abbrechen verschwinden in langen Getränke- und Formularlisten oberhalb des sichtbaren Bereichs. Ein fester Kopf mit scrollendem Inhalt würde den Abschluss erreichbar halten; Gestenkonflikte dabei gesondert prüfen.
-4. **Gäste wie im Onboarding führen:** „Mit Alkohol / alkoholfrei / ich fahre“ am Anfang der Gästeingabe anbieten und danach nur nötige Fragen zeigen. Das jetzige Gastformular fragt Körperdaten vor der Spielweise ab und ist für eine größere Runde aufwendig.
+2. **Umgesetzt – Fotos konsistent nutzen:** dieselben freigestellten Motive erscheinen jetzt im Onboarding, beim manuellen Eintragen und in der Gäste-Getränkewahl. Eigene Getränke behalten ein dekoratives SVG-Ersatzsymbol.
+3. **Umgesetzt – Dialogkopf sichtbar halten:** Titel und Fertig/Abbrechen bleiben beim Scrollen der langen Getränke- und Formularlisten oben stehen. Der feste Kopf kann auch bei gescrolltem Inhalt weiterhin zum Schließen nach unten gezogen werden.
+4. **Umgesetzt – kürzere Gästeingabe:** nach Name und Alter folgt „Mit Alkohol / Alkoholfrei / Ich fahre“. Körperdaten, Magen, Getränk und Zielpegel werden nur bei Alkohol angezeigt. Unter 18 ist Alkohol nicht wählbar. Beim Wechsel bleiben Eingaben erhalten; die gespeicherte Spielweise und das alkoholfreie Getränk stimmen mit der Auswahl überein.
 5. **Leeres Album mit klarer Aktion:** einen direkten Einstieg „Film starten“/„Foto machen“ anbieten. Der aktuelle Leerzustand erklärt die Idee, zeigt aber keinen unmittelbaren ersten Schritt.
 6. **Vor TestFlight native Integration abschließen:** echte iPhone-Prüfung mit großen Schriften/VoiceOver, Tastatur, modalen Dialogen und schnellen Wechseln. Ein natives `UITabBarController`-Layout wäre der nächste Schritt, wenn zusätzlich vollständige System-Containerübergänge und minimierendes Verhalten gewünscht sind.
 
-Diese Empfehlungen sind bewusst keine stillschweigenden Produktänderungen im PR. Sie beruhen auf den geprüften Ansichten und Abläufen; es liegt keine Nutzerstudie vor.
+Die Punkte 2–4 wurden ausdrücklich freigegeben und umgesetzt. Favoriten/Suche und der Album-Einstieg bleiben Empfehlungen. Es liegt keine Nutzerstudie vor.
+
+
+## Verifikation der ergänzten drei UX-Änderungen
+
+- **Browser:** 17 freigestellte Getränkemotive im Alkohol-Onboarding, 18 beim manuellen Eintragen. Onboarding ohne horizontalen Überlauf bei 320 und 390 px. [Screenshot Onboarding](review-2026-10-31/onboarding-drinks.png).
+- **Browser:** am Ende der langen Eintragsliste bleiben Titel und Abbrechen sichtbar; der nach unten gewischte feste Kopf schließt auch bei gescrolltem Inhalt. [Screenshot Eintragen](review-2026-10-31/log-drinks-sticky-header.png).
+- **Browser und Regressionen:** Spielweise steht vor den Körperfragen; Fahrer/alkoholfrei blenden diese aus, Mit Alkohol blendet sie wieder ein. Unter 18 fehlt die Alkoholwahl. Zwei neue Regressionen sichern Altersgrenze und Erhalt der Werte beim Moduswechsel. [Screenshot Gästeeingabe](review-2026-10-31/guest-driver.png).
+- Typecheck, ESLint und Produktionsbuild erfolgreich. Die Anzahl der vollständigen Tests oben umfasst auch die zwei neuen Gäste-Regressionen.

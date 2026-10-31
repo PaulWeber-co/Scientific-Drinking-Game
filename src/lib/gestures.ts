@@ -311,7 +311,7 @@ export function useSwipeDown<T extends HTMLElement>(
       startY = t.clientY;
       const target = e.target instanceof Element ? e.target : null;
       // Griff und Kopfzeile: die obersten 56 px des Sheets.
-      fromGrip = t.clientY - el.getBoundingClientRect().top <= 56;
+      fromGrip = !!target?.closest('.sheet__header') || t.clientY - el.getBoundingClientRect().top <= 56;
       if (!fromGrip && target && (target.closest(OWN_GESTURE) || scrolledDown(target, el))) {
         phase = 'off';
         return;

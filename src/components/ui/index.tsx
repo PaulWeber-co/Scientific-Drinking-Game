@@ -85,6 +85,7 @@ export function Sheet({
         tabIndex={-1}
         aria-label={typeof title === 'string' ? title : undefined}
       >
+        <div className="sheet__header">
         <div className="sheet__grabber" />
         {action ? (
           <>
@@ -119,7 +120,8 @@ export function Sheet({
             </div>
           )
         )}
-        {children}
+        </div>
+        <div className="sheet__content">{children}</div>
       </div>
     </div>,
     document.body,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Icon } from '../../components/icons';
+import { DrinkPhoto } from '../../components/ui/DrinkPhoto';
 import { Segmented, Sheet } from '../../components/ui';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
 import { formatEntry, formatVolume, sipsForGlasses } from '../../engine/tally';
@@ -130,7 +130,7 @@ export function LogDrinkSheet({
         disabled={!canLog}
         onClick={() => pick(d)}
       >
-        <Icon name={d.icon} size={24} className="drinktile__icon" />
+        <DrinkPhoto id={d.id} fallback={d.icon} />
         <span className="drinktile__name">{d.name}</span>
         <span className="drinktile__vol">{canLog ? formatVolume(d, sips, volume) : 'Menge fehlt'} · {strength}</span>
       </button>

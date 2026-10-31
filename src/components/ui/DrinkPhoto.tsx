@@ -1,6 +1,7 @@
 import beer from '../../assets/drinks/cutout-beer.webp';
 import wine from '../../assets/drinks/cutout-wine.webp';
 import mixed from '../../assets/drinks/cutout-mixed.webp';
+import { Icon, type IconName } from '../icons';
 
 // Drei freigestellte Kontaktboegen mit je sechs Getraenken.
 // Ausschnitt per CSS: nur drei Bilddateien statt 18 Netzwerkanfragen.
@@ -25,9 +26,9 @@ const photos: Record<string, { sheet: string; index: number }> = {
   soft: { sheet: mixed, index: 5 },
 };
 
-export function DrinkPhoto({ id }: { id: string }) {
+export function DrinkPhoto({ id, fallback = 'tumbler' }: { id: string; fallback?: IconName }) {
   const photo = photos[id];
-  if (!photo) return null;
+  if (!photo) return <span className="drink-photo drink-photo--fallback" aria-hidden="true"><Icon name={fallback} size={28} /></span>;
   return (
     <span
       className="drink-photo"

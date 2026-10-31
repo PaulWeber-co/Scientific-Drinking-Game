@@ -10,7 +10,7 @@ import {
 } from '../../engine/constants';
 import { DRINK_CATALOG, findDrink } from '../../engine/drinks';
 import type { Profile, Sex, StomachState } from '../../engine/types';
-import { ColorPicker, NavBar, OptionalStepper, Segmented, Sheet, Stepper, Toggle } from '../../components/ui';
+import { ColorPicker, NavBar, OptionalStepper, Segmented, Sheet, Stepper } from '../../components/ui';
 import { AVATAR_COLORS, Avatar, type AvatarColor } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
 import { QrCode } from '../../components/ui/QrCode';
@@ -29,6 +29,7 @@ import { LogDrinkSheet } from '../../games/shared/LogDrinkSheet';
 import { formatGlassCount, tally } from '../../engine/tally';
 import { useGoBack } from '../../app/navigation';
 import { useSwipeBack } from '../../lib/gestures';
+import { DrinkPhoto } from '../../components/ui/DrinkPhoto';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -452,18 +453,16 @@ function GuestForm({
   const [age, setAge] = useState(alt?.age ?? 25);
   const [stomach, setStomach] = useState<StomachState>(alt?.stomach ?? 'light');
   const [targetBac, setTargetBac] = useState(alt?.targetBac ?? DEFAULT_TARGET_BAC);
-  // Fahren heißt alkoholfrei – in beide Richtungen: wer den Alkoholfrei-
-  // Schalter ausmacht, fährt auch nicht. So zeigt jeder Schalter, was gilt.
+  // Die Spielweise steuert die benoetigten Fragen; versteckte Eingaben
+  // bleiben beim Wechsel erhalten, etwa beim Bearbeiten eines Gastes.
   const [alcoholFree, setAlcoholFree] = useState(alt?.alcoholFree ?? false);
   const [driver, setDriver] = useState(alt?.designatedDriver ?? false);
   const [drinkId, setDrinkId] = useState(edit?.local?.drinkId ?? 'beer-pils');
-  const setDry = (v: boolean) => {
-    setAlcoholFree(v);
-    if (!v) setDriver(false);
-  };
-  const setDrives = (v: boolean) => {
-    setDriver(v);
-    if (v) setAlcoholFree(true);
+  const effectiveDry = alcoholFree || driver || age < MIN_AGE_ALCOHOL;
+  const mode = driver ? 'driver' : effectiveDry ? 'dry' : 'alcohol';
+  const setMode = (next: string) => {
+    setDriver(next === 'driver');
+    setAlcoholFree(next !== 'alcohol');
   };
 
   const submit = () => {
@@ -478,10 +477,10 @@ function GuestForm({
       heightCm,
       stomach,
       targetBac,
-      alcoholFree,
+      alcoholFree: effectiveDry,
       designatedDriver: driver,
     };
-    const drink = alcoholFree ? 'soft' : drinkId;
+    const drink = effectiveDry ? 'soft' : drinkId;
     if (edit) party.updateLocalPlayer(edit.id, { name: profile.name, color, profile, drinkId: drink });
     else party.addLocalPlayer({ name: profile.name, color, profile, drinkId: drink });
     haptic('success');
@@ -498,86 +497,52 @@ function GuestForm({
           ? 'Änderungen gelten ab der nächsten Ansage. Was diese Person heute schon getrunken hat, bleibt erhalten.'
           : 'Für Pass-&-Play: Die App rechnet auch für diese Person die richtige Menge aus. Was du nicht angibst, rechnet sie mit Standardwerten. Alles bleibt auf diesem Gerät und wird beim Schließen der App nicht gespeichert.'}
       </p>
-      <input className="input" placeholder="Name" maxLength={16} value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input" aria-label="Name" placeholder="Name" maxLength={16} value={name} onChange={(e) => setName(e.target.value)} />
       <div className="row" style={{ justifyContent: 'center' }}>
         <Avatar name={name || 'Gast'} color={color} size="lg" />
       </div>
       <ColorPicker value={color} onChange={setColor} />
 
-      <div className="list-header t-upper">Körperdaten</div>
-      <Segmented<Sex>
-        value={sex}
-        onChange={setSex}
-        options={[
-          { value: 'male', label: 'Männlich' },
-          { value: 'female', label: 'Weiblich' },
-          { value: 'diverse', label: 'Divers' },
-        ]}
-      />
-      <div className="field">
-        <span className="field__label">Gewicht</span>
-        <Stepper value={weight} onChange={setWeight} min={35} max={200} unit="kg" />
-      </div>
-      <div className="field">
-        <span className="field__label">Körpergröße (optional)</span>
-        <OptionalStepper
-          value={heightCm}
-          onChange={setHeightCm}
-          defaultValue={175}
-          addLabel="+ Körpergröße angeben (genauer)"
-          removeLabel="Ohne Körpergröße rechnen"
-          min={140}
-          max={215}
-          unit="cm"
-        />
-      </div>
-      <div className="field">
+      <div className="field" role="group" aria-label="Alter">
         <span className="field__label">Alter</span>
         <Stepper value={age} onChange={setAge} min={MIN_AGE_APP} max={99} unit="Jahre" />
       </div>
-      {age < MIN_AGE_ALCOHOL && (
-        <div className="notice notice--neutral">
-          Unter {MIN_AGE_ALCOHOL}: {who} trinkt alkoholfrei mit.
-        </div>
-      )}
-      <div className="field">
-        <span className="field__label">Magen</span>
-        <Segmented<StomachState>
-          value={stomach}
-          onChange={setStomach}
+      <div className="field" role="group" aria-label="Spielweise">
+        <span className="field__label">Wie spielt {name.trim() || 'die Person'} heute?</span>
+        <Segmented
+          value={mode}
+          onChange={setMode}
           options={[
-            { value: 'empty', label: 'Leer' },
-            { value: 'light', label: 'Snack' },
-            { value: 'full', label: 'Satt' },
+            ...(age >= MIN_AGE_ALCOHOL ? [{ value: 'alcohol', label: 'Mit Alkohol' }] : []),
+            { value: 'dry', label: 'Alkoholfrei' },
+            { value: 'driver', label: 'Ich fahre' },
           ]}
         />
       </div>
-
-      <div className="list-header t-upper">Trinken</div>
-      <div className="list">
-        <div className="list__item">
-          <span className="grow">
-            <span className="t-headline" style={{ display: 'block' }}>
-              Alkoholfrei mitspielen
-            </span>
-            <span className="t-caption">Trinkt alkoholfrei mit</span>
-          </span>
-          <Toggle checked={alcoholFree} onChange={setDry} label="Alkoholfrei" />
-        </div>
-        <div className="list__item">
-          <span className="grow">
-            <span className="t-headline" style={{ display: 'block' }}>
-              Fährt heute
-            </span>
-            <span className="t-caption">Sichtbar für die Runde, damit niemand nachschenkt</span>
-          </span>
-          <Toggle checked={driver} onChange={setDrives} label="Fährt heute" />
-        </div>
-      </div>
-      {alcoholFree ? (
-        <div className="notice notice--neutral">{who} trinkt alkoholfrei mit.</div>
+      {effectiveDry ? (
+        <div className="notice notice--neutral">{driver ? `${who} fährt heute und trinkt alkoholfrei mit.` : age < MIN_AGE_ALCOHOL ? `Unter ${MIN_AGE_ALCOHOL}: ${who} trinkt alkoholfrei mit.` : `${who} trinkt alkoholfrei mit.`}</div>
       ) : (
         <>
+          <div className="list-header t-upper">Körperdaten</div>
+          <Segmented<Sex> value={sex} onChange={setSex} options={[
+            { value: 'male', label: 'Männlich' }, { value: 'female', label: 'Weiblich' }, { value: 'diverse', label: 'Divers' },
+          ]} />
+          <div className="field" role="group" aria-label="Gewicht">
+            <span className="field__label">Gewicht</span>
+            <Stepper value={weight} onChange={setWeight} min={35} max={200} unit="kg" />
+          </div>
+          <div className="field" role="group" aria-label="Körpergröße">
+            <span className="field__label">Körpergröße (optional)</span>
+            <OptionalStepper value={heightCm} onChange={setHeightCm} defaultValue={175}
+              addLabel="+ Körpergröße angeben (genauer)" removeLabel="Ohne Körpergröße rechnen"
+              min={140} max={215} unit="cm" />
+          </div>
+          <div className="field">
+            <span className="field__label">Magen</span>
+            <Segmented<StomachState> value={stomach} onChange={setStomach} options={[
+              { value: 'empty', label: 'Leer' }, { value: 'light', label: 'Snack' }, { value: 'full', label: 'Satt' },
+            ]} />
+          </div>
           <div className="field">
             <span className="field__label">Getränk: {findDrink(drinkId).name}</span>
             <div className="drinkgrid">
@@ -585,9 +550,10 @@ function GuestForm({
                 <button
                   key={d.id}
                   className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
+                  aria-pressed={drinkId === d.id}
                   onClick={() => setDrinkId(d.id)}
                 >
-                  <Icon name={d.icon} size={24} className="drinktile__icon" />
+                  <DrinkPhoto id={d.id} fallback={d.icon} />
                   <span className="drinktile__name">{d.name}</span>
                 </button>
               ))}

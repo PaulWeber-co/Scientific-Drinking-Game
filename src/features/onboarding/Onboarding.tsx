@@ -15,6 +15,7 @@ import { formatBac } from '../../lib/format';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { useApp } from '../../store/app';
 import { useSwipeBack } from '../../lib/gestures';
+import { DrinkPhoto } from '../../components/ui/DrinkPhoto';
 
 const STEPS = ['start', 'name', 'alter', 'modus', 'koerper', 'magen', 'drink', 'ziel'] as const;
 type Step = (typeof STEPS)[number];
@@ -214,12 +215,13 @@ export function Onboarding() {
                 <button
                   key={d.id}
                   className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
+                  aria-pressed={drinkId === d.id}
                   onClick={() => {
                     haptic('select');
                     setDrinkId(d.id);
                   }}
                 >
-                  <Icon name={d.icon} size={26} className="drinktile__icon" />
+                  <DrinkPhoto id={d.id} fallback={d.icon} />
                   <span className="drinktile__name">{d.name}</span>
                   <span className="t-caption">{d.abvPercent} %</span>
                 </button>

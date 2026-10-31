@@ -12,7 +12,7 @@ import { Sheet } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { haptic } from '../../lib/haptics';
 import { usePlayer } from '../../store/player';
-import { DrinkPhoto } from './DrinkPhoto';
+import { DrinkPhoto } from '../../components/ui/DrinkPhoto';
 
 export function DrinkPicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const currentId = usePlayer((s) => s.currentDrinkId);
