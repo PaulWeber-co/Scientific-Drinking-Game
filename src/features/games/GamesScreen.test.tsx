@@ -6,7 +6,7 @@ import { useApp } from '../../store/app';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { LobbyScreen } from '../lobby/LobbyScreen';
-import { GAMES } from '../../games/registry';
+import { GAMES, visibleGames } from '../../games/registry';
 import { GameDetail, GamesScreen } from './GamesScreen';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
@@ -80,7 +80,17 @@ it('zeigt den Kurztext und öffnet die Regeln über den beschrifteten Knopf', ()
 
 it('zeigt die Anzahl der Spiele und ihre Personengrenzen', () => {
   mount(2, '/spiele');
-  const min = Math.min(...GAMES.map((game) => game.minPlayers));
-  const max = Math.max(...GAMES.map((game) => game.maxPlayers));
-  expect(screen.getByText(`${GAMES.length} Spiele · ${min}–${max} Personen`)).toBeVisible();
+  const sichtbar = visibleGames();
+  const min = Math.min(...sichtbar.map((game) => game.minPlayers));
+  const max = Math.max(...sichtbar.map((game) => game.maxPlayers));
+  expect(screen.getByText(`${sichtbar.length} Spiele · ${min}–${max} Personen`)).toBeVisible();
+});
+
+it('zeigt ausgeblendete Spiele weder auf der Wand noch unter „Zuletzt gespielt"', () => {
+  const versteckt = GAMES.filter((game) => game.hidden);
+  useApp.setState({ recentGames: versteckt.map((game) => game.id) });
+  mount(2, '/spiele');
+  for (const game of versteckt) expect(screen.queryByText(game.name), game.id).toBeNull();
+  for (const game of visibleGames())
+    expect(screen.getAllByText(game.name).length, game.id).toBeGreaterThan(0);
 });

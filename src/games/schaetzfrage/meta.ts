@@ -18,6 +18,7 @@ export const meta: GameMeta = {
   intensity: 1,
   tags: ['geheim', 'schnell'],
   requiresOwnDevice: true,
+  hidden: true,
   howTo: [
     'Jede Person tippt ihre Schätzung auf dem eigenen Handy ein.',
     'Erst wenn alle abgegeben haben, wird aufgelöst.',

@@ -146,6 +146,11 @@ export interface GameMeta {
   tags: GameTag[];
   /** true = jeder braucht sein eigenes Handy (Online-Lobby nötig). */
   requiresOwnDevice: boolean;
+  /**
+   * true = nicht in Übersicht und Auswahl, solange das Spiel noch reift.
+   * Direktaufruf, laufende Runden und Rückblicke kennen es weiterhin.
+   */
+  hidden?: boolean;
   /** true = im Spieldetail lassen sich eigene Karten anlegen. */
   allowCustomCards?: boolean;
   /** true = das Spiel hat zusätzliche Spicy-Inhalte, die sich zuschalten lassen. */

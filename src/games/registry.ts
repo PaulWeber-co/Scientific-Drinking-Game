@@ -121,9 +121,14 @@ export function loadGame(id: string): Promise<GameDefinition> {
   return promise;
 }
 
+/** Spiele, die Übersicht und Auswahl zeigen. */
+export function visibleGames(): GameMeta[] {
+  return GAMES.filter((g) => !g.hidden);
+}
+
 /** Spiele, die zur aktuellen Runde passen. */
 export function gamesForGroup(playerCount: number, ownDevices: boolean): GameMeta[] {
-  return GAMES.filter(
+  return visibleGames().filter(
     (g) =>
       playerCount >= g.minPlayers &&
       playerCount <= g.maxPlayers &&

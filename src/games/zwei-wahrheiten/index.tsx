@@ -352,22 +352,20 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         >
           {canReveal ? (
             <>
-              <BigCard kicker="Nur du weißt es">Welche deiner drei Aussagen war die Lüge?</BigCard>
-              <div className="stack-3">
-                {state.statements.map((t, i) => (
-                  <button
-                    key={i}
-                    className="answer-card"
-                    style={{ ['--i' as string]: i }}
-                    onClick={() => {
-                      haptic('success');
-                      send({ type: 'revealLie', lie: i });
-                    }}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              {/* Die Lüge steht seit dem Festlegen unter vier Augen fest. Eine
+                  zweite Auswahl hier sähe nach Korrektur aus, zählte aber nicht. */}
+              <BigCard kicker="Alle haben getippt">
+                {author?.name}, deine Lüge steht schon fest. Zeig allen, welche es war.
+              </BigCard>
+              <button
+                className="btn btn--brand btn--block btn--lg"
+                onClick={() => {
+                  haptic('success');
+                  send({ type: 'revealLie' });
+                }}
+              >
+                Lüge aufdecken
+              </button>
             </>
           ) : (
             <>

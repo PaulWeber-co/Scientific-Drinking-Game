@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GAMES, getGame, getLoadedGame, loadGame } from './registry';
+import { GAMES, gamesForGroup, getGame, getLoadedGame, loadGame, visibleGames } from './registry';
 
 describe('Registry: Metadaten statisch, Module nachgeladen', () => {
   it('kennt jedes Spiel ohne sein Modul', () => {
@@ -46,6 +46,28 @@ describe('Registry: Farbraum und Lebenszeichen', () => {
         expect(v, g.id).toBeGreaterThanOrEqual(0);
         expect(v, g.id).toBeLessThanOrEqual(1);
       }
+    }
+  });
+});
+
+describe('Ausgeblendete Spiele', () => {
+  const versteckt = GAMES.filter((g) => g.hidden).map((g) => g.id);
+
+  it('blendet genau die drei unreifen Spiele aus', () => {
+    expect(versteckt.sort()).toEqual(['chaos-roulette', 'schaetzfrage', 'tabu']);
+  });
+
+  it('bietet sie keiner Runde an, kennt sie aber weiter beim Namen', async () => {
+    for (let n = 2; n <= 16; n++) {
+      for (const eigene of [true, false]) {
+        const ids = gamesForGroup(n, eigene).map((g) => g.id);
+        for (const id of versteckt) expect(ids, `${id} bei ${n}`).not.toContain(id);
+      }
+    }
+    expect(visibleGames()).toHaveLength(GAMES.length - versteckt.length);
+    for (const id of versteckt) {
+      expect(getGame(id)?.id).toBe(id);
+      expect((await loadGame(id)).id).toBe(id);
     }
   });
 });

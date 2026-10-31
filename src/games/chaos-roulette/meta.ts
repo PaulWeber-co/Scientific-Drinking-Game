@@ -25,4 +25,5 @@ export const meta: GameMeta = {
   allowCustomCards: true,
   allowSpicy: true,
   requiresOwnDevice: false,
+  hidden: true,
 };

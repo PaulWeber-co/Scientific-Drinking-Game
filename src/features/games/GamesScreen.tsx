@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { GAMES, getGame } from '../../games/registry';
+import { getGame, visibleGames } from '../../games/registry';
 import { TAG_LABEL, type GameTag } from '../../games/types';
 import { HeatIcons, Icon } from '../../components/icons';
 import { GameCard } from './GameCard';
@@ -36,6 +36,7 @@ import { useSwipeBack } from '../../lib/gestures';
  * ANZEIGE stellt die bekannten Klassiker nach oben – wer die App öffnet,
  * sucht meist „Wahrheit oder Pflicht", nicht „Meme-Duell".
  */
+const SICHTBAR = visibleGames();
 const ZUORDNUNG: GameTag[] = ['karten', 'bewegung', 'kreativ', 'geheim', 'reden'];
 const ANZEIGE: GameTag[] = ['reden', 'geheim', 'karten', 'bewegung', 'kreativ'];
 const GRUPPEN_TITEL: Partial<Record<GameTag, string>> = {
@@ -55,14 +56,14 @@ export function GamesScreen() {
   const count = party.players.length;
 
   const abschnitte = useMemo(() => {
-    const zuletzt = recent.map((id) => GAMES.find((g) => g.id === id)).filter((g) => !!g);
+    const zuletzt = recent.map((id) => SICHTBAR.find((g) => g.id === id)).filter((g) => !!g);
     // Jedes Spiel erscheint genau einmal – sonst scrollt man an denselben
     // Kacheln mehrfach vorbei und verliert den Überblick, was es überhaupt
     // gibt. Einzige Ausnahme ist "Zuletzt gespielt".
     const vergeben = new Set<string>();
-    const proTag = new Map<GameTag, typeof GAMES>();
+    const proTag = new Map<GameTag, typeof SICHTBAR>();
     for (const tag of ZUORDNUNG) {
-      const spiele = GAMES.filter((g) => g.tags.includes(tag) && !vergeben.has(g.id));
+      const spiele = SICHTBAR.filter((g) => g.tags.includes(tag) && !vergeben.has(g.id));
       spiele.forEach((g) => vergeben.add(g.id));
       if (spiele.length) proTag.set(tag, spiele);
     }
@@ -70,7 +71,7 @@ export function GamesScreen() {
       titel: GRUPPEN_TITEL[tag] ?? TAG_LABEL[tag],
       spiele: proTag.get(tag)!,
     }));
-    const rest = GAMES.filter((g) => !vergeben.has(g.id));
+    const rest = SICHTBAR.filter((g) => !vergeben.has(g.id));
     return [
       ...(zuletzt.length ? [{ titel: 'Zuletzt gespielt', spiele: zuletzt }] : []),
       ...gruppen,
@@ -103,8 +104,8 @@ export function GamesScreen() {
           )}
         </div>
         <p className="wandkopf__sub">
-          {GAMES.length} Spiele · {Math.min(...GAMES.map((g) => g.minPlayers))}–
-          {Math.max(...GAMES.map((g) => g.maxPlayers))} Personen
+          {SICHTBAR.length} Spiele · {Math.min(...SICHTBAR.map((g) => g.minPlayers))}–
+          {Math.max(...SICHTBAR.map((g) => g.maxPlayers))} Personen
         </p>
       </header>
 

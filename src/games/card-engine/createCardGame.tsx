@@ -567,6 +567,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     intensity: config.intensity,
     tags: config.tags,
     requiresOwnDevice: false,
+    hidden: config.hidden,
     allowCustomCards: config.allowCustomCards,
     allowSpicy: config.allowSpicy,
     modes: config.modes?.map((m) => ({ id: m.id, label: m.label })),
