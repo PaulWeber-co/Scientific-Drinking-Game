@@ -181,7 +181,9 @@ export function Glass(props: Props) {
           if (h?.id !== event.pointerId) return;
           const dx = event.clientX - h.x;
           if (Math.abs(dx) > 4) h.moved = true;
-          h.target = rubber(h.base + dx);
+          // Das Bild kann schmaler sein als die Buehne: in Buehnenpunkte umrechnen.
+          const width = event.currentTarget.getBoundingClientRect().width;
+          h.target = rubber(h.base + (width ? dx * (STAGE.width / width) : dx));
         }}
         onPointerUp={(event) => release(event.pointerId, event.clientX)}
         onPointerCancel={(event) => release(event.pointerId)}
