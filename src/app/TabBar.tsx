@@ -59,7 +59,7 @@ export function TabBar() {
   const frame = useRef<number | null>(null);
   const last = useRef<number | null>(null);
   const press = useRef<{ id: number; x: number; index: number; dragging: boolean } | null>(null);
-  const guard = useRef(0);
+  const guard = useRef(-Infinity);
 
   const geometry = useCallback(() => {
     const rect = bar.current?.getBoundingClientRect();
@@ -193,7 +193,7 @@ export function TabBar() {
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || press.current) return;
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || press.current) return;
     const index = indexAt(e.clientX);
     press.current = { id: e.pointerId, x: e.clientX, index, dragging: false };
     try {
@@ -235,7 +235,7 @@ export function TabBar() {
     // Weit über der Leiste losgelassen heißt: doch nicht – wie bei jedem
     // Knopf, von dem man den Finger wegzieht.
     const rect = bar.current?.getBoundingClientRect();
-    if (rect && rect.height && (e.clientY < rect.top - RELEASE_SLOP || e.clientY > rect.bottom + RELEASE_SLOP)) {
+    if (rect && rect.height && (e.clientY < rect.top - RELEASE_SLOP || e.clientY > rect.bottom + RELEASE_SLOP || e.clientX < rect.left - RELEASE_SLOP || e.clientX > rect.right + RELEASE_SLOP)) {
       commit = false;
     }
     const index = commit ? indexAt(e.clientX) : home;
@@ -282,10 +282,11 @@ export function TabBar() {
               className={`tabbar__item${lit ? ' is-lit' : ''}`}
               draggable={false}
               onClick={(e) => {
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
                 // Tastatur und Screenreader klicken ohne Pointer – die gehen
                 // durch. Nach einem Fingerwechsel ist der Klick doppelt.
                 e.preventDefault();
-                if (performance.now() - guard.current < CLICK_GUARD_MS) return;
+                if (e.detail !== 0 && performance.now() - guard.current < CLICK_GUARD_MS) return;
                 haptic('tap');
                 goTo(i);
               }}

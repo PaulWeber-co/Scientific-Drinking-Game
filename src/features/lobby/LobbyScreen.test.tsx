@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { LobbyScreen } from './LobbyScreen';
 import { PartyCtx, type PartyValue } from '../party/PartyContext';
@@ -99,8 +99,8 @@ describe('Mitspieler auf diesem Handy', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Leer' }));
     fireEvent.change(screen.getByLabelText('Zielpegel'), { target: { value: '55' } });
     fireEvent.click(screen.getByRole('button', { name: '+ Körpergröße angeben (genauer)' }));
-    // Zweiter Stepper im Sheet ist die Körpergröße (nach dem Gewicht, wie im Profil).
-    fireEvent.click(screen.getAllByRole('button', { name: 'mehr' })[1]);
+    // Die Körpergröße gezielt ändern, unabhängig von der Formularreihenfolge.
+    fireEvent.click(within(screen.getByRole('group', { name: 'Körpergröße' })).getByRole('button', { name: 'mehr' }));
     const { profile } = submitted(add);
     expect(profile.stomach).toBe('empty');
     expect(profile.targetBac).toBeCloseTo(0.55);
@@ -116,8 +116,10 @@ describe('Mitspieler auf diesem Handy', () => {
 
   it('kann alkoholfrei mitspielen und bekommt dann kein alkoholisches Getränk', () => {
     const add = openGuestSheet();
-    fireEvent.click(screen.getByRole('switch', { name: 'Alkoholfrei' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Alkoholfrei' }));
     expect(screen.queryByText(/^Getränk:/)).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Gewicht' })).toBeNull();
+    expect(screen.queryByRole('slider', { name: 'Zielpegel' })).toBeNull();
     const { profile, drinkId } = submitted(add);
     expect(profile.alcoholFree).toBe(true);
     expect(profile.designatedDriver).toBe(false);
@@ -130,9 +132,9 @@ describe('Mitspieler auf diesem Handy', () => {
     fireEvent.change(screen.getByLabelText('Zielpegel'), { target: { value: '55' } });
     fireEvent.click(screen.getByRole('button', { name: '+ Körpergröße angeben (genauer)' }));
     // Gewicht und Alter hochzählen – genau die Felder, die früher hängen blieben.
-    fireEvent.click(screen.getAllByRole('button', { name: 'mehr' })[0]);
-    fireEvent.click(screen.getAllByRole('button', { name: 'mehr' })[2]);
-    fireEvent.click(screen.getByRole('switch', { name: 'Alkoholfrei' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Gewicht' })).getByRole('button', { name: 'mehr' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Alter' })).getByRole('button', { name: 'mehr' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Alkoholfrei' }));
     submitted(add);
     fireEvent.click(screen.getByRole('button', { name: 'Mitspieler hinzufügen' }));
     fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Ben' } });
@@ -152,9 +154,9 @@ describe('Mitspieler auf diesem Handy', () => {
 
   it('fährt heute heißt auch alkoholfrei', () => {
     const add = openGuestSheet();
-    fireEvent.click(screen.getByRole('switch', { name: 'Fährt heute' }));
-    expect(screen.getByRole('switch', { name: 'Alkoholfrei' })).toHaveAttribute(
-      'aria-checked',
+    fireEvent.click(screen.getByRole('button', { name: 'Ich fahre' }));
+    expect(screen.getByRole('button', { name: 'Ich fahre' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
     const { profile } = submitted(add);
@@ -162,12 +164,34 @@ describe('Mitspieler auf diesem Handy', () => {
     expect(profile.alcoholFree).toBe(true);
   });
 
-  it('wer den Alkoholfrei-Schalter ausmacht, fährt auch nicht – die Schalter zeigen, was gilt', () => {
+  it('behält eingegebene Körperdaten beim Wechsel der Spielweise', () => {
     const add = openGuestSheet();
-    fireEvent.click(screen.getByRole('switch', { name: 'Fährt heute' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Alkoholfrei' }));
-    expect(screen.getByRole('switch', { name: 'Fährt heute' })).toHaveAttribute(
-      'aria-checked',
+    fireEvent.click(within(screen.getByRole('group', { name: 'Gewicht' })).getByRole('button', { name: 'mehr' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ich fahre' }));
+    expect(screen.queryByRole('group', { name: 'Gewicht' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mit Alkohol' }));
+    expect(submitted(add).profile.weightKg).toBe(66);
+  });
+
+  it('bietet unter 18 nur alkoholfreie Spielweisen und blendet Berechnungsfragen aus', () => {
+    const add = openGuestSheet();
+    const age = within(screen.getByRole('group', { name: 'Alter' }));
+    for (let i = 0; i < 8; i++) fireEvent.click(age.getByRole('button', { name: 'weniger' }));
+    expect(screen.queryByRole('button', { name: 'Mit Alkohol' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Gewicht' })).toBeNull();
+    expect(screen.queryByRole('slider', { name: 'Zielpegel' })).toBeNull();
+    const result = submitted(add);
+    expect(result.profile.alcoholFree).toBe(true);
+    expect(result.profile.age).toBe(17);
+    expect(result.drinkId).toBe('soft');
+  });
+
+  it('wer wieder Mit Alkohol wählt, fährt auch nicht – die Auswahl zeigt, was gilt', () => {
+    const add = openGuestSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Ich fahre' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mit Alkohol' }));
+    expect(screen.getByRole('button', { name: 'Ich fahre' })).toHaveAttribute(
+      'aria-pressed',
       'false',
     );
     expect(screen.getByText(/^Getränk:/)).toBeInTheDocument();

@@ -203,3 +203,23 @@ describe('Sheet nach unten wegziehen', () => {
     expect(sheet.style.translate).toBe('');
   });
 });
+
+it('führt nach dem Unmount keine verzögerte Zurück-Navigation mehr aus', () => {
+  const onBack = vi.fn();
+  const view = render(<Page onBack={onBack} />);
+  drag(screen.getByTestId('page'), [100, 300], [600, 300], 120);
+  view.unmount();
+  vi.runAllTimers();
+  expect(onBack).not.toHaveBeenCalled();
+});
+
+it('schließt nach dem Unmount nicht versehentlich ein neu geöffnetes Sheet', () => {
+  const onClose = vi.fn();
+  const view = render(<SheetLike onClose={onClose} />);
+  const sheet = screen.getByTestId('sheet');
+  sheet.getBoundingClientRect = () => ({ top: 0, height: 600, width: 400 }) as DOMRect;
+  drag(sheet, [200, 20], [200, 500], 120);
+  view.unmount();
+  vi.runAllTimers();
+  expect(onClose).not.toHaveBeenCalled();
+});

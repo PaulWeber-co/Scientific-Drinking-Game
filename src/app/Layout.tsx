@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect } from 'react';
 import { useApp } from '../store/app';
 import { WaterReminder } from '../features/bac/WaterReminder';
 import { GameInvite } from '../features/party/GameInvite';
-import { TabBar } from './TabBar';
+import { NativeAwareTabBar } from './NativeAwareTabBar';
 
 export function Layout() {
   const theme = useApp((s) => s.theme);
@@ -23,7 +23,7 @@ export function Layout() {
       <Outlet />
       <WaterReminder />
       <GameInvite />
-      <TabBar />
+      <NativeAwareTabBar />
     </div>
   );
 }
