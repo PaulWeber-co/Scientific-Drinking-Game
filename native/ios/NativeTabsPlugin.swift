@@ -81,7 +81,9 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     public func updateLayout() {
         guard let bar = bar, let root = bridge?.viewController?.view else { return }
         let preferred = bar.sizeThatFits(CGSize(width: root.bounds.width, height: 0)).height
-        let value = max(49, preferred)
+        // Die Leiste reicht bis an den Rand: Zone des Home-Balkens dazurechnen,
+        // falls sizeThatFits sie nicht schon enthaelt.
+        let value = max(49 + root.safeAreaInsets.bottom, preferred)
         if height?.constant != value { height?.constant = value }
     }
 
