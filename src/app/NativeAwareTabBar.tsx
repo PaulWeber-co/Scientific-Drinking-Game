@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { isNativeApp } from '../lib/platform';
 import { motionReduced } from '../lib/motion';
-import { useApp } from '../store/app';
+import { useResolvedTheme } from '../lib/theme';
 import { TabBar } from './TabBar';
 
 const paths = ['/', '/lobby', '/pegel', '/album'] as const;
@@ -38,7 +38,7 @@ const covered = () => document.hidden || !!document.querySelector('[role="dialog
 export function NativeAwareTabBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const theme = useApp((s) => s.theme);
+  const theme = useResolvedTheme();
   const current = useRef({ pathname, navigate, theme });
   current.current = { pathname, navigate, theme };
   const requestSync = useRef<(() => void) | null>(null);

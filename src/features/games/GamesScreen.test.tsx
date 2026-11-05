@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { GamePlayer } from '../../games/types';
 import { useApp } from '../../store/app';
@@ -11,11 +11,10 @@ import { GameDetail, GamesScreen } from './GamesScreen';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
 
-function mount(count: number, path = '/spiele/top-ten') {
+function mount(count: number, path = '/spiele/top-ten', startGame = vi.fn().mockResolvedValue(true)) {
   const players: GamePlayer[] = Array.from({ length: count }, (_, i) => ({
     id: `p${i}`, name: `Person ${i}`, color: 'blue', online: true,
   }));
-  const startGame = vi.fn();
   const party = { mode: 'local', players, me: players[0], startGame } as unknown as PartyValue;
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -93,4 +92,67 @@ it('zeigt ausgeblendete Spiele weder auf der Wand noch unter „Zuletzt gespielt
   for (const game of versteckt) expect(screen.queryByText(game.name), game.id).toBeNull();
   for (const game of visibleGames())
     expect(screen.getAllByText(game.name).length, game.id).toBeGreaterThan(0);
+});
+
+describe('Suche auf der Wand', () => {
+  const tippen = (text: string) =>
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Spiel suchen' }), { target: { value: text } });
+
+  it('zeigt nur Spiele, deren Name den Suchtext enthält, ohne Abschnitte', () => {
+    mount(2, '/spiele');
+    tippen('  wer ');
+    const erwartet = visibleGames().filter((g) => g.name.toLowerCase().includes('wer'));
+    expect(erwartet.length).toBeGreaterThan(1);
+    const kacheln = document.querySelectorAll('.gametile');
+    expect(kacheln).toHaveLength(erwartet.length);
+    for (const g of erwartet) expect(screen.getByRole('button', { name: new RegExp(g.name) })).toBeInTheDocument();
+    expect(screen.getByText(`${erwartet.length} von ${visibleGames().length} Spielen`)).toBeInTheDocument();
+    expect(document.querySelector('.wandteil')).toBeNull();
+  });
+
+  it('sagt, wenn nichts passt, und leert die Suche auf Wunsch', () => {
+    mount(2, '/spiele');
+    tippen('xyz');
+    expect(screen.getByText('Kein Spiel zu „xyz"')).toBeInTheDocument();
+    expect(document.querySelectorAll('.gametile')).toHaveLength(0);
+    // Zwei Wege: das ✕ im Feld und der Knopf im Leerzustand. Hier der Knopf.
+    const knoepfe = screen.getAllByRole('button', { name: 'Suche löschen' });
+    expect(knoepfe).toHaveLength(2);
+    fireEvent.click(knoepfe[1]);
+    expect(screen.getByRole('searchbox', { name: 'Spiel suchen' })).toHaveValue('');
+    expect(document.querySelectorAll('.wandteil').length).toBeGreaterThan(1);
+  });
+});
+
+describe('Spielseite', () => {
+  it('nennt Dauer und Personen vor dem Start', () => {
+    mount(2, '/spiele/kings-cup');
+    const g = GAMES.find((game) => game.id === 'kings-cup')!;
+    expect(screen.getByText(`${g.duration} · ${g.minPlayers}–${g.maxPlayers} Personen`)).toBeInTheDocument();
+  });
+
+  it('zeigt den Start an und nimmt keinen zweiten Tipp an', async () => {
+    let fertig!: () => void;
+    const startGame = vi.fn(() => new Promise<boolean>((r) => { fertig = () => r(true); }));
+    mount(2, '/spiele/kings-cup', startGame);
+    fireEvent.click(screen.getByRole('button', { name: "Los geht's" }));
+    const knopf = screen.getByRole('button', { name: 'Spiel startet …' });
+    expect(knopf).toBeDisabled();
+    fireEvent.click(knopf);
+    expect(startGame).toHaveBeenCalledTimes(1);
+    fertig();
+    expect(await screen.findByText('Spiel gestartet')).toBeInTheDocument();
+    expect(useApp.getState().recentGames).toContain('kings-cup');
+  });
+
+  it('erklärt einen gescheiterten Start am Knopf und lässt es nochmal versuchen', async () => {
+    const startGame = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    mount(2, '/spiele/kings-cup', startGame);
+    fireEvent.click(screen.getByRole('button', { name: "Los geht's" }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/ließ sich nicht starten/);
+    expect(useApp.getState().recentGames).not.toContain('kings-cup');
+    fireEvent.click(screen.getByRole('button', { name: 'Nochmal versuchen' }));
+    await waitFor(() => expect(screen.getByText('Spiel gestartet')).toBeInTheDocument());
+    expect(startGame).toHaveBeenCalledTimes(2);
+  });
 });

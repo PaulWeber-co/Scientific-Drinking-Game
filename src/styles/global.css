@@ -54,6 +54,16 @@ body {
   overscroll-behavior-y: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Wie eine App: langes Drücken markiert keinen Text, nur Eingabefelder. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable='true'],
+.markierbar {
+  -webkit-user-select: text;
+  user-select: text;
 }
 img,
 svg {
@@ -1215,6 +1225,26 @@ button.chip--outline {
   font-size: 18px;
   line-height: 1.1;
 }
+/* Meldung nach Eintragen/Entfernen: über der Tab-Leiste, verschiebt nichts. */
+.pegelnote {
+  position: fixed;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: calc(var(--tabbar-space) + var(--s-3));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  color: var(--label);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.pegelnote__action {
+  color: var(--brand);
+  flex-shrink: 0;
+}
 
 /* ---------- Onboarding ---------- */
 .onboarding {
@@ -1973,6 +2003,25 @@ body:has(.native-tabbar-anchor) .updatebar {
 
 /* ---------- Album & Sucher ---------- */
 
+/* Entwicklungszeit in der Film-Karte: eine leise Zeile mit Wert, wie eine
+   Einstellung in iOS. Die Linie trennt sie von den Knöpfen darüber. */
+.filmzeile {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s-3) 0 0;
+  border-top: 1px solid var(--hairline);
+  text-align: left;
+}
+.filmzeile__wert {
+  color: var(--label-2);
+}
+.filmzeile__haken {
+  color: var(--brand);
+}
+
 .photogrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2234,6 +2283,57 @@ body:has(.native-tabbar-anchor) .updatebar {
   color: var(--label-2);
   letter-spacing: 0.04em;
 }
+/* Suchfeld wie in Apple Fotos: flach, Lupe links, Löschen rechts. */
+.wandsuche {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-1) 0 var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+}
+.wandsuche:focus-within {
+  border-color: var(--brand);
+}
+.wandsuche__lupe {
+  color: var(--label-2);
+  flex-shrink: 0;
+}
+.wandsuche__feld {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  background: transparent;
+  border: none;
+  font-size: var(--t-body);
+  color: var(--label);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.wandsuche__feld:focus {
+  outline: none;
+}
+.wandsuche__feld::-webkit-search-cancel-button {
+  display: none;
+}
+.wandsuche__leeren {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--label-2);
+  flex-shrink: 0;
+}
+.wandleer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-8) var(--s-4);
+  text-align: center;
+}
 
 /* Zone und Wert, nie der Wert allein: „0,42" ohne „Angeheitert" ist eine
    Zahl ohne Bedeutung. Führt in den Pegel-Tab. */
@@ -2266,14 +2366,14 @@ body:has(.native-tabbar-anchor) .updatebar {
 .wandteil + .wandteil {
   margin-top: var(--s-6);
 }
+/* Wie die Abschnitte im App Store: groß und fett, damit man zwischen den
+   Abzügen sieht, wo eine neue Gruppe beginnt. */
 .wandteil__titel {
   padding: 0 var(--s-4) var(--s-3);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--t-caption);
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--label-2);
+  font-size: var(--t-title3);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--label);
 }
 .wandraster {
   display: grid;
@@ -2715,6 +2815,13 @@ body:has(.native-tabbar-anchor) .updatebar {
   color: var(--label-2);
   line-height: 1.4;
 }
+.detailmeta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--t-footnote);
+  color: var(--label-2);
+}
 .detailstart {
   margin-top: auto;
   padding-top: var(--s-4);
@@ -2771,4 +2878,17 @@ body:has(.native-tabbar-anchor) .updatebar {
 }
 .lobbychoice:disabled {
   opacity: 0.6;
+}
+
+/* Programmatischer Fokus auf Überschriften dient dem Vorlesen. Sie sind
+   nicht bedienbar (tabindex -1), ein Rahmen zeigte nur beim App-Start
+   ohne vorherige Berührung einen Kasten um den Titel. */
+[data-page-heading]:focus,
+.onboarding h1:focus,
+[data-sheet-title]:focus {
+  outline: none;
+}
+
+.album-viewer {
+  touch-action: pan-y pinch-zoom;
 }

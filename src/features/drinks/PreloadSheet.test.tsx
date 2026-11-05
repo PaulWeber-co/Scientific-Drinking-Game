@@ -17,7 +17,7 @@ const STUNDE = 60 * 60 * 1000;
 const PILS = sipsPerServing(findDrink('beer-pils'));
 
 const mount = (onClose = () => {}) => render(<PreloadSheet open onClose={onClose} />);
-const mehr = () => screen.getByRole('button', { name: 'mehr' });
+const mehr = () => screen.getByRole('button', { name: /^Gläser erhöhen/ });
 const eintragen = () => screen.getByRole('button', { name: 'Eintragen' });
 
 beforeEach(() => {
@@ -119,7 +119,7 @@ describe('Frage nach dem Vorglühen', () => {
 
   it('lässt sich nicht unter ein Glas drehen', () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: 'weniger' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Gläser verringern/ }));
     fireEvent.click(eintragen());
 
     expect(usePlayer.getState().log).toHaveLength(1);

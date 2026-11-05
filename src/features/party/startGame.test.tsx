@@ -56,7 +56,7 @@ describe('Spielstart prüft die aktuelle Runde', () => {
     let resolve!: (def: GameDefinition) => void;
     loader.loadGame.mockImplementationOnce(() => new Promise<GameDefinition>((done) => { resolve = done; }));
     setup(10);
-    let starting!: Promise<void>;
+    let starting!: Promise<boolean>;
     act(() => { starting = api.startGame('top-ten'); });
     act(() => api.addLocalPlayer({ name: 'Noch jemand', color: 'blue', profile: defaultProfile(), drinkId: 'beer-pils' }));
     await act(async () => {
@@ -82,5 +82,29 @@ describe('Spielstart prüft die aktuelle Runde', () => {
     expect(api.status).toBe('lobby');
     expect(api.error).toContain('Online-Lobby');
     expect(createState).not.toHaveBeenCalled();
+  });
+
+  it('meldet dem Aufrufer, ob der Start geklappt hat', async () => {
+    setup(10);
+    let ergebnis: boolean | undefined;
+    await act(async () => { ergebnis = await api.startGame('top-ten'); });
+    expect(ergebnis).toBe(true);
+  });
+
+  it('meldet einen Start, dessen Modul nicht lädt, als gescheitert', async () => {
+    loader.loadGame.mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'));
+    setup(4);
+    let ergebnis: boolean | undefined;
+    await act(async () => { ergebnis = await api.startGame('top-ten'); });
+    expect(ergebnis).toBe(false);
+    expect(api.status).toBe('lobby');
+    expect(api.error).toBeTruthy();
+  });
+
+  it.each([11, 2])('meldet einen Start mit %i Personen als gescheitert', async (count) => {
+    setup(count);
+    let ergebnis: boolean | undefined;
+    await act(async () => { ergebnis = await api.startGame('top-ten'); });
+    expect(ergebnis).toBe(false);
   });
 });

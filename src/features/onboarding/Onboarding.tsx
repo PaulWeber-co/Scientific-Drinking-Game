@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AGE_GATE_TEXT, ageGate } from '../../engine/age';
 import { bodyWaterLiters, widmarkFactor } from '../../engine/bac';
@@ -46,6 +46,12 @@ export function Onboarding() {
     alcoholFree ? STEPS.filter((s) => !['koerper', 'magen', 'drink', 'ziel'].includes(s)) : STEPS;
   const last = steps.length - 1;
   const current: Step = steps[Math.min(step, last)];
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const heading = bodyRef.current?.querySelector('h1');
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus();
+  }, [current]);
   const patch = (v: Partial<Profile>) => setP((prev) => ({ ...prev, ...v }));
 
   const next = () => {
@@ -93,15 +99,17 @@ export function Onboarding() {
         <span style={{ width: `${((Math.min(step, last) + 1) / steps.length) * 100}%` }} />
       </div>
 
-      <div key={current} className={`onboarding__body onboarding__body--${richtung}`}>
+      <p className="t-caption" aria-live="polite">Schritt {Math.min(step, last) + 1} von {steps.length}</p>
+      <div ref={bodyRef} key={current} className={`onboarding__body onboarding__body--${richtung}`}>
         {current === 'start' && <StepStart />}
         {current === 'name' && (
           <StepShell title="Wie heißt du?" sub="Mitspieler sehen deinen Spitznamen, nie Alter oder Gewicht. Dein Bild nur, wenn du es freigibst.">
+            <label htmlFor="onboarding-name" className="field__label">Spitzname</label>
             <input
+              id="onboarding-name"
               className="input input--center"
               placeholder="Spitzname"
               maxLength={16}
-              autoFocus
               value={p.name}
               onChange={(e) => patch({ name: e.target.value })}
             />
@@ -118,7 +126,7 @@ export function Onboarding() {
         )}
         {current === 'alter' && (
           <StepShell title="Wie alt bist du?" sub="Ehrlich. Die App rechnet damit.">
-            <Stepper value={p.age} onChange={(age) => patch({ age })} min={12} max={99} unit="Jahre" />
+            <Stepper label="Alter" value={p.age} onChange={(age) => patch({ age })} min={12} max={99} unit="Jahre" />
             {gate !== 'full' && (
               <div className={`notice notice--${gate === 'blocked' ? 'red' : 'orange'}`}>
                 {AGE_GATE_TEXT[gate]}
@@ -170,11 +178,12 @@ export function Onboarding() {
             />
             <div className="field">
               <span className="field__label">Gewicht</span>
-              <Stepper value={p.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
+              <Stepper label="Gewicht" value={p.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
             </div>
             <div className="field">
               <span className="field__label">Körpergröße (optional)</span>
               <OptionalStepper
+                label="Körpergröße"
                 value={p.heightCm}
                 onChange={(heightCm) => patch({ heightCm })}
                 defaultValue={175}
@@ -210,10 +219,22 @@ export function Onboarding() {
         )}
         {current === 'drink' && (
           <StepShell title="Was trinkst du heute?" sub="Kannst du jederzeit wechseln.">
-            <div className="drinkgrid">
+            <div className="drinkgrid" role="radiogroup" aria-label="Getränk">
               {DRINK_CATALOG.filter((d) => d.abvPercent > 0).map((d) => (
                 <button
                   key={d.id}
+                  role="radio"
+                  aria-checked={drinkId === d.id}
+                  tabIndex={drinkId === d.id ? 0 : -1}
+                  onKeyDown={(event) => {
+                    const options = DRINK_CATALOG.filter((drink) => drink.abvPercent > 0);
+                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+                    event.preventDefault();
+                    const offset = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
+                    const index = (options.findIndex((drink) => drink.id === d.id) + offset + options.length) % options.length;
+                    setDrinkId(options[index].id);
+                    (event.currentTarget.parentElement?.children[index] as HTMLElement)?.focus();
+                  }}
                   className={`drinktile pressable ${drinkId === d.id ? 'drinktile--on' : ''}`}
                   aria-pressed={drinkId === d.id}
                   onClick={() => {

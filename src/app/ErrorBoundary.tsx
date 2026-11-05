@@ -36,6 +36,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             className="btn btn--plain"
             onClick={() => {
+              // Nach einem Absturz ist ein zweiter Fehlgriff besonders teuer:
+              // erst sagen, was weg ist, dann löschen.
+              if (
+                !confirm(
+                  'Profil, Einstellungen, Trink-Log und Teilnehmer des laufenden Abends löschen und den Filmzähler zurücksetzen? Fotos und Rückblicke vergangener Abende bleiben.',
+                )
+              )
+                return;
               localStorage.removeItem('sdg.player');
               localStorage.removeItem('sdg.app');
               // Der laufende Abend ist mit dem Log weg. Seine angefangene

@@ -19,7 +19,7 @@ function Location() {
 }
 
 function mount(otherBuild: boolean, gameId?: string) {
-  const party = { mode: 'online', players: [me], me, otherBuild, gameId } as unknown as PartyValue;
+  const party = { mode: 'online', players: [me], me, otherBuild, gameId, connection: 'online' } as unknown as PartyValue;
   render(
     <PartyCtx.Provider value={party}>
       <GameFrame title="Test" accent="var(--blue)" onQuit={() => {}}>
@@ -154,4 +154,19 @@ describe('Beenden-Knopf online', () => {
     expect(screen.getByRole('button', { name: 'Beenden' })).toBeInTheDocument();
     expect(screen.getByText(/für die ganze Runde/)).toBeInTheDocument();
   });
+});
+
+it('zeigt den Spieltitel als Hauptüberschrift', () => {
+  mount(false);
+  expect(screen.getByRole('heading', { level: 1, name: 'Test' })).toHaveClass('t-headline');
+});
+
+it.each(['connecting', 'offline', 'error', 'online'])('meldet Verbindungszustand %s nur online', (connection) => {
+  const party = { mode: 'online', connection, players: [me], me } as unknown as PartyValue;
+  const tree = (value: PartyValue) => <PartyCtx.Provider value={value}><GameFrame title="Test" accent="red" onQuit={() => {}}>Inhalt</GameFrame></PartyCtx.Provider>;
+  const view = render(tree(party));
+  if (connection === 'online') expect(screen.queryByText(/Verbindung unterbrochen/)).toBeNull();
+  else expect(screen.getByRole('status')).toHaveTextContent('Verbindung unterbrochen – verbinde erneut …');
+  view.rerender(tree({ ...party, mode: 'local' }));
+  expect(screen.queryByText(/Verbindung unterbrochen/)).toBeNull();
 });

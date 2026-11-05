@@ -133,8 +133,13 @@ export interface PartyValue {
   removeLocalPlayer: (id: string) => void;
   /** Entfernt alle Gäste dieses Geräts samt ihrer Körperdaten und Logs. */
   clearLocalPlayers: () => void;
-  /** Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'. */
-  startGame: (gameId: string) => Promise<void>;
+  /**
+   * Lädt das Spielmodul und startet dann – erst danach ist `status` 'playing'.
+   * `false`, wenn der Start scheitert (Grund in `error`). Online gilt das
+   * Abschicken als Start: der Schreibvorgang wartet offline auf das Netz,
+   * die Runde läuft lokal trotzdem schon.
+   */
+  startGame: (gameId: string) => Promise<boolean>;
   /** Online nur beim Host wirksam: die Runde gehört ihm. */
   endGame: () => void;
   /** Aus der laufenden Runde in die Lobby; die anderen spielen weiter. */
@@ -741,22 +746,22 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       // Eine laufende Online-Runde gehört dem Host: ein neues Spiel würde sie
       // für alle ersetzen. Alle anderen landen beim Aufrufer in der Runde.
-      if (mode === 'online' && status === 'playing' && !isHost) return;
+      if (mode === 'online' && status === 'playing' && !isHost) return true;
       // Erst das Modul, dann der Zustand: der Host-Reducer läuft synchron und
       // darf nie auf ein Spiel treffen, das noch nicht geladen ist.
       const def = await loadGame(id).catch((e) => {
         setError(describe(e));
         return null;
       });
-      if (!def) return;
+      if (!def) return false;
       const roster = playersRef.current;
       if (roster.length < def.minPlayers || roster.length > def.maxPlayers) {
         setError(`${def.name} ist für ${def.minPlayers} bis ${def.maxPlayers} Spieler ausgelegt.`);
-        return;
+        return false;
       }
       if (def.requiresOwnDevice && mode !== 'online') {
         setError(`${def.name} braucht eine Online-Lobby mit einem eigenen Handy pro Person.`);
-        return;
+        return false;
       }
       setError(null);
       const state = def.createState(roster);
@@ -764,9 +769,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setLocalGameId(id);
         setLocalGameState(state);
         setLocalStatus('playing');
-        return;
+        return true;
       }
-      if (!code) return;
+      if (!code) return false;
       const now = Date.now();
       update(lobbyRef(code), {
         'meta/status': 'playing',
@@ -777,6 +782,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         game: { id, startedAt: now, state: encodeState(state), build: __GAME_BUILD__ },
         inbox: null,
       }).catch((e) => setError(describe(e)));
+      return true;
     },
     [mode, code, status, isHost, lobbyRef, myId],
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { migrateApp, rehydrateApp, type AppState } from './app';
+import { migrateApp, rehydrateApp, useApp, type AppState } from './app';
 
 vi.mock('../lib/haptics', () => ({ setHapticsEnabled: vi.fn() }));
 vi.mock('../lib/sound', () => ({ setSoundEnabled: vi.fn() }));
@@ -85,4 +85,14 @@ describe('Wiederherstellung der App-Einstellungen', () => {
   it('verkraftet einen Speicher ganz ohne Eintrag', () => {
     expect(() => rehydrateApp(undefined)).not.toThrow();
   });
+});
+
+it.each(['dark', 'light', 'system'])('erhält die Darstellung %s bei Migration und Wiederherstellung', (theme) => {
+  const state = migrateApp({ theme }, 2);
+  rehydrateApp(state);
+  expect(state.theme).toBe(theme);
+});
+
+it('behält für neue Nutzer die dunkle Darstellung als Voreinstellung', () => {
+  expect(useApp.getInitialState().theme).toBe('dark');
 });
