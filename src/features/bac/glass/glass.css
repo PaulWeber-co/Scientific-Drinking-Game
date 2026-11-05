@@ -1,12 +1,15 @@
 /* Das Glas steht in einem dunklen Foto, auch im hellen Modus: es ist ein
    Abzug aus der Bar, kein Bedienelement. */
 .glass {
-  width: 280px;
+  width: 100%;
+  max-width: 280px;
 }
 .glass__canvas {
   display: block;
-  width: 280px;
-  height: 270px;
+  /* Schmaler als 300 px wird das Papier enger: das Bild schrumpft mit. */
+  width: 100%;
+  height: auto;
+  aspect-ratio: 280 / 270;
   /* Senkrecht scrollt die Seite weiter, waagerecht schiebt der Finger das Glas. */
   touch-action: pan-y;
   cursor: grab;

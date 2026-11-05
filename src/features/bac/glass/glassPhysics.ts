@@ -1,34 +1,16 @@
-import { GLASS_PROFILES, halfWidthAt, liquidFor } from './glassShapes';
+import { GLASS_PROFILES, contourOf, halfWidthAt, liquidFor } from './glassShapes';
 import type { GlassProfile, GlassShape, Liquid } from './glassShapes';
 import { DRINK_CATALOG } from '../../../engine/drinks';
 
 /**
- * Flüssigkeit im Glas, wie sie sich wirklich bewegt.
- *
- * Das Schwappen ist eine Überlagerung von Eigenschwingungen (Moden) der
- * Oberfläche – genau so beschreibt es die Strömungslehre für Flüssigkeit in
- * einem Behälter. Jede Mode schwingt mit ihrer eigenen Frequenz aus der
- * Dispersionsrelation für Schwerewellen, ω² = g·k·tanh(k·h): ein schmales
- * Glas schwappt schneller als ein breites, eine flache Pfütze träger als ein
- * volles Glas. Ein Pint liegt so bei gut 3 Hz, wie in echt.
- *
- * Angeregt werden die Moden über die Richtung der wirksamen Schwerkraft
- * relativ zum Glas: Neigen (Sensor), Beschleunigen (Finger, Schütteln) und
- * Einschenken. Die Moden selbst sind linear; das Volumen hält eine eigene
- * Rechnung fest, die auch bei starker Neigung stimmt, wenn die Oberfläche den
- * Boden freilegt oder über den Rand steigt. Was über den Rand steigt,
- * schwappt über: als Tropfen, wenn es schnell geht, als Rinnsal außen am
- * Glas, wenn es nur knapp reicht.
- *
- * Koordinaten: x nach rechts ab der Glasmitte, y nach oben ab dem Innenboden,
- * in Bildpunkten. 1300 px entsprechen einem Meter.
+ * Höhenfeld im Glasrahmen: x nach rechts, y ab Innenboden nach oben, in px.
+ * Benachbarte Spalten tauschen Flüssigkeit über gerichtete Impulsflüsse aus.
+ * Die hydraulische Tiefe begrenzt die Wellengeschwindigkeit im tiefen Glas.
  */
 
 export const PX_PER_M = 1300;
 /** Erdbeschleunigung in px/s². */
 export const GRAVITY = 9.81 * PX_PER_M;
-/** Eigenschwingungen der Oberfläche. Acht reichen bis zu feinen Kräuseln. */
-export const MODES = 8;
 /** Stützstellen quer durchs Glas für Volumen, Zeichnen und Überlauf. */
 export const COLUMNS = 56;
 /** Höchste Füllung (Anteil der Innenhöhe). */
@@ -49,6 +31,24 @@ export interface Drop {
   vy: number;
   r: number;
   foam: boolean;
+  age: number;
+  /** Zugehöriger Auslauf. */
+  chain?: number;
+}
+/** Freier Strahl im Bildschirmrahmen; Breite aus q / Tempo, sichtbar ab 1 px. */
+export interface StreamParcel {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  q: number;
+  width: number;
+  chain: number;
+  side: -1 | 1;
+  age: number;
+  distance: number;
+  /** Zeitspanne des Glieds; beim Verfeinern auf die Stützstellen aufgeteilt. */
+  duration: number;
 }
 /** Rinnsal außen am Glas, vom Rand abwärts. */
 export interface Rivulet {
@@ -89,14 +89,25 @@ export interface GlassSim {
   /** Füllung als Anteil der Innenhöhe: im Blut und noch im Magen. */
   level: number;
   pending: number;
-  /** Modenamplituden (px) und ihre Geschwindigkeiten. */
-  amp: number[];
-  vel: number[];
-  /** Quasistatische Neigung der Oberfläche relativ zum Glas (dy/dx). */
-  slope: number;
+  /** Geschwindigkeit an den Zellgrenzen, positive Richtung nach rechts. */
+  flow: number[];
+  /** Verlorene Fläche / Spaltenbreite; Nachfüllen erst im stehenden Glas. */
+  lostArea: number;
+  /** Insgesamt ausgetretene Schnittfläche in px², unabhängig vom Nachfüllen. */
+  spilled: number;
+  idleFor: number;
+  uprightFor: number;
+  refillTime: number;
+  refillArea: number;
+  stream: StreamParcel[];
+  streamChain: number;
+  activeChains: [number, number];
+  breakupGap: [number, number];
+  /** Entnommene Fläche / Spaltenbreite, Quelle im nächsten Druckschritt. */
+  outflow: number[];
   /** Mittlere Höhe der Oberfläche, aus dem Volumen bestimmt. */
   center: number;
-  /** Oberfläche an den Stützstellen. */
+  /** Oberfläche an den Stützstellen; außerhalb benetzter Abschnitte der Druckkopf. */
   surface: number[];
   /** Senkrechte Geschwindigkeit der Oberfläche an den Stützstellen. */
   surfaceVel: number[];
@@ -104,11 +115,8 @@ export interface GlassSim {
   colX: number[];
   colLo: number[];
   colHi: number[];
-  /** Ruhebreite der Oberfläche, nach der die Moden bemessen sind. */
+  /** Ruhebreite der freien Oberfläche. */
   width: number;
-  basis: number[][];
-  gamma: number[];
-  omega2: number[];
   /** Glas: seitlicher Versatz (Finger), Tempo, Beschleunigung und Neigung. */
   offset: number;
   offsetVel: number;
@@ -117,8 +125,12 @@ export interface GlassSim {
   /** Wirksame Schwerkraft relativ zum Glas, y nach oben, in px/s². */
   gx: number;
   gy: number;
+  /** Geglättete Bildschirm-Schwerkraft in g; erster Sensorwert initialisiert sie. */
+  gravityLength: number | null;
   /** Zusätzliche Schaumhöhe nach dem Einschenken, 0…1. */
   foamBoost: number;
+  /** Bereits über den Rand verlorene Schaumhöhe; endlich statt ständig erneuert. */
+  foamLoss: number;
   /** Höchster benetzter Stand an der linken und rechten Wand. */
   wetLeft: number;
   wetRight: number;
@@ -166,9 +178,18 @@ export function createSim(
     look,
     level,
     pending,
-    amp: new Array(MODES).fill(0),
-    vel: new Array(MODES).fill(0),
-    slope: 0,
+    flow: new Array(COLUMNS + 1).fill(0),
+    lostArea: 0,
+    spilled: 0,
+    idleFor: 0,
+    uprightFor: 0,
+    refillTime: 0,
+    refillArea: 0,
+    stream: [],
+    streamChain: 0,
+    activeChains: [-1, -1],
+    breakupGap: [0, 0],
+    outflow: new Array(COLUMNS).fill(0),
     center: 0,
     surface: new Array(COLUMNS).fill(0),
     surfaceVel: new Array(COLUMNS).fill(0),
@@ -176,16 +197,15 @@ export function createSim(
     colLo: [],
     colHi: [],
     width: 0,
-    basis: [],
-    gamma: [],
-    omega2: [],
     offset: 0,
     offsetVel: 0,
     offsetAcc: 0,
     tilt: 0,
     gx: 0,
     gy: -GRAVITY,
+    gravityLength: null,
     foamBoost: 0.35,
+    foamLoss: 0,
     wetLeft: 0,
     wetRight: 0,
     pour: 0,
@@ -210,7 +230,8 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
   s.profile = GLASS_PROFILES[shape];
   s.look = look;
   const { profile } = s;
-  const maxHalf = Math.max(...profile.points.map(([w]) => w));
+  const contour = contourOf(profile);
+  const maxHalf = Math.max(...contour.map(([w]) => w));
   s.colX = [];
   s.colLo = [];
   s.colHi = [];
@@ -221,11 +242,14 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
     // der Rand der Spalte nicht oben, sondern dort, wo der Kelch einzieht.
     let lo = Infinity;
     let hi = -Infinity;
-    for (let y = 0; y <= profile.height; y += 0.5) {
-      if (halfWidthAt(profile, y) >= Math.abs(x)) {
-        lo = Math.min(lo, y);
-        hi = Math.max(hi, y);
-      }
+    for (let j = 1; j < contour.length; j++) {
+      const [w0, y0] = contour[j - 1];
+      const [w1, y1] = contour[j];
+      const ax = Math.abs(x);
+      if (w0 < ax && w1 < ax) continue;
+      const crossing = w0 === w1 ? y0 : y0 + ((ax - w0) / (w1 - w0)) * (y1 - y0);
+      lo = Math.min(lo, w0 >= ax ? y0 : crossing);
+      hi = Math.max(hi, w1 >= ax ? y1 : crossing);
     }
     if (lo === Infinity) {
       lo = profile.height;
@@ -235,8 +259,7 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
     s.colHi.push(hi);
   }
   s.width = 0;
-  s.amp.fill(0);
-  s.vel.fill(0);
+  s.flow.fill(0);
   s.bubbles = [];
   s.drops = [];
   s.rivulets = [];
@@ -263,76 +286,205 @@ export function setGlass(s: GlassSim, shape: GlassShape, look: Liquid): void {
       size: size * (0.9 + random(s) * 0.15),
     });
   }
-  measure(s, true);
+  resetSurface(s);
   settleIce(s);
-  solveSurface(s);
 }
 
-/** Moden für die aktuelle Ruhebreite: Form, Frequenz, Anteil an einer Neigung. */
-function measure(s: GlassSim, force = false): void {
-  const height = s.profile.height;
-  const rest = Math.max(4, (s.level + s.pending) * height);
-  const width = 2 * halfWidthAt(s.profile, rest);
-  if (!force && Math.abs(width - s.width) < 0.5) return;
-  s.width = width;
-  s.basis = [];
-  s.gamma = [];
-  s.omega2 = [];
-  for (let n = 1; n <= MODES; n++) {
-    const k = (n * Math.PI) / width;
-    s.omega2.push(GRAVITY * k * Math.tanh(k * rest));
-    // Anteil dieser Mode an einer schrägen Ebene y = x: nur ungerade Moden.
-    s.gamma.push(n % 2 ? (-4 * width) / (n * n * Math.PI * Math.PI) : 0);
-    s.basis.push(s.colX.map((x) => modeShape(n, x, width)));
-  }
-}
-
-function modeShape(n: number, x: number, width: number): number {
-  const xi = Math.min(1, Math.max(0, (x + width / 2) / width));
-  return Math.cos(n * Math.PI * xi);
-}
-
-/** Fläche unter der horizontalen Linie in Höhe `h`, gerechnet über die Spalten. */
+/** Fläche im Schnitt; die gemeinsame Spaltenbreite kürzt sich heraus. */
 function areaBelow(s: GlassSim, h: number): number {
   let area = 0;
-  for (let i = 0; i < COLUMNS; i++) {
-    area += Math.max(0, Math.min(h, s.colHi[i]) - s.colLo[i]);
-  }
+  for (let i = 0; i < COLUMNS; i++) area += Math.max(0, Math.min(h, s.colHi[i]) - s.colLo[i]);
   return area;
 }
 
+function resetSurface(s: GlassSim): void {
+  s.center = (s.level + s.pending) * s.profile.height;
+  s.width = 2 * halfWidthAt(s.profile, s.center);
+  s.surface.fill(s.center);
+  s.surfaceVel.fill(0);
+  s.flow.fill(0);
+  s.lostArea = 0;
+  s.spilled = 0;
+  s.foamLoss = 0;
+  s.gravityLength = null;
+  s.idleFor = 0;
+  s.uprightFor = 0;
+  s.refillTime = 0;
+  s.refillArea = 0;
+  s.stream = [];
+  s.streamChain = 0;
+  s.activeChains = [-1, -1];
+  s.breakupGap = [0, 0];
+  s.outflow.fill(0);
+}
+
 /**
- * Oberfläche an den Stützstellen, mit einer Mittelhöhe, die das Volumen hält.
- *
- * Die Moden haben über die Breite den Mittelwert null – in einem geraden Glas
- * stimmt das Volumen damit von selbst. In schrägen Wänden, bei freigelegtem
- * Boden oder über dem Rand nicht mehr; dort sucht eine Halbierung die
- * Mittelhöhe, bei der die Fläche wieder passt.
+ * Semiimplizite Massen- und Impulsbilanz auf einem versetzten Gitter.
+ * Die Speicherkurve einer Spalte ist an Boden und geschlossener Kelchwand
+ * begrenzt. Darüber steht die Höhe für den Druckkopf, nicht für mehr Masse.
+ * Der tridiagonale Druckschritt erhält die lokalen Flüsse auch dort, wo
+ * eine volle Spalte keine zusätzliche Flüssigkeit aufnehmen kann.
  */
-function solveSurface(s: GlassSim): void {
-  const height = s.profile.height;
-  const shape: number[] = s.colX.map((x, i) => {
-    let y = s.slope * x;
-    for (let n = 0; n < MODES; n++) y += (s.amp[n] - s.slope * s.gamma[n]) * s.basis[n][i];
-    return y;
-  });
-  const target = areaBelow(s, (s.level + s.pending) * height);
-  const area = (c: number) => {
-    let a = 0;
-    for (let i = 0; i < COLUMNS; i++) {
-      a += Math.max(0, Math.min(c + shape[i], s.colHi[i]) - s.colLo[i]);
-    }
-    return a;
-  };
-  let lo = -2 * height;
-  let hi = 3 * height;
-  for (let k = 0; k < 22; k++) {
-    const mid = (lo + hi) / 2;
-    if (area(mid) < target) lo = mid;
-    else hi = mid;
+function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
+  const discharge = [0, 0];
+  const rest = Math.max(1, (s.level + s.pending) * s.profile.height);
+  s.width = 2 * halfWidthAt(s.profile, rest);
+  const dx = s.colX[1] - s.colX[0];
+  const k = Math.PI / s.width;
+  // Im tiefen Wasser beteiligt sich nur noch eine Tiefe von ungefähr 1/k.
+  const depth = Math.tanh(k * rest) / k;
+  const axial = s.gy < 0 ? -s.gy : 0.025 * GRAVITY;
+  const frequency = Math.sqrt(axial * k * Math.tanh(k * rest));
+  const before = s.surface.slice();
+  s.idleFor += dt;
+  s.uprightFor = Math.atan2(Math.abs(s.gx), -s.gy) < Math.PI / 9 ? s.uprightFor + dt : 0;
+  if (s.uprightFor > 0.5 && s.idleFor > 0.5) {
+    if (s.refillTime === 0) s.refillArea = s.lostArea;
+    s.refillTime += dt;
+    const t = Math.min(1, s.refillTime / 2);
+    // Die Rampe startet und endet ohne Sprung der Quellstärke.
+    s.lostArea = s.refillArea * (1 - t * t * (3 - 2 * t));
+  } else {
+    s.refillTime = 0;
   }
-  s.center = (lo + hi) / 2;
-  for (let i = 0; i < COLUMNS; i++) s.surface[i] = s.center + shape[i];
+  const targetArea = areaBelow(s, (s.level + s.pending) * s.profile.height);
+  const target = Math.max(0, targetArea - s.lostArea);
+  const velocity = s.flow;
+  if (
+    target > 1e-6 &&
+    s.surface.every((y, i) => Math.max(0, Math.min(y, s.colHi[i]) - s.colLo[i]) < 1e-6)
+  ) {
+    s.flow.fill(0);
+    let lo = 0;
+    let hi = s.profile.height;
+    for (let i = 0; i < 30; i++) {
+      const middle = (lo + hi) / 2;
+      if (areaBelow(s, middle) > target) hi = middle;
+      else lo = middle;
+    }
+    s.surface.fill((lo + hi) / 2);
+  }
+  if (ambient) {
+    // Eine kleine gerichtete Störung bricht die Symmetrie für parametrische Wellen.
+    // Flach auf dem Tisch ruht das Glas: beim Hinlegen ist die wirksame
+    // Schwerkraft kurz schwach, ein voller Stoß ließe es dann überschwappen.
+    const kick = gauss(s) * Math.sqrt(dt) * 35 * inclination(s);
+    for (let i = 1; i < COLUMNS; i++)
+      velocity[i] += kick * Math.cos((Math.PI * s.colX[i]) / s.width);
+  }
+  const steps = Math.max(
+    1,
+    Math.ceil(
+      dt /
+        Math.min(
+          0.001,
+          (0.35 * dx) /
+            (Math.sqrt(axial * depth) +
+              Math.sqrt(Math.abs(s.gx) * s.width) +
+              Math.max(...velocity.map(Math.abs))),
+        ),
+    ),
+  );
+  const h = dt / steps;
+  const mobility = new Float64Array(COLUMNS + 1);
+  const predicted = new Float64Array(COLUMNS + 1);
+  const mass = new Float64Array(COLUMNS);
+  const rhs = new Float64Array(COLUMNS);
+  const upper = new Float64Array(COLUMNS);
+  const solved = new Float64Array(COLUMNS);
+  const original = new Float64Array(COLUMNS);
+  const amount = (i: number) => Math.max(0, Math.min(s.surface[i], s.colHi[i]) - s.colLo[i]);
+  const rim = rimHalfWidth(s.profile);
+  const scale = (h * h * axial) / (dx * dx);
+  const energy = () => {
+    let value = 0;
+    for (let i = 0; i < COLUMNS; i++) {
+      const height = s.surface[i] - s.colLo[i];
+      const capacity = s.colHi[i] - s.colLo[i];
+      const wet = Math.max(0, Math.min(height, capacity));
+      value +=
+        0.5 * wet * wet + capacity * Math.max(0, height - capacity) - rhs[i] * s.surface[i];
+      if (i > 0) value += 0.5 * scale * mobility[i] * (s.surface[i] - s.surface[i - 1]) ** 2;
+    }
+    return value;
+  };
+  for (let n = 0; n < steps; n++) {
+    let total = 0;
+    let free = 0;
+    for (let i = 0; i < COLUMNS; i++) {
+      mass[i] = amount(i);
+      total += mass[i];
+      if (s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i]) free++;
+    }
+    // Der Wehrfluss wird mit derselben kleinen Schrittweite wie der Druck gelöst.
+    // Ein großer Entzug je Bild würde den Rand abwechselnd leerziehen und aufstauen.
+    drainRim(s, h, discharge, rim);
+    const drained = s.outflow.reduce((sum, value) => sum + value, 0);
+    const supply = (Math.max(0, targetArea - s.lostArea) - total + drained) / Math.max(1, free);
+    for (let i = 1; i < COLUMNS; i++) {
+      const bed = Math.max(s.colLo[i - 1], s.colLo[i]);
+      const roof = Math.min(s.colHi[i - 1], s.colHi[i]);
+      const wet = Math.max(0, Math.min(roof, Math.max(s.surface[i - 1], s.surface[i])) - bed);
+      mobility[i] = Math.min(depth, wet);
+      const u = velocity[i];
+      const gradient = u >= 0 ? (u - velocity[i - 1]) / dx : (velocity[i + 1] - u) / dx;
+      const drag = 2 * s.look.damping * frequency + Math.abs(u) / Math.max(12, s.width);
+      predicted[i] = (u + h * (s.gx - u * gradient)) / (1 + h * drag);
+    }
+    for (let i = 0; i < COLUMNS; i++) {
+      const source = s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i] ? supply : 0;
+      rhs[i] =
+        mass[i] +
+        source -
+        s.outflow[i] -
+        (h / dx) * (mobility[i + 1] * predicted[i + 1] - mobility[i] * predicted[i]);
+    }
+    // Gedämpftes Newton verhindert Sprünge über mehrere Boden-/Wandkontakte.
+    for (let iteration = 0; iteration < 40; iteration++) {
+      let residual = 0;
+      for (let i = 0; i < COLUMNS; i++) {
+        original[i] = s.surface[i];
+        const left = scale * mobility[i];
+        const right = scale * mobility[i + 1];
+        const capacity = s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i] ? 1 : 0;
+        const diagonal = capacity + left + right + 1e-8;
+        const value =
+          rhs[i] -
+          amount(i) -
+          (i > 0 ? left * (s.surface[i] - s.surface[i - 1]) : 0) -
+          (i + 1 < COLUMNS ? right * (s.surface[i] - s.surface[i + 1]) : 0);
+        residual = Math.max(residual, Math.abs(value));
+        const divisor = diagonal + (i > 0 ? left * upper[i - 1] : 0);
+        upper[i] = -right / divisor;
+        solved[i] = (value + (i > 0 ? left * solved[i - 1] : 0)) / divisor;
+      }
+      if (residual < 1e-8) break;
+      for (let i = COLUMNS - 2; i >= 0; i--) solved[i] -= upper[i] * solved[i + 1];
+      const initialEnergy = energy();
+      let largest = 1;
+      for (let i = 0; i < COLUMNS; i++) largest = Math.max(largest, Math.abs(solved[i]));
+      let fraction = Math.min(1, (2 * s.profile.height) / largest);
+      for (let attempt = 0; attempt < 24; attempt++) {
+        for (let i = 0; i < COLUMNS; i++) s.surface[i] = original[i] + fraction * solved[i];
+        if (energy() <= initialEnergy + 1e-8) break;
+        fraction *= 0.5;
+      }
+    }
+    for (let i = 1; i < COLUMNS; i++) {
+      velocity[i] =
+        mobility[i] > 0 ? predicted[i] - (h * axial * (s.surface[i] - s.surface[i - 1])) / dx : 0;
+    }
+    // Isolierte trockene Druckköpfe tragen keine Masse und brauchen kein Gedächtnis.
+    for (let i = 0; i < COLUMNS; i++) {
+      if (mobility[i] === 0 && mobility[i + 1] === 0 && amount(i) === 0) {
+        s.surface[i] = Math.min(s.colLo[i], rest + (s.gx / axial) * s.colX[i]);
+      }
+    }
+    s.outflow.fill(0);
+  }
+  s.center = sample(s, s.surface, 0);
+  for (let i = 0; i < COLUMNS; i++) s.surfaceVel[i] = dt > 0 ? (s.surface[i] - before[i]) / dt : 0;
+  return discharge;
 }
 
 /** Oberfläche an beliebiger Stelle, zwischen den Stützstellen linear. */
@@ -377,14 +529,18 @@ export interface SimInput {
   ambient?: boolean;
 }
 
+/** 1 = Handy aufrecht, 0 = flach; aus der geglätteten Länge der Schwerkraft. */
+function inclination(s: GlassSim): number {
+  const t = Math.max(0, Math.min(1, ((s.gravityLength ?? 1) - 0.17) / (0.42 - 0.17)));
+  return t * t * (3 - 2 * t);
+}
+
 export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
   const dt = Math.max(0, Math.min(0.033, dtSec));
   if (input.still) {
     s.level = input.levelGoal;
     s.pending = input.pendingGoal;
-    s.amp.fill(0);
-    s.vel.fill(0);
-    s.slope = 0;
+    s.flow.fill(0);
     s.offset = 0;
     s.offsetVel = 0;
     s.offsetAcc = 0;
@@ -394,16 +550,14 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
     s.pour = 0;
     s.drops = [];
     s.rivulets = [];
-    measure(s);
+    resetSurface(s);
     settleIce(s);
-    solveSurface(s);
     return;
   }
   s.time += dt;
   // Füllstand gleitet: ein neues Getränk läuft ein, Abbau sinkt langsam.
   s.level += (input.levelGoal - s.level) * (1 - Math.exp(-2.2 * dt));
   s.pending += (input.pendingGoal - s.pending) * (1 - Math.exp(-2.2 * dt));
-  measure(s);
 
   // --- Das Glas selbst: dem Finger folgen oder zurück in die Mitte gleiten.
   const holding = input.hold !== null && input.hold !== undefined;
@@ -418,81 +572,62 @@ export function stepSim(s: GlassSim, dtSec: number, input: SimInput): void {
   s.tilt += (tiltGoal - s.tilt) * (1 - Math.exp(-10 * dt));
 
   // --- Wirksame Schwerkraft relativ zum Glas.
-  let down = input.gravity ?? { x: 0, y: 1 };
-  // Liegt das Handy flach, fehlt der Schwerkraft in der Bildebene die
-  // Richtung. Ein gedachtes „unten" ergänzt sie, damit das Glas dann
-  // ruhig steht und auf leichtes Kippen trotzdem antwortet.
-  const planar = down.x * down.x + down.y * down.y;
-  down = { x: down.x, y: down.y + 0.75 * Math.max(0, 1 - planar) };
-  const pull = Math.min(1.8, Math.max(0.6, Math.hypot(down.x, down.y)));
+  const down = input.gravity ?? { x: 0, y: 1 };
+  const pull = Math.min(3, Math.hypot(down.x, down.y));
   const norm = Math.hypot(down.x, down.y) || 1;
+  // 0,1 s erkennt Hinlegen zügig; die 4-Hz-Anregung bleibt im Rohbetrag erhalten.
+  s.gravityLength =
+    (s.gravityLength ?? pull) + (pull - (s.gravityLength ?? pull)) * (1 - Math.exp(-dt / 0.1));
+  const inclined = inclination(s);
+  // Schwache Rohvektoren haben keine verlässliche Richtung: sofort nach unten.
+  const directionTransition = Math.max(0, Math.min(1, (pull - 0.17) / (0.42 - 0.17)));
+  // Darüber zählt nur die Richtung: wer das Handy schräg nach hinten hält,
+  // misst weniger als 1 g in der Bildebene, die Oberfläche steht trotzdem waagerecht.
+  const directionWeight = directionTransition * directionTransition * (3 - 2 * directionTransition);
+  const directionX = (down.x / norm) * directionWeight;
+  const directionY = 1 + (down.y / norm - 1) * directionWeight;
+  const directionLength = Math.hypot(directionX, directionY) || 1;
+  // Der Betrag blendet verzögert zu 1 g, damit vertikales Schütteln weiter anregt.
+  const magnitude = 1 + (pull - 1) * inclined;
+  const effectiveDown = {
+    x: (directionX / directionLength) * magnitude,
+    y: (directionY / directionLength) * magnitude,
+  };
   // Bildschirm (y unten) minus Scheinkraft des Fingers, dann ins Glas gedreht.
-  const sx = (down.x / norm) * pull * GRAVITY - s.offsetAcc;
-  const sy = (down.y / norm) * pull * GRAVITY;
+  const sx = effectiveDown.x * GRAVITY - s.offsetAcc;
+  const sy = effectiveDown.y * GRAVITY;
   const cos = Math.cos(-s.tilt);
   const sin = Math.sin(-s.tilt);
   const lx = cos * sx - sin * sy;
   const ly = sin * sx + cos * sy;
   s.gx = lx;
   s.gy = -ly;
-  // Kopfüber hält keine Oberfläche: dann höchstens steil.
-  const axial = Math.max(0.15 * GRAVITY, -s.gy);
-  const maxSlope = Math.tan((72 * Math.PI) / 180);
-  s.slope = Math.max(-maxSlope, Math.min(maxSlope, s.gx / axial));
-  const gScale = axial / GRAVITY;
-
-  // --- Anregung: Einschenken, Tisch, Hand.
-  const force = new Array(MODES).fill(0);
+  // Kopfüber bleibt die Rechnung auf eine kleine axiale Restkraft begrenzt.
+  const gScale = s.gy < 0 ? -s.gy / GRAVITY : 0.025;
   if (s.pour > 0) {
     s.pour = Math.max(0, s.pour - dt);
-    const jet = Math.min(1, s.pour / 0.25);
-    for (let n = 0; n < MODES; n++) {
-      // Der Strahl drückt die Oberfläche an seiner Stelle nach unten und
-      // wühlt sie dabei auf.
-      force[n] -= (jet * 420 * modeShape(n + 1, s.pourX, s.width)) / (1 + n * 0.3);
-      force[n] += (jet * gauss(s) * 900) / (n + 1);
-    }
+    const index = Math.max(1, Math.min(COLUMNS - 1, Math.round((s.pourX - s.colX[0]) / (s.colX[1] - s.colX[0]))));
+    s.flow[index] += gauss(s) * 150 * dt;
   }
   const ambient = input.ambient !== false;
   if (ambient && !input.gravity && !holding) {
-    // Ohne Sensor steht das Glas auf einem Tisch, an dem gelacht wird:
-    // feines Zittern und ab und zu ein Stoß gegen den Tisch.
     s.bumpIn -= dt;
     if (s.bumpIn <= 0) {
       s.bumpIn = 5 + random(s) * 9;
       const kick = (random(s) < 0.5 ? -1 : 1) * (30 + random(s) * 45);
-      s.vel[0] += kick;
-      s.vel[2] += kick * 0.3;
+      for (let i = 1; i < COLUMNS; i++) s.flow[i] += kick * Math.cos(Math.PI * s.colX[i] / s.width);
     }
   }
-  for (let n = 0; ambient && n < Math.min(4, MODES); n++) {
-    s.vel[n] += (gauss(s) * Math.sqrt(dt) * (input.gravity ? 5 : 12)) / (n + 1);
-  }
+  const discharge = stepField(s, dt, ambient);
 
-  // --- Moden integrieren, in kleinen Schritten für die schnellen Kräusel.
-  const before = s.surface.slice();
-  const steps = Math.max(1, Math.ceil(dt / 0.004));
-  const h = dt / steps;
-  for (let k2 = 0; k2 < steps; k2++) {
-    for (let n = 0; n < MODES; n++) {
-      const w2 = s.omega2[n] * gScale;
-      const w = Math.sqrt(w2);
-      // Zähigkeit wirkt an der Wand und steigt mit der Wellenzahl.
-      const zeta = s.look.damping * Math.pow(n + 1, 0.75);
-      const acc = w2 * (s.slope * s.gamma[n] - s.amp[n]) - 2 * zeta * w * s.vel[n] + force[n];
-      s.vel[n] += acc * h;
-      s.amp[n] += s.vel[n] * h;
-    }
-  }
-  solveSurface(s);
-  for (let i = 0; i < COLUMNS; i++) s.surfaceVel[i] = dt > 0 ? (s.surface[i] - before[i]) / dt : 0;
-
-  overflow(s, dt);
+  stepDrops(s, dt, down);
+  stepStream(s, dt, down);
+  overflow(s, dt, discharge);
+  refineStream(s);
   wetWalls(s, dt);
   stepFoam(s, dt);
   stepBubbles(s, dt);
   stepIce(s, dt, gScale);
-  stepDrops(s, dt, input.gravity ?? { x: 0, y: 1 });
 }
 
 /** Oberfläche am Rand in Höhe des Randes, links und rechts. */
@@ -505,41 +640,72 @@ export function rimHalfWidth(profile: GlassProfile): number {
  *
  * Knapp darüber und langsam: es läuft außen am Glas herunter – Flüssigkeit
  * haftet an der Wand (Teekanneneffekt). Deutlich darüber oder mit Schwung:
- * es fliegt als Tropfen. Der übergelaufene Wellenberg fehlt danach, die
+ * es fließt als freier Strahl. Der übergelaufene Wellenberg fehlt danach, die
  * Schwingung verliert also Energie.
  */
-function overflow(s: GlassSim, dt: number): void {
+function rimHeight(s: GlassSim, side: -1 | 1, rim = rimHalfWidth(s.profile)): number {
+  const x = side * rim;
+  const edge = side < 0 ? 0 : COLUMNS - 1;
+  const neighbor = edge - side;
+  const slope = (s.surface[edge] - s.surface[neighbor]) / (s.colX[edge] - s.colX[neighbor]);
+  return surfaceAt(s, x) + slope * (x - Math.max(s.colX[0], Math.min(s.colX[COLUMNS - 1], x)));
+}
+
+function drainRim(s: GlassSim, dt: number, discharge: number[], rim: number) {
   const { profile } = s;
-  const rim = rimHalfWidth(profile);
   for (const side of [-1, 1] as const) {
-    const x = side * (rim - 1);
-    const y = surfaceAt(s, x);
-    const over = y - profile.height;
-    const rising = sample(s, s.surfaceVel, x);
-    let feeding = false;
-    if (over > 0.4) {
-      // Ausfluss über eine Kante: v ≈ √(2·g·h).
-      const speed = Math.sqrt(2 * GRAVITY * over * 0.6);
-      const fling = over > 3 || Math.abs(rising) > 120 || Math.abs(s.offsetVel) > 160;
-      if (fling) {
-        const count = Math.min(4, Math.ceil(over * dt * 30 + random(s) * 1.2));
-        for (let k = 0; k < count; k++) emitDrop(s, side, speed, rising);
-      } else {
-        feeding = true;
+    const over = rimHeight(s, side, rim) - profile.height;
+    if (over > 0.12) {
+      const dx = s.colX[1] - s.colX[0];
+      const free = s.surface.map((y, i) => y > s.colLo[i] && y < s.colHi[i]);
+      const storage = free.filter(Boolean).length;
+      // Exakte Integration von dh/dt ∝ -h^(3/2): der Wehrfluss kann
+      // innerhalb eines Schritts nicht mehr als seinen Druckkopf abbauen.
+      const nextOver =
+        (over ** -0.5 +
+          (0.65 * Math.sqrt(2 * Math.hypot(s.gx, s.gy)) * dt) / (2 * Math.max(1, storage) * dx)) **
+        -2;
+      const lowering = over - nextOver;
+      let loss = 0;
+      for (let i = 0; i < COLUMNS; i++) {
+        if (!free[i] || s.surface[i] - s.colLo[i] < 1e-6) continue;
+        const take = Math.min(Math.max(0, s.surface[i] - s.colLo[i] - s.outflow[i]), lowering);
+        s.outflow[i] += take;
+        loss += take;
       }
-      // Energie geht mit dem Überlauf.
-      const loss = Math.exp(-dt * 7 * Math.min(1, over / 5));
-      for (let n = 0; n < MODES; n++) {
-        const rest = s.slope * s.gamma[n];
-        s.amp[n] = rest + (s.amp[n] - rest) * loss;
-        s.vel[n] *= loss;
+      if (loss > 0) {
+        discharge[side < 0 ? 0 : 1] += loss * dx;
+        s.lostArea += loss;
+        s.spilled += loss * dx;
+        s.idleFor = 0;
+        s.refillTime = 0;
       }
     }
+  }
+}
+
+function overflow(s: GlassSim, dt: number, discharge: number[]): void {
+  const { profile } = s;
+  for (const side of [-1, 1] as const) {
+    const y = rimHeight(s, side);
+    const over = y - profile.height;
+    const rising = sample(s, s.surfaceVel, side * rimHalfWidth(profile));
+    const slot = side < 0 ? 0 : 1;
+    const q = dt > 0 ? discharge[slot] / dt : 0;
+    const speed = Math.cbrt((2 * Math.hypot(s.gx, s.gy) * q) / 0.65);
+    const feeding = q > 0 && speed < 215 && Math.abs(rising) < 120 && Math.abs(s.offsetVel) < 160;
+    if (q > 0 && !feeding) emitStream(s, side, speed, rising, q, dt);
+    else s.activeChains[slot] = -1;
     // Schaum steigt zuerst über: er ist leicht und steht über dem Wasser.
-    const foamTop = y + foamHeight(s);
+    const availableFoam = foamHeight(s);
+    const foamTop = y + availableFoam;
     const foamOver = s.look.foam ? foamTop - profile.height - 3 : 0;
-    const foamFeeding = foamOver > 0.5 && s.look.foamHeight > 4;
-    if (foamFeeding) s.foamBoost = Math.max(0, s.foamBoost - dt * 0.05 * foamOver);
+    const foamFeeding = foamOver > 0.5 && availableFoam > 0.5 && s.look.foamHeight > 4;
+    if (foamFeeding) {
+      s.foamBoost = Math.max(0, s.foamBoost - dt * 0.05 * foamOver);
+      s.foamLoss += dt * foamOver * 3;
+      s.idleFor = 0;
+    }
     feedRivulet(s, side, feeding, false, over, dt);
     if (s.look.foam && s.look.foamHeight > 4) feedRivulet(s, side, foamFeeding, true, foamOver, dt);
   }
@@ -548,6 +714,27 @@ function overflow(s: GlassSim, dt: number): void {
     const length = outerLength(s);
     // Ein Rinnsal läuft zäh die Wand hinab, Schaum noch langsamer.
     if (r.head < length) r.head = Math.min(length, r.head + dt * (r.foam ? 26 : 70));
+    if (
+      r.foam &&
+      r.feeding &&
+      Math.floor(r.age / 0.45) !== Math.floor((r.age - dt) / 0.45) &&
+      s.drops.length < 90
+    ) {
+      const y = profile.height - r.head;
+      const p = toCanvas(
+        s,
+        r.side * (halfWidthAt(profile, Math.max(0, y)) + profile.wall + r.width / 2),
+        y,
+      );
+      s.drops.push({
+        ...p,
+        vx: s.offsetVel + r.side * (8 + random(s) * 16),
+        vy: 15,
+        r: 0.7 + random(s) * 1.5,
+        foam: true,
+        age: 0,
+      });
+    }
     if (!r.feeding) r.tail += dt * (r.foam ? 14 : 40);
     if (r.head >= length && !r.foam && r.age % 0.4 < dt) {
       addPuddle(s, side2x(s, r.side), 1.2, false);
@@ -581,27 +768,183 @@ function side2x(s: GlassSim, side: -1 | 1): number {
   return side * (bottom + 2);
 }
 
-function emitDrop(s: GlassSim, side: -1 | 1, speed: number, rising: number) {
-  if (s.drops.length > 90) return;
-  const { profile } = s;
-  const rim = rimHalfWidth(profile) + profile.wall;
-  const local = { x: side * rim, y: profile.height + 1 };
-  const out = Math.min(520, speed * (0.7 + random(s) * 0.6));
-  const up = Math.max(-80, Math.min(420, rising * 0.6 + random(s) * 60));
-  // In den Zeichenbereich: Glas gedreht und versetzt, y nach unten.
-  const p = toCanvas(s, local.x, local.y);
+function emitStream(s: GlassSim, side: -1 | 1, speed: number, rising: number, q: number, dt: number) {
+  const slot = side < 0 ? 0 : 1;
+  if (s.activeChains[slot] < 0) s.activeChains[slot] = ++s.streamChain;
+  const p = toCanvas(s, side * (rimHalfWidth(s.profile) + s.profile.wall), s.profile.height);
   const cos = Math.cos(s.tilt);
   const sin = Math.sin(s.tilt);
-  const vxl = side * out;
-  const vyl = -up;
-  s.drops.push({
-    x: p.x,
-    y: p.y,
-    vx: cos * vxl - sin * vyl + s.offsetVel,
-    vy: sin * vxl + cos * vyl,
-    r: 1 + random(s) * 1.8,
-    foam: false,
-  });
+  const vx = side * speed;
+  const vy = -Math.max(-80, Math.min(160, rising * 0.25));
+  const parcel: StreamParcel = {
+    ...p,
+    vx: cos * vx - sin * vy + s.offsetVel,
+    vy: sin * vx + cos * vy,
+    q,
+    width: 0,
+    chain: s.activeChains[slot],
+    side,
+    age: 0,
+    distance: 0,
+    duration: dt,
+  };
+  parcel.width = streamWidth(parcel);
+  s.stream.push(parcel);
+  if (s.stream.length > 256) s.stream.shift();
+}
+
+const MIN_STREAM_WIDTH = 1;
+
+function breakupDistance(p: StreamParcel): number {
+  return Math.min(110, 22 + Math.sqrt(p.q) * 1.8);
+}
+
+function streamWidth(p: StreamParcel): number {
+  // Die Zeichenbreite bleibt bis zum Abriss sichtbar, auch bei kleinem Fluss.
+  const width = Math.max(MIN_STREAM_WIDTH, Math.min(16, p.q / Math.max(1, Math.hypot(p.vx, p.vy))));
+  const end = breakupDistance(p);
+  const neck = Math.min(end * 0.65, Math.max(12, width * 3));
+  const t = Math.max(0, Math.min(1, (p.distance - end + neck) / neck));
+  const tip = Math.min(width, Math.max(MIN_STREAM_WIDTH, width * 0.18));
+  return width + (tip - width) * t * t * (3 - 2 * t);
+}
+
+/** Abrissabstände im Wegmaß bleiben unabhängig von Bildrate und Stützstellen. */
+function breakParcel(s: GlassSim, p: StreamParcel) {
+  const speed = Math.max(1, Math.hypot(p.vx, p.vy));
+  const nx = p.vx / speed;
+  const ny = p.vy / speed;
+  const tip = Math.max(MIN_STREAM_WIDTH, streamWidth({ ...p, distance: breakupDistance(p) }));
+  const slot = p.side < 0 ? 0 : 1;
+  const length = p.duration * speed;
+  // Größen und Abstände aus dem Band vor dem Hals. Die Begrenzung hält
+  // dünne Strahlen sichtbar und teilt dicke in mehrere mittlere Tropfen.
+  const body = Math.max(2, Math.min(8, p.q / speed));
+  let offset = s.breakupGap[slot];
+  while (offset < length && s.drops.length < 512) {
+    const r = Math.max(0.9, Math.min(4, body * (0.25 + random(s) * 0.5)));
+    const x = p.x + nx * (offset - length / 2);
+    const y = p.y + ny * (offset - length / 2);
+    s.drops.push({ x, y, vx: p.vx, vy: p.vy, r, foam: false, chain: p.chain, age: 0 });
+    const gap = body * (1.4 + random(s) ** 2 * 5);
+    if (random(s) < 0.18 && s.drops.length < 512) {
+      s.drops.push({
+        x: x + nx * gap * 0.55 - ny * tip * 0.25,
+        y: y + ny * gap * 0.55 + nx * tip * 0.25,
+        vx: p.vx - ny * 8,
+        vy: p.vy + nx * 8,
+        r: 0.15 + random(s) * 0.15,
+        foam: false,
+        chain: p.chain,
+        age: 0,
+      });
+    }
+    offset += gap;
+  }
+  s.breakupGap[slot] = Math.max(0, offset - length);
+}
+
+/** Zusätzliche Stützstellen im freien Band schließen Lücken bei großen Bildschritten. */
+function refineStream(s: GlassSim) {
+  const refined: StreamParcel[] = [];
+  const chains = new Map<number, StreamParcel[]>();
+  for (const p of s.stream) {
+    const chain = chains.get(p.chain) ?? [];
+    chain.push(p);
+    chains.set(p.chain, chain);
+  }
+  const ordered = [...chains.values()].flat();
+  for (let i = 0; i < ordered.length; i++) {
+    const a = ordered[i - 1];
+    const b = ordered[i];
+    if (a && a.chain === b.chain) {
+      const gap = Math.hypot(a.x - b.x, a.y - b.y);
+      const count = Math.max(
+        1,
+        Math.min(
+          Math.ceil(gap / (1.5 * Math.min(a.width, b.width))),
+          257 - refined.length - ordered.length + i,
+        ),
+      );
+      b.duration /= count;
+      for (let j = 1; j < count; j++) {
+        const t = j / count;
+        const mix = (x: number, y: number) => x + (y - x) * t;
+        const p: StreamParcel = {
+          x: mix(a.x, b.x),
+          y: mix(a.y, b.y),
+          vx: mix(a.vx, b.vx),
+          vy: mix(a.vy, b.vy),
+          q: mix(a.q, b.q),
+          width: 0,
+          chain: b.chain,
+          side: b.side,
+          age: mix(a.age, b.age),
+          distance: mix(a.distance, b.distance),
+          duration: b.duration,
+        };
+        p.width = streamWidth(p);
+        refined.push(p);
+      }
+    }
+    refined.push(b);
+  }
+  s.stream = refined;
+}
+
+function stepStream(s: GlassSim, dt: number, down: { x: number; y: number }) {
+  const kept: StreamParcel[] = [];
+  const segments = new Map<number, { chain: number; hasParcel: boolean }>();
+  let detached: StreamParcel | undefined;
+  for (const p of s.stream) {
+    const segment = segments.get(p.chain) ?? { chain: p.chain, hasParcel: false };
+    segments.set(p.chain, segment);
+    p.age += dt;
+    p.vx += down.x * GRAVITY * dt;
+    p.vy += down.y * GRAVITY * dt;
+    const travel = Math.hypot(p.vx, p.vy) * dt;
+    p.distance += travel;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.width = streamWidth(p);
+    // Der Fluss bestimmt die Zerfallsstrecke; bis dahin bleibt das Band sichtbar.
+    const breakup = breakupDistance(p);
+    if (p.y >= STAGE.table) {
+      if (p.duration > 0) addPuddle(s, p.x, p.width, false);
+    } else if (p.distance >= breakup) {
+      breakParcel(s, p);
+      detached = p;
+    } else if (p.x > -20 && p.x < STAGE.width + 20 && p.y > -60) {
+      // Schnitt mit der Abrissstelle: der Hals endet exakt dort, statt ein
+      // ganzes Bildglied vor den Tropfen stumpf abzuschneiden.
+      if (detached?.chain === p.chain && detached.distance >= breakup) {
+        const t = (breakup - p.distance) / (detached.distance - p.distance);
+        const tip = {
+          ...p,
+          x: p.x + (detached.x - p.x) * t,
+          y: p.y + (detached.y - p.y) * t,
+          distance: breakup,
+          duration: 0,
+          chain: segment.chain,
+        };
+        tip.width = streamWidth(tip);
+        kept.push(tip);
+      }
+      detached = undefined;
+      p.chain = segment.chain;
+      segment.hasParcel = true;
+      kept.push(p);
+      continue;
+    }
+    if (segment.hasParcel) {
+      const previous = segment.chain;
+      segment.chain = ++s.streamChain;
+      segment.hasParcel = false;
+      const slot = p.side < 0 ? 0 : 1;
+      if (s.activeChains[slot] === previous) s.activeChains[slot] = segment.chain;
+    }
+  }
+  s.stream = kept;
 }
 
 /** Lage des Glasbodens im Zeichenbereich. */
@@ -636,9 +979,10 @@ function addPuddle(s: GlassSim, x: number, amount: number, foam: boolean) {
 
 function stepDrops(s: GlassSim, dt: number, down: { x: number; y: number }) {
   const gx = down.x * GRAVITY;
-  const gy = Math.max(0.3, down.y) * GRAVITY;
+  const gy = down.y * GRAVITY;
   const kept: Drop[] = [];
   for (const d of s.drops) {
+    d.age += dt;
     d.vx += gx * dt;
     d.vy += gy * dt;
     d.x += d.vx * dt;
@@ -647,11 +991,20 @@ function stepDrops(s: GlassSim, dt: number, down: { x: number; y: number }) {
       addPuddle(s, d.x, d.r, d.foam);
       // Aufprall: ein, zwei winzige Spritzer, die gleich wieder liegen.
       if (d.r > 1.6 && s.drops.length < 90) {
-        kept.push({ x: d.x, y: STAGE.table - 1, vx: (random(s) - 0.5) * 160, vy: -120 - random(s) * 120, r: 0.7, foam: d.foam });
+        kept.push({
+          x: d.x,
+          y: STAGE.table - 1,
+          vx: (random(s) - 0.5) * 160,
+          vy: -120 - random(s) * 120,
+          r: 0.7,
+          foam: d.foam,
+          age: 0,
+        });
       }
       continue;
     }
-    if (d.x < -20 || d.x > STAGE.width + 20 || d.y < -60) continue;
+    const outside = d.x < 0 || d.x > STAGE.width || d.y < 0;
+    if (outside && (d.vy <= 0 || d.age > 2)) continue;
     kept.push(d);
   }
   s.drops = kept;
@@ -675,12 +1028,21 @@ function wetWalls(s: GlassSim, dt: number) {
 /** Höhe der Schaumkrone in px. */
 export function foamHeight(s: GlassSim): number {
   if (!s.look.foam) return 0;
-  return s.look.foamHeight * (0.7 + 1.1 * s.foamBoost);
+  return Math.max(0, s.look.foamHeight * (0.7 + 1.1 * s.foamBoost) - s.foamLoss);
 }
 
 function stepFoam(s: GlassSim, dt: number) {
   // Bierschaum fällt in Minuten zusammen; hier reicht eine halbe Minute.
   s.foamBoost = Math.max(0.25, s.foamBoost - dt * 0.025);
+  if (s.uprightFor > 0.5 && s.idleFor > 0.5) {
+    // Nur freie Randhöhe nachbilden; verlorener Schaum darf nicht erneut überlaufen.
+    const headroom = Math.max(
+      0,
+      s.profile.height + 3 - Math.max(rimHeight(s, -1), rimHeight(s, 1)),
+    );
+    const minimumLoss = Math.max(0, s.look.foamHeight * (0.7 + 1.1 * s.foamBoost) - headroom);
+    s.foamLoss = Math.max(minimumLoss, s.foamLoss * Math.exp(-2 * dt));
+  }
 }
 
 function stepBubbles(s: GlassSim, dt: number) {
@@ -791,7 +1153,7 @@ export function splash(s: GlassSim, strength = 1): void {
   s.pour = 0.75 * Math.min(1.4, strength);
   s.pourX = (random(s) - 0.5) * s.width * 0.3;
   s.foamBoost = Math.min(1, s.foamBoost + 0.65 * strength);
-  for (let n = 0; n < MODES; n++) s.vel[n] += gauss(s) * 6;
+  for (let i = 1; i < COLUMNS; i++) s.flow[i] += gauss(s) * 6;
   if (s.look.bubbles > 0) {
     for (let i = 0; i < 26 && s.bubbles.length < 160; i++) {
       const y = random(s) * Math.max(4, s.surface[COLUMNS >> 1] - 4);
@@ -808,6 +1170,9 @@ export function splash(s: GlassSim, strength = 1): void {
 
 /** Antippen: das Glas klingt kurz an, die Oberfläche kräuselt sich. */
 export function tap(s: GlassSim, x: number): void {
-  for (let n = 1; n < MODES; n++) s.vel[n] += (modeShape(n + 1, x, s.width) * 26) / Math.sqrt(n);
-  s.vel[0] += (random(s) - 0.5) * 20;
+  const radius = s.width * 0.12;
+  for (let i = 1; i < COLUMNS; i++) {
+    const distance = ((s.colX[i - 1] + s.colX[i]) / 2 - x) / radius;
+    s.flow[i] += 260 * distance * Math.exp(-distance * distance / 2);
+  }
 }

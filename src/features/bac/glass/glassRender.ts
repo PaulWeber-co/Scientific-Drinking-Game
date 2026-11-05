@@ -1,4 +1,4 @@
-import { COLUMNS, STAGE, foamHeight, innerLift, rimHalfWidth, surfaceAt, wallX } from './glassPhysics';
+import { COLUMNS, STAGE, foamHeight, innerLift, rimHalfWidth, surfaceAt, toCanvas, wallX } from './glassPhysics';
 import type { GlassSim } from './glassPhysics';
 import { contourOf, halfWidthAt } from './glassShapes';
 import type { GlassProfile } from './glassShapes';
@@ -95,11 +95,12 @@ export function drawGlass(ctx: CanvasRenderingContext2D, s: GlassSim, opts: Draw
   drawWalls(ctx, s, contour, Y);
   if (look.cold) drawCondensation(ctx, s, Y);
   if (look.saltRim) drawSalt(ctx, s, Y);
-  drawRivulets(ctx, s, Y);
   if (look.garnish && look.garnish !== 'cherry') drawGarnish(ctx, s, Y);
   if (opts.showTarget) drawTarget(ctx, profile, Y);
   ctx.restore();
 
+  drawRivulets(ctx, s);
+  drawStream(ctx, s);
   drawDrops(ctx, s);
 }
 
@@ -256,11 +257,11 @@ function drawLiquid(ctx: CanvasRenderingContext2D, s: GlassSim, Y: (y: number) =
     surfacePath(ctx, s, Y, () => 0, -10);
     ctx.beginPath();
     for (let i = 0; i < COLUMNS; i++) {
-      const y = Y(s.surface[i] + ellipseDepth(s, s.colX[i]) + 1);
+      const y = Y(s.surface[i] + ellipseDepth(s, s.colX[i]));
       if (i) ctx.lineTo(s.colX[i], y);
       else ctx.moveTo(s.colX[i], y);
     }
-    for (let i = COLUMNS - 1; i >= 0; i--) ctx.lineTo(s.colX[i], Y(s.surface[i] - pendingPx));
+    for (let i = COLUMNS - 1; i >= 0; i--) ctx.lineTo(s.colX[i], Y(Math.max(s.colLo[i], s.surface[i] - pendingPx)));
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -695,49 +696,117 @@ function drawSalt(ctx: CanvasRenderingContext2D, s: GlassSim, Y: (y: number) => 
   }
 }
 
-function drawRivulets(ctx: CanvasRenderingContext2D, s: GlassSim, Y: (y: number) => number) {
+function drawRivulets(ctx: CanvasRenderingContext2D, s: GlassSim) {
   const { profile, look } = s;
   for (const r of s.rivulets) {
-    const yFrom = profile.height - r.tail;
-    const yTo = profile.height - r.head;
-    if (yFrom - yTo < 0.5) continue;
-    const at = (y: number) => r.side * (halfWidthAt(profile, Math.max(0, y)) + profile.wall + r.width / 2 - 0.8);
+    if (r.head - r.tail < 0.5) continue;
+    const points: { x: number; y: number; width: number }[] = [];
+    const count = Math.max(2, Math.ceil((r.head - r.tail) / 2));
+    for (let i = 0; i <= count; i++) {
+      const distance = r.tail + ((r.head - r.tail) * i) / count;
+      const y = profile.height - distance;
+      // Ortsgebundene Unregelmäßigkeit verhindert flackernde Schaumränder.
+      const noise =
+        0.85 + 0.17 * Math.sin(distance * 0.43 + r.side) + 0.12 * Math.sin(distance * 1.13);
+      const width = r.width * (r.foam ? noise : 1);
+      points.push({
+        ...toCanvas(
+          s,
+          r.side * (halfWidthAt(profile, Math.max(0, y)) + profile.wall + width * 0.35),
+          y,
+        ),
+        width,
+      });
+    }
+    ctx.save();
     if (r.foam) {
-      // Schaum läuft nicht als Strich, sondern in Klumpen, die sich lösen.
-      ctx.fillStyle = 'rgba(250,243,226,0.93)';
-      for (let y = yFrom; y >= yTo; y -= 2.2) {
-        const lump = 0.62 + 0.38 * Math.sin(y * 0.8 + r.side * 2 + r.age);
-        ctx.beginPath();
-        ctx.arc(at(y) + r.side * lump * 0.8, Y(y), (r.width / 2) * lump, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.shadowColor = 'rgba(255,247,227,0.5)';
+      ctx.shadowBlur = 2;
+    }
+    drawBand(ctx, points, r.foam ? 'rgba(247,238,219,0.94)' : withAlpha(look.mid, 0.78));
+    if (r.feeding) {
+      const lip = toCanvas(s, r.side * (rimHalfWidth(profile) + profile.wall), profile.height);
+      // Das Kissen sitzt auf dem Rand und geht ohne einzelne Perlen ins Band über.
+      ctx.fillStyle = r.foam ? INK.foamTop : withAlpha(look.top, 0.85);
       ctx.beginPath();
-      ctx.arc(at(yTo), Y(yTo), r.width * 0.55, 0, Math.PI * 2);
+      ctx.ellipse(
+        lip.x,
+        lip.y - (r.foam ? 1.8 : 0),
+        r.width * (r.foam ? 1.25 : 0.8),
+        r.width * (r.foam ? 0.8 : 0.45),
+        s.tilt,
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
-      continue;
     }
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = withAlpha(look.mid, 0.78);
-    ctx.lineWidth = r.width;
-    ctx.beginPath();
-    for (let y = yFrom; y >= yTo; y -= 3) {
-      if (y === yFrom) ctx.moveTo(at(y), Y(y));
-      else ctx.lineTo(at(y), Y(y));
+    ctx.restore();
+  }
+}
+
+/** Beide Ränder folgen den lokalen Normalen, auch wenn sich der Strahl krümmt. */
+function drawBand(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number; width: number }[],
+  color: string,
+  roundEnd = false,
+) {
+  if (points.length < 2) return;
+  const edges = points.map((p, i) => {
+    const before = points[Math.max(0, i - 1)];
+    const after = points[Math.min(points.length - 1, i + 1)];
+    const length = Math.hypot(after.x - before.x, after.y - before.y) || 1;
+    const nx = (-(after.y - before.y) * p.width) / (2 * length);
+    const ny = ((after.x - before.x) * p.width) / (2 * length);
+    return { left: { x: p.x + nx, y: p.y + ny }, right: { x: p.x - nx, y: p.y - ny } };
+  });
+  ctx.beginPath();
+  edges.forEach(({ left }, i) => (i ? ctx.lineTo(left.x, left.y) : ctx.moveTo(left.x, left.y)));
+  if (roundEnd) {
+    const last = points.at(-1)!;
+    const before = points.at(-2)!;
+    const length = Math.hypot(last.x - before.x, last.y - before.y) || 1;
+    const right = edges.at(-1)!.right;
+    ctx.quadraticCurveTo(
+      last.x + ((last.x - before.x) * last.width) / (2 * length),
+      last.y + ((last.y - before.y) * last.width) / (2 * length),
+      right.x,
+      right.y,
+    );
+  }
+  for (let i = edges.length - 1; i >= 0; i--) ctx.lineTo(edges[i].right.x, edges[i].right.y);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.beginPath();
+  edges.forEach(({ left }, i) => (i ? ctx.lineTo(left.x, left.y) : ctx.moveTo(left.x, left.y)));
+  ctx.strokeStyle = 'rgba(255,255,255,0.48)';
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+}
+
+function drawStream(ctx: CanvasRenderingContext2D, s: GlassSim) {
+  const chains = new Map<number, typeof s.stream>();
+  for (const parcel of s.stream) {
+    const chain = chains.get(parcel.chain) ?? [];
+    chain.push(parcel);
+    chains.set(parcel.chain, chain);
+  }
+  for (const chain of chains.values()) {
+    const latest = chain[chain.length - 1];
+    const points = [...chain].reverse().map((p) => ({ x: p.x, y: p.y, width: p.width }));
+    if (latest.age === 0) {
+      const lip = toCanvas(s, latest.side * (rimHalfWidth(s.profile) - 2), s.profile.height);
+      points.unshift({ ...lip, width: latest.width * 1.25 });
     }
-    ctx.lineTo(at(yTo), Y(yTo));
-    ctx.stroke();
-    // Der Kopf ist ein Tropfen, der den Rest hinter sich herzieht.
-    ctx.fillStyle = withAlpha(look.top, 0.9);
-    ctx.beginPath();
-    ctx.arc(at(yTo), Y(yTo), r.width * 0.75, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(at(yFrom) - r.side * 0.6, Y(yFrom));
-    ctx.lineTo(at(yTo) - r.side * 0.6, Y(yTo));
-    ctx.stroke();
-    ctx.lineCap = 'butt';
+    drawBand(ctx, points, withAlpha(s.look.mid, 0.8), true);
+    // Ein schmaler heller Kern lässt die Flüssigkeit durchsichtig wirken.
+    drawBand(
+      ctx,
+      points.map((p) => ({ ...p, width: p.width * 0.45 })),
+      withAlpha(s.look.top, 0.3),
+      true,
+    );
   }
 }
 
@@ -823,16 +892,23 @@ function drawTarget(ctx: CanvasRenderingContext2D, profile: GlassProfile, Y: (y:
 function drawDrops(ctx: CanvasRenderingContext2D, s: GlassSim) {
   const { look } = s;
   for (const d of s.drops) {
-    // Tropfenform: vorn rund, hinten ein Schweif in Gegenrichtung des Flugs –
-    // so sieht ein schneller Tropfen auf einem Foto aus.
     const speed = Math.hypot(d.vx, d.vy) || 1;
     const angle = Math.atan2(d.vy, d.vx);
-    const tail = d.r + Math.min(8, speed * 0.008);
+    const tail = speed > 650 && !d.foam ? Math.min(d.r * 1.2, (speed - 650) * 0.002) : 0;
     ctx.fillStyle = d.foam ? 'rgba(250,242,222,0.95)' : withAlpha(look.top, 0.92);
+    if (tail > 0) {
+      ctx.beginPath();
+      ctx.moveTo(d.x - Math.sin(angle) * d.r * 0.6, d.y + Math.cos(angle) * d.r * 0.6);
+      ctx.quadraticCurveTo(
+        d.x - Math.cos(angle) * (d.r + tail),
+        d.y - Math.sin(angle) * (d.r + tail),
+        d.x + Math.sin(angle) * d.r * 0.6,
+        d.y - Math.cos(angle) * d.r * 0.6,
+      );
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.arc(d.x, d.y, d.r, angle - Math.PI / 2, angle + Math.PI / 2);
-    ctx.lineTo(d.x - Math.cos(angle) * tail, d.y - Math.sin(angle) * tail);
-    ctx.closePath();
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.65)';
     ctx.beginPath();
