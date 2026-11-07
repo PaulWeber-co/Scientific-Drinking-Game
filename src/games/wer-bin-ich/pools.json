@@ -1,0 +1,487 @@
+{
+  "Promi": {
+    "leicht": ["Angela Merkel", "Thomas Gottschalk", "Heidi Klum", "Michael Jackson", "Madonna", "Brad Pitt", "Leonardo DiCaprio", "Boris Becker", "Stefan Raab", "Taylor Swift", "Helene Fischer", "Dieter Bohlen", "Cristiano Ronaldo", "Tom Cruise", "Elton John"],
+    "normal": ["Rihanna", "Beyoncé", "Ed Sheeran", "Joko Winterscheidt", "Klaas Heufer-Umlauf", "Palina Rojinski", "Matthias Schweighöfer", "Elyas M'Barek", "Ryan Reynolds", "Lady Gaga", "Adele", "Shakira", "Dirk Nowitzki", "Sido", "Billie Eilish"],
+    "schwer": ["Tilda Swinton", "Christoph Waltz", "Mads Mikkelsen", "Wes Anderson", "Björk", "Grace Jones", "Dita von Teese", "Karl Lagerfeld", "Vivienne Westwood", "David Bowie", "Yoko Ono", "Naomi Campbell", "Anna Wintour", "Lenny Kravitz", "Dolph Lundgren"]
+  },
+  "Deutscher Promi": {
+    "leicht": ["Thomas Gottschalk", "Heidi Klum", "Helene Fischer", "Dieter Bohlen", "Stefan Raab", "Günther Jauch", "Boris Becker", "Michael Schumacher", "Angela Merkel", "Udo Lindenberg", "Otto Waalkes", "Herbert Grönemeyer", "Nena", "Til Schweiger", "Barbara Schöneberger"],
+    "normal": ["Joko Winterscheidt", "Klaas Heufer-Umlauf", "Palina Rojinski", "Matthias Schweighöfer", "Elyas M'Barek", "Anke Engelke", "Carolin Kebekus", "Bastian Schweinsteiger", "Lena Meyer-Landrut", "Mark Forster", "Sarah Connor", "Sido", "Apache 207", "Jürgen Klopp", "Florian Silbereisen"],
+    "schwer": ["Daniel Brühl", "Diane Kruger", "Nora Tschirner", "Heike Makatsch", "Jürgen Vogel", "Katrin Bauerfeind", "Olli Dittrich", "Wigald Boning", "Hape Kerkeling", "Iris Berben", "Senta Berger", "Mario Adorf", "Armin Mueller-Stahl", "Frank Schätzing", "Sebastian Fitzek"]
+  },
+  "Musiker oder Musikerin": {
+    "leicht": ["Michael Jackson", "Madonna", "Elvis Presley", "Taylor Swift", "Helene Fischer", "Ed Sheeran", "Adele", "Rihanna", "Beyoncé", "Lady Gaga", "Elton John", "Freddie Mercury", "Nena", "Herbert Grönemeyer", "Udo Lindenberg"],
+    "normal": ["Billie Eilish", "Dua Lipa", "Harry Styles", "Shakira", "Pink", "Bruno Mars", "The Weeknd", "Lana Del Rey", "Miley Cyrus", "Justin Bieber", "Katy Perry", "Robbie Williams", "Sia", "Mark Forster", "Peter Fox"],
+    "schwer": ["Tracy Chapman", "Annie Lennox", "Sting", "Phil Collins", "Tina Turner", "Janis Joplin", "Amy Winehouse", "Bob Dylan", "Bruce Springsteen", "David Bowie", "Björk", "Lenny Kravitz", "Kate Bush", "Sade", "Alanis Morissette"]
+  },
+  "Sportler oder Sportlerin": {
+    "leicht": ["Michael Schumacher", "Boris Becker", "Steffi Graf", "Cristiano Ronaldo", "Lionel Messi", "Manuel Neuer", "Dirk Nowitzki", "Usain Bolt", "Serena Williams", "Sebastian Vettel", "Thomas Müller", "Bastian Schweinsteiger", "Lukas Podolski", "Miroslav Klose", "Oliver Kahn"],
+    "normal": ["Lewis Hamilton", "Max Verstappen", "Roger Federer", "Rafael Nadal", "Novak Đoković", "Simone Biles", "Michael Jordan", "LeBron James", "Shaquille O'Neal", "Timo Boll", "Laura Dahlmeier", "Magdalena Neuner", "Lindsey Vonn", "Mike Tyson", "Muhammad Ali"],
+    "schwer": ["Jan Frodeno", "Malaika Mihambo", "Franziska van Almsick", "Britta Steffen", "Heike Drechsler", "Isabell Werth", "Boris Herrmann", "Tony Hawk", "Fabian Hambüchen", "Dieter Baumann", "Felix Neureuther", "Maria Höfl-Riesch", "Katarina Witt", "Severin Freund", "Henry Maske"]
+  },
+  "Schauspieler oder Schauspielerin": {
+    "leicht": ["Tom Hanks", "Leonardo DiCaprio", "Brad Pitt", "Angelina Jolie", "Julia Roberts", "Tom Cruise", "Johnny Depp", "Will Smith", "Sandra Bullock", "Jennifer Aniston", "George Clooney", "Arnold Schwarzenegger", "Til Schweiger", "Daniel Craig", "Emma Watson"],
+    "normal": ["Ryan Gosling", "Ryan Reynolds", "Margot Robbie", "Jennifer Lawrence", "Scarlett Johansson", "Natalie Portman", "Keanu Reeves", "Emma Stone", "Anne Hathaway", "Elyas M'Barek", "Matthias Schweighöfer", "Zendaya", "Robert Pattinson", "Kristen Stewart", "Meryl Streep"],
+    "schwer": ["Christoph Waltz", "Mads Mikkelsen", "Tilda Swinton", "Willem Dafoe", "Gary Oldman", "Joaquin Phoenix", "Frances McDormand", "Cate Blanchett", "Anthony Hopkins", "Javier Bardem", "Helena Bonham Carter", "Daniel Brühl", "Diane Kruger", "Sigourney Weaver", "Jodie Foster"]
+  },
+  "Historische Person": {
+    "leicht": ["Albert Einstein", "Napoleon Bonaparte", "Julius Cäsar", "Kleopatra", "Christoph Kolumbus", "Martin Luther", "Johann Wolfgang von Goethe", "Wolfgang Amadeus Mozart", "Ludwig van Beethoven", "Leonardo da Vinci", "Neil Armstrong", "Elisabeth II.", "Nelson Mandela", "Mahatma Gandhi", "Martin Luther King"],
+    "normal": ["Otto von Bismarck", "Karl Marx", "Friedrich Schiller", "Marie Curie", "Rosa Luxemburg", "Sophie Scholl", "Konrad Adenauer", "Willy Brandt", "John F. Kennedy", "Abraham Lincoln", "Winston Churchill", "Wladimir Iljitsch Lenin", "Charles Darwin", "Jeanne d'Arc", "Alexander der Große"],
+    "schwer": ["Hildegard von Bingen", "Katharina die Große", "Friedrich der Große", "Maria Theresia", "Sisi", "Nofretete", "Hannibal", "Dschingis Khan", "Marco Polo", "Nikolaus Kopernikus", "Galileo Galilei", "Johannes Gutenberg", "Florence Nightingale", "Claus Schenk Graf von Stauffenberg", "Friedrich Ebert"]
+  },
+  "Jemand aus dem Fernsehen": {
+    "leicht": ["Günther Jauch", "Thomas Gottschalk", "Stefan Raab", "Barbara Schöneberger", "Dieter Bohlen", "Heidi Klum", "Horst Lichter", "Florian Silbereisen", "Markus Lanz", "Oliver Pocher", "Jürgen von der Lippe", "Hape Kerkeling", "Otto Waalkes", "Joko Winterscheidt", "Klaas Heufer-Umlauf"],
+    "normal": ["Palina Rojinski", "Jan Böhmermann", "Carolin Kebekus", "Anke Engelke", "Bastian Pastewka", "Ralf Schmitz", "Torsten Sträter", "Guido Maria Kretschmer", "Daniel Hartwich", "Sonja Zietlow", "Jorge González", "Motsi Mabuse", "Joachim Llambi", "Ruth Moschner", "Elton"],
+    "schwer": ["Peter Lustig", "Willi Weitzel", "Armin Maiwald", "Christoph Biemann", "Ralph Caspers", "Shary Reeves", "Wigald Boning", "Olli Dittrich", "Hugo Egon Balder", "Hella von Sinnen", "Ingolf Lück", "Frank Elstner", "Linda de Mol", "Marijke Amado", "Alfred Biolek"]
+  },
+  "Influencer oder YouTuber": {
+    "leicht": ["BibisBeautyPalace", "Dagi Bee", "Pamela Reif", "Rezo", "Gronkh", "MontanaBlack", "Knossi", "Julien Bam", "EliasN97", "Julienco", "Caro Daur", "Lisa Mantler", "Riccardo Simonetti", "MrBeast", "Diana zur Löwen"],
+    "normal": ["Rewinside", "Trymacs", "Papaplatte", "HandOfBlood", "Peter Smits", "Dner", "Unge", "LeFloid", "Freshtorge", "Varion", "Sally Özcan", "Leeroy Matata", "Addison Rae", "Mai Thi Nguyen-Kim", "Jake Paul"],
+    "schwer": ["Coldmirror", "Marti Fischer", "PewDiePie", "Alicia Joe", "MrWissen2go", "Logan Paul", "Khaby Lame", "Tomatolix", "Fritz Meinecke", "Joey's Jungle", "Julia Beautx", "Jolina Mennen", "Bonnie Strange", "Stefanie Giesinger", "Sophia Thiel"]
+  },
+  "Promi über 60": {
+    "leicht": ["Thomas Gottschalk", "Dieter Bohlen", "Günther Jauch", "Angela Merkel", "Udo Lindenberg", "Otto Waalkes", "Herbert Grönemeyer", "Bonnie Tyler", "Marius Müller-Westernhagen", "Peter Maffay", "Madonna", "Elton John", "Tom Hanks", "Arnold Schwarzenegger", "Sylvester Stallone"],
+    "normal": ["Mel Gibson", "Sharon Stone", "Michelle Pfeiffer", "Meryl Streep", "Kevin Costner", "Bruce Willis", "Pierce Brosnan", "Hugh Laurie", "Rowan Atkinson", "Jackie Chan", "Denzel Washington", "Whoopi Goldberg", "Oprah Winfrey", "Stevie Wonder", "Bruce Springsteen"],
+    "schwer": ["Iris Berben", "Senta Berger", "Mario Adorf", "Armin Mueller-Stahl", "Gaby Dohm", "Gudrun Landgrebe", "Ulrich Wickert", "Frank Elstner", "Marianne Rosenberg", "Roland Kaiser", "Vicky Leandros", "Nana Mouskouri", "Dolly Parton", "Cher", "Alice Cooper"]
+  },
+  "Jemand, der schon tot ist": {
+    "leicht": ["Michael Jackson", "Elvis Presley", "Marilyn Monroe", "Albert Einstein", "Freddie Mercury", "Wolfgang Amadeus Mozart", "Ludwig van Beethoven", "Walt Disney", "Charlie Chaplin", "Heinz Rühmann", "Loriot", "Diana Spencer", "John Lennon", "Nelson Mandela", "Karl Lagerfeld"],
+    "normal": ["David Bowie", "Prince", "Amy Winehouse", "Whitney Houston", "Kurt Cobain", "Tupac Shakur", "Heath Ledger", "Robin Williams", "Paul Walker", "Bud Spencer", "Leonard Cohen", "Udo Jürgens", "Falco", "George Michael", "Steve Jobs"],
+    "schwer": ["Janis Joplin", "Jimi Hendrix", "Jim Morrison", "Aretha Franklin", "Ray Charles", "Louis Armstrong", "Ella Fitzgerald", "Edith Piaf", "Audrey Hepburn", "Marlene Dietrich", "Romy Schneider", "Götz George", "Manfred Krug", "Dirk Bach", "Hans Rosenthal"]
+  },
+  "Politiker oder Politikerin": {
+    "leicht": ["Angela Merkel", "Olaf Scholz", "Friedrich Merz", "Donald Trump", "Barack Obama", "Joe Biden", "Wladimir Putin", "Emmanuel Macron", "Robert Habeck", "Annalena Baerbock", "Christian Lindner", "Markus Söder", "Karl Lauterbach", "Sahra Wagenknecht", "Gregor Gysi"],
+    "normal": ["Willy Brandt", "Helmut Schmidt", "Helmut Kohl", "Konrad Adenauer", "Gerhard Schröder", "Joschka Fischer", "Cem Özdemir", "Claudia Roth", "Jens Spahn", "Boris Johnson", "Wolodymyr Selenskyj", "Recep Tayyip Erdoğan", "Kamala Harris", "Hillary Clinton", "Bernie Sanders"],
+    "schwer": ["Margaret Thatcher", "Winston Churchill", "Charles de Gaulle", "François Mitterrand", "Michail Gorbatschow", "Boris Jelzin", "Richard von Weizsäcker", "Oskar Lafontaine", "Norbert Blüm", "Heiner Geißler", "Wolfgang Schäuble", "Norbert Lammert", "Peer Steinbrück", "Sigmar Gabriel", "Martin Schulz"]
+  },
+  "Jemand aus der Königsfamilie": {
+    "leicht": ["Queen Elizabeth II.", "König Charles III.", "Prinz William", "Prinz Harry", "Prinzessin Diana", "Prinzessin Kate", "Meghan Markle", "Königin Camilla", "Prinz Philip", "Königin Máxima", "König Willem-Alexander", "Königin Silvia", "Königin Letizia", "König Felipe VI.", "König Carl Gustaf"],
+    "normal": ["Kronprinzessin Victoria", "Prinzessin Madeleine", "Königin Mary", "König Frederik X.", "Königin Margrethe II.", "Königin Sonja", "König Harald V.", "Kronprinz Haakon", "Kronprinzessin Mette-Marit", "König Juan Carlos", "Königin Sofía", "Königin Beatrix", "Prinzessin Anne", "Prinzessin Margaret", "Prinzessin Eugenie"],
+    "schwer": ["Königin Victoria", "König Heinrich VIII.", "Königin Elisabeth I.", "König Ludwig XIV.", "König Ludwig XVI.", "Marie Antoinette", "König Ludwig II.", "König Friedrich der Große", "Königin Luise", "Kaiser Wilhelm II.", "Kaiserin Sisi", "Kaiser Franz Joseph I.", "Königin Maria Stuart", "König Richard Löwenherz", "König Georg VI."]
+  },
+  "Serienfigur": {
+    "leicht": ["Homer Simpson", "Sheldon Cooper", "Mr. Bean", "Alf", "Pippi Langstrumpf", "SpongeBob Schwammkopf", "Bart Simpson", "Derrick", "Columbo", "MacGyver", "Biene Maja", "Benjamin Blümchen", "Wickie", "Heidi", "Bibi Blocksberg"],
+    "normal": ["Walter White", "Tyrion Lennister", "Eleven", "Wednesday Addams", "Dexter Morgan", "Barney Stinson", "Carrie Bradshaw", "Dr. House", "Monica Geller", "Tony Soprano", "Saul Goodman", "Rick Grimes", "Daenerys Targaryen", "Ted Mosby", "Buffy Summers"],
+    "schwer": ["Dale Cooper", "Fox Mulder", "Dana Scully", "Xena", "Hannibal Lecter", "Thomas Shelby", "Lorelai Gilmore", "Jean-Luc Picard", "Spock", "Adrian Monk", "Jessica Fletcher", "Michael Knight", "Bernd Stromberg", "Leslie Knope", "Villanelle"]
+  },
+  "Filmfigur": {
+    "leicht": ["James Bond", "Harry Potter", "Indiana Jones", "Jack Sparrow", "Darth Vader", "Rocky Balboa", "Forrest Gump", "Kevin McCallister", "Mary Poppins", "Batman", "Superman", "E.T.", "Shrek", "Elsa", "Pippi Langstrumpf"],
+    "normal": ["Marty McFly", "Hermine Granger", "Katniss Everdeen", "Lara Croft", "John Wick", "Neo", "Jack Dawson", "Rose DeWitt Bukater", "Terminator", "Hannibal Lecter", "Amélie Poulain", "Bridget Jones", "Willy Wonka", "Gollum", "Frodo Beutlin"],
+    "schwer": ["Truman Burbank", "Ellen Ripley", "Clarice Starling", "Tyler Durden", "Vincent Vega", "Jules Winnfield", "Norman Bates", "Ferris Bueller", "Vito Corleone", "Tony Montana", "Edward mit den Scherenhänden", "Beatrix Kiddo", "Maximus", "Mrs. Doubtfire", "Austin Powers"]
+  },
+  "Zeichentrickfigur": {
+    "leicht": ["Micky Maus", "Donald Duck", "Bugs Bunny", "Tom", "Jerry", "Popeye", "Biene Maja", "Heidi", "Wickie", "SpongeBob Schwammkopf", "Homer Simpson", "Bart Simpson", "Fred Feuerstein", "Garfield", "Snoopy"],
+    "normal": ["Daffy Duck", "Tweety", "Sylvester", "Road Runner", "Wile E. Coyote", "Speedy Gonzales", "Pink Panther", "Betty Boop", "Scooby-Doo", "Winnie Puuh", "Tigger", "Dagobert Duck", "Gustav Gans", "Balu", "Bibi Blocksberg"],
+    "schwer": ["Darkwing Duck", "Käpt’n Balu", "Kim Possible", "Daria Morgendorffer", "Inspector Gadget", "Lucky Luke", "Jolly Jumper", "Calimero", "Nils Holgersson", "Barney Geröllheimer", "George Jetson", "Kater Karlo", "Gundel Gaukeley", "Marsupilami", "Woody Woodpecker"]
+  },
+  "Disney-Figur": {
+    "leicht": ["Micky Maus", "Donald Duck", "Goofy", "Minnie Maus", "Daisy Duck", "Dagobert Duck", "Arielle", "Simba", "Elsa", "Anna", "Olaf", "Schneewittchen", "Dumbo", "Bambi", "Aladdin"],
+    "normal": ["Jasmin", "Dschinni", "Dschafar", "Belle", "Biest", "Mulan", "Pocahontas", "Vaiana", "Rapunzel", "Timon", "Pumbaa", "Scar", "Ursula", "Cruella de Vil", "Balu"],
+    "schwer": ["Malefiz", "Hades", "Megara", "Hercules", "Quasimodo", "Esmeralda", "Frollo", "Kuzco", "Yzma", "Kronk", "Merida", "Tiana", "Naveen", "Mushu", "Sebastian"]
+  },
+  "Videospielfigur": {
+    "leicht": ["Super Mario", "Luigi", "Prinzessin Peach", "Bowser", "Yoshi", "Donkey Kong", "Sonic", "Pikachu", "Pac-Man", "Lara Croft", "Link", "Kirby", "Crash Bandicoot", "Steve", "Wario"],
+    "normal": ["Zelda", "Waluigi", "Toad", "Samus Aran", "Geralt von Riva", "Kratos", "Nathan Drake", "Ezio Auditore", "Agent 47", "Rayman", "Spyro", "Diddy Kong", "Chun-Li", "Ryu", "Dr. Eggman"],
+    "schwer": ["Cloud Strife", "Sephiroth", "Solid Snake", "Master Chief", "Gordon Freeman", "GLaDOS", "Aloy", "Ellie", "Joel Miller", "Arthur Morgan", "Trevor Philips", "Daisy", "Mega Man", "Duke Nukem", "Scorpion"]
+  },
+  "Superheld oder Bösewicht": {
+    "leicht": ["Superman", "Batman", "Spider-Man", "Wonder Woman", "Hulk", "Iron Man", "Thor", "Captain America", "Joker", "Catwoman", "Supergirl", "Aquaman", "Darth Vader", "Thanos", "Loki"],
+    "normal": ["Black Widow", "Black Panther", "Doctor Strange", "Wolverine", "Deadpool", "Harley Quinn", "Venom", "Magneto", "Professor X", "Green Lantern", "Flash", "Ant-Man", "Captain Marvel", "Doctor Doom", "Lex Luthor"],
+    "schwer": ["Scarlet Witch", "Vision", "Hawkeye", "Winter Soldier", "Falcon", "Daredevil", "Jessica Jones", "Luke Cage", "Punisher", "Riddler", "Pinguin", "Poison Ivy", "Mystique", "Storm", "Green Goblin"]
+  },
+  "Filmbösewicht": {
+    "leicht": ["Darth Vader", "Joker", "Voldemort", "Sauron", "Hannibal Lecter", "Cruella de Vil", "Scar", "Ursula", "Dschafar", "Thanos", "Loki", "Captain Hook", "Grinch", "Freddy Krueger", "Dracula"],
+    "normal": ["Saruman", "Bellatrix Lestrange", "Dolores Umbridge", "Norman Bates", "Pennywise", "Michael Myers", "Jason Voorhees", "Chucky", "Malefiz", "Böse Königin", "Hades", "Bane", "Lex Luthor", "Green Goblin", "Gaston"],
+    "schwer": ["Hans Gruber", "Hans Landa", "Anton Chigurh", "Agent Smith", "T-1000", "Ernst Stavro Blofeld", "Auric Goldfinger", "Le Chiffre", "Raoul Silva", "Imhotep", "Jigsaw", "Frollo", "Yzma", "Lord Farquaad", "Shir Khan"]
+  },
+  "Märchenfigur": {
+    "leicht": ["Rotkäppchen", "Schneewittchen", "Aschenputtel", "Dornröschen", "Hänsel", "Gretel", "Rapunzel", "Froschkönig", "Rumpelstilzchen", "Frau Holle", "Gestiefelter Kater", "Böser Wolf", "Prinzessin auf der Erbse", "Schneekönigin", "Kleine Meerjungfrau"],
+    "normal": ["Däumelinchen", "Schneeweißchen", "Rosenrot", "König Drosselbart", "Tapferes Schneiderlein", "Hans im Glück", "Sterntalermädchen", "Kleiner Däumling", "Hässliches Entlein", "Rattenfänger von Hameln", "Bremer Stadtmusikanten", "Goldmarie", "Pechmarie", "Aladdin", "Ali Baba"],
+    "schwer": ["Brüderchen", "Schwesterchen", "Eisenhans", "König Blaubart", "Zwerg Nase", "Kalif Storch", "Kleiner Muck", "König Laurin", "Mädchen mit den Schwefelhölzern", "Zinnsoldat", "Des Kaisers neue Kleider-Kaiser", "Schweinehirt", "Teufel mit den drei goldenen Haaren", "Frau des Fischers", "Hans aus Die goldene Gans"]
+  },
+  "Figur aus einem Buch": {
+    "leicht": ["Harry Potter", "Hermine Granger", "Pippi Langstrumpf", "Sherlock Holmes", "Dracula", "Winnie Puuh", "Peter Pan", "Pinocchio", "Heidi", "Robinson Crusoe", "Mogli", "Alice", "Frodo Beutlin", "Gandalf", "Jim Knopf"],
+    "normal": ["Ron Weasley", "Katniss Everdeen", "Bilbo Beutlin", "Gollum", "Aragorn", "Legolas", "Albus Dumbledore", "Voldemort", "Mary Poppins", "Kleiner Prinz", "Bastian Balthasar Bux", "Atreju", "Fuchur", "Lisbeth Salander", "Hercule Poirot"],
+    "schwer": ["Jean Valjean", "Graf von Monte Christo", "Dorian Gray", "Don Quijote", "Sancho Pansa", "Ebenezer Scrooge", "Tom Sawyer", "Huckleberry Finn", "Miss Marple", "Dr. Watson", "Winnetou", "Old Shatterhand", "Momo", "Michael Kohlhaas", "Gregor Samsa"]
+  },
+  "Figur aus der Kindheit": {
+    "leicht": ["Benjamin Blümchen", "Bibi Blocksberg", "Biene Maja", "Wickie", "Heidi", "Pippi Langstrumpf", "Pumuckl", "SpongeBob Schwammkopf", "Micky Maus", "Donald Duck", "Winnie Puuh", "Snoopy", "Die Maus", "Käpt’n Blaubär", "Sandmännchen"],
+    "normal": ["Bernd das Brot", "Tabaluga", "Urmel", "Jim Knopf", "Kleiner Maulwurf", "Bob der Baumeister", "Feuerwehrmann Sam", "Thomas die Lokomotive", "Alf", "Asterix", "Obelix", "Bugs Bunny", "Tom", "Jerry", "Rabe Rudi"],
+    "schwer": ["Nils Holgersson", "Calimero", "Blinky Bill", "David der Kabauter", "Pettersson", "Findus", "Michel aus Lönneberga", "Ronja Räubertochter", "Räuber Hotzenplotz", "Sams", "Ritter Rost", "Tigerente", "Janoschs kleiner Bär", "Janoschs kleiner Tiger", "Kleiner Eisbär Lars"]
+  },
+  "Werbefigur oder Maskottchen": {
+    "leicht": ["Haribo-Goldbär", "Ronald McDonald", "Michelin-Männchen", "Meister Proper", "Duracell-Hase", "Tony der Tiger", "Nesquik-Hase", "Käpt’n Iglo", "Milka-Kuh", "Pikachu", "Mainzelmännchen", "Pringles-Mann", "Fuchs von Schwäbisch Hall", "Super Mario", "Sonic"],
+    "normal": ["Frau Antje", "Klementine", "Herr Kaiser", "Grüner Riese", "Cheetos-Chester", "Kinder-Schokolade-Junge", "Schokobons-Männchen", "Goleo", "Tip und Tap", "Fuleco", "Berni", "Emma die Biene", "Hennes", "Fritzle", "Jünter"],
+    "schwer": ["Frau Sommer", "Coca-Cola-Eisbär", "Jägermeister-Hirsch", "Micky Maus", "Lego-Männchen", "Lurchi", "M&M’s Yellow", "M&M’s Red", "Moorhuhn", "Sarotti-Magier", "HB-Männchen", "Duolingo-Eule", "Hugo", "Bärenmarke-Bär", "Spee-Fuchs"]
+  },
+  "Figur aus einem Animationsfilm": {
+    "leicht": ["Shrek", "Esel", "Elsa", "Olaf", "Anna", "Simba", "Nemo", "Dorie", "Woody", "Buzz Lightyear", "Dumbo", "Bambi", "Arielle", "Lightning McQueen", "Po"],
+    "normal": ["Gru", "Kevin aus Ich – Einfach unverbesserlich", "Sid", "Manni", "Diego", "Scrat", "Remy", "WALL·E", "EVE", "Sulley", "Mike Glotzkowski", "Merida", "Vaiana", "Ohnezahn", "Hicks"],
+    "schwer": ["Freude", "Kummer", "Angst", "Wut", "Ekel", "Ralph", "Vanellope von Schweetz", "Baymax", "Hiro Hamada", "Miguel Rivera", "Héctor Rivera", "Mirabel Madrigal", "Bruno Madrigal", "Judy Hopps", "Nick Wilde"]
+  },
+  "Jemand mit Schnurrbart": {
+    "leicht": ["Charlie Chaplin", "Albert Einstein", "Freddie Mercury", "Mario", "Salvador Dalí", "Tom Selleck", "Horst Lichter", "Obelix", "Asterix", "Hulk Hogan", "Meister Eder", "Ned Flanders", "Borat", "Heiner Brand", "Luigi"],
+    "normal": ["Wario", "Dr. Eggman", "Gomez Addams", "Hercule Poirot", "Ron Swanson", "Burt Reynolds", "Lionel Richie", "Nick Offerman", "Sam Elliott", "Groucho Marx", "Rudi Völler", "Günter Grass", "Magnum", "Mister Monopoly", "Stromberg"],
+    "schwer": ["Friedrich Nietzsche", "Mark Twain", "Otto von Bismarck", "Theodore Roosevelt", "Kaiser Wilhelm II.", "Clark Gable", "Errol Flynn", "Little Richard", "Mustafa aus Ratatouille", "Peter Sellers", "Geppetto", "Walt Disney", "Frank Zappa", "Yosemite Sam", "Pringles-Mann"]
+  },
+  "Jemand mit Brille": {
+    "leicht": ["Harry Potter", "Clark Kent", "Elton John", "Karl Lagerfeld", "Günther Jauch", "Heino", "Otto Waalkes", "Woody Allen", "Milhouse", "Velma Dinkley", "Professor Dumbledore", "Edna Mode", "Peter Lustig", "Bill Gates", "John Lennon"],
+    "normal": ["Steve Urkel", "Bernadette Rostenkowski", "Amy Farrah Fowler", "Leonard Hofstadter", "Mirabel Madrigal", "Kummer", "Carl Fredricksen", "Hans Maulwurf", "Professor Farnsworth", "Nana Mouskouri", "Joko Winterscheidt", "Klaas Heufer-Umlauf", "Steve Jobs", "Heinz Erhardt", "Stephen Hawking"],
+    "schwer": ["Buddy Holly", "Roy Orbison", "Janis Joplin", "Sigmund Freud", "Franz Schubert", "Dieter Hildebrandt", "Marcel Reich-Ranicki", "Reinhold Beckmann", "Dieter Nuhr", "Wigald Boning", "Günter Grass", "Iris Apfel", "Mahatma Gandhi", "Walter White", "Dustin Hoffman"]
+  },
+  "Jemand, der Anzug trägt": {
+    "leicht": ["James Bond", "Barney Stinson", "Barack Obama", "Donald Trump", "Olaf Scholz", "Günther Jauch", "Thomas Gottschalk", "Harvey Specter", "Bruce Wayne", "Clark Kent", "Mr. Bean", "Mister Burns", "Der Pate", "Mister Monopoly", "Gomez Addams"],
+    "normal": ["John Wick", "Tony Stark", "Agent J", "Agent K", "Michael Scott", "Saul Goodman", "Don Draper", "Lurch", "Alfred Pennyworth", "Lucius Malfoy", "Mycroft Holmes", "Patrick Bateman", "Hans Landa", "Vincent Vega", "Jules Winnfield"],
+    "schwer": ["Hercule Poirot", "Jay Gatsby", "Gordon Gekko", "Frank Underwood", "Thomas Shelby", "Louis Litt", "Mike Ross", "Bert Cooper", "Nucky Thompson", "Dr. King Schultz", "Auric Goldfinger", "Le Chiffre", "Ernst Stavro Blofeld", "Jack Skellington", "Elwood Blues"]
+  },
+  "Jemand mit Glatze": {
+    "leicht": ["Bruce Willis", "Vin Diesel", "Dwayne Johnson", "Homer Simpson", "Meister Proper", "Kojak", "Professor X", "Lord Voldemort", "Mahatma Gandhi", "Pitbull", "Zinedine Zidane", "Michael Jordan", "Dr. Evil", "Jason Statham", "Patrick Stewart"],
+    "normal": ["Samuel L. Jackson", "Stanley Tucci", "Ralf Richter", "Oliver Welke", "Jürgen Vogel", "Thorsten Legat", "Reiner Calmund", "Dirk Bach", "Onkel Fester", "Krillin", "Saitama", "Agent 47", "Seal", "Moby", "Thomas D"],
+    "schwer": ["Yul Brynner", "Telly Savalas", "Ben Kingsley", "Billy Zane", "Mark Strong", "Ed Harris", "Fabien Barthez", "Pierluigi Collina", "Lex Luthor", "Aang", "Walter White", "Dschinni", "Kingpin", "Gru", "Drax"]
+  },
+  "Jemand mit roten Haaren": {
+    "leicht": ["Pippi Langstrumpf", "Arielle", "Ron Weasley", "Ed Sheeran", "Boris Becker", "Prinz Harry", "Anna", "Merida", "Pumuckl", "Obelix", "Kim Possible", "Jessica Rabbit", "Wilma Feuerstein", "Peggy Bundy", "Chuck Norris"],
+    "normal": ["Fred Weasley", "George Weasley", "Ginny Weasley", "Lily Potter", "Arthur Weasley", "Molly Weasley", "Willi Weitzel", "Barbara Meier", "Palina Rojinski", "Lindsay Lohan", "Julianne Moore", "Debra Messing", "Daphne Blake", "Dana Scully", "Chucky"],
+    "schwer": ["Anne Shirley", "Beaker", "Ygritte", "Sansa Stark", "Tormund Riesentod", "Melisandre", "Quasimodo", "Fiona", "Elisabeth I.", "Vincent van Gogh", "David Caruso", "Rupert Grint", "Damian Lewis", "Der verrückte Hutmacher", "Cap"]
+  },
+  "Jemand mit Hut": {
+    "leicht": ["Indiana Jones", "Der gestiefelte Kater", "Cowboy", "Hexe", "Zauberer", "Mary Poppins", "Michael Jackson", "Udo Lindenberg", "Charlie Chaplin", "Schneemann", "Weihnachtsmann", "Räuber Hotzenplotz", "Der verrückte Hutmacher", "Dagobert Duck", "Donald Duck"],
+    "normal": ["Freddy Krueger", "Paddington", "Ruffy", "Jim Knopf", "Lukas der Lokomotivführer", "Pettersson", "Professor Layton", "Walter White", "Sherlock Holmes", "Willy Wonka", "Dumbo", "Pinocchio", "Goofy", "Inspektor Gadget", "Tuxedo Mask"],
+    "schwer": ["Buster Keaton", "Pharrell Williams", "Slash", "Lemmy Kilmister", "Crocodile Dundee", "Elwood Blues", "Jake Blues", "Muminpapa", "Mister Monopoly", "Sandmännchen", "Ebenezer Scrooge", "Professor McGonagall", "Nanny McPhee", "Van Helsing", "Cad Bane"]
+  },
+  "Jemand mit Uniform": {
+    "leicht": ["Polizist", "Feuerwehrmann", "Soldat", "Pilot", "Kapitän", "Briefträger", "Krankenschwester", "Stewardess", "Schaffner", "Koch", "Matrose", "Fußballspieler", "Torwart", "Sanitäter", "Astronaut"],
+    "normal": ["Feuerwehrmann Sam", "Postbote Pat", "Donald Duck", "Käpt’n Iglo", "Darth Vader", "Sturmtruppler", "Captain Kirk", "Mr. Spock", "Sailor Moon", "Judy Hopps", "Chief Wiggum", "Mario", "Luigi", "RoboCop", "Officer Jenny"],
+    "schwer": ["Grand Admiral Thrawn", "Jean-Luc Picard", "Kathryn Janeway", "Benjamin Sisko", "William Riker", "Uhura", "Zapp Brannigan", "Major Monogram", "Captain Phasma", "Boba Fett", "Jango Fett", "Judge Dredd", "Captain Rex", "Großmoff Tarkin", "General Hux"]
+  },
+  "Etwas sehr Kleines": {
+    "leicht": ["Ameise", "Floh", "Stecknadel", "Sandkorn", "Reiskorn", "Erbse", "Marienkäfer", "Mücke", "Staubkorn", "Bakterium", "Virus", "Streichholzkopf", "Sesamkorn", "Salzkorn", "Wimper"],
+    "normal": ["Zecke", "Fruchtfliege", "Blattlaus", "Wasserfloh", "Kopflaus", "Milbe", "Pfefferkorn", "Mohnsamen", "Zuckerkristall", "Pupille", "Hörgerätebatterie", "Mikrochip", "SIM-Karte", "Konfetti", "Zahnfüllung"],
+    "schwer": ["Atom", "Elektron", "Proton", "Neutron", "Molekül", "DNA", "Rotes Blutkörperchen", "Samenzelle", "Bärtierchen", "Pantoffeltierchen", "Amöbe", "Plankton", "Pollen", "Sporen", "Nanopartikel"]
+  },
+  "Etwas sehr Großes": {
+    "leicht": ["Elefant", "Blauwal", "Eiffelturm", "Hochhaus", "Berg", "Ozean", "Erde", "Sonne", "Mond", "Kreuzfahrtschiff", "Flugzeug", "Stadion", "Giraffe", "Dinosaurier", "Schloss"],
+    "normal": ["Mammutbaum", "Buckelwal", "Mount Everest", "Chinesische Mauer", "Pyramide von Gizeh", "Brandenburger Tor", "Berliner Fernsehturm", "Kölner Dom", "Freiheitsstatue", "Golden Gate Bridge", "Airbus A380", "Flugzeugträger", "Öltanker", "Riesenrad", "Schaufelradbagger"],
+    "schwer": ["Jupiter", "Saturn", "Milchstraße", "Andromedagalaxie", "Roter Riese", "Supernova", "Schwarzes Loch", "Burj Khalifa", "Ulmer Münster", "Zugspitze", "Marianengraben", "Sahara", "Amazonas", "Great Barrier Reef", "Hadrianswall"]
+  },
+  "Etwas, das fliegen kann": {
+    "leicht": ["Vogel", "Flugzeug", "Hubschrauber", "Biene", "Schmetterling", "Mücke", "Fliege", "Adler", "Taube", "Fledermaus", "Superman", "Hexe", "Drache", "Heißluftballon", "Drachen"],
+    "normal": ["Drohne", "Segelflugzeug", "Gleitschirm", "Zeppelin", "Hummel", "Wespe", "Libelle", "Marienkäfer", "Eule", "Falke", "Papagei", "Kolibri", "Pelikan", "Storch", "Möwe"],
+    "schwer": ["Albatros", "Mauersegler", "Wanderfalke", "Flughund", "Fliegender Fisch", "Flugfrosch", "Gleithörnchen", "Flugsaurier", "Raumfähre", "Doppeldecker", "Wasserflugzeug", "Ultraleichtflugzeug", "Kampfjet", "Pegasus", "Phönix"]
+  },
+  "Etwas, das grün ist": {
+    "leicht": ["Frosch", "Gurke", "Brokkoli", "Spinat", "Salat", "Gras", "Krokodil", "Schildkröte", "Erbse", "Limette", "Avocado", "Kiwi", "Tannenbaum", "Hulk", "Shrek"],
+    "normal": ["Kermit", "Yoshi", "Grinch", "Oscar aus der Mülltonne", "Smaragd", "Jade", "Moos", "Alge", "Seetang", "Heuschrecke", "Gottesanbeterin", "Blattlaus", "Weintraube", "Zucchini", "Basilikum"],
+    "schwer": ["Waldmeister", "Pistazie", "Matcha", "Wasabi", "Chlorophyll", "Grünspan", "Malachit", "Peridot", "Lauch", "Mangold", "Artischocke", "Okra", "Edamame", "Pak Choi", "Wirsing"]
+  },
+  "Etwas, das Angst macht": {
+    "leicht": ["Spinne", "Schlange", "Hai", "Gespenst", "Monster", "Vampir", "Zombie", "Werwolf", "Dunkelheit", "Gewitter", "Höhe", "Feuer", "Clown", "Einbrecher", "Horrorfilm"],
+    "normal": ["Freddy Krueger", "Pennywise", "Chucky", "Darth Vader", "Lord Voldemort", "Sauron", "Nazgûl", "Dementor", "Tyrannosaurus Rex", "Killerpuppe", "Kettensäge", "Spukhaus", "Friedhof", "Achterbahn", "Geisterbahn"],
+    "schwer": ["Nosferatu", "Graf Dracula", "Frankensteins Monster", "Der kopflose Reiter", "Basilisk", "Medusa", "Kraken", "Godzilla", "Xenomorph", "Predator", "Der weiße Hai", "Bates Motel", "Lawine", "Tsunami", "Vulkanausbruch"]
+  },
+  "Etwas mit Flügeln": {
+    "leicht": ["Adler", "Ente", "Huhn", "Gans", "Schwan", "Taube", "Papagei", "Eule", "Fledermaus", "Schmetterling", "Biene", "Fliege", "Mücke", "Flugzeug", "Engel"],
+    "normal": ["Pinguin", "Strauß", "Pfau", "Flamingo", "Pelikan", "Storch", "Möwe", "Kolibri", "Specht", "Rabe", "Elster", "Hummel", "Wespe", "Libelle", "Marienkäfer"],
+    "schwer": ["Albatros", "Kondor", "Geier", "Wiedehopf", "Eisvogel", "Mauersegler", "Kranich", "Nandu", "Emu", "Kasuar", "Flughund", "Pegasus", "Phönix", "Greif", "Sphinx"]
+  },
+  "Jemand mit Superkräften": {
+    "leicht": ["Superman", "Spider-Man", "Hulk", "Thor", "Wonder Woman", "Elsa", "Harry Potter", "Bibi Blocksberg", "Pippi Langstrumpf", "Sabrina Spellman", "Supergirl", "Flash", "Aquaman", "Obelix", "Captain America"],
+    "normal": ["Doctor Strange", "Scarlet Witch", "Vision", "Captain Marvel", "Loki", "Wolverine", "Deadpool", "Magneto", "Professor X", "Storm", "Jean Grey", "Ant-Man", "The Wasp", "Black Panther", "Sailor Moon"],
+    "schwer": ["Daredevil", "Jessica Jones", "Luke Cage", "Iron Fist", "Silver Surfer", "Nightcrawler", "Mystique", "Rogue", "Cyclops", "Iceman", "Human Torch", "Das Ding", "Unsichtbare Frau", "Mister Fantastic", "Dr. Manhattan"]
+  },
+  "Jemand, der immer schlecht gelaunt ist": {
+    "leicht": ["Grinch", "Donald Duck", "Thaddäus Tentakel", "Garfield", "Ebenezer Scrooge", "Oscar aus der Mülltonne", "Bernd das Brot", "Rumpelstilzchen", "Mister Burns", "Dagobert Duck", "Al Bundy", "Dr. House", "Severus Snape", "Moe Szyslak", "Brummbär"],
+    "normal": ["Angela Martin", "Stanley Hudson", "Rosa Diaz", "Ron Swanson", "Red Forman", "Lou Grant", "Carl Fredricksen", "Hank Hill", "Patty Bouvier", "Selma Bouvier", "Argus Filch", "Waldorf", "Statler", "Grantelbart", "Stromberg"],
+    "schwer": ["Yosemite Sam", "Cranky Kong", "Vegeta", "Mr. Wilson", "Heinz Becker", "Gargamel", "Wut", "Basil Fawlty", "Petunia Dursley", "Vernon Dursley", "Ekel Alfred", "Dr. Cox", "Käpt’n Haddock", "Die Herzkönigin", "Agatha Knüppelkuh"]
+  },
+  "Figur, die nie spricht": {
+    "leicht": ["Shaun das Schaf", "Snoopy", "Woodstock", "Pluto", "Road Runner", "Der rosarote Panther", "Gromit", "Scrat", "Dumbo", "Der kleine Maulwurf", "Die Maus", "Der Elefant"],
+    "normal": ["Bitzer", "Oggy", "Die Ente", "Pascal", "Sven", "Maximus", "Hei Hei", "Pua", "Abu", "Rajah", "Figaro", "Ohnezahn"],
+    "schwer": ["Joey aus Oggy und die Kakerlaken", "Marky aus Oggy und die Kakerlaken", "Dee Dee aus Oggy und die Kakerlaken", "Gordon Freeman", "Chell", "Kevin aus Oben", "Khan aus Mulan", "Bully aus Toy Story", "RC aus Toy Story", "Der fliegende Teppich aus Aladdin", "Die Pixar-Lampe", "Pegasus aus Hercules"]
+  },
+  "Tier": {
+    "leicht": ["Elefant", "Hund", "Katze", "Löwe", "Tiger", "Giraffe", "Zebra", "Pferd", "Kuh", "Schwein", "Schaf", "Ziege", "Hase", "Bär", "Affe"],
+    "normal": ["Fuchs", "Wolf", "Igel", "Eichhörnchen", "Känguru", "Koala", "Panda", "Kamel", "Nashorn", "Nilpferd", "Faultier", "Waschbär", "Dachs", "Otter", "Biber"],
+    "schwer": ["Tapir", "Okapi", "Erdmännchen", "Gürteltier", "Ameisenbär", "Schnabeltier", "Wombat", "Luchs", "Elch", "Rentier", "Stachelschwein", "Frettchen", "Chinchilla", "Murmeltier", "Steinbock"]
+  },
+  "Tier aus dem Zoo": {
+    "leicht": ["Löwe", "Tiger", "Elefant", "Giraffe", "Zebra", "Gorilla", "Schimpanse", "Pinguin", "Eisbär", "Nashorn", "Nilpferd", "Krokodil", "Känguru", "Flamingo", "Kamel"],
+    "normal": ["Panda", "Koala", "Erdmännchen", "Seelöwe", "Robbe", "Orang-Utan", "Pavian", "Leopard", "Gepard", "Hyäne", "Strauß", "Schildkröte", "Papagei", "Lama", "Faultier"],
+    "schwer": ["Okapi", "Tapir", "Nandu", "Emu", "Mandrill", "Gibbon", "Katta", "Antilope", "Gazelle", "Waran", "Leguan", "Yak", "Wisent", "Schneeleopard", "Stachelschwein"]
+  },
+  "Haustier": {
+    "leicht": ["Hund", "Katze", "Goldfisch", "Wellensittich", "Hamster", "Meerschweinchen", "Kaninchen", "Schildkröte", "Papagei", "Maus", "Ratte", "Kanarienvogel", "Pferd", "Pony", "Zwergkaninchen"],
+    "normal": ["Chinchilla", "Frettchen", "Rennmaus", "Degu", "Nymphensittich", "Zebrafink", "Bartagame", "Leopardgecko", "Kornnatter", "Axolotl", "Guppy", "Kampffisch", "Garnele", "Vogelspinne", "Stabheuschrecke"],
+    "schwer": ["Königspython", "Grüner Leguan", "Unzertrennlicher", "Graupapagei", "Ara", "Diskusfisch", "Skalar", "Neonsalmler", "Achatschnecke", "Wandelndes Blatt", "Perserkatze", "Siamkatze", "Maine-Coon-Katze", "Angorakaninchen", "Chihuahua"]
+  },
+  "Tier im Meer": {
+    "leicht": ["Hai", "Delfin", "Wal", "Krake", "Qualle", "Seestern", "Seepferdchen", "Krabbe", "Hummer", "Muschel", "Robbe", "Seelöwe", "Meeresschildkröte", "Clownfisch", "Rochen"],
+    "normal": ["Schwertfisch", "Thunfisch", "Hering", "Makrele", "Kabeljau", "Muräne", "Seegurke", "Seeigel", "Tintenfisch", "Pottwal", "Orca", "Blauwal", "Walross", "Garnele", "Languste"],
+    "schwer": ["Narwal", "Beluga", "Hammerhai", "Walhai", "Mantarochen", "Kugelfisch", "Barrakuda", "Nautilus", "Anglerfisch", "Mondfisch", "Papageifisch", "Feuerfisch", "Seeanemone", "Seespinne", "Einsiedlerkrebs"]
+  },
+  "Insekt oder Krabbeltier": {
+    "leicht": ["Ameise", "Biene", "Wespe", "Hummel", "Fliege", "Mücke", "Schmetterling", "Marienkäfer", "Spinne", "Zecke", "Floh", "Laus", "Kakerlake", "Regenwurm", "Schnecke"],
+    "normal": ["Libelle", "Heuschrecke", "Grille", "Ohrwurm", "Maikäfer", "Mistkäfer", "Hornisse", "Motte", "Wanze", "Silberfischchen", "Assel", "Tausendfüßer", "Skorpion", "Gottesanbeterin", "Glühwürmchen"],
+    "schwer": ["Hirschkäfer", "Nashornkäfer", "Wasserläufer", "Rückenschwimmer", "Florfliege", "Blattlaus", "Borkenkäfer", "Bremse", "Fruchtfliege", "Zikade", "Termite", "Sandfloh", "Weberknecht", "Hundertfüßer", "Stabheuschrecke"]
+  },
+  "Fabelwesen": {
+    "leicht": ["Drache", "Einhorn", "Meerjungfrau", "Vampir", "Werwolf", "Zombie", "Geist", "Fee", "Elf", "Zwerg", "Riese", "Troll", "Kobold", "Hexe", "Teufel"],
+    "normal": ["Phönix", "Pegasus", "Zentaur", "Minotaurus", "Zyklop", "Hydra", "Greif", "Gnom", "Dämon", "Oger", "Sirene", "Wichtel", "Wassermann", "Dschinn", "Waldgeist"],
+    "schwer": ["Basilisk", "Sphinx", "Kraken", "Golem", "Yeti", "Bigfoot", "Wolpertinger", "Rumpelstilzchen", "Harpyie", "Chimäre", "Medusa", "Zerberus", "Leviathan", "Klabautermann", "Walküre"]
+  },
+  "Essen oder Getränk": {
+    "leicht": ["Pizza", "Hamburger", "Pommes", "Spaghetti", "Brot", "Käse", "Ei", "Apfel", "Banane", "Schokolade", "Eis", "Kaffee", "Tee", "Bier", "Wasser"],
+    "normal": ["Lasagne", "Sushi", "Döner", "Falafel", "Currywurst", "Schnitzel", "Risotto", "Gulasch", "Pfannkuchen", "Milchshake", "Limonade", "Kakao", "Rotwein", "Brezel", "Croissant"],
+    "schwer": ["Ratatouille", "Gazpacho", "Paella", "Tiramisu", "Panna cotta", "Crème brûlée", "Hummus", "Guacamole", "Couscous", "Bulgur", "Gnocchi", "Polenta", "Kimchi", "Chai", "Kefir"]
+  },
+  "Etwas aus der Küche": {
+    "leicht": ["Topf", "Pfanne", "Teller", "Tasse", "Glas", "Gabel", "Messer", "Löffel", "Kühlschrank", "Backofen", "Herd", "Wasserkocher", "Toaster", "Schneidebrett", "Kochlöffel"],
+    "normal": ["Schneebesen", "Sieb", "Kelle", "Dosenöffner", "Korkenzieher", "Mixer", "Küchenwaage", "Messbecher", "Nudelholz", "Backblech", "Auflaufform", "Knoblauchpresse", "Sparschäler", "Reibe", "Salatschleuder"],
+    "schwer": ["Mörser", "Muskatreibe", "Spritzbeutel", "Teigschaber", "Schaumkelle", "Bratenthermometer", "Eiertrenner", "Spätzlepresse", "Fleischwolf", "Dampfgarer", "Wok", "Römertopf", "Flambierbrenner", "Zestenreißer", "Passiermühle"]
+  },
+  "Gegenstand im Badezimmer": {
+    "leicht": ["Zahnbürste", "Zahnpasta", "Seife", "Handtuch", "Waschlappen", "Toilettenpapier", "Föhn", "Kamm", "Haarbürste", "Rasierer", "Spiegel", "Shampoo", "Duschgel", "Badewanne", "Toilette"],
+    "normal": ["Nagelschere", "Nagelfeile", "Pinzette", "Wattestäbchen", "Zahnseide", "Mundspülung", "Badematte", "Duschvorhang", "Klobürste", "Seifenspender", "Kosmetikeimer", "Bademantel", "Waage", "Glätteisen", "Lockenstab"],
+    "schwer": ["Zungenreiniger", "Munddusche", "Interdentalbürste", "Rasierpinsel", "Rasierhobel", "Bimsstein", "Hornhautfeile", "Duschabzieher", "Badewannenkissen", "Duftstäbchen", "Kosmetikspiegel", "Kontaktlinsenbehälter", "Seifenschale", "Handtuchhalter", "Heizwickler"]
+  },
+  "Fahrzeug": {
+    "leicht": ["Auto", "Fahrrad", "Motorrad", "Bus", "Zug", "Straßenbahn", "U-Bahn", "Flugzeug", "Hubschrauber", "Schiff", "Boot", "Lastwagen", "Traktor", "Roller", "Taxi"],
+    "normal": ["Segelboot", "Kanu", "Kajak", "Ruderboot", "Heißluftballon", "Zeppelin", "Wohnmobil", "Wohnwagen", "Quad", "Moped", "Rennwagen", "Feuerwehrauto", "Krankenwagen", "Schneemobil", "Bagger"],
+    "schwer": ["Gabelstapler", "Planierraupe", "Mähdrescher", "Pistenraupe", "Amphibienfahrzeug", "Luftkissenboot", "Katamaran", "Gondel", "Draisine", "Rikscha", "Tuk-Tuk", "Einrad", "Liegerad", "Velomobil", "Segelflugzeug"]
+  },
+  "Beruf": {
+    "leicht": ["Arzt", "Lehrer", "Polizist", "Feuerwehrmann", "Bäcker", "Koch", "Kellner", "Friseur", "Verkäufer", "Bauer", "Pilot", "Busfahrer", "Briefträger", "Zahnarzt", "Schauspieler"],
+    "normal": ["Architekt", "Elektriker", "Klempner", "Schreiner", "Dachdecker", "Maler", "Mechaniker", "Journalist", "Fotograf", "Programmierer", "Apotheker", "Tierarzt", "Richter", "Anwalt", "Hebamme"],
+    "schwer": ["Bestatter", "Dolmetscher", "Restaurator", "Archäologe", "Meteorologe", "Kartograf", "Goldschmied", "Uhrmacher", "Geigenbauer", "Hufschmied", "Schornsteinfeger", "Sommelier", "Förster", "Lotse", "Maskenbildner"]
+  },
+  "Sportart": {
+    "leicht": ["Fußball", "Handball", "Basketball", "Volleyball", "Tennis", "Tischtennis", "Schwimmen", "Laufen", "Radfahren", "Skifahren", "Boxen", "Reiten", "Golf", "Turnen", "Eishockey"],
+    "normal": ["Badminton", "Squash", "Rugby", "American Football", "Baseball", "Softball", "Fechten", "Judo", "Karate", "Ringen", "Klettern", "Surfen", "Segeln", "Rudern", "Bogenschießen"],
+    "schwer": ["Curling", "Biathlon", "Triathlon", "Zehnkampf", "Stabhochsprung", "Hammerwerfen", "Wasserball", "Synchronschwimmen", "Windsurfen", "Kitesurfen", "Bouldern", "Taekwondo", "Sumo", "Polo", "Boule"]
+  },
+  "Musikinstrument": {
+    "leicht": ["Klavier", "Gitarre", "Schlagzeug", "Flöte", "Geige", "Trompete", "Saxofon", "Akkordeon", "Mundharmonika", "Harfe", "Orgel", "Triangel", "Tamburin", "Blockflöte", "Xylofon"],
+    "normal": ["Klarinette", "Oboe", "Fagott", "Cello", "Kontrabass", "Bratsche", "Posaune", "Tuba", "Waldhorn", "Ukulele", "Banjo", "Mandoline", "Dudelsack", "Bongos", "Pauke"],
+    "schwer": ["Cembalo", "Synthesizer", "Theremin", "Sitar", "Didgeridoo", "Balalaika", "Panflöte", "Okarina", "Kalimba", "Marimba", "Vibrafon", "Glockenspiel", "Kastagnetten", "Laute", "Zither"]
+  },
+  "Etwas aus dem Weltall": {
+    "leicht": ["Sonne", "Mond", "Stern", "Erde", "Mars", "Jupiter", "Saturn", "Rakete", "Raumschiff", "Astronaut", "Komet", "Meteorit", "Milchstraße", "Schwarzes Loch", "Satellit"],
+    "normal": ["Venus", "Merkur", "Neptun", "Uranus", "Pluto", "Asteroid", "Sternschnuppe", "Raumstation", "Mondkrater", "Saturnring", "Galaxie", "Nebel", "Supernova", "Roter Riese", "Weißer Zwerg"],
+    "schwer": ["Andromedagalaxie", "Orionnebel", "Pulsar", "Quasar", "Neutronenstern", "Exoplanet", "Kuipergürtel", "Großer Wagen", "Asteroidengürtel", "Polarstern", "Titan", "Ganymed", "Phobos", "Deimos", "Sonnenwind"]
+  },
+  "Bauwerk oder Sehenswürdigkeit": {
+    "leicht": ["Eiffelturm", "Brandenburger Tor", "Kölner Dom", "Schiefer Turm von Pisa", "Freiheitsstatue", "Chinesische Mauer", "Pyramiden von Gizeh", "Big Ben", "Kolosseum", "Taj Mahal", "Schloss Neuschwanstein", "Berliner Fernsehturm", "Golden Gate Bridge", "Akropolis", "Tower Bridge"],
+    "normal": ["Sagrada Família", "Oper von Sydney", "Burj Khalifa", "Stonehenge", "Louvre", "Schloss Versailles", "Petersdom", "Hagia Sophia", "Christusstatue in Rio", "Machu Picchu", "Mount Rushmore", "Hamburger Elbphilharmonie", "Dresdner Frauenkirche", "Reichstagsgebäude", "Schloss Sanssouci"],
+    "schwer": ["Alhambra", "Angkor Wat", "Petra", "Blaue Moschee", "Prager Karlsbrücke", "Wiener Stephansdom", "Mailänder Dom", "Dogenpalast", "Atomium", "Manneken Pis", "Bremer Stadtmusikanten", "Wartburg", "Porta Nigra", "Heidelberger Schloss", "Ponte Vecchio"]
+  },
+  "Land oder Stadt": {
+    "leicht": ["Deutschland", "Frankreich", "Italien", "Spanien", "Portugal", "Österreich", "Schweiz", "Berlin", "Hamburg", "München", "Paris", "London", "Rom", "New York", "Tokio"],
+    "normal": ["Schweden", "Norwegen", "Finnland", "Dänemark", "Polen", "Griechenland", "Türkei", "Kanada", "Australien", "Brasilien", "Amsterdam", "Barcelona", "Prag", "Wien", "Istanbul"],
+    "schwer": ["Island", "Estland", "Lettland", "Litauen", "Georgien", "Armenien", "Nepal", "Bhutan", "Uruguay", "Costa Rica", "Ljubljana", "Bratislava", "Tallinn", "Reykjavík", "Marrakesch"]
+  },
+  "Marke oder Firma": {
+    "leicht": ["Adidas", "Nike", "Apple", "Samsung", "Coca-Cola", "McDonald's", "Ikea", "Lego", "Disney", "Amazon", "Google", "Microsoft", "Volkswagen", "BMW", "Mercedes-Benz"],
+    "normal": ["Puma", "Reebok", "Sony", "Nintendo", "Nivea", "Haribo", "Milka", "Ferrero", "Nutella", "Red Bull", "Pepsi", "Netflix", "Spotify", "Zalando", "dm"],
+    "schwer": ["Patagonia", "The North Face", "Fjällräven", "Birkenstock", "Dr. Martens", "Levi's", "Bosch", "Siemens", "Miele", "Kärcher", "Faber-Castell", "Pelikan", "Ravensburger", "Playmobil", "Steiff"]
+  },
+  "App oder Website": {
+    "leicht": ["WhatsApp", "Instagram", "YouTube", "Google", "Facebook", "TikTok", "Wikipedia", "Amazon", "Netflix", "Spotify", "eBay", "Snapchat", "PayPal", "Google Maps", "Tinder"],
+    "normal": ["Telegram", "Signal", "Discord", "Reddit", "Pinterest", "Twitch", "LinkedIn", "Xing", "Duolingo", "Kleinanzeigen", "Vinted", "Lieferando", "Booking.com", "Airbnb", "Shazam"],
+    "schwer": ["Komoot", "Strava", "Geocaching", "Letterboxd", "Goodreads", "Chefkoch", "Kicker", "Flightradar24", "DeepL", "Canva", "Waze", "Blitzer.de", "Too Good To Go", "Bring!", "Finanzguru"]
+  },
+  "Spielzeug": {
+    "leicht": ["Teddybär", "Puppe", "Spielzeugauto", "Lego", "Playmobil", "Ball", "Bauklötze", "Murmel", "Jo-Jo", "Kreisel", "Seifenblasen", "Springseil", "Hula-Hoop-Reifen", "Drachen", "Kuscheltier"],
+    "normal": ["Zauberwürfel", "Knete", "Fingerpuppe", "Handpuppe", "Kasperletheater", "Kaufladen", "Puppenküche", "Puppenhaus", "Holzeisenbahn", "Carrera-Bahn", "Wasserpistole", "Nerf-Blaster", "Frisbee", "Diabolo", "Steckenpferd"],
+    "schwer": ["Kaleidoskop", "Zaubertafel", "Zauberkasten", "Tamagotchi", "Furby", "Beyblade", "Fidget Spinner", "Slinky", "Matroschka", "Gummitwist", "Jonglierbälle", "Stelzen", "Hüpfball", "Flummi", "Bügelperlen"]
+  },
+  "Etwas, das man auf einer Party findet": {
+    "leicht": ["Luftballon", "Girlande", "Konfetti", "Lautsprecher", "Musik", "Bier", "Wein", "Sekt", "Chips", "Salzstangen", "Kuchen", "Becher", "Serviette", "Geschenk", "Kerze"],
+    "normal": ["Discokugel", "Lichterkette", "Nebelmaschine", "Mischpult", "Mikrofon", "Karaokeanlage", "Bierpongtisch", "Bowle", "Eiswürfel", "Strohhalm", "Flaschenöffner", "Kronkorken", "Gästebuch", "Fotobox", "Partyhut"],
+    "schwer": ["Wunderkerze", "Knallbonbon", "Konfettikanone", "Luftschlange", "Leuchtarmband", "Schwarzlicht", "Stroboskop", "Getränkekühler", "Zapfanlage", "Biertisch", "Stehtisch", "Garderobenmarke", "Einladungskarte", "Wunschbox", "Wimpelkette"]
+  },
+  "Sexsymbol": {
+    "leicht": ["Marilyn Monroe", "Brad Pitt", "Angelina Jolie", "George Clooney", "Pamela Anderson", "David Beckham", "Scarlett Johansson", "Jennifer Lopez", "Tom Cruise", "Leonardo DiCaprio", "Johnny Depp", "Beyoncé", "Rihanna", "Shakira", "Madonna"],
+    "normal": ["Ryan Gosling", "Ryan Reynolds", "Channing Tatum", "Chris Hemsworth", "Chris Evans", "Henry Cavill", "Jason Momoa", "Idris Elba", "Margot Robbie", "Megan Fox", "Salma Hayek", "Penélope Cruz", "Halle Berry", "Sofía Vergara", "Eva Mendes"],
+    "schwer": ["Brigitte Bardot", "Sophia Loren", "Raquel Welch", "Ursula Andress", "Bo Derek", "Kim Basinger", "Sharon Stone", "Catherine Deneuve", "Claudia Cardinale", "Alain Delon", "Paul Newman", "Marlon Brando", "James Dean", "Robert Redford", "Burt Reynolds"]
+  },
+  "Promi-Paar, das sich getrennt hat": {
+    "leicht": ["Brad Pitt", "Angelina Jolie", "Jennifer Aniston", "Johnny Depp", "Amber Heard", "Boris Becker", "Barbara Becker", "Heidi Klum", "Seal", "Sylvie Meis", "Rafael van der Vaart", "Dieter Bohlen", "Nadja Abd el Farrag", "Sarah Engels", "Pietro Lombardi"],
+    "normal": ["Shakira", "Gerard Piqué", "Miley Cyrus", "Liam Hemsworth", "Justin Timberlake", "Britney Spears", "Justin Bieber", "Selena Gomez", "Taylor Swift", "Calvin Harris", "Katy Perry", "Jennifer Garner", "Kim Kardashian", "Kanye West", "Ariana Grande"],
+    "schwer": ["Jennifer Lopez", "Ben Affleck", "Gwyneth Paltrow", "Chris Martin", "Demi Moore", "Bruce Willis", "Madonna", "Guy Ritchie", "Reese Witherspoon", "Ryan Phillippe", "Channing Tatum", "Jenna Dewan", "Helene Fischer", "Florian Silbereisen", "Oliver Pocher"]
+  },
+  "Reality-TV-Star": {
+    "leicht": ["Daniela Katzenberger", "Carmen Geiss", "Robert Geiss", "Daniela Büchner", "Jens Büchner", "Peter Klein", "Silvia Wollny", "Kim Kardashian", "Paris Hilton", "Nicole Richie", "Kris Jenner", "Khloé Kardashian", "Kourtney Kardashian", "Kylie Jenner", "Kendall Jenner"],
+    "normal": ["Paul Janke", "Daniel Völz", "Sebastian Pannek", "Andrej Mangold", "Niko Griesert", "Eva Benetatou", "Georgina Fleur", "Yeliz Koc", "Iris Klein", "Jenny Frankhauser", "Lucas Cordalis", "Jürgen Milski", "Alida Kurras", "Zlatko Trpkovski", "Tanja Tischewitsch"],
+    "schwer": ["Claudia Obert", "Matthias Mangiapane", "Hubert Fella", "Désirée Nick", "Gina-Lisa Lohfink", "Micaela Schäfer", "Kader Loth", "Djamila Rowe", "Sarah Knappik", "Elena Miras", "Mike Heiter", "Eric Stehfest", "Gigi Birofio", "Walther Hoffmann", "Detlef Steves"]
+  },
+  "Figur, in die man heimlich verknallt war": {
+    "leicht": ["Arielle", "Aladdin", "Jasmin", "Belle", "Elsa", "Anna", "Rapunzel", "Hermine Granger", "Harry Potter", "Ron Weasley", "Peter Pan", "Wendy Darling", "Tarzan", "Pocahontas", "Mulan"],
+    "normal": ["Legolas", "Aragorn", "Prinzessin Leia", "Han Solo", "Padmé Amidala", "Anakin Skywalker", "Jack Sparrow", "Will Turner", "Elizabeth Swann", "Edward Cullen", "Jacob Black", "Katniss Everdeen", "Peeta Mellark", "Lara Croft", "Zelda"],
+    "schwer": ["Draco Malfoy", "Cedric Diggory", "Sirius Black", "Fleur Delacour", "Sailor Moon", "Tuxedo Mask", "Son Goku", "Vegeta", "Trunks", "Kim Possible", "Shego", "Danny Phantom", "Flynn Rider", "Megara", "Dimitri"]
+  },
+  "Etwas, das man nicht den Eltern zeigt": {
+    "leicht": ["Liebesbrief", "Tagebuch", "Peinliches Selfie", "Kussfoto", "Knutschfleck", "Katerfoto", "Schlechtes Zeugnis", "Strafzettel", "Unaufgeräumtes Zimmer", "Schmutzige Wäsche", "Leere Bierkiste", "Partyvideo", "Flirtchat", "Datingprofil", "Unterwäsche"],
+    "normal": ["Betrunkenes Selfie", "Peinlicher Suchverlauf", "Anmachnachricht", "Heimliches Tattoo", "Heimliches Piercing", "Zungenkussfoto", "Liebesgedicht", "Ex-Chat", "Betrunkene Sprachnachricht", "Karaokevideo", "Gescheiterter Flirt", "Liebeskummer-Playlist", "Tanz auf dem Tisch", "Absturzfoto", "Anzüglicher Witz"],
+    "schwer": ["Korb per Sprachnachricht", "Peinlicher Liebessong", "Verkaterter Videoanruf", "Bauchklatscher-Video", "Missglückte Liebeserklärung", "Flaschendrehen-Video", "Heimliche Romanze", "Schlüpfriger Kartenspruch", "Tinder-Bio", "Heimlicher Crush", "Kussmund-Selfie", "Peinliches Datingvideo", "Betrunkene Liebeserklärung", "Peinlicher Liebesroman", "Flirt mit dem Ex"]
+  },
+  "Jemand, mit dem man nie ein Date hätte": {
+    "leicht": ["Voldemort", "Darth Vader", "Joker", "Hannibal Lecter", "Freddy Krueger", "Pennywise", "Chucky", "Sauron", "Gollum", "Ursula", "Cruella de Vil", "Scar", "Dschafar", "Böse Königin", "Captain Hook"],
+    "normal": ["Bellatrix Lestrange", "Dolores Umbridge", "Lucius Malfoy", "Imperator Palpatine", "Jabba der Hutte", "Thanos", "Norman Bates", "Michael Myers", "Jason Voorhees", "Ghostface", "Leatherface", "Jigsaw", "Malefiz", "Gaston", "Lord Farquaad"],
+    "schwer": ["Frollo", "Yzma", "Hades", "Saruman", "Gríma Schlangenzunge", "Peter Pettigrew", "Ramsay Bolton", "Joffrey Baratheon", "Cersei Lennister", "Homelander", "Kilgrave", "Annie Wilkes", "Anton Chigurh", "Hans Landa", "Mr. Burns"]
+  },
+  "Etwas aus dem Nachtleben": {
+    "leicht": ["Disko", "Nachtclub", "Bar", "Kneipe", "Cocktail", "Bier", "Wein", "DJ", "Tanzfläche", "Türsteher", "Discokugel", "Karaoke", "Happy Hour", "Longdrink", "Shot"],
+    "normal": ["Garderobenmarke", "Einlassstempel", "Gästeliste", "VIP-Lounge", "Schwarzlicht", "Nebelmaschine", "Stroboskop", "Sektkühler", "Cocktailshaker", "Barkeeper", "Zapfhahn", "Jukebox", "Billardtisch", "Kicker", "Pubquiz"],
+    "schwer": ["Afterhour", "Silent Disco", "Open Decks", "Poetry Slam", "Improtheater", "Burlesque", "Jazzkeller", "Salsaparty", "Swingabend", "Lichtpult", "Mischpult", "Plattenteller", "Monitorbox", "Absacker", "Tanzbar"]
+  },
+  "Rapper oder Rapperin": {
+    "leicht": ["Sido", "Bushido", "Eminem", "Snoop Dogg", "Tupac Shakur", "50 Cent", "Kanye West", "Jay-Z", "Drake", "Nicki Minaj", "Apache 207", "Capital Bra", "Cro", "Marteria", "Shirin David"],
+    "normal": ["Samy Deluxe", "Jan Delay", "Peter Fox", "Kool Savas", "Farid Bang", "Kollegah", "Badmómzjay", "Nura", "Juju", "Alligatoah", "Kontra K", "Mero", "Luciano", "Bonez MC", "Cardi B"],
+    "schwer": ["Dendemann", "Afrob", "Megaloh", "Eko Fresh", "Fler", "Haftbefehl", "Bausa", "Trettmann", "Torch", "Thomas D", "Smudo", "Ice-T", "Ice Cube", "Dr. Dre", "Missy Elliott"]
+  },
+  "Comedian": {
+    "leicht": ["Otto Waalkes", "Mario Barth", "Hape Kerkeling", "Michael Mittermeier", "Oliver Pocher", "Anke Engelke", "Carolin Kebekus", "Bastian Pastewka", "Ralf Schmitz", "Torsten Sträter", "Dieter Nuhr", "Kaya Yanar", "Atze Schröder", "Cindy aus Marzahn", "Jürgen von der Lippe"],
+    "normal": ["Hazel Brugger", "Felix Lobrecht", "Chris Tall", "Luke Mockridge", "Enissa Amani", "Tahnee", "Martina Hill", "Johann König", "Kurt Krömer", "Teddy Teclebrhan", "Abdelkarim", "Faisal Kawusi", "Rick Kavanian", "Mirja Boes", "Sascha Grammel"],
+    "schwer": ["Helge Schneider", "Gerhard Polt", "Urban Priol", "Georg Schramm", "Jochen Malmsheimer", "Wilfried Schmickler", "Florian Schroeder", "Alfons", "Emil Steinberger", "Olli Dittrich", "Wigald Boning", "Hella von Sinnen", "Ingolf Lück", "Bernhard Hoëcker", "Max Giermann"]
+  },
+  "Moderator oder Moderatorin": {
+    "leicht": ["Günther Jauch", "Thomas Gottschalk", "Barbara Schöneberger", "Stefan Raab", "Markus Lanz", "Florian Silbereisen", "Oliver Geissen", "Sonja Zietlow", "Daniel Hartwich", "Joko Winterscheidt", "Klaas Heufer-Umlauf", "Elton", "Kai Pflaume", "Frank Elstner", "Johannes B. Kerner"],
+    "normal": ["Palina Rojinski", "Ruth Moschner", "Steven Gätjen", "Matthias Opdenhövel", "Frank Buschmann", "Laura Wontorra", "Sylvie Meis", "Michelle Hunziker", "Inka Bause", "Giovanni Zarrella", "Andrea Kiewel", "Judith Rakers", "Dunja Hayali", "Sandra Maischberger", "Maybrit Illner"],
+    "schwer": ["Linda Zervakis", "Pinar Atalay", "Caren Miosga", "Anne Will", "Bettina Böttinger", "Bärbel Schäfer", "Arabella Kiesbauer", "Ricky Harris", "Vera Int-Veen", "Britt Hagedorn", "Hans Meiser", "Ilona Christen", "Alfred Biolek", "Hans-Joachim Kulenkampff", "Hans Rosenthal"]
+  },
+  "Fußballer oder Fußballerin": {
+    "leicht": ["Cristiano Ronaldo", "Lionel Messi", "Thomas Müller", "Manuel Neuer", "Bastian Schweinsteiger", "Lukas Podolski", "Miroslav Klose", "Oliver Kahn", "Franz Beckenbauer", "David Beckham", "Neymar", "Kylian Mbappé", "Erling Haaland", "Mario Götze", "Philipp Lahm"],
+    "normal": ["Toni Kroos", "Mesut Özil", "Sami Khedira", "Mats Hummels", "Marco Reus", "Robert Lewandowski", "Jamal Musiala", "Florian Wirtz", "Joshua Kimmich", "Alexandra Popp", "Birgit Prinz", "Marta", "Megan Rapinoe", "Zinédine Zidane", "Ronaldinho"],
+    "schwer": ["Gerd Müller", "Uwe Seeler", "Lothar Matthäus", "Jürgen Klinsmann", "Rudi Völler", "Andreas Brehme", "Berti Vogts", "Paul Breitner", "Günter Netzer", "Oliver Bierhoff", "Stefan Effenberg", "Michael Ballack", "Nadine Angerer", "Fritz Walter", "Horst Hrubesch"]
+  },
+  "Wissenschaftler oder Wissenschaftlerin": {
+    "leicht": ["Albert Einstein", "Marie Curie", "Stephen Hawking", "Isaac Newton", "Charles Darwin", "Galileo Galilei", "Nikola Tesla", "Sigmund Freud", "Robert Koch", "Louis Pasteur", "Alexander Fleming", "Thomas Edison", "Alfred Nobel", "Leonardo da Vinci", "Nikolaus Kopernikus"],
+    "normal": ["Johannes Kepler", "Max Planck", "Werner Heisenberg", "Alexander von Humboldt", "Carl Friedrich Gauß", "Gregor Mendel", "Niels Bohr", "Erwin Schrödinger", "Lise Meitner", "Otto Hahn", "Alan Turing", "Konrad Zuse", "Ada Lovelace", "Jane Goodall", "Dian Fossey"],
+    "schwer": ["Rosalind Franklin", "Archimedes", "Richard Feynman", "Carl Sagan", "Edwin Hubble", "Pythagoras", "Aristoteles", "Blaise Pascal", "Benjamin Franklin", "Alfred Wegener", "Heinrich Hertz", "Wilhelm Conrad Röntgen", "Justus von Liebig", "Hermann von Helmholtz", "Robert Oppenheimer"]
+  },
+  "Künstler oder Künstlerin": {
+    "leicht": ["Leonardo da Vinci", "Pablo Picasso", "Vincent van Gogh", "Salvador Dalí", "Michelangelo", "Frida Kahlo", "Andy Warhol", "Claude Monet", "Banksy", "Albrecht Dürer", "Joseph Beuys", "Friedensreich Hundertwasser", "Keith Haring", "Edvard Munch", "Gustav Klimt"],
+    "normal": ["René Magritte", "Paul Klee", "Wassily Kandinsky", "Henri Matisse", "Auguste Rodin", "Rembrandt", "Johannes Vermeer", "Paul Cézanne", "Gerhard Richter", "Ai Weiwei", "Jeff Koons", "Niki de Saint Phalle", "Marina Abramović", "Roy Lichtenstein", "Yayoi Kusama"],
+    "schwer": ["Edward Hopper", "Jackson Pollock", "Jean-Michel Basquiat", "Francisco de Goya", "Diego Velázquez", "Sandro Botticelli", "Raffael", "Caravaggio", "Peter Paul Rubens", "Caspar David Friedrich", "Käthe Kollwitz", "Otto Dix", "Max Ernst", "Joan Miró", "David Hockney"]
+  },
+  "Fernsehkoch oder Fernsehköchin": {
+    "leicht": ["Tim Mälzer", "Steffen Henssler", "Horst Lichter", "Johann Lafer", "Alfons Schuhbeck", "Jamie Oliver", "Gordon Ramsay", "Frank Rosin", "Nelson Müller", "Alexander Herrmann", "Sarah Wiener", "Ralf Zacherl"],
+    "normal": ["Tim Raue", "Christian Rach", "Alexander Kumptner", "Ali Güngörmüş", "Roland Trettl", "Cornelia Poletto", "Léa Linster", "Kolja Kleeberg", "Vincent Klink", "Martina Meuth", "Bernd Neuner-Duttenhofer", "Björn Freitag"],
+    "schwer": ["Wolfgang Puck", "Rainer Sass", "Tarik Rose", "Christian Lohse", "Andreas C. Studer", "Mario Kotaska", "Andreas Schweiger", "Frank Buchholz", "Nigella Lawson", "Maria Groß", "Anthony Bourdain", "Julia Child"]
+  },
+  "Harry-Potter-Figur": {
+    "leicht": ["Harry Potter", "Hermine Granger", "Ron Weasley", "Albus Dumbledore", "Voldemort", "Rubeus Hagrid", "Severus Snape", "Draco Malfoy", "Dobby", "Sirius Black", "Minerva McGonagall", "Hedwig", "Neville Longbottom", "Ginny Weasley", "Luna Lovegood"],
+    "normal": ["Fred Weasley", "George Weasley", "Molly Weasley", "Arthur Weasley", "Remus Lupin", "Bellatrix Lestrange", "Lucius Malfoy", "Dolores Umbridge", "Alastor Moody", "Peter Pettigrew", "Cedric Diggory", "Cho Chang", "Viktor Krum", "Fleur Delacour", "Gilderoy Lockhart"],
+    "schwer": ["Argus Filch", "Sybill Trelawney", "Horace Slughorn", "Rita Kimmkorn", "Kreacher", "Nymphadora Tonks", "Kingsley Shacklebolt", "Cornelius Fudge", "Narzissa Malfoy", "Dudley Dursley", "Vernon Dursley", "Petunia Dursley", "Maulende Myrte", "Fast Kopfloser Nick", "Oliver Wood"]
+  },
+  "Star-Wars-Figur": {
+    "leicht": ["Darth Vader", "Luke Skywalker", "Prinzessin Leia", "Han Solo", "Chewbacca", "Yoda", "Obi-Wan Kenobi", "R2-D2", "C-3PO", "Anakin Skywalker", "Imperator Palpatine", "Darth Maul", "Boba Fett", "Jabba der Hutte", "Rey"],
+    "normal": ["Kylo Ren", "Finn", "Poe Dameron", "BB-8", "Padmé Amidala", "Mace Windu", "Qui-Gon Jinn", "Count Dooku", "General Grievous", "Lando Calrissian", "Jar Jar Binks", "Jango Fett", "Grogu", "Din Djarin", "Ahsoka Tano"],
+    "schwer": ["Admiral Ackbar", "Großmoff Tarkin", "Wicket", "Greedo", "Captain Phasma", "Snoke", "General Hux", "Rose Tico", "Jyn Erso", "Cassian Andor", "K-2SO", "Saw Gerrera", "Bail Organa", "Owen Lars", "Beru Lars"]
+  },
+  "Simpsons-Figur": {
+    "leicht": ["Homer Simpson", "Marge Simpson", "Bart Simpson", "Lisa Simpson", "Maggie Simpson", "Ned Flanders", "Mr. Burns", "Krusty der Clown", "Moe Szyslak", "Apu Nahasapeemapetilon", "Milhouse van Houten", "Nelson Muntz", "Abraham Simpson", "Rektor Skinner", "Chief Wiggum"],
+    "normal": ["Waylon Smithers", "Barney Gumble", "Lenny Leonard", "Carl Carlson", "Edna Krabappel", "Hausmeister Willie", "Ralph Wiggum", "Comicbuchverkäufer", "Tingeltangel-Bob", "Reverend Lovejoy", "Kent Brockman", "Otto Mann", "Patty Bouvier", "Selma Bouvier", "Dr. Hibbert"],
+    "schwer": ["Dr. Nick Riviera", "Professor Frink", "Disco Stu", "Duffman", "Kirk van Houten", "Luann van Houten", "Martin Prince", "Jimbo Jones", "Dolph Starbeam", "Kearney Zzyzwicz", "Agnes Skinner", "Maude Flanders", "Todd Flanders", "Rod Flanders", "Hans Maulwurf"]
+  },
+  "Pokémon": {
+    "leicht": ["Pikachu", "Glumanda", "Schiggy", "Bisasam", "Glurak", "Relaxo", "Pummeluff", "Enton", "Mauzi", "Mewtu", "Evoli", "Karpador", "Garados", "Onix", "Smettbo"],
+    "normal": ["Raichu", "Turtok", "Bisaflor", "Glutexo", "Schillok", "Bisaknosp", "Vulpix", "Vulnona", "Togepi", "Mew", "Lapras", "Ditto", "Gengar", "Arkani", "Tragosso"],
+    "schwer": ["Abra", "Kadabra", "Simsala", "Machomei", "Geowaz", "Sichlor", "Pinsir", "Aerodactyl", "Dragoran", "Arktos", "Zapdos", "Lavados", "Lugia", "Ho-Oh", "Suicune"]
+  },
+  "Anime-Figur": {
+    "leicht": ["Pikachu", "Ash Ketchum", "Son Goku", "Sailor Moon", "Heidi", "Biene Maja", "Wickie", "Naruto Uzumaki", "Monkey D. Ruffy", "Son Gohan", "Vegeta", "Misty", "Rocko", "Jessie", "James"],
+    "normal": ["Detektiv Conan", "Inuyasha", "Ranma Saotome", "Sasuke Uchiha", "Sakura Haruno", "Kakashi Hatake", "Roronoa Zorro", "Nami", "Sanji", "Tony Chopper", "Luna", "Chihiro", "Totoro", "San", "Tuxedo Mask"],
+    "schwer": ["Prinz Ashitaka", "Haku", "Ohngesicht", "Sophie Hatter", "Kiki", "Jiji", "Light Yagami", "L", "Ryuk", "Eren Jäger", "Mikasa Ackermann", "Levi Ackermann", "Saitama", "Trunks", "Freezer"]
+  },
+  "Figur aus einer Kinderserie": {
+    "leicht": ["Biene Maja", "Wickie", "Heidi", "Benjamin Blümchen", "Bibi Blocksberg", "SpongeBob Schwammkopf", "Patrick Star", "Pumuckl", "Sandmännchen", "Die Maus", "Der Elefant", "Käpt’n Blaubär", "Bernd das Brot", "Bob der Baumeister", "Feuerwehrmann Sam"],
+    "normal": ["Tina Martin", "Alexander von Falkenstein", "Otto aus Benjamin Blümchen", "Wärter Karl", "Rabe Rudi", "Siebenstein", "Tabaluga", "Arktos", "Thomas die Lokomotive", "Peppa Wutz", "Shaun das Schaf", "Timmy das Schäfchen", "Postbote Pat", "Caillou", "Dora"],
+    "schwer": ["Nils Holgersson", "David der Kabauter", "Calimero", "Blinky Bill", "Pettersson", "Findus", "Yakari", "Kleiner Dachs", "Willi", "Flip", "Fräulein Kassandra", "Snorre", "Halvar", "Ylvi", "Herr von Bödefeld"]
+  },
+  "Sitcom-Figur": {
+    "leicht": ["Sheldon Cooper", "Leonard Hofstadter", "Penny", "Howard Wolowitz", "Raj Koothrappali", "Barney Stinson", "Ted Mosby", "Robin Scherbatsky", "Marshall Eriksen", "Lily Aldrin", "Rachel Green", "Ross Geller", "Monica Geller", "Chandler Bing", "Joey Tribbiani"],
+    "normal": ["Phoebe Buffay", "Amy Farrah Fowler", "Bernadette Rostenkowski", "Charlie Harper", "Alan Harper", "Jake Harper", "Evelyn Harper", "Berta", "Al Bundy", "Peggy Bundy", "Kelly Bundy", "Bud Bundy", "Carrie Heffernan", "Doug Heffernan", "Arthur Spooner"],
+    "schwer": ["Phil Dunphy", "Claire Dunphy", "Gloria Delgado-Pritchett", "Jay Pritchett", "Cameron Tucker", "Mitchell Pritchett", "Jess Day", "Nick Miller", "Schmidt", "Winston Bishop", "Steve Urkel", "Fran Fine", "Maxwell Sheffield", "Bernd Stromberg", "Michael Scott"]
+  },
+  "Horrorfilm-Figur": {
+    "leicht": ["Dracula", "Frankensteins Monster", "Freddy Krueger", "Jason Voorhees", "Michael Myers", "Chucky", "Pennywise", "Jigsaw", "Hannibal Lecter", "Norman Bates", "King Kong", "Godzilla", "Mumie", "Werwolf", "Unsichtbarer Mann"],
+    "normal": ["Ghostface", "Leatherface", "Pinhead", "Annabelle", "Valak", "Samara Morgan", "Carrie White", "Regan MacNeil", "Damien Thorn", "Jack Torrance", "Wendy Torrance", "Danny Torrance", "Babadook", "Candyman", "Graf Orlok"],
+    "schwer": ["Ash Williams", "Laurie Strode", "Nancy Thompson", "Sidney Prescott", "Ellen Ripley", "Xenomorph", "Predator", "Brahms", "M3GAN", "Esther", "Annie Wilkes", "Rose Armitage", "Chris Washington", "Victor Frankenstein", "Van Helsing"]
+  },
+  "Roboter aus Film oder Serie": {
+    "leicht": ["R2-D2", "C-3PO", "WALL·E", "Terminator", "Optimus Prime", "Bumblebee", "Bender", "Baymax", "BB-8", "RoboCop", "Data", "EVE", "Megatron", "K.I.T.T.", "Ultron"],
+    "normal": ["Johnny 5", "Marvin", "T-1000", "Vision", "Astro Boy", "Sonny", "Chappie", "Der Gigant aus dem All", "TARS", "K-2SO", "IG-11", "Starscream", "Soundwave", "Rosie", "Zurg"],
+    "schwer": ["Maschinenmensch Maria", "Roy Batty", "Ava", "Dolores Abernathy", "Maeve Millay", "David aus A.I.", "David aus Prometheus", "Bishop", "Ash aus Alien", "Dot Matrix", "ED-209", "Robby", "Fembots", "Omnidroid", "D-O"]
+  },
+  "Jemand mit Bart": {
+    "leicht": ["Weihnachtsmann", "Nikolaus", "Gandalf", "Dumbledore", "Hagrid", "Obelix", "Asterix", "Horst Lichter", "Conchita Wurst", "Karl Marx", "Charles Darwin", "Leonardo da Vinci", "Jesus", "Jack Sparrow", "Miraculix"],
+    "normal": ["Davy Jones", "Barbossa", "Aragorn", "Gimli", "Thorin Eichenschild", "Dwalin", "Balin", "Radagast", "Saruman", "Dschafar", "Der Sultan", "Dschinni", "Triton", "König Theoden", "Käpt’n Blaubär"],
+    "schwer": ["Reinhold Messner", "Billy Gibbons", "Dusty Hill", "Johannes Brahms", "Friedrich Engels", "Leo Tolstoi", "Fjodor Dostojewski", "Abraham Lincoln", "Muten Roshi", "Käpt’n Haddock", "Otto von Bismarck", "Chuck Norris", "Peter Lustig", "Rick Rubin", "Robinson Crusoe"]
+  },
+  "Etwas, das rot ist": {
+    "leicht": ["Tomate", "Erdbeere", "Kirsche", "Himbeere", "Feuerwehrauto", "Stoppschild", "Rose", "Marienkäfer", "Blut", "Herz", "Weihnachtsmütze", "Paprika", "Rotkäppchen", "Hummer", "Krebs"],
+    "normal": ["Granatapfel", "Johannisbeere", "Preiselbeere", "Cranberry", "Radieschen", "Rote Bete", "Chili", "Hagebutte", "Fliegenpilz", "Rubin", "Feuerlöscher", "Briefkasten in England", "Telefonzelle in London", "Clownsnase", "Mars"],
+    "schwer": ["Kardinal", "Scharlachara", "Roter Panda", "Rhabarber", "Karneol", "Granat", "Zinnober", "Rost", "Tomatenmark", "Sangria", "Campari", "Rote Linsen", "Rooibostee", "Glühwein", "Roter Lippenstift"]
+  },
+  "Etwas Rundes": {
+    "leicht": ["Ball", "Kugel", "Münze", "Teller", "Pizza", "Rad", "Reifen", "Sonne", "Mond", "Erde", "Murmel", "Orange", "Seifenblase", "Hula-Hoop-Reifen", "Schneeball"],
+    "normal": ["Frisbee", "CD", "Schallplatte", "Uhr", "Knopf", "Knopfzelle", "Ring", "Donut", "Bagel", "Dartscheibe", "Bullauge", "Globus", "Bowlingkugel", "Billardkugel", "Puck"],
+    "schwer": ["Petrischale", "Diskus", "Schwimmring", "Rettungsring", "Kompass", "Zifferblatt", "Jonglierball", "Klangschale", "Gong", "Tamburin", "Riesenrad", "Mandala", "Rosette", "Oblate", "Kreisverkehr"]
+  },
+  "Etwas, das Lärm macht": {
+    "leicht": ["Trommel", "Schlagzeug", "Trompete", "Feuerwerk", "Sirene", "Wecker", "Staubsauger", "Bohrmaschine", "Presslufthammer", "Motorrad", "Flugzeug", "Hubschrauber", "Rasenmäher", "Donner", "Glocke"],
+    "normal": ["Kettensäge", "Laubbläser", "Mixer", "Föhn", "Waschmaschine", "Kaffeemühle", "Kreissäge", "Hupe", "Trillerpfeife", "Vuvuzela", "Megafon", "Dudelsack", "E-Gitarre", "Böller", "Rauchmelder"],
+    "schwer": ["Gong", "Amboss", "Schlagschrauber", "Dampflokomotive", "Düsenjet", "Schallkanone", "Nebelhorn", "Martinshorn", "Schrillalarm", "Metronom", "Klapper", "Ratsche", "Lautsprecher", "Ghettoblaster", "Traktor"]
+  },
+  "Vogel": {
+    "leicht": ["Amsel", "Spatz", "Taube", "Ente", "Gans", "Schwan", "Huhn", "Hahn", "Adler", "Eule", "Papagei", "Pinguin", "Strauß", "Flamingo", "Storch"],
+    "normal": ["Rotkehlchen", "Blaumeise", "Kohlmeise", "Elster", "Krähe", "Rabe", "Specht", "Kuckuck", "Schwalbe", "Möwe", "Reiher", "Pelikan", "Pfau", "Truthahn", "Wellensittich"],
+    "schwer": ["Eisvogel", "Wiedehopf", "Zaunkönig", "Nachtigall", "Lerche", "Drossel", "Buchfink", "Dompfaff", "Kormoran", "Albatros", "Tukan", "Kolibri", "Kranich", "Kakadu", "Bussard"]
+  },
+  "Obst oder Gemüse": {
+    "leicht": ["Apfel", "Banane", "Birne", "Orange", "Zitrone", "Erdbeere", "Kirsche", "Weintraube", "Wassermelone", "Tomate", "Gurke", "Karotte", "Kartoffel", "Zwiebel", "Paprika"],
+    "normal": ["Mango", "Ananas", "Kiwi", "Pfirsich", "Aprikose", "Pflaume", "Himbeere", "Brombeere", "Heidelbeere", "Brokkoli", "Blumenkohl", "Zucchini", "Aubergine", "Kürbis", "Spargel"],
+    "schwer": ["Litschi", "Maracuja", "Granatapfel", "Kaki", "Physalis", "Quitte", "Stachelbeere", "Johannisbeere", "Pastinake", "Topinambur", "Schwarzwurzel", "Mangold", "Fenchel", "Artischocke", "Wirsing"]
+  },
+  "Süßigkeit": {
+    "leicht": ["Schokolade", "Gummibärchen", "Bonbon", "Lutscher", "Kaugummi", "Lakritz", "Marshmallow", "Praline", "Keks", "Lebkuchen", "Marzipan", "Zuckerwatte", "Schokokuss", "Brausepulver", "Kaubonbon"],
+    "normal": ["Dominostein", "Nougat", "Karamell", "Toffee", "Schokoriegel", "Turrón", "Türkischer Honig", "Gebrannte Mandel", "Krokant", "Liebesapfel", "Schokolinsen", "Brausebonbon", "Fruchtgummi", "Weingummi", "Schokoladenbrezel"],
+    "schwer": ["Mozartkugel", "Trüffelpraline", "Florentiner", "Macaron", "Amarettini", "Cantuccini", "Löffelbiskuit", "Baiser", "Russisch Brot", "Spekulatius", "Printen", "Magenbrot", "Kandierter Ingwer", "Sesamriegel", "Gelee-Banane"]
+  },
+  "Cocktail oder Drink": {
+    "leicht": ["Bier", "Wein", "Sekt", "Champagner", "Radler", "Aperol Spritz", "Hugo", "Mojito", "Caipirinha", "Gin Tonic", "Wodka Lemon", "Rum-Cola", "Whisky-Cola", "Tequila Sunrise", "Piña Colada"],
+    "normal": ["Sex on the Beach", "Long Island Iced Tea", "Margarita", "Daiquiri", "Cosmopolitan", "Bloody Mary", "White Russian", "Moscow Mule", "Caipiroska", "Mai Tai", "Espresso Martini", "Negroni", "Bellini", "Kir Royal", "Irish Coffee"],
+    "schwer": ["Old Fashioned", "Manhattan", "Whisky Sour", "Amaretto Sour", "Pisco Sour", "Tom Collins", "Singapore Sling", "Planter's Punch", "Zombie", "Blue Lagoon", "Swimming Pool", "Grasshopper", "Rusty Nail", "French 75", "Dark ’n’ Stormy"]
+  },
+  "Brettspiel oder Kartenspiel": {
+    "leicht": ["Mensch ärgere Dich nicht", "Monopoly", "Uno", "Skat", "Rommé", "Poker", "Schach", "Dame", "Mühle", "Halma", "Memory", "Kniffel", "Mau-Mau", "Quartett", "Schwarzer Peter"],
+    "normal": ["Die Siedler von Catan", "Carcassonne", "Zug um Zug", "Risiko", "Cluedo", "Tabu", "Activity", "Scrabble", "Phase 10", "Skip-Bo", "Wizard", "Dixit", "Codenames", "Dobble", "Das verrückte Labyrinth"],
+    "schwer": ["Azul", "Flügelschlag", "Dominion", "7 Wonders", "Pandemic", "Scotland Yard", "Sagaland", "Bohnanza", "6 nimmt!", "Hanabi", "The Mind", "Qwixx", "Ligretto", "Alhambra", "King of Tokyo"]
+  },
+  "Kleidungsstück": {
+    "leicht": ["Hose", "T-Shirt", "Pullover", "Jacke", "Mantel", "Kleid", "Rock", "Hemd", "Bluse", "Socke", "Unterhose", "BH", "Schuh", "Mütze", "Schal"],
+    "normal": ["Strickjacke", "Kapuzenpullover", "Weste", "Blazer", "Anzug", "Smoking", "Badehose", "Bikini", "Badeanzug", "Leggings", "Strumpfhose", "Handschuh", "Krawatte", "Fliege", "Bademantel"],
+    "schwer": ["Poncho", "Parka", "Trenchcoat", "Dufflecoat", "Kimono", "Sari", "Kaftan", "Dirndl", "Lederhose", "Frack", "Overall", "Jumpsuit", "Baskenmütze", "Stulpe", "Unterrock"]
+  },
+  "Automarke": {
+    "leicht": ["Volkswagen", "BMW", "Mercedes-Benz", "Audi", "Opel", "Ford", "Toyota", "Renault", "Peugeot", "Fiat", "Ferrari", "Porsche", "Lamborghini", "Tesla", "Škoda"],
+    "normal": ["Seat", "Cupra", "Dacia", "Volvo", "Saab", "Citroën", "Hyundai", "Kia", "Mazda", "Nissan", "Honda", "Mitsubishi", "Suzuki", "Jeep", "Land Rover"],
+    "schwer": ["Alfa Romeo", "Lancia", "Maserati", "Bugatti", "Bentley", "Rolls-Royce", "Aston Martin", "Jaguar", "Lexus", "Subaru", "Chevrolet", "Cadillac", "Dodge", "Chrysler", "Mini"]
+  },
+  "Hunderasse": {
+    "leicht": ["Dackel", "Schäferhund", "Labrador Retriever", "Golden Retriever", "Pudel", "Mops", "Chihuahua", "Dalmatiner", "Boxer", "Beagle", "Husky", "Bernhardiner", "Rottweiler", "Dobermann", "Deutsche Dogge"],
+    "normal": ["Border Collie", "Australian Shepherd", "Jack Russell Terrier", "Yorkshire Terrier", "Malteser", "Havaneser", "Französische Bulldogge", "Englische Bulldogge", "Cocker Spaniel", "Berner Sennenhund", "Neufundländer", "Weimaraner", "Rhodesian Ridgeback", "Shiba Inu", "Akita"],
+    "schwer": ["Afghanischer Windhund", "Barsoi", "Whippet", "Greyhound", "Saluki", "Basenji", "Shar-Pei", "Chow-Chow", "Samojede", "Alaskan Malamute", "Leonberger", "Irish Wolfhound", "Airedale Terrier", "West Highland White Terrier", "Basset Hound"]
+  },
+  "Figur aus einem Cartoon für Erwachsene": {
+    "leicht": ["Homer Simpson", "Marge Simpson", "Bart Simpson", "Lisa Simpson", "Maggie Simpson", "Mr. Burns", "Ned Flanders", "Krusty der Clown", "Moe Szyslak", "Barney Gumble", "Peter Griffin", "Stewie Griffin", "Brian Griffin", "Eric Cartman", "Bender"],
+    "normal": ["Stan Marsh", "Kyle Broflovski", "Kenny McCormick", "Randy Marsh", "Lois Griffin", "Meg Griffin", "Chris Griffin", "Glenn Quagmire", "Cleveland Brown", "Stan Smith", "Roger", "Rick Sanchez", "Morty Smith", "Philip J. Fry", "Leela"],
+    "schwer": ["Professor Farnsworth", "Dr. Zoidberg", "Amy Wong", "Hermes Conrad", "Zapp Brannigan", "Kif Kroker", "Francine Smith", "Hayley Smith", "Steve Smith", "BoJack Horseman", "Diane Nguyen", "Princess Carolyn", "Mr. Peanutbutter", "Bob Belcher", "Daria Morgendorffer"]
+  },
+  "Etwas vom Junggesellenabschied": {
+    "leicht": ["Bauchladen", "Bollerwagen", "Bierkasten", "Sektflasche", "Partyhut", "Krone", "Schärpe", "T-Shirt mit Spruch", "Karaoke", "Limousine", "Bowling", "Kostüm", "Schnaps", "Konfetti", "Trinkspiel"],
+    "normal": ["Fotobox", "Schnitzeljagd", "Pubcrawl", "Bierpong", "Flaschendrehen", "Karaokemikrofon", "Einwegkamera", "Partybrille", "Federboa", "Cowboyhut", "Hasenohren", "Blumenkranz", "Team-Braut-Shirt", "Team-Bräutigam-Shirt", "Partybus"],
+    "schwer": ["Escape Room", "Lasertag", "Paintball", "Kartfahren", "Axtwerfen", "Whiskyverkostung", "Braukurs", "Cocktailkurs", "Floßfahrt", "Planwagenfahrt", "Fotochallenge", "Aufgabenkarte", "Erinnerungsalbum", "Freundschaftsarmband", "Bierbike"]
+  }
+}

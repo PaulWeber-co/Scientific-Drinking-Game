@@ -1,29 +1,5 @@
 /* ---------- Wer bin ich ---------- */
 
-/* Wer hat wie abgestimmt: Chips wie in der Lobby, die Stimme färbt den Rand. */
-.wbi-votes {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--s-2);
-}
-.wbi-vote--ja {
-  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
-}
-.wbi-vote--neu {
-  border-color: color-mix(in srgb, var(--orange) 55%, transparent);
-}
-.wbi-vote__status {
-  font-weight: 500;
-  color: var(--label-2);
-}
-.wbi-vote--ja .wbi-vote__status {
-  color: var(--mint);
-}
-.wbi-vote--neu .wbi-vote__status {
-  color: var(--orange);
-}
-
 .wbi-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -43,6 +19,18 @@
 .wbi-target .avatar {
   transform: scale(1.6);
   margin-block: var(--s-4);
+}
+
+/* Noch nichts gewählt: der Platzhalter steht leiser im Abzug. */
+.wbi-placeholder {
+  opacity: 0.5;
+}
+
+/* Auswahlliste der Kategorien: Pillen, die umbrechen. */
+.wbi-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s-1);
 }
 
 .wbi-input {

@@ -1,6 +1,7 @@
 import { shuffle } from '../../lib/format';
+import { isSpicyOn } from '../../store/app';
 import { customCardsFor } from '../../store/cards';
-import { spicyDeck } from '../shared/prompts';
+import { fitsGroup, spicyDeck } from '../shared/prompts';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import type { GameAction, GamePlayer } from '../types';
 import { CATEGORIES } from './categories';
@@ -9,8 +10,8 @@ import { CATEGORIES } from './categories';
  * Wer bin ich – die Regeln, ohne Oberfläche.
  *
  * Ablauf einer Runde:
- *   vote   Eine Kategorie für alle. Jede Person nimmt an oder will eine neue;
- *          Gleichstand oder mehr „neu" heißt: neu losen.
+ *   pick   Reihum bestimmt eine Person die Kategorie: würfeln, aus der Liste
+ *          nehmen oder frei eintippen – dazu die Schwierigkeit der Ideen.
  *   write  Die App lost einen Kreis – jede Person schreibt für genau eine
  *          andere einen Begriff aus der Kategorie.
  *   guess  Jedes Handy zeigt die Begriffe der anderen, der eigene bleibt
@@ -23,8 +24,10 @@ import { CATEGORIES } from './categories';
  * sonst müsste „Rückgängig" etwas zurückholen, das schon getrunken ist.
  */
 
-export type Phase = 'vote' | 'write' | 'guess' | 'done' | 'over';
-export type Vote = 'ja' | 'neu';
+export type Phase = 'pick' | 'write' | 'guess' | 'done' | 'over';
+/** Wie bekannt die Vorschläge hinter „Idee" sind. Wirkt nur auf die Ideen. */
+export type Level = 'leicht' | 'normal' | 'schwer';
+export const LEVELS: readonly Level[] = ['leicht', 'normal', 'schwer'];
 
 export interface Term {
   text: string;
@@ -47,9 +50,15 @@ export interface State {
   catDeck: number[];
   customCats: string[];
   cat: number;
-  votes: Record<string, Vote>;
-  /** Ergebnis der letzten Abstimmung dieser Runde – fürs „neu gelost". */
-  lastVote: { ja: number; neu: number } | null;
+  /** Ob Spicy-Kategorien erlaubt sind – der Schalter steht beim Host, die Liste zeigt jedes Gerät. */
+  spicy: boolean;
+  /** Wer diese Runde die Kategorie bestimmt. */
+  chooser: string;
+  /** Wer in diesem Durchgang schon gewählt hat – sind alle durch, beginnt er neu. */
+  chose: string[];
+  /** Seit wann gewählt wird – danach darf der Host für eine hängende Person würfeln. */
+  pickSince: number;
+  level: Level;
   /** Kreis der Runde: jede Person schreibt für die nächste Anwesende. */
   ring: string[];
   /** Begriffe, nach der Person, die ihn erraten muss. */
@@ -72,6 +81,8 @@ export const DEAL_SIPS = 3;
 /** Pro Runde verliert nur eine Person, deshalb etwas mehr. */
 export const LAST_SIPS = 5;
 export const MAX_TERM = 40;
+/** So lange hat die wählende Person Zeit, bevor der Host für sie würfeln darf. */
+export const PICK_WAIT_MS = 10_000;
 
 const GAME_ID = 'wer-bin-ich';
 const ROUND_BASE = baseFor(GAME_ID);
@@ -83,6 +94,34 @@ const present = (players: GamePlayer[]) =>
 function mayLead(players: GamePlayer[], by: string): boolean {
   const host = players.find((p) => p.isHost);
   return !host || host.id === by;
+}
+
+/**
+ * Wer als Nächstes wählt: die erste Anwesende in Lobby-Reihenfolge, die in
+ * diesem Durchgang noch nicht dran war. Wer später dazukommt, ist im selben
+ * Durchgang noch an der Reihe; wer geht, wird übersprungen.
+ */
+function nextChooser(chose: string[], players: GamePlayer[]): { chooser: string; chose: string[] } {
+  const here = present(players);
+  const open = here.filter((id) => !chose.includes(id));
+  if (open.length) return { chooser: open[0], chose };
+  return { chooser: here[0] ?? '', chose: [] };
+}
+
+/** Darf `by` gerade für die wählende Person würfeln? Sie selbst immer, der Host nur, wenn sie weg ist oder hängt. */
+export function mayPickRandom(state: State, players: GamePlayer[], by: string, now: number): boolean {
+  if (present(players).length < 2) return false;
+  if (by === state.chooser) return true;
+  if (!mayLead(players, by) || !present(players).includes(by)) return false;
+  return !present(players).includes(state.chooser) || now >= state.pickSince + PICK_WAIT_MS;
+}
+
+/** Kategorien, die diese Runde zur Wahl stehen – eingebaute als Index, eigene als negative Zahl. */
+export function choosableCats(state: Pick<State, 'spicy' | 'customCats'>, playerCount: number): number[] {
+  const builtIn = CATEGORIES.map((_, i) => i).filter(
+    (i) => (state.spicy || !CATEGORIES[i].spicy) && fitsGroup(CATEGORIES[i], playerCount),
+  );
+  return [...builtIn, ...state.customCats.map((_, i) => -i - 1)];
 }
 
 export function categoryText(state: Pick<State, 'cat' | 'customCats'>): string {
@@ -137,10 +176,6 @@ export function openIds(state: State, players: GamePlayer[]): string[] {
  * die den Zustand von selbst weiterschiebt.
  */
 export function canSettle(state: State, players: GamePlayer[], now: number): boolean {
-  if (state.phase === 'vote') {
-    const voters = present(players);
-    return voters.length >= 2 && voters.every((id) => state.votes[id]);
-  }
   if (state.phase === 'write') {
     return activeRing(state, players).length < 2 || missingWriters(state, players).length === 0;
   }
@@ -159,34 +194,47 @@ function drawCategory(state: State, players: GamePlayer[]): State {
   let deck = state.catDeck.length ? state.catDeck : catDeckOf(state.customCats, players.length);
   // Nicht zweimal dieselbe hintereinander, wenn der Stapel neu gemischt wurde.
   if (deck.length > 1 && deck[0] === state.cat) deck = [...deck.slice(1), deck[0]];
-  return { ...state, cat: deck[0], catDeck: deck.slice(1), votes: {} };
+  return { ...state, cat: deck[0], catDeck: deck.slice(1) };
 }
 
-function newRound(state: State, players: GamePlayer[], round: number): State {
-  return drawCategory(
-    {
-      ...state,
-      phase: 'vote',
-      round,
-      lastVote: null,
-      ring: [],
-      terms: {},
-      marks: [],
-      dealt: null,
-      last: null,
-    },
-    players,
-  );
+function newRound(state: State, players: GamePlayer[], round: number, at: number): State {
+  return {
+    ...state,
+    ...nextChooser(state.chose, players),
+    phase: 'pick',
+    round,
+    pickSince: at,
+    ring: [],
+    terms: {},
+    marks: [],
+    dealt: null,
+    last: null,
+  };
 }
 
-function tally(state: State, players: GamePlayer[]): State {
-  const here = present(players);
-  const ja = here.filter((id) => state.votes[id] === 'ja').length;
-  const neu = here.filter((id) => state.votes[id] === 'neu').length;
-  if (ja > neu && here.length >= 2) {
-    return { ...state, phase: 'write', lastVote: { ja, neu }, votes: {}, ring: shuffle(here) };
-  }
-  return { ...drawCategory(state, players), lastVote: { ja, neu } };
+/**
+ * Freitext wird zur eigenen Kategorie dieser Partie. Heißt er wie eine
+ * eingebaute, gilt die eingebaute – dann gibt es auch Ideen dazu.
+ */
+function catFromText(state: State, text: string): { cat: number; customCats: string[] } {
+  const key = text.toLocaleLowerCase('de');
+  const builtIn = CATEGORIES.findIndex((c) => c.text.toLocaleLowerCase('de') === key);
+  if (builtIn >= 0) return { cat: builtIn, customCats: state.customCats };
+  const own = state.customCats.findIndex((c) => c.toLocaleLowerCase('de') === key);
+  if (own >= 0) return { cat: -own - 1, customCats: state.customCats };
+  return { cat: -state.customCats.length - 1, customCats: [...state.customCats, text] };
+}
+
+/** Kategorie steht – der Kreis wird gelost, alle schreiben. */
+function startWrite(state: State, players: GamePlayer[]): State {
+  return {
+    ...state,
+    phase: 'write',
+    // Gewählt ist gewählt – der Würfel bietet sie in dieser Partie nicht noch einmal an.
+    catDeck: state.catDeck.filter((c) => c !== state.cat),
+    chose: state.chose.includes(state.chooser) ? state.chose : [...state.chose, state.chooser],
+    ring: shuffle(present(players)),
+  };
 }
 
 /**
@@ -237,14 +285,16 @@ export function createState(players: GamePlayer[]): State {
   const customCats = customCardsFor(GAME_ID).map((c) => c.text);
   const catDeck = catDeckOf(customCats, players.length);
   return {
-    phase: 'vote',
+    phase: 'pick',
     round: 1,
     goal: roundGoal(ROUND_BASE),
     catDeck: catDeck.slice(1),
     customCats,
     cat: catDeck[0] ?? 0,
-    votes: {},
-    lastVote: null,
+    spicy: isSpicyOn(GAME_ID),
+    ...nextChooser([], players),
+    pickSince: Date.now(),
+    level: 'normal',
     ring: [],
     terms: {},
     marks: [],
@@ -259,19 +309,22 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
   const at = typeof action.at === 'number' ? action.at : Date.now();
   switch (action.type) {
     // ---------- Kategorie ----------
-    case 'accept':
-    case 'reject': {
-      if (state.phase !== 'vote' || !present(players).includes(action.by)) return state;
-      const vote: Vote = action.type === 'accept' ? 'ja' : 'neu';
-      if (state.votes[action.by] === vote) return state;
-      const next = { ...state, votes: { ...state.votes, [action.by]: vote } };
-      return canSettle(next, players, at) ? tally(next, players) : next;
-    }
-    case 'skip': {
-      // Der Host zieht vor, wenn jemand nicht abstimmt. Gezählt wird, was da ist.
-      if (state.phase !== 'vote' || !mayLead(players, action.by)) return state;
-      if (!Object.keys(state.votes).length) return state;
-      return tally(state, players);
+    case 'pick': {
+      // Genau eins von drei: `random`, `cat` (aus der Liste) oder `text` (frei).
+      if (state.phase !== 'pick' || present(players).length < 2) return state;
+      const level = LEVELS.includes(action.level as Level) ? (action.level as Level) : state.level;
+      if (action.random === true) {
+        if (!mayPickRandom(state, players, action.by, at)) return state;
+        return startWrite({ ...drawCategory(state, players), level }, players);
+      }
+      if (action.by !== state.chooser) return state;
+      if (typeof action.cat === 'number') {
+        if (!choosableCats(state, players.length).includes(action.cat)) return state;
+        return startWrite({ ...state, cat: action.cat, level }, players);
+      }
+      const text = cleanTerm(action.text);
+      if (!text) return state;
+      return startWrite({ ...state, ...catFromText(state, text), level }, players);
     }
 
     // ---------- Schreiben ----------
@@ -324,10 +377,9 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
     // ---------- Weiter ----------
     case 'settle': {
       if (!canSettle(state, players, at)) return state;
-      if (state.phase === 'vote') return tally(state, players);
       if (state.phase === 'write') {
-        // Alle bis auf eine Person sind gegangen – dann neu abstimmen.
-        if (activeRing(state, players).length < 2) return newRound(state, players, state.round);
+        // Alle bis auf eine Person sind gegangen – dann neu wählen.
+        if (activeRing(state, players).length < 2) return newRound(state, players, state.round, at);
         return startGuess(state);
       }
       return finishRound(state, players);
@@ -336,7 +388,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
       if (state.phase !== 'done' || !mayLead(players, action.by)) return state;
       const round = state.round + 1;
       if (isOver(round, state.goal)) return { ...state, round, phase: 'over' };
-      return newRound(state, players, round);
+      return newRound(state, players, round, at);
     }
     case 'restart': {
       if (state.phase !== 'over') return state;

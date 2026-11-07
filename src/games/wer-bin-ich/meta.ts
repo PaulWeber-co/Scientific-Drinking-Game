@@ -21,8 +21,8 @@ export const meta: GameMeta = {
   allowSpicy: true,
   allowCustomCards: true,
   howTo: [
-    'Jede Person braucht ein eigenes Handy. Alle bekommen dieselbe Kategorie und stimmen ab: annehmen oder neu losen.',
-    'Die App lost aus, wer für wen schreibt. Du denkst dir für deine Person einen Begriff aus der Kategorie aus – sie sieht ihn nicht, alle anderen schon.',
+    'Jede Person braucht ein eigenes Handy. Reihum bestimmt eine Person die Kategorie: würfeln, aus der Liste nehmen oder selbst eintippen.',
+    'Die App lost aus, wer für wen schreibt. Du denkst dir für deine Person einen Begriff aus der Kategorie aus – sie sieht ihn nicht, alle anderen schon. Keine Idee? „Idee" schlägt dir einen vor, leicht, normal oder schwer.',
     'Reihum stellt ihr Ja-/Nein-Fragen, um euren eigenen Begriff zu erraten. Liegt jemand richtig, tippt irgendwer am Tisch bei ihm auf „Richtig".',
     'Wer als Erstes richtig liegt, verteilt Schlucke. Wer als Letztes übrig bleibt, trinkt.',
   ],
