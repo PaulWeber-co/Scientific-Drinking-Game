@@ -120,6 +120,10 @@ const VARIANTS: Record<string, unknown>[] = [
   { slot: 51 },
   { slot: 200 },
   { heat: 2, answer: 'aussen', value: 0 },
+  // Wer bin ich: die Kategorie würfeln oder aus der Liste nehmen, dazu die Stufe.
+  { random: true, level: 'schwer' },
+  { cat: 0, level: 'leicht' },
+  { cat: -1, random: false, level: 'brutal' },
   // Stichmagie: Einrichten (Sonderkarte, Voreinstellung, Regel, Länge) und
   // die Wahl beim Ausspielen (Farbe, Gestalt). `take` ist wie `card` eine
   // Kartennummer – die echten Werte liefert `turnVariants()` aus dem Zustand.

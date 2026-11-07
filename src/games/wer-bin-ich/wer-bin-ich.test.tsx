@@ -12,6 +12,7 @@ import {
   createState,
   DEAL_SIPS,
   LAST_SIPS,
+  PICK_WAIT_MS,
   reduce,
   targetOf,
   UNDO_MS,
@@ -51,11 +52,10 @@ const act = (type: string, by = 'p0', extra: Record<string, unknown> = {}): Game
   ...extra,
 });
 
-/** Alle nehmen die Kategorie an – danach ist der Kreis gelost. */
+/** Die wählende Person würfelt – danach ist der Kreis gelost. */
 function accepted(roster: GamePlayer[]): State {
-  let s = createState(roster);
-  for (const p of roster) s = reduce(s, act('accept', p.id), roster);
-  return s;
+  const s = createState(roster);
+  return reduce(s, act('pick', s.chooser, { random: true }), roster);
 }
 
 /** Alle schreiben; der Begriff sagt, für wen er ist. */
@@ -100,53 +100,98 @@ describe('Wer bin ich: Kreis', () => {
 });
 
 describe('Wer bin ich: Kategorie', () => {
-  it('nimmt bei 3 zu 2 an', () => {
-    const roster = players(5);
-    let s = createState(roster);
-    for (const id of ['p0', 'p1', 'p2']) s = reduce(s, act('accept', id), roster);
-    for (const id of ['p3', 'p4']) s = reduce(s, act('reject', id), roster);
-    expect(s.phase).toBe('write');
-    expect(s.lastVote).toEqual({ ja: 3, neu: 2 });
-  });
+  const tier = CATEGORIES.findIndex((c) => c.text === 'Tier');
 
-  it('lost bei Gleichstand neu', () => {
-    const roster = players(4);
-    let s = createState(roster);
-    const vorher = s.cat;
-    for (const id of ['p0', 'p1']) s = reduce(s, act('accept', id), roster);
-    for (const id of ['p2', 'p3']) s = reduce(s, act('reject', id), roster);
-    expect(s.phase).toBe('vote');
-    expect(s.cat).not.toBe(vorher);
-    expect(s.votes).toEqual({});
-    expect(s.lastVote).toEqual({ ja: 2, neu: 2 });
-  });
-
-  it('lost bei 2 zu 3 neu', () => {
-    const roster = players(5);
-    let s = createState(roster);
-    const vorher = s.cat;
-    for (const id of ['p0', 'p1']) s = reduce(s, act('accept', id), roster);
-    for (const id of ['p2', 'p3', 'p4']) s = reduce(s, act('reject', id), roster);
-    expect(s.phase).toBe('vote');
-    expect(s.cat).not.toBe(vorher);
-  });
-
-  it('wartet, bis alle abgestimmt haben – der Host kann vorziehen', () => {
+  it('lässt reihum in Lobby-Reihenfolge wählen, jede Person einmal je Durchgang', () => {
     const roster = players(3).map((p, i) => ({ ...p, isHost: i === 0 }));
     let s = createState(roster);
-    s = reduce(s, act('accept', 'p0'), roster);
-    s = reduce(s, act('accept', 'p1'), roster);
-    expect(s.phase).toBe('vote');
-    expect(reduce(s, act('skip', 'p1'), roster), 'nur der Host zieht vor').toBe(s);
-    expect(reduce(s, act('skip', 'p0'), roster).phase).toBe('write');
+    const reihe: string[] = [];
+    for (let runde = 0; runde < 7; runde++) {
+      expect(s.phase).toBe('pick');
+      reihe.push(s.chooser);
+      s = reduce(s, act('pick', s.chooser, { cat: tier }), roster);
+      for (const p of roster) s = reduce(s, act('write', p.id, { text: `x ${p.id}` }), roster);
+      s = reduce(s, act('mark', 'p0', { target: 'p0' }), roster);
+      s = reduce(s, act('mark', 'p0', { target: 'p1' }), roster);
+      s = reduce(s, { ...act('settle'), at: T0 + UNDO_MS }, roster);
+      s = reduce({ ...s, goal: null }, act('next', 'p0'), roster);
+    }
+    expect(reihe).toEqual(['p0', 'p1', 'p2', 'p0', 'p1', 'p2', 'p0']);
   });
 
-  it('nimmt Spicy-Kategorien nur mit Schalter in den Stapel', () => {
+  it('überspringt, wer gegangen ist, und lässt Neue im selben Durchgang dran', () => {
+    const roster = players(4);
+    const ohneP1 = roster.map((p) => (p.id === 'p1' ? { ...p, online: false } : p));
+    let s = { ...createState(roster), chose: ['p0'] };
+    s = reduce({ ...s, phase: 'done' as const }, act('next', 'p0'), ohneP1);
+    expect(s.chooser, 'p1 ist weg').toBe('p2');
+    s = { ...s, chose: ['p0', 'p2', 'p3'] };
+    s = reduce({ ...s, phase: 'done' as const, goal: null }, act('next', 'p0'), roster);
+    expect(s.chooser, 'p1 ist zurück und noch nicht dran gewesen').toBe('p1');
+  });
+
+  it('nimmt nur die Wahl der Person an, die dran ist', () => {
     const roster = players(3);
-    const spicy = (s: State) => [s.cat, ...s.catDeck].filter((i) => i >= 0 && CATEGORIES[i].spicy);
+    const s = createState(roster);
+    const andere = roster.find((p) => p.id !== s.chooser)!.id;
+    expect(reduce(s, act('pick', andere, { cat: tier }), roster)).toBe(s);
+    expect(reduce(s, act('pick', andere, { random: true }), roster), 'kein Host markiert, aber nicht dran').toBe(s);
+    const weiter = reduce(s, act('pick', s.chooser, { cat: tier, level: 'schwer' }), roster);
+    expect(weiter.phase).toBe('write');
+    expect(categoryText(weiter)).toBe('Tier');
+    expect(weiter.level).toBe('schwer');
+    expect(weiter.chose).toEqual([s.chooser]);
+  });
+
+  it('lässt den Host erst nach der Frist oder sofort bei Abwesenheit würfeln', () => {
+    const roster = players(3).map((p, i) => ({ ...p, isHost: i === 0 }));
+    const s = { ...createState(roster), chooser: 'p1', pickSince: T0 };
+    expect(reduce(s, act('pick', 'p0', { random: true }), roster), 'vor der Frist').toBe(s);
+    expect(reduce(s, act('pick', 'p2', { random: true, at: T0 + PICK_WAIT_MS }), roster), 'nur der Host').toBe(s);
+    const spaet = reduce(s, { ...act('pick', 'p0', { random: true }), at: T0 + PICK_WAIT_MS }, roster);
+    expect(spaet.phase).toBe('write');
+    const ohneP1 = roster.map((p) => (p.id === 'p1' ? { ...p, online: false } : p));
+    const sofort = reduce(s, act('pick', 'p0', { random: true }), ohneP1);
+    expect(sofort.phase).toBe('write');
+    expect(sofort.ring).not.toContain('p1');
+    expect(reduce(s, act('pick', 'p0', { cat: tier }), ohneP1), 'aus der Liste wählt nur, wer dran ist').toBe(s);
+    const allein = roster.map((p) => (p.id === 'p0' ? p : { ...p, online: false }));
+    expect(reduce(s, act('pick', 'p0', { random: true }), allein), 'allein wird nicht gespielt').toBe(s);
+  });
+
+  it('macht Freitext zur eigenen Kategorie, eingebaute Namen bleiben eingebaut', () => {
+    const roster = players(3);
+    const s = createState(roster);
+    const frei = reduce(s, act('pick', s.chooser, { text: '  Lehrer   an unserer Schule ' }), roster);
+    expect(categoryText(frei)).toBe('Lehrer an unserer Schule');
+    expect(frei.cat).toBeLessThan(0);
+    const bekannt = reduce(s, act('pick', s.chooser, { text: 'tier' }), roster);
+    expect(bekannt.cat, 'Freitext „tier" ist die eingebaute Kategorie').toBe(tier);
+    expect(bekannt.customCats).toEqual(s.customCats);
+    expect(reduce(s, act('pick', s.chooser, { text: '   ' }), roster), 'leer zählt nicht').toBe(s);
+    const lang = reduce(s, act('pick', s.chooser, { text: 'x'.repeat(80) }), roster);
+    expect(categoryText(lang).length).toBe(40);
+  });
+
+  it('weist unbekannte Kategorien und Stufen ab', () => {
+    const roster = players(3);
+    const s = createState(roster);
+    expect(reduce(s, act('pick', s.chooser, { cat: CATEGORIES.length }), roster)).toBe(s);
+    expect(reduce(s, act('pick', s.chooser, { cat: -1 }), roster), 'keine eigenen Kategorien').toBe(s);
+    expect(reduce(s, act('pick', s.chooser, { cat: tier, level: 'brutal' }), roster).level).toBe('normal');
+  });
+
+  it('lässt Spicy-Kategorien nur mit Schalter wählen und würfeln', () => {
+    const roster = players(3);
+    const spicyIdx = CATEGORIES.findIndex((c) => c.spicy);
+    const s = createState(roster);
+    expect(reduce(s, act('pick', s.chooser, { cat: spicyIdx }), roster), 'ohne Schalter').toBe(s);
+    const spicy = (st: State) => [st.cat, ...st.catDeck].filter((i) => i >= 0 && CATEGORIES[i].spicy);
     for (let k = 0; k < 10; k++) expect(spicy(createState(roster))).toEqual([]);
     useApp.setState({ spicy: { 'wer-bin-ich': true } });
-    expect(spicy(createState(roster)).length).toBe(CATEGORIES.filter((c) => c.spicy).length);
+    const an = createState(roster);
+    expect(spicy(an).length).toBe(CATEGORIES.filter((c) => c.spicy).length);
+    expect(reduce(an, act('pick', an.chooser, { cat: spicyIdx }), roster).phase).toBe('write');
   });
 
   it('mischt eigene Kategorien ein', () => {
@@ -157,6 +202,7 @@ describe('Wer bin ich: Kategorie', () => {
     expect(s.customCats).toEqual(['Leute aus unserer WG']);
     expect([s.cat, ...s.catDeck]).toContain(-1);
     expect(categoryText({ cat: -1, customCats: s.customCats })).toBe('Leute aus unserer WG');
+    expect(reduce(s, act('pick', s.chooser, { cat: -1 }), players(3)).phase).toBe('write');
   });
 });
 
@@ -297,27 +343,26 @@ describe('Wer bin ich: Raten', () => {
 describe('Wer bin ich: Phasen', () => {
   it('weist jede Aktion außerhalb ihrer Phase ab', () => {
     const roster = players(3).map((p, i) => ({ ...p, isHost: i === 0 }));
-    const vote = createState(roster);
+    const pick = createState(roster);
     const write = accepted(roster);
     const guess = written(roster);
     const versuche: [string, State, GameAction][] = [
-      ['accept beim Schreiben', write, act('accept', 'p1')],
-      ['reject beim Raten', guess, act('reject', 'p1')],
-      // Mit übrig gebliebener Stimme bzw. Treffer: sonst sperrt schon das
-      // fehlende Material, und die Phasenprüfung selbst bliebe ungetestet.
-      ['skip beim Schreiben', { ...write, votes: { p1: 'ja' } }, act('skip', 'p0')],
-      ['write beim Abstimmen', vote, act('write', 'p1', { text: 'x' })],
+      // Wählende Person passend gesetzt: sonst sperrt schon die Personenprüfung,
+      // und die Phasenprüfung selbst bliebe ungetestet.
+      ['pick beim Schreiben', { ...write, chooser: 'p1' }, act('pick', 'p1', { cat: 0 })],
+      ['würfeln beim Raten', { ...guess, chooser: 'p1' }, act('pick', 'p1', { random: true })],
+      ['write beim Wählen', pick, act('write', 'p1', { text: 'x' })],
       ['write beim Raten', guess, act('write', 'p1', { text: 'x' })],
       ['unwrite beim Raten', guess, act('unwrite', 'p0')],
       ['mark beim Schreiben', write, act('mark', 'p1', { target: 'p2' })],
-      ['undo beim Abstimmen', { ...vote, marks: [{ id: 'p2', at: T0 }] }, act('undo', 'p1', { target: 'p2' })],
+      ['undo beim Wählen', { ...pick, marks: [{ id: 'p2', at: T0 }] }, act('undo', 'p1', { target: 'p2' })],
       [
         'deal beim Schreiben',
         { ...write, marks: [{ id: 'p1', at: T0 - UNDO_MS }] },
         act('deal', 'p1', { counts: { p0: 3 } }),
       ],
       ['next beim Raten', guess, act('next', 'p0')],
-      ['settle beim Abstimmen ohne Stimmen', vote, act('settle')],
+      ['settle beim Wählen', pick, act('settle')],
       ['restart beim Raten', guess, act('restart', 'p0')],
     ];
     for (const [name, s, a] of versuche) expect(reduce(s, a, roster), name).toBe(s);
@@ -331,7 +376,8 @@ describe('Wer bin ich: Phasen', () => {
     expect(s.phase).toBe('done');
     expect(reduce(s, act('next', 'p1'), roster), 'Gast schaltet nicht weiter').toBe(s);
     const weiter = reduce(s, act('next', 'p0'), roster);
-    expect(weiter.phase).toBe('vote');
+    expect(weiter.phase).toBe('pick');
+    expect(weiter.chooser, 'nach p0 ist p1 dran').toBe('p1');
     expect(weiter.round).toBe(2);
     expect(weiter.marks).toEqual([]);
     expect(weiter.losses).toEqual({ p1: 1 });

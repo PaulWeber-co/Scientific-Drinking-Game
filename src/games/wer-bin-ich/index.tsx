@@ -11,22 +11,29 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { BigCard, RankTag, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
+import { CATEGORIES, type CategoryGroup } from './categories';
 import {
   activeRing,
   canSettle,
   categoryText,
+  choosableCats,
   createState,
   DEAL_SIPS,
   firstFinal,
   isFinal,
   isGuessed,
   LAST_SIPS,
+  LEVELS,
+  MAX_TERM,
+  mayPickRandom,
   missingWriters,
   openIds,
   reduce,
   targetOf,
+  type Level,
   type State,
 } from './game';
+import { hasIdeas, loadPool, nextIdea } from './ideas';
 import { meta } from './meta';
 
 export type { State } from './game';
@@ -73,7 +80,7 @@ function WerBinIchGame({ state, players, me, isHost, dispatch, online, quit }: G
   const settleSince = useRef<number | null>(null);
   const lastSent = useRef(0);
   useEffect(() => {
-    if (!state || !['vote', 'write', 'guess'].includes(state.phase)) return;
+    if (!state || !['write', 'guess'].includes(state.phase)) return;
     const t = setInterval(() => {
       const at = Date.now();
       if (!canSettle(state, players, at)) {
@@ -131,7 +138,7 @@ function WerBinIchGame({ state, players, me, isHost, dispatch, online, quit }: G
   }
 
   const subtitle =
-    state.phase === 'vote'
+    state.phase === 'pick'
       ? `${roundLabel} · Kategorie`
       : state.phase === 'write'
         ? `${roundLabel} · Schreiben`
@@ -141,8 +148,8 @@ function WerBinIchGame({ state, players, me, isHost, dispatch, online, quit }: G
 
   return (
     <GameFrame title={meta.name} accent={meta.accent} subtitle={subtitle} onQuit={quit}>
-      {state.phase === 'vote' && (
-        <VoteStep state={state} players={players} me={me} isHost={isHost} category={category} roundLabel={roundLabel} send={send} />
+      {state.phase === 'pick' && (
+        <PickStep state={state} players={players} me={me} roundLabel={roundLabel} nameOf={nameOf} send={send} />
       )}
       {state.phase === 'write' && (
         <WriteStep state={state} players={players} me={me} category={category} nameOf={nameOf} send={send} />
@@ -170,89 +177,228 @@ interface StepProps {
   send: (a: GameActionInput) => void;
 }
 
-function VoteStep({
+const GROUPS: CategoryGroup[] = ['Menschen', 'Figuren', 'Eigenschaften', 'Dinge'];
+
+type Choice = { cat: number } | { text: string };
+
+function PickStep({
   state,
   players,
   me,
-  isHost,
-  category,
+  roundLabel,
+  nameOf,
+  send,
+}: StepProps & { roundLabel: string; nameOf: (id: string) => string }) {
+  if (state.chooser === me.id) return <ChooseCategory state={state} players={players} roundLabel={roundLabel} send={send} />;
+  return <WaitForChooser state={state} players={players} me={me} roundLabel={roundLabel} nameOf={nameOf} send={send} />;
+}
+
+function ChooseCategory({
+  state,
+  players,
   roundLabel,
   send,
-}: StepProps & { isHost: boolean; category: string; roundLabel: string }) {
-  const here = players.filter((p) => p.online !== false);
-  const missing = here.filter((p) => !state.votes[p.id]);
-  const mine = state.votes[me.id];
-  const vote = (type: 'accept' | 'reject') => {
+}: Omit<StepProps, 'me'> & { roundLabel: string }) {
+  const [choice, setChoice] = useState<Choice | null>(null);
+  const [level, setLevel] = useState<Level>(state.level);
+  const [rolls, setRolls] = useState(0);
+  const [list, setList] = useState(false);
+  const [query, setQuery] = useState('');
+  const allowed = choosableCats(state, players.length);
+  // Der Würfel geht den gemischten Stapel des Hosts entlang – kein Zufall auf
+  // diesem Gerät, und Frisches kommt zuerst.
+  const deck = state.catDeck.filter((c) => allowed.includes(c));
+  const dice = deck.length ? deck : allowed;
+  const text = choice
+    ? 'cat' in choice
+      ? categoryText({ cat: choice.cat, customCats: state.customCats })
+      : choice.text
+    : '';
+  const typed = choice && 'text' in choice ? choice.text : '';
+  const needle = query.trim().toLocaleLowerCase('de');
+  const matches = (c: number) =>
+    !needle || categoryText({ cat: c, customCats: state.customCats }).toLocaleLowerCase('de').includes(needle);
+
+  const roll = () => {
     haptic('select');
-    send({ type });
+    let i = rolls;
+    if (dice.length > 1 && choice && 'cat' in choice && dice[i % dice.length] === choice.cat) i++;
+    setChoice({ cat: dice[i % dice.length] });
+    setRolls(i + 1);
+  };
+  const confirm = () => {
+    if (!choice) return;
+    haptic('success');
+    send({ type: 'pick', level, ...choice });
   };
 
   return (
     <div className="stack-3">
       <BigCard
-        kicker={`Kategorie für alle · ${roundLabel}`}
-        footer="Jede Person denkt sich für ihr Gegenüber etwas aus dieser Kategorie aus."
+        kicker={`Du bist dran · ${roundLabel}`}
+        footer={
+          !text
+            ? 'Alle anderen warten auf dich.'
+            : hasIdeas(text)
+              ? `Ideen: ${level}`
+              : 'Zu dieser Kategorie gibt es keine Ideen.'
+        }
       >
-        {category}
+        {text || <span className="wbi-placeholder">Was wird’s diesmal?</span>}
       </BigCard>
 
-      {state.lastVote && (
-        <div className="notice notice--orange" role="status">
-          {state.lastVote.ja} zu {state.lastVote.neu} – es wurde neu gelost.
+      <div className="wbi-pair">
+        <button className="btn btn--glass btn--lg" onClick={roll}>
+          <Icon name="shuffle" size={18} /> Würfeln
+        </button>
+        <button
+          className="btn btn--glass btn--lg"
+          onClick={() => {
+            haptic('tap');
+            setList(true);
+          }}
+        >
+          <Icon name="cards" size={18} /> Liste
+        </button>
+      </div>
+
+      <div className="field">
+        <label className="field__label" htmlFor="wbi-kategorie">
+          Oder selbst eintippen
+        </label>
+        <input
+          id="wbi-kategorie"
+          className="input wbi-input"
+          value={typed}
+          maxLength={MAX_TERM}
+          autoComplete="off"
+          enterKeyHint="done"
+          placeholder="z. B. Unsere Lehrer"
+          onChange={(e) => setChoice(e.target.value.trim() ? { text: e.target.value } : null)}
+          onKeyDown={(e) => e.key === 'Enter' && confirm()}
+        />
+      </div>
+
+      {(!text || hasIdeas(text)) && (
+        <div className="field">
+          <span className="field__label">Schwierigkeit der Ideen</span>
+          <div className="segmented" role="group" aria-label="Schwierigkeit der Ideen">
+            {LEVELS.map((l) => (
+              <button
+                key={l}
+                className="segmented__opt"
+                aria-pressed={level === l}
+                onClick={() => {
+                  haptic('select');
+                  setLevel(l);
+                }}
+              >
+                {l[0].toUpperCase() + l.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="wbi-votes">
-        {here.map((p) => {
-          const v = state.votes[p.id];
-          return (
-            <span key={p.id} className={`pchip wbi-vote ${v ? `wbi-vote--${v}` : ''}`}>
-              <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
-              <span className="pchip__name">{p.id === me.id ? 'Du' : p.name}</span>
-              <span className="wbi-vote__status">
-                {p.id === me.id
-                  ? v === 'ja'
-                    ? 'nimmst an'
-                    : v === 'neu'
-                      ? 'willst neu'
-                      : 'stimmst ab …'
-                  : v === 'ja'
-                    ? 'nimmt an'
-                    : v === 'neu'
-                      ? 'will neu'
-                      : 'stimmt ab …'}
-              </span>
-            </span>
-          );
-        })}
-      </div>
+      <button className="btn btn--brand btn--block btn--lg" disabled={!choice} onClick={confirm}>
+        Los geht’s
+      </button>
 
-      <div className="wbi-pair">
-        <button
-          className="btn btn--glass btn--lg"
-          aria-pressed={mine === 'neu'}
-          onClick={() => vote('reject')}
-        >
-          <Icon name={mine === 'neu' ? 'check' : 'refresh'} size={18} /> Neu losen
-        </button>
-        <button
-          className="btn btn--brand btn--lg"
-          aria-pressed={mine === 'ja'}
-          onClick={() => vote('accept')}
-        >
-          {mine === 'ja' && <Icon name="check" size={18} />} Annehmen
-        </button>
-      </div>
+      <Sheet open={list} onClose={() => setList(false)} title="Kategorie wählen">
+        <div className="stack-3">
+          <input
+            className="input"
+            type="search"
+            aria-label="Kategorie suchen"
+            placeholder="Suchen"
+            autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {[
+            ...GROUPS.map((g) => ({
+              title: g,
+              cats: allowed.filter((c) => c >= 0 && CATEGORIES[c].group === g),
+            })),
+            { title: 'Eure eigenen', cats: allowed.filter((c) => c < 0) },
+          ]
+            .map((sec) => ({ ...sec, cats: sec.cats.filter(matches) }))
+            .filter((sec) => sec.cats.length)
+            .map((sec) => (
+              <section key={sec.title} className="stack-2">
+                <h3 className="t-caption t-upper">{sec.title}</h3>
+                <div className="wbi-cats">
+                  {sec.cats.map((c) => (
+                    <button
+                      key={c}
+                      className={`chip chip--outline pressable${choice && 'cat' in choice && choice.cat === c ? ' chip--on' : ''}`}
+                      aria-pressed={!!choice && 'cat' in choice && choice.cat === c}
+                      onClick={() => {
+                        haptic('select');
+                        setChoice({ cat: c });
+                        setList(false);
+                        setQuery('');
+                      }}
+                    >
+                      {categoryText({ cat: c, customCats: state.customCats })}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+        </div>
+      </Sheet>
+    </div>
+  );
+}
 
-      {mine && missing.length > 0 && (
-        <WaitingFor names={missing.map((p) => p.name)} what="Stimmen noch ab" />
+function WaitForChooser({
+  state,
+  players,
+  me,
+  roundLabel,
+  nameOf,
+  send,
+}: StepProps & { roundLabel: string; nameOf: (id: string) => string }) {
+  const chooser = players.find((p) => p.id === state.chooser);
+  const name = nameOf(state.chooser);
+  // Der Host bekommt erst nach der Frist einen Knopf – die Uhr läuft nur bei ihm.
+  const host = players.find((p) => p.isHost)?.id === me.id;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!host) return;
+    const t = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, [host]);
+  const away = chooser?.online === false || !chooser;
+
+  return (
+    <div className="stack-3">
+      <BigCard
+        kicker={`${roundLabel} · Kategorie`}
+        footer="wählt die Kategorie. Danach schreibst du für jemanden aus der Runde."
+      >
+        <div className="wbi-target">
+          {chooser && <Avatar name={chooser.name} color={chooser.color} photo={chooser.photo} size="lg" />}
+          <div>{name}</div>
+        </div>
+      </BigCard>
+      {host && mayPickRandom(state, players, me.id, now) && (
+        <>
+          <button
+            className="btn btn--glass btn--block"
+            onClick={() => {
+              haptic('select');
+              send({ type: 'pick', random: true });
+            }}
+          >
+            <Icon name="shuffle" size={18} /> Für {name} würfeln
+          </button>
+          <div className="t-caption t-center">
+            {away ? `${name} ist gerade nicht da.` : `${name} antwortet nicht.`} Nur du als Host siehst das.
+          </div>
+        </>
       )}
-      {isHost && mine && missing.length > 0 && (
-        <button className="btn btn--plain btn--block" onClick={() => send({ type: 'skip' })}>
-          Ohne die anderen auszählen
-        </button>
-      )}
-      <div className="t-caption t-center">Gleichstand oder mehr für „Neu": Es wird neu gelost.</div>
     </div>
   );
 }
@@ -270,7 +416,13 @@ function WriteStep({
   const term = target ? state.terms[target] : undefined;
   const [seen, setSeen] = useState('');
   const [draft, setDraft] = useState('');
+  const [shown, setShown] = useState<string[]>([]);
   const key = `${state.round}:${state.cat}:${target}`;
+  const ideas = hasIdeas(category);
+  // Schon beim Auslosen laden, damit „Idee" sofort antwortet.
+  useEffect(() => {
+    if (ideas) void loadPool();
+  }, [ideas]);
   const missing = missingWriters(state, players)
     .filter((id) => id !== me.id)
     .map(nameOf);
@@ -298,11 +450,6 @@ function WriteStep({
             <div>{targetPlayer.name}</div>
           </div>
         </BigCard>
-        {state.lastVote && (
-          <div className="t-caption t-center">
-            {state.lastVote.ja} zu {state.lastVote.neu} angenommen
-          </div>
-        )}
         <button
           className="btn btn--brand btn--block btn--lg"
           onClick={() => {
@@ -351,6 +498,16 @@ function WriteStep({
     haptic('success');
     send({ type: 'write', text });
   };
+  const idea = () => {
+    haptic('select');
+    void loadPool().then((pool) => {
+      const taken = Object.values(state.terms).map((t) => t.text);
+      const next = nextIdea(pool[category]?.[state.level] ?? [], taken, shown);
+      if (!next) return;
+      setDraft(next);
+      setShown((s) => [...s, next]);
+    });
+  };
 
   return (
     <div className="stack-3">
@@ -371,8 +528,15 @@ function WriteStep({
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
       </div>
+      {ideas && (
+        <button className="btn btn--glass btn--block" onClick={idea}>
+          <Icon name={shown.length ? 'refresh' : 'sparkles'} size={18} /> {shown.length ? 'Andere Idee' : 'Idee'}
+        </button>
+      )}
       <div className="t-caption t-center">
-        {targetPlayer.name} sieht das nicht – alle anderen schon.
+        {shown.length
+          ? `Passend zu „${state.level}“. Ändern oder selbst schreiben geht immer.`
+          : `${targetPlayer.name} sieht das nicht – alle anderen schon.`}
       </div>
       <button className="btn btn--brand btn--block btn--lg" disabled={!text} onClick={submit}>
         Bestätigen
