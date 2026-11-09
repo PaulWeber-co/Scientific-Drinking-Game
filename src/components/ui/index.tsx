@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../icons';
 import { AVATAR_COLORS, avatarStyle, type AvatarColor } from './Avatar';
 import { createPortal } from 'react-dom';
@@ -55,6 +55,7 @@ export function Sheet({
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   useModalDialog(dialog, open, onClose);
+  const titleId = useId();
 
   // Ein Sheet ist ein Ebenenwechsel – der gehoert gespuert, egal ueber
   // welchen der Wege es zugeht (Knopf, Hintergrund, Escape, Wisch).
@@ -82,8 +83,8 @@ export function Sheet({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        aria-label={typeof title === 'string' ? title : undefined}
       >
         <div className="sheet__header">
         <div className="sheet__grabber" />
@@ -105,7 +106,7 @@ export function Sheet({
               </button>
             </div>
             {title && (
-              <div className="t-title2" style={{ marginBottom: 12 }}>
+              <div id={titleId} data-sheet-title tabIndex={-1} className="t-title2" style={{ marginBottom: 12 }}>
                 {title}
               </div>
             )}
@@ -113,7 +114,7 @@ export function Sheet({
         ) : (
           title && (
             <div className="row-between" style={{ marginBottom: 12 }}>
-              <div className="t-title2">{title}</div>
+              <div id={titleId} data-sheet-title tabIndex={-1} className="t-title2">{title}</div>
               <button className="btn btn--plain" onClick={schliessen}>
                 {closeLabel ?? 'Fertig'}
               </button>
@@ -157,6 +158,7 @@ export function Segmented<T extends string>({
 }
 
 export function Stepper({
+  label = 'Wert',
   value,
   onChange,
   min,
@@ -164,6 +166,7 @@ export function Stepper({
   step = 1,
   unit,
 }: {
+  label?: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
@@ -178,14 +181,22 @@ export function Stepper({
   };
   return (
     <div className="stepper">
-      <button className="stepper__btn" onClick={() => set(value - step)} aria-label="weniger">
+      <button className="stepper__btn" onClick={() => set(value - step)} aria-label={`${label} verringern, aktuell ${value}${unit ? ` ${unit}` : ''}`}>
         <Icon name="minus" size={19} strokeWidth={2.2} />
       </button>
-      <div className="stepper__value">
+      <div className="stepper__value" role="spinbutton" tabIndex={0} aria-label={label}
+        aria-valuenow={value} aria-valuemin={min} aria-valuemax={max}
+        aria-valuetext={`${value}${unit ? ` ${unit}` : ''}`}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            set(value + (event.key === 'ArrowUp' ? step : -step));
+          }
+        }}>
         {value}
         {unit && <span className="stepper__unit">{unit}</span>}
       </div>
-      <button className="stepper__btn" onClick={() => set(value + step)} aria-label="mehr">
+      <button className="stepper__btn" onClick={() => set(value + step)} aria-label={`${label} erhöhen, aktuell ${value}${unit ? ` ${unit}` : ''}`}>
         <Icon name="plus" size={19} strokeWidth={2.2} />
       </button>
     </div>
@@ -208,6 +219,7 @@ export function OptionalStepper({
 }: {
   value: number | undefined;
   onChange: (v: number | undefined) => void;
+  label?: string;
   defaultValue: number;
   addLabel: string;
   removeLabel: string;

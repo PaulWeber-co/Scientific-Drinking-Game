@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { DEVELOP_CHOICES, useFilm } from '../../store/film';
 import { haptic } from '../../lib/haptics';
 import { Icon } from '../../components/icons';
+import { Sheet } from '../../components/ui';
 import { useParty } from '../party/PartyContext';
 import { useFilmStatus } from './useFilmStatus';
 
@@ -10,11 +12,14 @@ function label(h: number): string {
 }
 
 /**
- * Entwicklungszeit und Nachschub.
+ * Entwicklungszeit und Nachschub, als Teil der Film-Karte im Album.
  *
  * Sichtbar nur für die Person, die die Runde eröffnet hat: die Zeit gilt für
  * alle, und zwei Leute, die abwechselnd daran drehen, wären das Gegenteil
  * einer gemeinsamen Kamera.
+ *
+ * Die Zeit stellt man selten um, deshalb nur eine Zeile mit dem Wert; die
+ * Auswahl liegt dahinter in einem Sheet, wie „Erinnerung" im iOS-Kalender.
  */
 export function FilmSetup() {
   const party = useParty();
@@ -22,6 +27,7 @@ export function FilmSetup() {
   const setLocal = useFilm((s) => s.setDevelopAfterH);
   const loadRoll = useFilm((s) => s.loadRoll);
   const rolls = useFilm((s) => s.rolls);
+  const [choosing, setChoosing] = useState(false);
 
   if (!canSetup) return null;
 
@@ -29,27 +35,11 @@ export function FilmSetup() {
     haptic('tap');
     setLocal(h);
     party.setFilm({ developAfterH: h });
+    setChoosing(false);
   };
 
   return (
-    <section className="card stack-3">
-      <div className="stack-2">
-        <span className="t-headline">Wann wird entwickelt?</span>
-        <span className="t-caption">Gilt für alle in der Runde, gerechnet ab Abendbeginn.</span>
-      </div>
-      <div className="row" style={{ flexWrap: 'wrap' }}>
-        {DEVELOP_CHOICES.map((h) => (
-          <button
-            key={h}
-            className={`chip pressable${h === developAfterH ? ' chip--on' : ''}`}
-            aria-pressed={h === developAfterH}
-            onClick={() => setzen(h)}
-          >
-            <span className="chip__text">{label(h)}</span>
-          </button>
-        ))}
-      </div>
-
+    <>
       {remaining === 0 && (
         <button
           className="btn btn--glass btn--block"
@@ -62,6 +52,31 @@ export function FilmSetup() {
           <Icon name="refresh" size={17} /> Neuen Film einlegen
         </button>
       )}
-    </section>
+
+      <button className="filmzeile pressable" onClick={() => setChoosing(true)}>
+        <span className="grow">Entwickeln</span>
+        <span className="filmzeile__wert">{label(developAfterH)}</span>
+        <Icon name="chevronRight" size={17} className="list__chevron" />
+      </button>
+
+      <Sheet open={choosing} onClose={() => setChoosing(false)} title="Wann wird entwickelt?">
+        <div className="stack-3">
+          <p className="t-caption">Gilt für alle in der Runde, gerechnet ab Abendbeginn.</p>
+          <div className="list">
+            {DEVELOP_CHOICES.map((h) => (
+              <button
+                key={h}
+                className="list__item"
+                aria-pressed={h === developAfterH}
+                onClick={() => setzen(h)}
+              >
+                <span className="grow">{label(h)}</span>
+                {h === developAfterH && <Icon name="check" size={18} className="filmzeile__haken" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Sheet>
+    </>
   );
 }

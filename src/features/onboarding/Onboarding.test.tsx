@@ -38,7 +38,7 @@ function bisZumAlter(returnTo?: string) {
 }
 
 function setAge(age: number, previousAge = 25) {
-  const label = age < previousAge ? 'weniger' : 'mehr';
+  const label = age < previousAge ? /Alter verringern/ : /Alter erhöhen/;
   for (let i = 0; i < Math.abs(previousAge - age); i++) {
     fireEvent.click(screen.getByRole('button', { name: label }));
   }
@@ -79,7 +79,7 @@ describe('frühe Auswahl der Spielweise', () => {
     expect(screen.getByText('Schon was gegessen?')).toBeInTheDocument();
     weiter();
     expect(screen.getByText('Was trinkst du heute?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Weißwein/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /Weißwein/ }));
     weiter();
     expect(screen.getByText('Dein Zielpegel')).toBeInTheDocument();
     expect(screen.getByText(/Bis zu deinem Pegel/)).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe('frühe Auswahl der Spielweise', () => {
   it('behält Eingaben beim Zurückgehen und wechselt vollständig zwischen den Modi', () => {
     bisZumModus();
     weiter();
-    fireEvent.click(screen.getByRole('button', { name: 'weniger' }));
+    fireEvent.click(screen.getByRole('button', { name: /Gewicht verringern/ }));
     expect(screen.getByText('74')).toBeInTheDocument();
     zurueck();
     fireEvent.click(screen.getByRole('button', { name: /^Ich fahre/ }));
@@ -167,4 +167,27 @@ describe('Einladung nach dem Onboarding', () => {
     weiter();
     expect(screen.getByText('/')).toBeInTheDocument();
   });
+});
+
+ it('nennt dynamische Schritte, fokussiert die Überschrift und beschriftet den Spitznamen', () => {
+  bisZumAlter();
+  expect(screen.getByText('Schritt 3 von 8')).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Wie alt bist du?' })).toHaveFocus();
+  weiter();
+  fireEvent.click(screen.getByRole('button', { name: /^Alkoholfrei/ }));
+  expect(screen.getByText('Schritt 4 von 4')).toBeVisible();
+  zurueck(); zurueck();
+  expect(screen.getByLabelText('Spitzname')).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Wie heißt du?' })).toHaveFocus();
+});
+
+it('macht die Getränkewahl als Einfachauswahl mit Pfeiltasten bedienbar', () => {
+  bisZumModus(); weiter(); weiter(); weiter();
+  expect(screen.getByRole('radiogroup', { name: 'Getränk' })).toBeInTheDocument();
+  const radios = screen.getAllByRole('radio');
+  expect(radios[0]).toHaveAttribute('aria-checked', 'true');
+  fireEvent.keyDown(radios[0], { key: 'ArrowRight' });
+  expect(radios[1]).toHaveFocus();
+  expect(radios[1]).toHaveAttribute('aria-checked', 'true');
+  expect(radios[0]).toHaveAttribute('aria-checked', 'false');
 });

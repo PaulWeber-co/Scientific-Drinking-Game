@@ -1,6 +1,7 @@
 import { Icon } from '../../components/icons';
 import { DriverCard } from './DriverCard';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BETA_CONSERVATIVE,
   BETA_TYPICAL,
@@ -24,6 +25,8 @@ import { GAMES } from '../../games/registry';
 import { useBacEvents, useCurrentDrink, usePlayer } from '../../store/player';
 
 const HOUR = 3_600_000;
+/** Wie beim Glas-Knopf im Spiel: im Dunkeln erst hinsehen, dann treffen. */
+const NOTE_MS = 8000;
 
 export function PegelScreen() {
   const profile = usePlayer((s) => s.profile);
@@ -31,8 +34,8 @@ export function PegelScreen() {
   const carryoverLog = usePlayer((s) => s.carryoverLog);
   const events = useBacEvents();
   const customs = usePlayer((s) => s.customDrinks);
-  const undoLast = usePlayer((s) => s.undoLast);
   const removeEvent = usePlayer((s) => s.removeEvent);
+  const logEvent = usePlayer((s) => s.logEvent);
   const party = useParty();
   const endNight = usePlayer((s) => s.endNight);
   const nightStartedAt = usePlayer((s) => s.nightStartedAt);
@@ -46,6 +49,16 @@ export function PegelScreen() {
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [driveHour, setDriveHour] = useState(8);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Statt eines Dauerknopfs „Rückgängig": eine Meldung nach jeder Änderung,
+  // die genau diese zurücknimmt (Eintragen → entfernen, Entfernen → zurück).
+  const [note, setNote] = useState<{ text: string; action: string; undo: () => void } | null>(null);
+  const noteTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(noteTimer.current), []);
+  const showNote = (next: { text: string; action: string; undo: () => void }) => {
+    window.clearTimeout(noteTimer.current);
+    setNote(next);
+    noteTimer.current = window.setTimeout(() => setNote(null), NOTE_MS);
+  };
 
   const sober = useMemo(
     () => (profile && events.length ? soberAt(events, profile, now) : null),
@@ -91,7 +104,7 @@ export function PegelScreen() {
     <div className="screen">
       <NavBar title="Pegel" />
       <div className="stack-6">
-        <section className="card card--pad-lg stack-3">
+        <section className="stack-3">
           {/* Der Pegel als Abzug aus der Bar: das eigene Glas, darauf der
               Wert als Datumsstempel, im Rand Getränk und Zone. */}
           <figure className="pegelabzug">
@@ -116,15 +129,18 @@ export function PegelScreen() {
               </span>
             </figcaption>
           </figure>
-          <p className="t-caption t-center">Schätzung, kein Messwert</p>
-          <p className="t-caption t-center">
+          <p className="t-sub t-center">
+            Schätzung ·{' '}
             {estimate && estimate.pending > 0.01
-              ? `+${formatBac(estimate.pending)} noch im Magen`
+              ? `+${formatBac(estimate.pending)} ‰ noch im Magen`
               : profile.designatedDriver
                 ? 'Du fährst heute'
-                : `Ziel ${formatBac(profile.targetBac)}`}
+                : `Ziel ${formatBac(profile.targetBac)} ‰`}
           </p>
-          <p className="t-sub t-center t-balance">{zone.note}</p>
+          {/* Die Zonen-Sprüche nur dort, wo sie etwas zu tun geben. */}
+          {(zoneKey === 'edge' || zoneKey === 'over') && (
+            <p className="t-headline t-center t-balance">{zone.note}</p>
+          )}
           {carryoverLog.length > 0 && (estimate?.effective ?? 0) > 0.01 && (
             <p className="t-caption t-center">
               Restalkohol aus abgeschlossenen Abenden wird weiter berücksichtigt.
@@ -155,12 +171,6 @@ export function PegelScreen() {
               <span className="chip__text">{drink.name}</span>
             </button>
           </div>
-          <button className="btn btn--gray btn--block" disabled={!log.length} onClick={() => {
-            haptic('warn');
-            undoLast();
-          }}>
-            Rückgängig
-          </button>
           {log.length ? (
             <div className="list">
               {/* Nach Uhrzeit, nicht nach Eingabe: ein nachgetragener
@@ -188,6 +198,11 @@ export function PegelScreen() {
                       onClick={() => {
                         haptic('warn');
                         removeEvent(e.id);
+                        showNote({
+                          text: `${formatEntry(eventDrink(e, customs), e.sips, e.drinkName, e.volumeMl)} entfernt`,
+                          action: 'Wiederherstellen',
+                          undo: () => logEvent(e),
+                        });
                       }}
                     >
                       <Icon name="trash" size={16} />
@@ -255,7 +270,14 @@ export function PegelScreen() {
           {driveOpen && (
             <>
               <p className="t-sub">Ich muss fahren um …</p>
-              <Stepper value={driveHour} onChange={setDriveHour} min={0} max={23} unit=":00 Uhr" />
+              <Stepper
+                label="Abfahrt"
+                value={driveHour}
+                onChange={setDriveHour}
+                min={0}
+                max={23}
+                unit=":00 Uhr"
+              />
               <div className={`lightbox lightbox--${light}`}>
                 <div className="lightbox__dot" />
                 <div className="grow">
@@ -327,10 +349,44 @@ export function PegelScreen() {
         players={party.mode === 'local' ? party.players : [party.me]}
         meId={party.me.id}
         initialPlayerId={addFor ?? undefined}
-        onLog={(playerId, d, sips, at, volumeMl) =>
-          party.logSipsFor(playerId, sips, 'manuell', { drinkId: d.id, at, volumeMl })
-        }
+        onLog={(playerId, d, sips, at, volumeMl) => {
+          const eventId = party.logSipsFor(playerId, sips, 'manuell', {
+            drinkId: d.id,
+            at,
+            volumeMl,
+          });
+          if (!eventId) return;
+          const who =
+            playerId === party.me.id
+              ? ''
+              : ` für ${party.players.find((p) => p.id === playerId)?.name}`;
+          showNote({
+            text: `${d.name} eingetragen${who}`,
+            action: 'Rückgängig',
+            undo: () => party.removeEventFor(playerId, eventId),
+          });
+        }}
       />
+      {/* Ins body: `.screen` trägt ein transform für den Seitenübergang, darin
+          bezöge sich `fixed` auf die ganze Seite statt auf den Bildschirm. */}
+      {note &&
+        createPortal(
+          <div className="pegelnote" role="status">
+            <span className="grow">{note.text}</span>
+            <button
+              className="btn btn--plain pegelnote__action"
+              onClick={() => {
+                haptic('warn');
+                note.undo();
+                window.clearTimeout(noteTimer.current);
+                setNote(null);
+              }}
+            >
+              {note.action}
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -369,9 +425,15 @@ function BacChart({
   const y = (b: number) => H - (b / maxBac) * (H - 8) - 4;
   const path = points.map((p, i) => `${i ? 'L' : 'M'} ${x(p.t).toFixed(1)} ${y(p.bac).toFixed(1)}`).join(' ');
   const area = `${path} L ${W} ${H} L 0 ${H} Z`;
+  const current = points.reduce((a, p) => (Math.abs(p.t - now) < Math.abs(a.t - now) ? p : a));
+  const top = points.reduce((a, p) => (p.bac > a.bac ? p : a));
+  // Wer die Kurve nicht sieht, bekommt ihre Eckwerte vorgelesen.
+  const summary =
+    `Promilleverlauf: jetzt ${formatBac(current.bac)} Promille, ` +
+    `höchster Wert ${formatBac(top.bac)} Promille um ${formatTime(top.t)}`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="chart" role="img" aria-label="Promilleverlauf">
+    <svg viewBox={`0 0 ${W} ${H}`} className="chart" role="img" aria-label={summary}>
       <defs>
         <linearGradient id="bacfill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.45" />
@@ -382,7 +444,7 @@ function BacChart({
       <path d={area} fill="url(#bacfill)" />
       <path d={path} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       <line x1={x(now)} y1="0" x2={x(now)} y2={H} stroke="var(--label-3)" strokeWidth="1" />
-      <circle cx={x(now)} cy={y(points.reduce((a, p) => (Math.abs(p.t - now) < Math.abs(a.t - now) ? p : a)).bac)} r="4" fill="var(--label)" />
+      <circle cx={x(now)} cy={y(current.bac)} r="4" fill="var(--label)" />
     </svg>
   );
 }

@@ -118,3 +118,14 @@ it('scrollt bei erneuter Wahl des aktiven Tabs nach oben und verwirft ungültige
   act(() => native.onSelect?.({ index: 2 }));
   expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
 });
+
+it('gibt bei Darstellung „System“ hell oder dunkel weiter und folgt einem Wechsel', async () => {
+  const media = Object.assign(new EventTarget(), { matches: true });
+  vi.stubGlobal('matchMedia', () => media);
+  useApp.setState({ theme: 'system' });
+  render(<View />);
+  await ready();
+  act(() => { media.matches = false; media.dispatchEvent(new Event('change')); });
+  await waitFor(() => expect(native.show).toHaveBeenLastCalledWith({ selected: 2, theme: 'light' }));
+  vi.unstubAllGlobals();
+});

@@ -80,57 +80,6 @@ export function ProfileScreen() {
         )}
 
         <section className="stack-3">
-          <div className="list-header t-upper">Körperdaten</div>
-          <Segmented<Sex>
-            value={profile.sex}
-            onChange={(sex) => patch({ sex })}
-            options={[
-              { value: 'male', label: 'Männlich' },
-              { value: 'female', label: 'Weiblich' },
-              { value: 'diverse', label: 'Divers' },
-            ]}
-          />
-          <div className="field">
-            <span className="field__label">Gewicht</span>
-            <Stepper value={profile.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
-          </div>
-          <div className="field">
-            <span className="field__label">Körpergröße (optional)</span>
-            <OptionalStepper
-              value={profile.heightCm}
-              onChange={(heightCm) => patch({ heightCm })}
-              defaultValue={175}
-              addLabel="+ Körpergröße angeben (genauer)"
-              removeLabel="Ohne Körpergröße rechnen"
-              min={140}
-              max={215}
-              unit="cm"
-            />
-          </div>
-          <div className="field">
-            <span className="field__label">Alter</span>
-            <Stepper value={profile.age} onChange={(age) => patch({ age })} min={12} max={99} unit="Jahre" />
-          </div>
-          {gate !== 'full' && <div className="notice notice--orange">{AGE_GATE_TEXT[gate]}</div>}
-          <div className="field">
-            <span className="field__label">Magen</span>
-            <Segmented<StomachState>
-              value={profile.stomach}
-              onChange={(stomach) => patch({ stomach })}
-              options={[
-                { value: 'empty', label: 'Leer' },
-                { value: 'light', label: 'Snack' },
-                { value: 'full', label: 'Satt' },
-              ]}
-            />
-          </div>
-          <div className="notice notice--neutral">
-            Verteilungsfaktor r = <strong>{r.toFixed(2).replace('.', ',')}</strong>{' '}
-            {source === 'watson' ? `· aus ${tbw?.toFixed(1).replace('.', ',')} l Körperwasser (Watson)` : '· Standardwert'}
-          </div>
-        </section>
-
-        <section className="stack-3">
           <div className="list-header t-upper">Trinken</div>
           <div className="list">
             <button className="list__item" onClick={() => setPickerOpen(true)}>
@@ -238,11 +187,12 @@ export function ProfileScreen() {
             </div>
             <div className="list__item">
               <span className="grow t-headline">Darstellung</span>
-              <div style={{ width: 150 }}>
+              <div style={{ width: 220 }}>
                 <Segmented
                   value={app.theme}
                   onChange={(t) => app.setTheme(t)}
                   options={[
+                    { value: 'system' as const, label: 'System' },
                     { value: 'dark' as const, label: 'Dunkel' },
                     { value: 'light' as const, label: 'Hell' },
                   ]}
@@ -251,6 +201,58 @@ export function ProfileScreen() {
             </div>
           </div>
         </section>
+
+        <details className="stack-3" key={String(profile.alcoholFree || profile.designatedDriver || gate !== 'full')} open={!(profile.alcoholFree || profile.designatedDriver || gate !== 'full')}>
+          <summary className="list-header t-upper">Körperwerte ▸</summary>
+          <Segmented<Sex>
+            value={profile.sex}
+            onChange={(sex) => patch({ sex })}
+            options={[
+              { value: 'male', label: 'Männlich' },
+              { value: 'female', label: 'Weiblich' },
+              { value: 'diverse', label: 'Divers' },
+            ]}
+          />
+          <div className="field">
+            <span className="field__label">Gewicht</span>
+            <Stepper label="Gewicht" value={profile.weightKg} onChange={(weightKg) => patch({ weightKg })} min={35} max={200} unit="kg" />
+          </div>
+          <div className="field">
+            <span className="field__label">Körpergröße (optional)</span>
+            <OptionalStepper
+              label="Körpergröße"
+              value={profile.heightCm}
+              onChange={(heightCm) => patch({ heightCm })}
+              defaultValue={175}
+              addLabel="+ Körpergröße angeben (genauer)"
+              removeLabel="Ohne Körpergröße rechnen"
+              min={140}
+              max={215}
+              unit="cm"
+            />
+          </div>
+          <div className="field">
+            <span className="field__label">Alter</span>
+            <Stepper label="Alter" value={profile.age} onChange={(age) => patch({ age })} min={12} max={99} unit="Jahre" />
+          </div>
+          {gate !== 'full' && <div className="notice notice--orange">{AGE_GATE_TEXT[gate]}</div>}
+          <div className="field">
+            <span className="field__label">Magen</span>
+            <Segmented<StomachState>
+              value={profile.stomach}
+              onChange={(stomach) => patch({ stomach })}
+              options={[
+                { value: 'empty', label: 'Leer' },
+                { value: 'light', label: 'Snack' },
+                { value: 'full', label: 'Satt' },
+              ]}
+            />
+          </div>
+          <div className="notice notice--neutral">
+            Verteilungsfaktor r = <strong>{r.toFixed(2).replace('.', ',')}</strong>{' '}
+            {source === 'watson' ? `· aus ${tbw?.toFixed(1).replace('.', ',')} l Körperwasser (Watson)` : '· Standardwert'}
+          </div>
+        </details>
 
         <section className="stack-3">
           <div className="list-header t-upper">Daten & Recht</div>

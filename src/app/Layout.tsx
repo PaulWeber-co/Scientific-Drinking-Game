@@ -1,21 +1,16 @@
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { useEffect, useLayoutEffect } from 'react';
 import { useApp } from '../store/app';
+import { useResolvedTheme } from '../lib/theme';
 import { WaterReminder } from '../features/bac/WaterReminder';
 import { GameInvite } from '../features/party/GameInvite';
 import { NativeAwareTabBar } from './NativeAwareTabBar';
 
 export function Layout() {
-  const theme = useApp((s) => s.theme);
+  useTheme();
+  usePageFocus();
   useMotionSwitch();
   useScrollMemory();
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
-  }, [theme]);
 
   return (
     <div className="app">
@@ -30,11 +25,9 @@ export function Layout() {
 
 /** Vollbild-Layout ohne Tab-Leiste – für Onboarding und laufende Spiele. */
 export function FullLayout() {
-  const theme = useApp((s) => s.theme);
+  useTheme();
+  usePageFocus();
   useMotionSwitch();
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
   return (
     <div className="app">
       <div className="aurora" aria-hidden />
@@ -72,4 +65,32 @@ function useScrollMemory() {
     window.addEventListener('scroll', remember, { passive: true });
     return () => window.removeEventListener('scroll', remember);
   }, [key, type]);
+}
+
+function useTheme() {
+  const theme = useResolvedTheme();
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'light' ? '#efe7da' : '#0d0a08');
+  }, [theme]);
+}
+
+function usePageFocus() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // Ein Eingabefeld mit autoFocus auf der neuen Seite behält den Fokus,
+    // sonst ginge auf dem Handy die Tastatur gleich wieder zu.
+    if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]')) return;
+    const heading = document.querySelector<HTMLElement>('.app h1')
+      ?? document.querySelector<HTMLElement>('.app .navbar__title');
+    if (!heading) return;
+    if (heading.tagName !== 'H1') {
+      heading.setAttribute('role', 'heading');
+      heading.setAttribute('aria-level', '1');
+    }
+    heading.tabIndex = -1;
+    heading.dataset.pageHeading = '';
+    heading.focus({ preventScroll: true });
+  }, [pathname]);
 }

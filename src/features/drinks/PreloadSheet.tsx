@@ -67,6 +67,7 @@ export function PreloadSheet({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         <Stepper
+          label="Gläser"
           value={glasses}
           onChange={setGlasses}
           min={1}
