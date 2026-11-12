@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ProfileScreen } from './ProfileScreen';
 import { defaultProfile, usePlayer } from '../../store/player';
@@ -106,4 +106,47 @@ it('ordnet Spielmodus und App vor den alkoholfrei eingeklappten Körperwerten an
   fireEvent.click(screen.getByRole('button', { name: /Gewicht erhöhen/ }));
   expect(usePlayer.getState().profile?.weightKg).toBe(defaultProfile().weightKg + 1);
   expect(screen.getByRole('button', { name: 'System' })).toBeVisible();
+});
+
+describe('Glas mitneigen im Profil', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    usePlayer.setState({ profile: { ...defaultProfile(), name: 'Paul' }, onboarded: true });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('holt ein früheres Nein zurück und schaltet wieder aus', async () => {
+    const permission = vi.fn().mockResolvedValue('granted');
+    vi.stubGlobal('DeviceOrientationEvent', Object.assign(class {}, { requestPermission: permission }));
+    localStorage.setItem('pegel.tilt', 'denied');
+    renderProfile();
+    const toggle = screen.getByRole('switch', { name: 'Glas mitneigen' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
+    expect(permission).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('pegel.tilt')).toBe('granted');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(localStorage.getItem('pegel.tilt')).toBe('denied');
+  });
+
+  it('bleibt aus, wenn das System ablehnt', async () => {
+    const permission = vi.fn().mockResolvedValue('denied');
+    vi.stubGlobal('DeviceOrientationEvent', Object.assign(class {}, { requestPermission: permission }));
+    renderProfile();
+    const toggle = screen.getByRole('switch', { name: 'Glas mitneigen' });
+    fireEvent.click(toggle);
+    await waitFor(() => expect(permission).toHaveBeenCalled());
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(localStorage.getItem('pegel.tilt')).toBe('denied');
+  });
+
+  it('fehlt ohne Lagesensor', () => {
+    vi.stubGlobal('DeviceOrientationEvent', undefined);
+    renderProfile();
+    expect(screen.queryByRole('switch', { name: 'Glas mitneigen' })).toBeNull();
+  });
 });
