@@ -464,7 +464,7 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
               kicker={state.finalKing ? 'Vierter König' : rule.title}
               animateKey={state.drawn}
             >
-              {state.finalKing ? 'Du trinkst den Becher. Alles. Viel Erfolg.' : rule.text}
+              {state.finalKing ? 'Du trinkst aus dem Becher.' : rule.text}
             </BigCard>
           )}
 

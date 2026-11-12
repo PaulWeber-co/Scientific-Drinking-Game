@@ -17,6 +17,7 @@ import { DrinkPicker } from '../drinks/DrinkPicker';
 import { usePartyOptional } from '../party/PartyContext';
 import { useGoBack } from '../../app/navigation';
 import { useSwipeBack } from '../../lib/gestures';
+import { askTilt, readTiltChoice, storeTiltChoice, tiltSupported } from '../bac/glass/useTilt';
 
 export function ProfileScreen() {
   const nav = useNavigate();
@@ -27,6 +28,7 @@ export function ProfileScreen() {
   const app = useApp();
   const party = usePartyOptional();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [tilt, setTilt] = useState(() => readTiltChoice() === 'granted');
   const goBack = useGoBack('/');
   const swipeRef = useSwipeBack<HTMLDivElement>(goBack);
 
@@ -181,6 +183,31 @@ export function ProfileScreen() {
                 describedBy="bewegung-hinweis"
               />
             </div>
+            {tiltSupported() && (
+              <div className="list__item">
+                <span className="grow">
+                  <span className="t-headline" style={{ display: 'block' }}>
+                    Glas mitneigen
+                  </span>
+                  <span className="t-caption" id="neigen-hinweis">
+                    Das Getränk im Glas folgt, wenn du das Handy kippst.
+                  </span>
+                </span>
+                <Toggle
+                  checked={tilt}
+                  onChange={(on) => {
+                    if (!on) {
+                      storeTiltChoice('denied');
+                      setTilt(false);
+                      return;
+                    }
+                    void askTilt().then((choice) => setTilt(choice === 'granted'));
+                  }}
+                  label="Glas mitneigen"
+                  describedBy="neigen-hinweis"
+                />
+              </div>
+            )}
             <div className="list__item">
               <span className="grow t-headline">Wasser-Erinnerung</span>
               <Toggle checked={app.waterReminder} onChange={() => app.toggleWaterReminder()} label="Wasser-Erinnerung" />
