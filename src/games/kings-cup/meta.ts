@@ -21,6 +21,6 @@ export const meta: GameMeta = {
   howTo: [
     'Ein leeres Glas steht in der Mitte – das ist der Becher.',
     'Reihum zieht jede Person eine Karte. Der Kartenwert bestimmt die Regel.',
-    'Wer den vierten König zieht, trinkt den Becher.',
+    'Wer den vierten König zieht, trinkt aus dem Becher.',
   ],
 };

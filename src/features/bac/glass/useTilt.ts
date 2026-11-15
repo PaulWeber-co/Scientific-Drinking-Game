@@ -7,19 +7,41 @@ type OrientationConstructor = typeof DeviceOrientationEvent & {
 /** Richtung der Schwerkraft auf dem Bildschirm: x nach rechts, y nach unten, in g. */
 export type Gravity = { x: number; y: number };
 
-function readChoice(): string | null {
+/** Gespeicherte Wahl: 'granted', 'denied' oder nichts (noch nie gefragt). */
+export function readTiltChoice(): string | null {
   try {
     return localStorage.getItem('pegel.tilt');
   } catch {
     return null;
   }
 }
-function storeChoice(choice: string): void {
+export function storeTiltChoice(choice: 'granted' | 'denied'): void {
   try {
     localStorage.setItem('pegel.tilt', choice);
   } catch {
     /* Speicher gesperrt. */
   }
+}
+
+export function tiltSupported(): boolean {
+  return typeof window.DeviceOrientationEvent !== 'undefined';
+}
+
+/**
+ * Fragt beim System nach (iOS-Safari verlangt dafür einen Fingertipp) und
+ * merkt sich die Antwort. Ohne Abfrage-Funktion gilt der Sensor als frei.
+ */
+export async function askTilt(): Promise<'granted' | 'denied'> {
+  const ctor = window.DeviceOrientationEvent as OrientationConstructor | undefined;
+  let choice = 'denied';
+  try {
+    choice = ctor?.requestPermission ? await ctor.requestPermission() : 'granted';
+  } catch {
+    /* Ohne Erlaubnis bleibt der Sensor aus. */
+  }
+  const result = choice === 'granted' ? 'granted' : 'denied';
+  storeTiltChoice(result);
+  return result;
 }
 
 const APPLE =
@@ -64,8 +86,8 @@ export function useTilt(): {
   decline: () => void;
 } {
   const [state, setState] = useState<TiltState>(() => {
-    if (typeof window.DeviceOrientationEvent === 'undefined') return 'unsupported';
-    const choice = readChoice();
+    if (!tiltSupported()) return 'unsupported';
+    const choice = readTiltChoice();
     return choice === 'denied' ? 'denied' : choice === 'granted' ? 'on' : 'idle';
   });
   const gravity = useRef<Gravity | null>(null);
@@ -125,25 +147,19 @@ export function useTilt(): {
   const request = useCallback(async () => {
     if (attempted.current) return;
     attempted.current = true;
-    setState('asking');
-    const ctor = window.DeviceOrientationEvent as OrientationConstructor | undefined;
-    if (!ctor) {
+    if (!tiltSupported()) {
       setState('unsupported');
       return;
     }
-    let choice = 'denied';
-    try {
-      choice = ctor.requestPermission ? await ctor.requestPermission() : 'granted';
-    } catch {
-      /* Ohne Erlaubnis bleibt der Sensor aus. */
-    }
-    storeChoice(choice === 'granted' ? 'granted' : 'denied');
+    setState('asking');
+    const choice = await askTilt();
     if (mounted.current) setState(choice === 'granted' ? 'on' : 'denied');
   }, []);
   // Die eigene Rückfrage abgelehnt: iOS fragt dann gar nicht erst.
+  // Zurückholen lässt es sich im Profil („Glas mitneigen").
   const decline = useCallback(() => {
     attempted.current = true;
-    storeChoice('denied');
+    storeTiltChoice('denied');
     setState('denied');
   }, []);
   return { state, gravity, request, decline };

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { useTilt } from './useTilt';
+import { askTilt, useTilt } from './useTilt';
 
 beforeEach(() => {
   localStorage.clear();
@@ -108,4 +108,18 @@ it('fragt nach eigenem Nein nie beim System nach', async () => {
   const next = renderHook(useTilt);
   expect(next.result.current.state).toBe('denied');
   expect(permission).not.toHaveBeenCalled();
+});
+
+it('lässt sich nach eigenem Nein wieder einschalten, das Glas nimmt den Sensor', async () => {
+  const permission = sensor('granted');
+  const first = renderHook(useTilt);
+  act(() => first.result.current.decline());
+  first.unmount();
+  // Der Schalter im Profil fragt neu.
+  await expect(askTilt()).resolves.toBe('granted');
+  expect(permission).toHaveBeenCalledTimes(1);
+  const spy = vi.spyOn(window, 'addEventListener');
+  const next = renderHook(useTilt);
+  expect(next.result.current.state).toBe('on');
+  expect(spy.mock.calls.some(([type]) => type === 'deviceorientation')).toBe(true);
 });
