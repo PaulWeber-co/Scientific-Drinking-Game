@@ -124,6 +124,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // Ab Node 25 hat Node ein eigenes `localStorage` (ohne Speicherdatei
+    // undefiniert), das jsdoms überdeckt – dann scheitern alle Tests, die
+    // Profil oder Einstellungen speichern. CI läuft mit Node 22, Macs oft neuer.
+    poolOptions: process.allowedNodeEnvironmentFlags.has('--experimental-webstorage')
+      ? { forks: { execArgv: ['--no-experimental-webstorage'] } }
+      : undefined,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
   },
