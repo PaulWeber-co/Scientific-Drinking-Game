@@ -43,7 +43,7 @@ export default defineConfig({
       // registriert sich ein Service Worker ohnehin nicht. Er wäre toter
       // Ballast mit einem Update-Banner, das niemals auslösen kann.
       disable: process.env.VITEST === 'true' || process.env.VITE_NATIVE === 'true',
-      includeAssets: ['icon.svg', 'icon-180.png'],
+      includeAssets: ['icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'],
       manifest: {
         name: 'Pegel - Wissenschaftliche Trinkspiele',
         short_name: 'Pegel',
@@ -56,7 +56,9 @@ export default defineConfig({
         theme_color: '#08080B',
         icons: [
           { src: './icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: './icon-180.png', sizes: '180x180', type: 'image/png', purpose: 'any maskable' },
+          { src: './icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: './icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
