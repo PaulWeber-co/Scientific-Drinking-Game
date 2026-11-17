@@ -73,7 +73,11 @@ npm run dev        # Dev-Server
 npm test           # Tests: Engine, alle Spiel-Reducer, Spieleinladung, Haptik
 npm run typecheck
 npm run build      # Produktions-Build nach dist/
+npm run android    # Android-App bauen und in Android Studio öffnen
 ```
+
+Die Android-App (Capacitor) und was dafür einmalig einzurichten ist:
+[`docs/ANDROID.md`](docs/ANDROID.md).
 
 Die Firebase-Datenbank ist fest hinterlegt — niemand muss beim ersten Start irgendetwas
 eintragen. Für eine eigene Instanz reicht `VITE_FIREBASE_DB_URL=…` in einer `.env.local`.

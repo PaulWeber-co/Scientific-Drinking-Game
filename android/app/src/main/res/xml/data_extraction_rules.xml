@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Profil (Gewicht, Alter), Trink-Log und Fotos bleiben auf diesem Gerät –
+     so steht es in der Datenschutzerklärung. Kein Cloud-Backup und keine
+     Übertragung auf ein neues Gerät; ab Android 12 gilt diese Datei,
+     davor allowBackup="false" im Manifest. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

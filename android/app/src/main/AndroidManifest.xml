@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Profil, Trink-Log und Fotos bleiben auf dem Gerät (Datenschutzerklärung):
+         kein Cloud-Backup. allowBackup=false gilt bis Android 11, ab 12 die
+         data_extraction_rules. Hochformat wie die Web-App (PWA-Manifest); ab
+         Android 16 lässt das System auf Tablets/Faltbaren trotzdem drehen. -->
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:ignore="DataExtractionRules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity,DiscouragedApi"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Einwegkamera: Sucher läuft per getUserMedia in der WebView. Ohne diese
+         Zeile lehnt Android jede Anfrage stumm ab, ohne den Nutzer zu fragen. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Die App läuft auch ohne Kamera (Tablets, Chromebooks). -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Kommt mit @capacitor/local-notifications. Google Play erlaubt exakte
+         Wecker nur Wecker-/Kalender-Apps; die Foto-Erinnerung muss nicht auf
+         die Minute kommen, das Plugin plant ohne sie ungenau. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+</manifest>

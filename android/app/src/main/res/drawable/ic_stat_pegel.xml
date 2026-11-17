@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Symbol für Benachrichtigungen (Statusleiste): einfarbig, nur die Form zählt.
+     Das Glas aus dem App-Icon, halb gefüllt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M5.2,3.4h13.6l-1.7,15.5a2,2 0 0,1 -2,1.8H8.9a2,2 0 0,1 -2,-1.8z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.5,11.2h11l-1.2,7.6a1,1 0 0,1 -1,0.9H8.7a1,1 0 0,1 -1,-0.9z" />
+</vector>

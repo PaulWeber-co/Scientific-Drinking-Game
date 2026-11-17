@@ -13,9 +13,13 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "android": "npm run build:native && cap sync android && cap open android",
+    "icons:android": "node scripts/android-icons.mjs",
+    "sync:native": "npm run build:native && cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
     "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.1",
     "@capacitor/filesystem": "^8.1.3",
@@ -44,6 +48,7 @@
     "globals": "^16.4.0",
     "jsdom": "^27.0.0",
     "prettier": "^3.6.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.45.0",
     "vite": "^7.1.0",

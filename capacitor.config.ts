@@ -18,6 +18,10 @@ const config: CapacitorConfig = {
   // Gleiche Farbe wie `theme-color` in index.html. Ohne das blitzt beim Start
   // kurz Weiss auf, bevor die dunkle App-Oberflaeche steht.
   backgroundColor: '#08080B',
+  android: {
+    // Fehlersuche per chrome://inspect nur in Debug-Builds (Capacitor-Standard).
+    webContentsDebuggingEnabled: undefined,
+  },
   ios: {
     // Die App zeichnet ihre eigenen Abstaende (safe-area-inset in tokens.css);
     // WebKit soll nichts zusaetzlich einruecken.
@@ -33,6 +37,13 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       launchShowDuration: 2000,
       backgroundColor: '#08080B',
+    },
+    LocalNotifications: {
+      // Nur Android: einfarbiges Glas in der Statusleiste
+      // (android/app/src/main/res/drawable/ic_stat_pegel.xml). Ohne eigenes
+      // Symbol zeigt Android dort ein weißes Quadrat.
+      smallIcon: 'ic_stat_pegel',
+      iconColor: '#FF8A1E',
     },
   },
 };

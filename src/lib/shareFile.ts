@@ -38,6 +38,26 @@ export async function shareFile(blob: Blob, name: string, title?: string): Promi
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/**
+ * Text mit Link ins Teilen-Menü. Ergebnis: ob ein Menü aufging.
+ *
+ * Die Android-WebView kennt `navigator.share` gar nicht – ohne das Plugin
+ * landete eine Einladung dort nur in der Zwischenablage.
+ */
+export async function shareLink(opts: { title: string; text: string; url: string }): Promise<boolean> {
+  if (isNativeApp()) {
+    const { Share } = await import('@capacitor/share');
+    // Abbrechen im Menü meldet das Plugin als Fehler – das Menü war trotzdem da.
+    await Share.share({ title: opts.title, text: opts.text, url: opts.url, dialogTitle: opts.title }).catch(() => {});
+    return true;
+  }
+  if (navigator.share) {
+    await navigator.share(opts).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
 /** Nativ nimmt das Filesystem-Plugin nur Base64 an. */
 export function toBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

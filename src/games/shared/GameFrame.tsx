@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
 import { keepScreenAwake } from '../../lib/wakelock';
+import { useBackHandler } from '../../lib/backHandler';
 import type { HeatControl, SpicyControl } from './GameSettings';
 import { GlassButton } from './GlassButton';
 import { GameMenu } from './GameMenu';
@@ -38,6 +39,10 @@ export function GameFrame({
   // Jedes Spiel läuft in diesem Rahmen – hier gilt die Sperre für alle 17 und
   // fällt beim Verlassen von selbst wieder weg.
   useEffect(() => keepScreenAwake(), []);
+  // Android-Zurück (Taste oder Wisch von JEDEM Rand) beendet das Spiel nicht
+  // sofort, sondern fragt wie der ✕-Knopf. Ein Wisch beim Weiterreichen des
+  // Handys passiert schnell; ein zweites Zurück schließt die Frage wieder.
+  useBackHandler(() => setAskQuit(true));
 
   return (
     <div className="game" style={{ ['--accent' as string]: accent }}>

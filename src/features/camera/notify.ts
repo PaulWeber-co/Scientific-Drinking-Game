@@ -31,6 +31,12 @@ export async function scheduleDevelopNotice(at: number): Promise<void> {
           title: 'Deine Fotos sind entwickelt',
           body: 'Der Film von gestern Abend ist fertig.',
           schedule: { at: new Date(at) },
+          // Ungenau reicht: Ob die Fotos um 20:00 oder 20:07 „entwickelt"
+          // sind, merkt niemand. Exakt hieße unter Android 12+: Das Plugin
+          // schickt den Nutzer mitten aus der Kamera in die System-
+          // Einstellungen „Wecker & Erinnerungen" – und Google Play erlaubt
+          // die Berechtigung dafür ohnehin nur Wecker-Apps.
+          isExactNotification: false,
         },
       ],
     });

@@ -1,0 +1,64 @@
+name: Android
+
+# Baut die Android-App bei jeder Änderung an der App mit – damit eine
+# Web-Änderung, die nur unter iOS ausprobiert wurde, Android nicht still
+# kaputtmacht. Das Gegenstück zu ios.yml, aber ohne Signierung und ohne
+# Upload: keine Secrets, nichts landet im Play Store.
+#
+# Ergebnis: eine Debug-APK als Artefakt des Laufs. Die lässt sich direkt auf
+# ein Android-Handy laden („Aus unbekannten Quellen installieren").
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Capacitor 8 baut mit Gradle 8.14; das läuft mit Java 21, nicht neuer.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Abhaengigkeiten
+        run: npm ci
+
+      - name: Web-Build fuer den Container
+        run: npm run build:native
+
+      - name: Assets in das Android-Projekt kopieren
+        run: npx cap sync android
+
+      - name: Bauen und pruefen
+        working-directory: android
+        run: ./gradlew assembleDebug lintDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pegel-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Lint-Bericht sichern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint
+          path: android/app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore

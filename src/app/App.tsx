@@ -3,6 +3,13 @@ import { Router } from './Router';
 import { PartyProvider } from '../features/party/PartyContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NightTracker } from '../features/bac/NightTracker';
+import { ResumeOnlineRound } from '../features/party/ResumeOnlineRound';
+import { useAndroidBackButton } from './androidBack';
+
+function AndroidBackButton() {
+  useAndroidBackButton();
+  return null;
+}
 
 /**
  * HashRouter statt BrowserRouter: GitHub Pages liefert nur statische Dateien
@@ -15,6 +22,8 @@ export function App() {
       <HashRouter>
         <PartyProvider>
           <NightTracker />
+          <AndroidBackButton />
+          <ResumeOnlineRound />
           <Router />
         </PartyProvider>
       </HashRouter>

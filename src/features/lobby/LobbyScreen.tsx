@@ -30,6 +30,7 @@ import { formatGlassCount, tally } from '../../engine/tally';
 import { useGoBack } from '../../app/navigation';
 import { useSwipeBack } from '../../lib/gestures';
 import { DrinkPhoto } from '../../components/ui/DrinkPhoto';
+import { shareLink } from '../../lib/shareFile';
 
 export function LobbyScreen() {
   const party = useParty();
@@ -85,12 +86,15 @@ export function LobbyScreen() {
   const appUrl = isNativeApp() ? LEGAL.url : `${location.origin}${location.pathname}`;
   const inviteUrl = `${appUrl}#/lobby?code=${party.code}`;
 
-  const shareLink = () => {
+  const shareInvite = () => {
     const url = inviteUrl;
     const text = `Komm in unsere Runde! Lobby-Code: ${party.code}`;
     haptic('select');
-    if (navigator.share) {
-      navigator.share({ title: 'Pegel', text, url }).catch(() => {});
+    // In der App übers native Menü (die Android-WebView kennt navigator.share
+    // nicht), im Browser wie bisher. Die Zwischenablage bleibt ohne `await`
+    // direkt im Tipp: Safari erlaubt sie nur dort.
+    if (isNativeApp() || typeof navigator.share === 'function') {
+      void shareLink({ title: 'Pegel', text, url });
       return;
     }
     // Ohne Teilen-Menü landet die Einladung in der Zwischenablage. Ob das
@@ -140,7 +144,7 @@ export function LobbyScreen() {
         {online ? (
           <section className="card card--pad-lg stack-3">
             <div className="t-upper t-center">Lobby-Code</div>
-            <button className="lobbycode" onClick={shareLink} aria-label="Lobby-Code teilen">
+            <button className="lobbycode" onClick={shareInvite} aria-label="Lobby-Code teilen">
               {party.code?.split('').map((c, i) => (
                 <span key={i} className="lobbycode__char">
                   {c}
@@ -159,7 +163,7 @@ export function LobbyScreen() {
                   ? 'Verbinde …'
                   : 'Offline – die App holt auf, sobald das Netz zurück ist'}
             </div>
-            <button className="btn btn--glass btn--block" onClick={shareLink}>
+            <button className="btn btn--glass btn--block" onClick={shareInvite}>
               <Icon name="share" size={18} /> Einladung teilen
             </button>
             {copied === 'ok' && (
@@ -420,8 +424,18 @@ function JoinSheet({
           maxLength={6}
           inputMode="text"
           autoCapitalize="characters"
+          // Ein Code ist kein Wort: Ohne das schlägt die Android-Tastatur
+          // „bczk4y" vor und korrigiert womöglich daran herum.
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label="Lobby-Code"
+          enterKeyHint="go"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && code.length === 6 && !busy) onJoin();
+          }}
         />
         {/* Der Fehler gehört dorthin, wo man den Code korrigiert – nicht auf
             die Seite unter dem offenen Sheet. */}

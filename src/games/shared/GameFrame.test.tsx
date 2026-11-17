@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { render } from '../../test/render';
 import { GameFrame } from './GameFrame';
 import { GAMES } from '../registry';
@@ -169,4 +169,27 @@ it.each(['connecting', 'offline', 'error', 'online'])('meldet Verbindungszustand
   else expect(screen.getByRole('status')).toHaveTextContent('Verbindung unterbrochen – verbinde erneut …');
   view.rerender(tree({ ...party, mode: 'local' }));
   expect(screen.queryByText(/Verbindung unterbrochen/)).toBeNull();
+});
+
+describe('Android-Zurück im Spiel', () => {
+  it('fragt erst nach, statt das Spiel sofort zu verlassen; ein zweites Zurück schließt die Frage', async () => {
+    const { handleBack } = await import('../../app/androidBack');
+    mount(false);
+    const navigate = vi.fn();
+    const back = () => handleBack({ historyIndex: 3, pathname: '/spiel', navigate, minimize: vi.fn() });
+    const frage = { name: /Spiel (beenden|verlassen)\?/ };
+    let step = '';
+    act(() => {
+      step = back();
+    });
+    expect(step).toBe('screen');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(await screen.findByRole('dialog', frage)).toBeInTheDocument();
+    act(() => {
+      step = back();
+    });
+    expect(step).toBe('closed-overlay');
+    expect(screen.queryByRole('dialog', frage)).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+  });
 });

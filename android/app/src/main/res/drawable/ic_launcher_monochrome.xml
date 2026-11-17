@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themen-Icon ab Android 13: das Glas aus ic_stat_pegel, eingerückt auf die
+     sichtbare Mitte des Adaptive Icons (108 dp, davon ~66 dp sicher). -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_stat_pegel"
+    android:inset="30%" />

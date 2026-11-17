@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Startbild bis Android 11: App-Farbe mit Icon. Ab Android 12 zeichnet das
+     System den Splash selbst (siehe windowSplashScreen* in styles.xml). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item
+        android:width="96dp"
+        android:height="96dp"
+        android:gravity="center"
+        android:drawable="@mipmap/ic_launcher_round" />
+</layer-list>

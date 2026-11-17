@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { motionReduced } from './motion';
+import { useBackHandler } from './backHandler';
 
 /**
  * Wischgesten wie bei iOS: Zurück mit einem Wisch nach rechts, Sheets mit
@@ -93,6 +94,8 @@ export function useSwipeBack<T extends HTMLElement>(
   // Als State statt als Ref: Bildschirme rendern ihr Wurzelelement oft erst
   // nach einem Ladezustand, dann muss die Geste nachträglich andocken.
   const [el, setEl] = useState<T | null>(null);
+  // Dasselbe Zurück gilt für die Android-Taste bzw. -Geste.
+  useBackHandler(onBack, enabled);
   const back = useRef(onBack);
   useEffect(() => {
     back.current = onBack;
