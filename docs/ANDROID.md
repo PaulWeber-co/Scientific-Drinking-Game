@@ -78,6 +78,7 @@ dieselbe Version heben, sonst passen JavaScript-Brücke und nativer Teil nicht z
 | Thema | Lösung |
 | --- | --- |
 | Zurück-Taste/-Geste | `src/app/androidBack.ts`: schließt erst Sheets und Menüs, nimmt dann das Zurück des Bildschirms (dasselbe wie die Wischgeste, `useSwipeBack` → `lib/backHandler.ts`), dann den Verlauf. Auf der Spielewand geht die App in den Hintergrund, statt sich zu beenden. **Im Spiel** fragt sie „Spiel beenden?“ (`GameFrame.tsx`), ein zweites Zurück spielt weiter. |
+| Navigationsleiste | Material 3 Expressive (`src/app/MaterialNavBar.tsx`, Stile `.m3nav` in `global.css`): Fläche am unteren Rand bis unter die Gestenleiste, Pille hinter dem aktiven Symbol, Label darunter. iOS und Browser behalten die Glaskapsel (`TabBar.tsx`). |
 | Statusleiste, Startbild | Wie unter iOS über `src/lib/native.ts` (`@capacitor/status-bar`, `@capacitor/splash-screen`): Symbole passend zum App-Theme, das Startbild bleibt, bis die Oberfläche steht. Safe Areas kommen als `env(safe-area-inset-*)` an. |
 | Kamera | `getUserMedia` in der WebView braucht `CAMERA` im Manifest – ohne lehnt Android stumm ab, ohne zu fragen. |
 | Benachrichtigungen | Ab Android 13 fragt die App beim ersten Foto nach (`features/camera/notify.ts`). Geplant wird **ungenau** (`isExactNotification: false`): Sonst schickt das Plugin den Nutzer in die Einstellungen „Wecker & Erinnerungen“, und Google Play erlaubt exakte Wecker nur Wecker-Apps (Berechtigung im Manifest entfernt). Eigenes Statusleisten-Symbol `res/drawable/ic_stat_pegel.xml`. |

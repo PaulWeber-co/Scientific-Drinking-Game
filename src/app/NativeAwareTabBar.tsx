@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { isNativeApp } from '../lib/platform';
+import { isAndroidApp, isNativeApp } from '../lib/platform';
 import { motionReduced } from '../lib/motion';
 import { useResolvedTheme } from '../lib/theme';
 import { TabBar } from './TabBar';
+import { MaterialNavBar } from './MaterialNavBar';
 
 const paths = ['/', '/lobby', '/pegel', '/album'] as const;
 type NativeTabs = {
@@ -115,5 +116,6 @@ export function NativeAwareTabBar() {
   }, []);
 
   useEffect(() => { requestSync.current?.(); }, [pathname, theme]);
-  return native ? <span className="native-tabbar-anchor" aria-hidden="true" /> : <TabBar />;
+  if (native) return <span className="native-tabbar-anchor" aria-hidden="true" />;
+  return isAndroidApp() ? <MaterialNavBar /> : <TabBar />;
 }

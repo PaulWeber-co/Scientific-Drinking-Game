@@ -14,6 +14,7 @@ declare global {
   interface Window {
     Capacitor?: {
       isNativePlatform?: () => boolean;
+      getPlatform?: () => string;
       /** Macht aus einem nativen Dateipfad eine im WebView ladbare Adresse. */
       convertFileSrc?: (uri: string) => string;
     };
@@ -22,4 +23,9 @@ declare global {
 
 export function isNativeApp(): boolean {
   return window.Capacitor?.isNativePlatform?.() === true;
+}
+
+/** Läuft die App in der Android-Hülle? (Für Android-eigene Bedienelemente.) */
+export function isAndroidApp(): boolean {
+  return isNativeApp() && window.Capacitor?.getPlatform?.() === 'android';
 }

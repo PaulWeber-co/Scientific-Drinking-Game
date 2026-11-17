@@ -7,7 +7,7 @@ import { motionReduced } from '../lib/motion';
 // Vier statt fünf: Der alte Start war ein zweites Spiele-Menü mit
 // Promille-Anzeige davor. Die Spiele sind jetzt selbst der Start, die
 // Promille-Anzeige lebt vollständig im Pegel-Tab.
-const TABS: { to: string; icon: IconName; label: string }[] = [
+export const TABS: { to: string; icon: IconName; label: string }[] = [
   { to: '/', icon: 'games', label: 'Spiele' },
   { to: '/lobby', icon: 'people', label: 'Runde' },
   { to: '/pegel', icon: 'chart', label: 'Pegel' },
@@ -24,7 +24,7 @@ const RELEASE_SLOP = 56;
 const CLICK_GUARD_MS = 700;
 
 /** Welcher Tab die Seite trägt; -1, wenn keiner (z. B. das Profil). */
-function activeIndex(pathname: string): number {
+export function activeIndex(pathname: string): number {
   if (pathname === '/' || pathname.startsWith('/spiele/')) return 0;
   return TABS.findIndex((t) => t.to !== '/' && pathname.startsWith(t.to));
 }

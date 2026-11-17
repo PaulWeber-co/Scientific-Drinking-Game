@@ -5,11 +5,14 @@ import { UpdateBanner } from './app/UpdateBanner';
 import { initNative } from './lib/native';
 import { initSound } from './lib/sound';
 import { initViewportFill } from './lib/viewportFill';
+import { isAndroidApp } from './lib/platform';
 import './styles/global.css';
 import './styles/game.css';
 
 // Vor dem ersten Bild: sonst springt die Tab-Leiste beim Start sichtbar.
 initViewportFill();
+// Android bekommt seine eigene Navigationsleiste (Material 3), mit anderer Höhe.
+if (isAndroidApp()) document.documentElement.dataset.platform = 'android';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
