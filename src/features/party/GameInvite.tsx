@@ -20,7 +20,14 @@ export function GameInvite() {
   const [dismissed, setDismissed] = useState<string | null>(null);
   const buzzed = useRef<string | null>(null);
 
-  const running = party.mode === 'online' && party.status === 'playing' && party.gameId;
+  const state = party.gameState as { phase?: string; over?: boolean } | null;
+  // Endstand: die meisten Spiele führen `over`, Tabu und Undercover `final`
+  // (bei Undercover ist `over` nur das Ende einer Runde), Ring of Fire ein Flag.
+  const finished =
+    party.gameId === 'undercover'
+      ? state?.phase === 'final'
+      : state?.phase === 'over' || state?.phase === 'final' || state?.over === true;
+  const running = party.mode === 'online' && party.status === 'playing' && party.gameId && !finished;
   const game = running ? getGame(party.gameId!) : null;
   const startedByMe = party.startedBy === party.me.id;
   const host = party.players.find((p) => p.id === party.startedBy);
@@ -28,7 +35,11 @@ export function GameInvite() {
   const key = running ? `${party.gameId}-${party.startedAt}` : null;
   const dialog = useRef<HTMLDivElement>(null);
   const inviteOpen = !!game && !!key && !(startedByMe && !party.leftRound) && pathname !== '/spiel' && dismissed !== key && !party.leftRound;
-  useModalDialog(dialog, inviteOpen, () => setDismissed(key));
+  const dismiss = () => {
+    setDismissed(key);
+    party.leaveRound();
+  };
+  useModalDialog(dialog, inviteOpen, dismiss);
 
   useEffect(() => {
     if (!key || startedByMe) return;
@@ -42,6 +53,7 @@ export function GameInvite() {
 
   const join = () => {
     haptic('select');
+    party.joinRound();
     nav('/spiel');
   };
 
@@ -85,7 +97,7 @@ export function GameInvite() {
           <button className="btn btn--brand btn--block btn--lg" onClick={join}>
             Mitspielen
           </button>
-          <button className="btn btn--plain btn--block" onClick={() => setDismissed(key)}>
+          <button className="btn btn--plain btn--block" onClick={dismiss}>
             Später
           </button>
         </div>
