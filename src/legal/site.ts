@@ -115,14 +115,14 @@ export const LEGAL: LegalConfig = {
     {
       label: 'Online-Lobby (nur wenn du eine startest oder beitrittst)',
       provider: 'Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland',
-      data: 'Spitzname, Avatarfarbe, Getränke-Symbol, Rolle „fährt heute", grobe Pegel-Zone (nüchtern/aufwärmen/sweet spot/grenzbereich), Zeitstempel, zufälliger Gerätecode, Lobby-Code, Spielstand des laufenden Spiels sowie die IP-Adresse der Verbindung. Nur wenn du „Für Mitspieler sichtbar" einschaltest: eine verkleinerte Kopie deines Profilbilds',
+      data: 'Spitzname, Avatarfarbe, Getränke-Symbol, Rolle „fährt heute", grobe Pegel-Zone (nüchtern/aufwärmen/sweet spot/grenzbereich), Zeitstempel, eine zufällige anonyme Kennung (Firebase Authentication, anonyme Anmeldung ohne E-Mail, Telefonnummer oder Passwort), Lobby-Code, Spielstand des laufenden Spiels sowie die IP-Adresse der Verbindung. Nur wenn du „Für Mitspieler sichtbar" einschaltest: eine verkleinerte Kopie deines Profilbilds',
       purpose:
         'Damit mehrere Geräte dieselbe Runde sehen. Ohne Lobby wird zu Google keine Verbindung aufgebaut.',
       legalBasis:
         'Art. 6 Abs. 1 lit. b DSGVO – Durchführung der von dir angeforderten Funktion. Für das Profilbild Art. 6 Abs. 1 lit. a DSGVO – deine Einwilligung, die du mit dem Schalter jederzeit widerrufst',
       region: 'Firebase Realtime Database, Region europe-west1 (Belgien)',
       retention:
-        'Eine Lobby läuft 8 Stunden ab, nachdem das letzte Gerät sie verlassen hat, und wird danach innerhalb einer Stunde gelöscht. Beim Verlassen wird der eigene Eintrag sofort entfernt. Ein geteiltes Profilbild löscht die Datenbank zusätzlich, sobald dein Gerät die Verbindung verliert.',
+        'Eine Lobby läuft 8 Stunden ab, nachdem das letzte Gerät sie verlassen hat, und wird danach innerhalb einer Stunde gelöscht. Beim Verlassen wird der eigene Eintrag sofort entfernt. Ein geteiltes Profilbild löscht die Datenbank zusätzlich, sobald dein Gerät die Verbindung verliert. Die anonyme Anmeldung wird gelöscht, wenn sie 30 Tage nicht benutzt wurde.',
       privacyUrl: 'https://firebase.google.com/support/privacy',
       thirdCountry:
         'Die Daten liegen in der EU. Ein Zugriff durch Google LLC (USA) im Rahmen von Support und Wartung ist nicht ausgeschlossen; Google ist nach dem EU-U.S. Data Privacy Framework zertifiziert, ergänzend gelten die Standardvertragsklauseln.',
@@ -177,7 +177,7 @@ export const LEGAL: LegalConfig = {
       key: 'sdg.device-id',
       label: 'Gerätekennung',
       content:
-        'Eine zufällige Zeichenfolge, damit dich eine Lobby nach einem Neuladen als denselben Spieler erkennt. Sie hängt an nichts anderem und sagt nichts über dich aus.',
+        'Eine zufällige Zeichenfolge, die dich im Pass-&-Play-Modus kennzeichnet. Sie hängt an nichts anderem und sagt nichts über dich aus. Für die Online-Lobby legt Firebase zusätzlich eine anonyme Anmeldung im Browser-Speicher (IndexedDB „firebaseLocalStorageDb“) ab: eine zufällige Kennung und ein Zugangstoken, damit dich die Lobby nach einem Neuladen als denselben Spieler erkennt.',
       retention: 'Bleibt bis du die Browserdaten löschst.',
     },
     {

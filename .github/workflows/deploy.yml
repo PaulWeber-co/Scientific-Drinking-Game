@@ -30,6 +30,9 @@ jobs:
         run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          # Öffentlicher Web-API-Key für die anonyme Anmeldung der Online-Lobby
+          # (kein Geheimnis). Repository → Settings → Variables → FIREBASE_API_KEY.
+          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
       - uses: actions/configure-pages@v5
         with:
           # Schaltet Pages beim ersten Lauf selbst auf "GitHub Actions" um.

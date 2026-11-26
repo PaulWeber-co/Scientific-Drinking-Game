@@ -20,10 +20,12 @@ import {
   update,
 } from 'firebase/database';
 import {
+  AUTH_CONFIGURED,
   getDb,
   HEARTBEAT_MS,
   HOST_TAKEOVER_MS,
   LOBBY_TTL_MS,
+  onlineIdentity,
   PLAYER_STALE_MS,
   withTimeout,
 } from '../../lib/firebase';
@@ -192,8 +194,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const log = useBacEvents();
   const setLastLobbyCode = useApp((s) => s.setLastLobbyCode);
 
-  const myId = useMemo(() => deviceId(), []);
   const [mode, setMode] = useState<PartyMode>('local');
+  // Lokal zählt die Gerätekennung. Online tritt das Gerät unter der UID der
+  // anonymen Firebase-Anmeldung auf: nur die kann der Server prüfen, und die
+  // Security Rules binden Spielereintrag, Host und Inbox an genau sie.
+  const localId = useMemo(() => deviceId(), []);
+  const [onlineId, setOnlineId] = useState<string | null>(null);
+  const myId = mode === 'online' && onlineId ? onlineId : localId;
   const [code, setCode] = useState<string | null>(null);
   const [connection, setConnection] = useState<Connection>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -274,7 +281,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         // Bilder der anderen nur, wenn sie es freigegeben haben. Die EIGENE
         // Zeile zeigt immer das lokale Original – auch ohne Freigabe wäre
         // man sonst auf dem eigenen Gerät der Einzige ohne Gesicht.
-        photo: p.id === myId ? profile?.photo : snapshot?.avatars?.[p.id],
+        photo: p.id === myId ? profile?.photo : remoteAvatar(snapshot?.avatars?.[p.id]),
         drinkIcon: p.drinkIcon,
         driver: p.driver === true,
         zone: p.zone,
@@ -303,9 +310,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const lobbyRef = useCallback((c: string, path = '') => ref(getDb(), `lobbies/${c}${path}`), []);
 
   const writeMe = useCallback(
-    async (c: string, extra: Partial<RemotePlayer> = {}) => {
-      await update(lobbyRef(c, `/players/${myId}`), {
-        id: myId,
+    async (c: string, id: string, extra: Partial<RemotePlayer> = {}) => {
+      await update(lobbyRef(c, `/players/${id}`), {
+        id,
         name: (profile?.name || 'Spieler').slice(0, 24),
         color: profile?.color ?? 'indigo',
         drinkIcon: myDrink.icon,
@@ -315,48 +322,55 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         ...extra,
       });
     },
-    [lobbyRef, myId, profile?.name, profile?.color, profile?.designatedDriver, myDrink.icon],
+    [lobbyRef, profile?.name, profile?.color, profile?.designatedDriver, myDrink.icon],
   );
 
   const createOnline = useCallback(async (): Promise<string> => {
     setConnection('connecting');
     setError(null);
     try {
-      let c = lobbyCode();
-      let free = false;
-      for (let attempt = 0; attempt < 6 && !free; attempt++) {
-        if (attempt > 0) c = lobbyCode();
-        const existing = await withTimeout(get(lobbyRef(c, '/meta')), OFFLINE_MSG);
-        // Auch eine abgelaufene Lobby ist belegt: die Security Rules sperren
-        // jeden Schreibzugriff auf sie, ein `set` darauf endete in
-        // permission_denied. Nach sechs belegten Codes wurde vorher außerdem
-        // ein siebter ungeprüft benutzt.
-        free = !existing.exists();
-      }
-      if (!free) throw new Error('Gerade ist kein freier Lobby-Code zu finden. Versuch es gleich noch einmal.');
-      const now = Date.now();
-      await withTimeout(set(lobbyRef(c), {
-        meta: {
-          code: c,
-          host: myId,
-          status: 'lobby',
-          createdAt: now,
-          updatedAt: now,
-          expiresAt: now + LOBBY_TTL_MS,
-        },
-        players: {
-          [myId]: {
-            id: myId,
-            name: (profile?.name || 'Spieler').slice(0, 24),
-            color: profile?.color ?? 'indigo',
-            drinkIcon: myDrink.icon,
-            driver: profile?.designatedDriver ?? false,
-            joinedAt: now,
-            lastSeen: now,
-            online: true,
+      const id = await withTimeout(onlineIdentity(localId), OFFLINE_MSG);
+      let c = '';
+      for (let attempt = 0; attempt < 6 && !c; attempt++) {
+        const candidate = lobbyCode();
+        const now = Date.now();
+        const lobby = {
+          meta: {
+            code: candidate,
+            host: id,
+            status: 'lobby',
+            createdAt: now,
+            updatedAt: now,
+            expiresAt: now + LOBBY_TTL_MS,
           },
-        },
-      }), OFFLINE_MSG);
+          players: {
+            [id]: {
+              id,
+              name: (profile?.name || 'Spieler').slice(0, 24),
+              color: profile?.color ?? 'indigo',
+              drinkIcon: myDrink.icon,
+              driver: profile?.designatedDriver ?? false,
+              joinedAt: now,
+              lastSeen: now,
+              online: true,
+            },
+          },
+        };
+        // Anlegen nur, wenn der Code frei ist – in EINEM Schritt. Vorher kam
+        // erst `get`, dann `set`: zwei Geräte mit demselben Code überschrieben
+        // sich. Auch eine abgelaufene Lobby gilt als belegt; die Rules lassen
+        // ohnehin nur das Anlegen auf einem leeren Pfad zu. Der Wert steht vor
+        // der Transaktion fest, damit ein Wiederholungslauf nichts neu würfelt.
+        const res = await withTimeout(
+          runTransaction(lobbyRef(candidate), (cur) => (cur === null ? lobby : undefined), {
+            applyLocally: false,
+          }),
+          OFFLINE_MSG,
+        );
+        if (res.committed) c = candidate;
+      }
+      if (!c) throw new Error('Gerade ist kein freier Lobby-Code zu finden. Versuch es gleich noch einmal.');
+      setOnlineId(id);
       setMode('online');
       setCode(c);
       setLastLobbyCode(c);
@@ -368,7 +382,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }
   }, [
     lobbyRef,
-    myId,
+    localId,
     profile?.name,
     profile?.color,
     profile?.designatedDriver,
@@ -386,12 +400,14 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         // kaputter Einladungslink in einen Pfadfehler des SDK oder in die
         // irreführende Meldung, die Security Rules fehlten.
         if (!LOBBY_CODE_RE.test(c)) throw new Error('Diese Lobby gibt es nicht (mehr).');
+        const id = await withTimeout(onlineIdentity(localId), OFFLINE_MSG);
         const metaSnap = await withTimeout(get(lobbyRef(c, '/meta')), OFFLINE_MSG);
         if (!metaSnap.exists()) throw new Error('Diese Lobby gibt es nicht (mehr).');
         if ((metaSnap.val()?.expiresAt ?? 0) < Date.now())
           throw new Error('Diese Lobby ist abgelaufen.');
-        const existing = await withTimeout(get(lobbyRef(c, `/players/${myId}`)), OFFLINE_MSG);
-        await withTimeout(writeMe(c, existing.exists() ? {} : { joinedAt: Date.now() }), OFFLINE_MSG);
+        const existing = await withTimeout(get(lobbyRef(c, `/players/${id}`)), OFFLINE_MSG);
+        await withTimeout(writeMe(c, id, existing.exists() ? {} : { joinedAt: Date.now() }), OFFLINE_MSG);
+        setOnlineId(id);
         setMode('online');
         setCode(c);
         setLastLobbyCode(c);
@@ -401,7 +417,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         throw e;
       }
     },
-    [lobbyRef, myId, writeMe, setLastLobbyCode],
+    [lobbyRef, localId, writeMe, setLastLobbyCode],
   );
 
   // Verbindungsstatus der Datenbank beobachten – auf Partys bricht WLAN staendig weg.
@@ -565,9 +581,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         .filter((p) => Date.now() - p.lastSeen < HOST_TAKEOVER_MS)
         .sort((a, b) => a.joinedAt - b.joinedAt);
       if (alive[0]?.id !== myId) return;
-      runTransaction(lobbyRef(code, '/meta/host'), (cur) =>
-        cur === snap.meta!.host ? myId : cur,
-      ).catch(() => {});
+      // Steht inzwischen jemand anderes drin: abbrechen statt den fremden Wert
+      // zurückzuschreiben – das lehnten die Rules ohnehin ab.
+      const oldHost = snap.meta.host;
+      runTransaction(lobbyRef(code, '/meta/host'), (cur) => (cur === oldHost ? myId : undefined)).catch(
+        () => {},
+      );
     }, HEARTBEAT_MS);
     return () => clearInterval(t);
   }, [mode, code, isHost, myId, lobbyRef, hasMeta]);
@@ -1048,10 +1067,27 @@ const LOBBY_CODE_RE = /^[A-Z0-9]{6}$/;
 const OFFLINE_MSG =
   'Keine Verbindung zur Datenbank. Prüf dein Netz – oder spielt so lange auf einem Handy weiter.';
 
+/**
+ * Profilbilder anderer kommen aus der Datenbank – also von fremden Geräten.
+ * Angezeigt wird nur, was die Rules auch zulassen: ein JPEG als Data-URL.
+ * Alles andere (fremde URL = Tracking-Pixel, SVG, `javascript:`) fällt weg.
+ */
+export function remoteAvatar(value: unknown): string | undefined {
+  return typeof value === 'string' &&
+    value.length <= 24_000 &&
+    /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(value)
+    ? value
+    : undefined;
+}
+
 function describe(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
-  if (/permission_denied/i.test(msg))
-    return 'Die Datenbank verweigert den Zugriff. Sind die Security Rules aus database.rules.json hinterlegt?';
+  if (/permission[_ ]denied/i.test(msg))
+    return AUTH_CONFIGURED
+      ? 'Die Datenbank verweigert den Zugriff. Ist die Lobby abgelaufen, oder fehlt die anonyme Anmeldung im Firebase-Projekt?'
+      : 'Die Online-Lobby ist nicht eingerichtet: VITE_FIREBASE_API_KEY fehlt (siehe docs/FIREBASE.md).';
+  if (/auth\/(operation-not-allowed|admin-restricted-operation|configuration-not-found)/i.test(msg))
+    return 'Die anonyme Anmeldung ist im Firebase-Projekt nicht aktiviert (siehe docs/FIREBASE.md).';
   if (/network|offline|unavailable/i.test(msg))
     return 'Keine Verbindung. Auf einer Party ist das Netz oft schlecht – kurz warten.';
   return msg;

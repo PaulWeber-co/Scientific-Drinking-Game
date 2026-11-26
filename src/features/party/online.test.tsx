@@ -4,6 +4,7 @@ import { PartyProvider, useParty, type PartyValue } from './PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
+import type { GameActionInput } from '../../games/types';
 
 /**
  * Die Online-Lobby gegen eine Datenbank im Arbeitsspeicher.
@@ -89,9 +90,12 @@ vi.mock('firebase/database', () => ({
     notify();
   },
   runTransaction: async (r: { path: string }, fn: (cur: unknown) => unknown) => {
-    setAt(r.path, fn(getAt(r.path)));
+    // Wie das SDK: `undefined` bricht ab und lässt den Wert stehen.
+    const next = fn(getAt(r.path));
+    if (next === undefined) return { committed: false, snapshot: snap(r.path) };
+    setAt(r.path, next);
     notify();
-    return { committed: true };
+    return { committed: true, snapshot: snap(r.path) };
   },
   onValue: (r: { path: string }, cb: (s: FakeSnap) => void) => {
     const l = { path: r.path, cb };
@@ -111,9 +115,13 @@ vi.mock('../profile/portrait', () => ({
   makeShareCopy: async (photo: string) => `${photo}-KOPIE`,
 }));
 
+/** Anonyme Anmeldung: ohne Zutun wie „kein API-Key" – die Gerätekennung. */
+const identity = vi.hoisted(() => vi.fn(async (fallback: string) => fallback));
+
 vi.mock('../../lib/firebase', async (original) => ({
   ...(await original<typeof import('../../lib/firebase')>()),
   getDb: () => ({}),
+  onlineIdentity: (fallback: string) => identity(fallback),
 }));
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn() }));
@@ -166,6 +174,7 @@ beforeEach(() => {
   connected = true;
   localStorage.setItem('sdg.device-id', ICH);
   sessionStorage.clear();
+  identity.mockImplementation(async (fallback: string) => fallback);
   usePlayer.setState({
     profile: { ...defaultProfile(), name: 'Ich' },
     onboarded: true,
@@ -456,5 +465,99 @@ describe('Online-Lobby: Runde beenden', () => {
     await act(async () => {});
     expect(getAt('lobbies/ABCDEF/meta/status')).toBe('lobby');
     expect(getAt('lobbies/ABCDEF/game')).toBeNull();
+  });
+});
+
+describe('Online-Lobby: anonyme Anmeldung (Security-Audit)', () => {
+  const UID = 'uid_anon_1234567890';
+
+  it('tritt online unter der UID auf und schickt Aktionen nur unter ihr', async () => {
+    identity.mockImplementation(async () => UID);
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    render(
+      <PartyProvider>
+        <Probe />
+      </PartyProvider>,
+    );
+    expect(api.me.id).toBe(ICH);
+    await act(async () => {
+      await api.joinOnline('ABCDEF');
+    });
+    expect(api.me.id).toBe(UID);
+    expect(getAt(`lobbies/ABCDEF/players/${UID}/id`)).toBe(UID);
+    expect(getAt(`lobbies/ABCDEF/players/${ICH}`)).toBeNull();
+
+    act(() => api.dispatch({ type: 'probe' } as unknown as GameActionInput));
+    await act(async () => {});
+    const inbox = Object.values((getAt('lobbies/ABCDEF/inbox') ?? {}) as Record<string, { by: string }>);
+    expect(inbox.map((m) => m.by)).toEqual([UID]);
+
+    act(() => api.leave());
+    await act(async () => {});
+    expect(getAt(`lobbies/ABCDEF/players/${UID}`)).toBeNull();
+    expect(api.me.id).toBe(ICH);
+  });
+
+  it('legt eine Lobby mit der UID als Host an', async () => {
+    identity.mockImplementation(async () => UID);
+    render(
+      <PartyProvider>
+        <Probe />
+      </PartyProvider>,
+    );
+    let code = '';
+    await act(async () => {
+      code = await api.createOnline();
+    });
+    expect(getAt(`lobbies/${code}/meta/host`)).toBe(UID);
+    expect(getAt(`lobbies/${code}/players/${UID}/id`)).toBe(UID);
+    expect(api.isHost).toBe(true);
+  });
+
+  it('überschreibt beim Anlegen keine laufende Lobby eines anderen Geräts', async () => {
+    const crypto = globalThis.crypto;
+    const bytes = [
+      [0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1],
+    ];
+    const spy = vi
+      .spyOn(crypto, 'getRandomValues')
+      .mockImplementation(<T extends ArrayBufferView | null>(arr: T): T => {
+        (arr as unknown as Uint8Array).set(bytes.shift() ?? [2, 2, 2, 2, 2, 2]);
+        return arr;
+      });
+    lobby({ x: spieler('x', 'Fremd', START - 1000, START) }, 'x', 'AAAAAA');
+    render(
+      <PartyProvider>
+        <Probe />
+      </PartyProvider>,
+    );
+    let code = '';
+    await act(async () => {
+      code = await api.createOnline();
+    });
+    spy.mockRestore();
+    expect(code).toBe('BBBBBB');
+    expect(getAt('lobbies/AAAAAA/meta/host')).toBe('x');
+    expect(getAt('lobbies/AAAAAA/players/x/name')).toBe('Fremd');
+  });
+
+  it('zeigt fremde Profilbilder nur als JPEG-Data-URL – keine Tracking-URL, kein SVG', async () => {
+    lobby(
+      {
+        h1: spieler('h1', 'Host', START - 120_000, START),
+        p2: spieler('p2', 'Zwei', START - 100_000, START),
+        p3: spieler('p3', 'Drei', START - 90_000, START),
+      },
+      'h1',
+    );
+    setAt('lobbies/ABCDEF/avatars/h1', 'https://tracker.example/pixel.gif');
+    setAt('lobbies/ABCDEF/avatars/p2', 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
+    setAt('lobbies/ABCDEF/avatars/p3', 'data:image/jpeg;base64,QUJD');
+    await beitreten();
+    const foto = (id: string) => api.players.find((p) => p.id === id)?.photo;
+    expect(foto('h1')).toBeUndefined();
+    expect(foto('p2')).toBeUndefined();
+    expect(foto('p3')).toBe('data:image/jpeg;base64,QUJD');
   });
 });

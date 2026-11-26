@@ -106,6 +106,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          // Die anonyme Anmeldung braucht nur die Online-Lobby: eigener Chunk,
+          // nachgeladen erst beim Beitreten.
+          if (/node_modules\/(@firebase\/auth|firebase\/auth)\//.test(id)) return 'firebase-auth';
           if (/node_modules\/(@firebase|firebase)\//.test(id)) return 'firebase';
           // React und Router ändern sich selten: eigener Chunk, damit ein
           // App-Update nicht das Framework neu lädt.
@@ -131,6 +134,7 @@ export default defineConfig({
       ? { forks: { execArgv: ['--no-experimental-webstorage'] } }
       : undefined,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // tests/rules braucht den Database-Emulator: eigener Lauf, `npm run test:rules`.
+    include: ['src/**/*.test.{ts,tsx}', 'tests/functions/**/*.test.ts'],
   },
 });
