@@ -12,7 +12,7 @@ const resolvedTarget = (card: (typeof CARDS)[number]): 'all' | 'actor' => card.t
 describe('Chaos-Roulette: Kartentext trifft die tatsächliche Ansage', () => {
   it('hat überhaupt Karten zu prüfen', () => {
     // Untergrenze, damit die folgenden Checks nicht mangels Daten grün wären.
-    expect(CARDS.length).toBe(34);
+    expect(CARDS.length).toBe(100);
   });
 
   it('verspricht keine Teilmenge, die die App nicht kennt ("Alle, die/mit …")', () => {
