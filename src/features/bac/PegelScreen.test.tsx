@@ -18,7 +18,10 @@ vi.mock('../../lib/haptics', () => ({ haptic: vi.fn() }));
  * Eintrag muss einzeln herausgehen.
  */
 
-const JETZT = new Date('2026-09-11T22:00:00Z').getTime();
+// Ortszeit, nicht UTC: 22:00Z ist in Deutschland schon Mitternacht, und der
+// Fahr-Check „bis 00:00" sprang dann auf den nächsten Tag – rot auf jedem
+// Rechner in Mitteleuropa, grün nur in UTC.
+const JETZT = new Date(2026, 8, 11, 22, 0, 0).getTime();
 const STUNDE = 3_600_000;
 const me: GamePlayer = { id: 'p0', name: 'Paul', color: 'blue', online: true };
 
