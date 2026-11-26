@@ -72,7 +72,8 @@ export function Onboarding() {
       );
       // Einladungen behalten ihr Ziel, auch wenn zuerst ein Profil fehlt.
       const returnTo = location.state?.returnTo;
-      nav(typeof returnTo === 'string' && /^\/(?!\/)/.test(returnTo) ? returnTo : '/', {
+      // Nur interne Pfade: kein `//host`, kein `/\\host`, kein Schema.
+      nav(typeof returnTo === 'string' && /^\/(?![/\\])/.test(returnTo) ? returnTo : '/', {
         replace: true,
       });
       return;

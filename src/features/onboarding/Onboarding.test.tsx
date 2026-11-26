@@ -167,6 +167,16 @@ describe('Einladung nach dem Onboarding', () => {
     weiter();
     expect(screen.getByText('/')).toBeInTheDocument();
   });
+
+  it.each(['/\\example.com', 'https://example.com', 'javascript:alert(1)'])(
+    'leitet auch über %s nicht nach draußen (Open Redirect)',
+    (ziel) => {
+      bisZumModus(25, ziel);
+      fireEvent.click(screen.getByRole('button', { name: /^Alkoholfrei/ }));
+      weiter();
+      expect(screen.getByText('/')).toBeInTheDocument();
+    },
+  );
 });
 
  it('nennt dynamische Schritte, fokussiert die Überschrift und beschriftet den Spitznamen', () => {
