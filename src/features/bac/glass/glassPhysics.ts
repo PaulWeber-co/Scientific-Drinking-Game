@@ -333,7 +333,16 @@ function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
   const k = Math.PI / s.width;
   // Im tiefen Wasser beteiligt sich nur noch eine Tiefe von ungefähr 1/k.
   const depth = Math.tanh(k * rest) / k;
-  const axial = s.gy < 0 ? -s.gy : 0.025 * GRAVITY;
+  let axial = s.gy < 0 ? -s.gy : 0.025 * GRAVITY;
+  let gx = s.gx;
+  const speedLimit = (0.35 * dx * 512) / dt;
+  const waveSpeed = Math.sqrt(axial * depth) + Math.sqrt(Math.abs(gx) * s.width);
+  // Auch bei extremer Beschleunigung muss Platz für Strömung bleiben.
+  if (waveSpeed > speedLimit * 0.5) {
+    const factor = ((speedLimit * 0.5) / waveSpeed) ** 2;
+    axial *= factor;
+    gx *= factor;
+  }
   const frequency = Math.sqrt(axial * k * Math.tanh(k * rest));
   const before = s.surface.slice();
   s.idleFor += dt;
@@ -372,17 +381,36 @@ function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
     for (let i = 1; i < COLUMNS; i++)
       velocity[i] += kick * Math.cos((Math.PI * s.colX[i]) / s.width);
   }
-  const steps = Math.max(
-    1,
-    Math.ceil(
-      dt /
-        Math.min(
-          0.001,
-          (0.35 * dx) /
-            (Math.sqrt(axial * depth) +
-              Math.sqrt(Math.abs(s.gx) * s.width) +
-              Math.max(...velocity.map(Math.abs))),
-        ),
+  // Schneller als die Grenze darf keine Spalte strömen, sonst reichen 512
+  // Teilschritte nicht für einen stabilen Schritt.
+  const maxVelocity = Math.max(
+    0,
+    speedLimit - Math.sqrt(axial * depth) - Math.sqrt(Math.abs(gx) * s.width),
+  );
+  const limitVelocity = () => {
+    for (let i = 1; i < COLUMNS; i++)
+      velocity[i] = Math.max(-maxVelocity, Math.min(maxVelocity, velocity[i]));
+  };
+  // Über der Grenze zusätzlich hart kappen: die Grenze allein hält den
+  // Schritt stabil, aber nicht die Flüssigkeitsmenge im Glas.
+  if (Math.max(...velocity.map(Math.abs)) > maxVelocity) {
+    for (let i = 1; i < COLUMNS; i++) velocity[i] = Math.max(-500, Math.min(500, velocity[i]));
+  }
+  limitVelocity();
+  const steps = Math.min(
+    512,
+    Math.max(
+      1,
+      Math.ceil(
+        dt /
+          Math.min(
+            0.001,
+            (0.35 * dx) /
+              (Math.sqrt(axial * depth) +
+                Math.sqrt(Math.abs(gx) * s.width) +
+                Math.max(...velocity.map(Math.abs))),
+          ),
+      ),
     ),
   );
   const h = dt / steps;
@@ -409,6 +437,7 @@ function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
     return value;
   };
   for (let n = 0; n < steps; n++) {
+    limitVelocity();
     let total = 0;
     let free = 0;
     for (let i = 0; i < COLUMNS; i++) {
@@ -429,7 +458,7 @@ function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
       const u = velocity[i];
       const gradient = u >= 0 ? (u - velocity[i - 1]) / dx : (velocity[i + 1] - u) / dx;
       const drag = 2 * s.look.damping * frequency + Math.abs(u) / Math.max(12, s.width);
-      predicted[i] = (u + h * (s.gx - u * gradient)) / (1 + h * drag);
+      predicted[i] = (u + h * (gx - u * gradient)) / (1 + h * drag);
     }
     for (let i = 0; i < COLUMNS; i++) {
       const source = s.surface[i] > s.colLo[i] && s.surface[i] < s.colHi[i] ? supply : 0;
@@ -477,7 +506,7 @@ function stepField(s: GlassSim, dt: number, ambient: boolean): number[] {
     // Isolierte trockene Druckköpfe tragen keine Masse und brauchen kein Gedächtnis.
     for (let i = 0; i < COLUMNS; i++) {
       if (mobility[i] === 0 && mobility[i + 1] === 0 && amount(i) === 0) {
-        s.surface[i] = Math.min(s.colLo[i], rest + (s.gx / axial) * s.colX[i]);
+        s.surface[i] = Math.min(s.colLo[i], rest + (gx / axial) * s.colX[i]);
       }
     }
     s.outflow.fill(0);

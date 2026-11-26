@@ -49,3 +49,23 @@ describe('Eigene Karten', () => {
     expect(karten().map((c) => c.text)).toEqual(['B']);
   });
 });
+
+it('lehnt gleiche Texte nur im selben Spiel ab', () => {
+  const { add } = useCustomCards.getState();
+  add(meta.id, { text: 'Hallo Welt' });
+  const before = useCustomCards.getState().byGame;
+  add(meta.id, { text: '  HALLO   welt  ' });
+  expect(useCustomCards.getState().byGame).toBe(before);
+  add('anderes-spiel', { text: 'hallo welt' });
+  expect(useCustomCards.getState().byGame['anderes-spiel']).toHaveLength(1);
+});
+
+it('zeigt doppelte Texte an und behält die Eingabe', () => {
+  render(<CustomCards game={meta} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+  anlegen('Hallo Welt');
+  anlegen('  HALLO   welt  ');
+  expect(screen.getByRole('alert')).toHaveTextContent('Diese Karte hast du schon.');
+  expect(screen.getByPlaceholderText('Text der Karte …')).toHaveValue('  HALLO   welt  ');
+  expect(karten()).toHaveLength(1);
+});
