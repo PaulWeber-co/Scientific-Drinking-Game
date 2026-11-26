@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../../components/icons';
 import { Segmented, Sheet } from '../../components/ui';
 import { haptic } from '../../lib/haptics';
-import { useCustomCards, type CustomCard } from '../../store/cards';
+import { useCustomCards, normalizeCardText, type CustomCard } from '../../store/cards';
 import type { Heat } from '../../games/card-engine/types';
 import type { GameMeta } from '../../games/types';
 
@@ -27,6 +27,7 @@ export function CustomCards({ game }: { game: GameMeta }) {
   const remove = useCustomCards((s) => s.remove);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
+  const [duplicate, setDuplicate] = useState(false);
   const [heat, setHeat] = useState<Heat>(1);
   const [mode, setMode] = useState<string | undefined>(undefined);
 
@@ -39,6 +40,10 @@ export function CustomCards({ game }: { game: GameMeta }) {
 
   const submit = () => {
     if (!text.trim()) return;
+    if (cards.some((card) => normalizeCardText(card.text) === normalizeCardText(text))) {
+      setDuplicate(true);
+      return;
+    }
     haptic('success');
     add(game.id, { text: text.trim(), heat, mode: chosenMode });
     setText('');
@@ -66,8 +71,12 @@ export function CustomCards({ game }: { game: GameMeta }) {
               placeholder="Text der Karte …"
               maxLength={200}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setDuplicate(false);
+              }}
             />
+            {duplicate && <p className="detailhinweis" role="alert">Diese Karte hast du schon.</p>}
             <div className="field">
               <span className="field__label">Härtegrad</span>
               <Segmented<string>

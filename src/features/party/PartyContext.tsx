@@ -38,6 +38,7 @@ import type { BacZone, DrinkEvent, Profile } from '../../engine/types';
 import type { GameAction, GameActionInput, GamePlayer } from '../../games/types';
 import { getLoadedGame, loadGame } from '../../games/registry';
 import { createQueue } from './hostQueue';
+import { gamePlayersForRound } from './roundPlayers';
 import { remainingHistory, useBacEvents, usePlayer } from '../../store/player';
 import { useFilm } from '../../store/film';
 import { useApp } from '../../store/app';
@@ -108,6 +109,7 @@ export interface PartyValue {
   connection: Connection;
   error: string | null;
   players: GamePlayer[];
+  gamePlayers: GamePlayer[];
   me: GamePlayer;
   isHost: boolean;
   gameId: string | null;
@@ -144,6 +146,7 @@ export interface PartyValue {
   endGame: () => void;
   /** Aus der laufenden Runde in die Lobby; die anderen spielen weiter. */
   leaveRound: () => void;
+  joinRound: () => void;
   /** Dieses Gerät hat die laufende Runde verlassen – Einladung nur als Leiste. */
   leftRound: boolean;
   /** Setzt Filmlänge und Entwicklungszeit für die ganze Runde (nur der Host). */
@@ -283,6 +286,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         isHost: snapshot?.meta?.host === p.id,
       }));
   }, [mode, me, localPlayers, snapshot, myId, profile?.photo]);
+
+  const gamePlayers = useMemo(
+    () => (mode === 'local' ? players : gamePlayersForRound(players, snapshot?.players ?? {})),
+    [mode, players, snapshot],
+  );
 
   const status: PartyStatus =
     mode === 'local' ? localStatus : (snapshot?.meta?.status ?? 'lobby');
@@ -478,7 +486,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   // Wer die Runde verlässt, bekommt die Einladung dazu nur noch als Leiste.
   const roundTag = gameId ? `${gameId}-${startedAt}` : null;
   const [leftTag, setLeftTag] = useState<string | null>(null);
-  const leaveRound = useCallback(() => setLeftTag(roundTag), [roundTag]);
+  const leaveRound = useCallback(() => {
+    setLeftTag(roundTag);
+    if (mode === 'online' && code) {
+      update(lobbyRef(code, `/players/${myId}`), { ready: false }).catch(() => {});
+    }
+  }, [roundTag, mode, code, lobbyRef, myId]);
+  const joinRound = useCallback(() => {
+    setLeftTag(null);
+    if (mode === 'online' && code) {
+      update(lobbyRef(code, `/players/${myId}`), { ready: null }).catch(() => {});
+    }
+  }, [mode, code, lobbyRef, myId]);
   const leftRound = roundTag !== null && leftTag === roundTag;
 
   // Heartbeat
@@ -576,6 +595,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   snapshotRef.current = snapshot;
   const playersRef = useRef<GamePlayer[]>(players);
   playersRef.current = players;
+  const gamePlayersRef = useRef<GamePlayer[]>(gamePlayers);
+  gamePlayersRef.current = gamePlayers;
 
   // Der Host schreibt den Spielstand exklusiv – und nacheinander (Queue).
   // Zwischen Einreihen und Ausführen kann eine neue Runde starten; deshalb
@@ -610,7 +631,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       let next = decodeState(cur.game.state);
       for (const action of actions) {
         try {
-          next = def.reduce(next, action, playersRef.current);
+          next = def.reduce(next, action, gamePlayersRef.current);
         } catch (e) {
           console.error('Spielaktion fehlgeschlagen', e);
         }
@@ -781,6 +802,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         'meta/updatedAt': now,
         game: { id, startedAt: now, state: encodeState(state), build: __GAME_BUILD__ },
         inbox: null,
+        ...Object.fromEntries(roster.map((p) => [`players/${p.id}/ready`, null])),
       }).catch((e) => setError(describe(e)));
       return true;
     },
@@ -957,6 +979,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     connection,
     error,
     players,
+    gamePlayers,
     me,
     isHost,
     gameId,
@@ -976,6 +999,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     startGame,
     endGame,
     leaveRound,
+    joinRound,
     leftRound,
     setFilm,
     dispatch,

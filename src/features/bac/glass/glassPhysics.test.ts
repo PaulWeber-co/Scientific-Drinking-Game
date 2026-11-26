@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DRINK_CATALOG, findDrink } from '../../../engine/drinks';
 import {
   COLUMNS,
@@ -410,3 +410,17 @@ for (const shape of Object.keys(GLASS_PROFILES) as (keyof typeof GLASS_PROFILES)
     });
   });
 }
+
+it('begrenzt extreme Strömung und erhält die Flüssigkeitsmenge', () => {
+  const s = createSim(0.5);
+  const before = area(s);
+  const fills = vi.spyOn(s.outflow, 'fill');
+  s.flow.fill(100000);
+  for (let i = 0; i < 30; i++) {
+    fills.mockClear();
+    stepSim(s, 0.033, { ...calm, levelGoal: 0.5, gravity: { x: i % 2 ? 1 : -1, y: 1 } });
+    expect(fills.mock.calls.length).toBeLessThanOrEqual(512);
+    expect([...s.flow, ...s.surface, ...s.surfaceVel].every(Number.isFinite)).toBe(true);
+    expect(Math.abs(area(s) + s.lostArea - before) / before).toBeLessThan(0.01);
+  }
+});
