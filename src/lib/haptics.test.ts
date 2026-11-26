@@ -132,9 +132,10 @@ describe('Haptik nativ, aber ohne einsynchronisiertes Plugin', () => {
 
     vi.resetModules();
     const modul = await import('./haptics');
-    // Der Import des Plugins läuft asynchron – einmal die Warteschlange leeren.
-    await Promise.resolve();
-    await Promise.resolve();
+    // Der Import des Plugins läuft asynchron. Wie viele Mikrotasks er braucht,
+    // hängt vom Test-Runner ab (Vitest 4 braucht mehr als 3) – darum warten,
+    // bis alle dynamischen Importe durch sind, statt Takte zu zählen.
+    await vi.dynamicImportSettled();
 
     modul.haptic('heavy');
     // Erst der native Versuch …

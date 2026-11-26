@@ -130,9 +130,10 @@ export default defineConfig({
     // Ab Node 25 hat Node ein eigenes `localStorage` (ohne Speicherdatei
     // undefiniert), das jsdoms überdeckt – dann scheitern alle Tests, die
     // Profil oder Einstellungen speichern. CI läuft mit Node 22, Macs oft neuer.
-    poolOptions: process.allowedNodeEnvironmentFlags.has('--experimental-webstorage')
-      ? { forks: { execArgv: ['--no-experimental-webstorage'] } }
-      : undefined,
+    // Vitest 4: `execArgv` steht direkt unter `test` (vorher poolOptions.forks).
+    execArgv: process.allowedNodeEnvironmentFlags.has('--experimental-webstorage')
+      ? ['--no-experimental-webstorage']
+      : [],
     setupFiles: ['./src/test/setup.ts'],
     // tests/rules braucht den Database-Emulator: eigener Lauf, `npm run test:rules`.
     include: ['src/**/*.test.{ts,tsx}', 'tests/functions/**/*.test.ts'],
