@@ -5,17 +5,47 @@ on:
     branches: ['**']
   pull_request:
 
+# Minimalrechte für das GITHUB_TOKEN: die CI liest nur.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Keine Install-Skripte aus Abhängigkeiten (Supply Chain). Die App
+      # braucht keine; esbuild/rollup kommen als Plattform-Pakete.
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Bekannte Schwachstellen ab „high“ brechen den Lauf ab.
+      - run: npm audit --audit-level=high
+      - run: npm audit --audit-level=high
+        working-directory: functions
+
+  rules:
+    # Security Rules gegen den echten Database-Emulator (Java).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci --ignore-scripts
+      - run: npm run test:rules

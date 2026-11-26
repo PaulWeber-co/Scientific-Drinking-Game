@@ -2,7 +2,8 @@ node_modules
 dist
 dist-ssr
 .env
-.env.local
+.env.*
+!.env.example
 *.local
 .DS_Store
 coverage
@@ -14,3 +15,23 @@ coverage
 # Fuehrender Slash: gemeint ist NUR der Ordner im Wurzelverzeichnis. Ohne
 # ihn verschwaende auch src/assets/ mitsamt der Schriftdatei aus dem Repo.
 /assets
+
+# Geheimnisse und Backups gehören nie ins Repo (Security-Audit #2/#23).
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+service-account*.json
+*-firebase-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist
+*.sql
+*.dump
+*.bak
+
+# Firebase-CLI und Emulator
+.firebase/
+firebase-debug*.log
+database-debug.log

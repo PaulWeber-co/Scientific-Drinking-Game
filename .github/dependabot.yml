@@ -1,0 +1,23 @@
+# Wöchentliche Update-PRs für Abhängigkeiten und GitHub Actions (Supply Chain).
+# Sicherheitsupdates kommen unabhängig davon sofort, sobald „Dependabot
+# security updates“ unter Settings → Code security aktiviert ist.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /functions
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
