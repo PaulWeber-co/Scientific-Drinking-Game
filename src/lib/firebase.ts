@@ -83,6 +83,28 @@ export async function onlineIdentity(fallback: string): Promise<string> {
   return (await signInAnonymously(a)).user.uid;
 }
 
+/**
+ * „Alles zurücksetzen“: die anonyme Anmeldung gleich mit löschen – auf dem
+ * Server, und klappt das nicht (offline), wenigstens auf dem Gerät. Das
+ * Server-Konto räumt dann `cleanupAnonymousUsers` nach 30 Tagen.
+ *
+ * Läuft bewusst nach `leave()`: dessen Schreibvorgänge sind dann schon mit
+ * der alten Anmeldung unterwegs.
+ */
+export async function forgetOnlineIdentity(): Promise<void> {
+  if (!API_KEY) return;
+  try {
+    const a = await loadAuth();
+    await a.authStateReady();
+    const user = a.currentUser;
+    if (!user) return;
+    const { signOut } = await import('firebase/auth');
+    await user.delete().catch(() => signOut(a));
+  } catch {
+    // Auth-Modul nicht ladbar (offline): nichts zu tun, siehe oben.
+  }
+}
+
 export const LOBBY_TTL_MS = 8 * 60 * 60 * 1000; // 8 Stunden – eine Partynacht
 export const PLAYER_STALE_MS = 90_000; // ab hier gilt ein Spieler als weg
 /** Muss zu `now - 45000` in database.rules.json passen (meta/host). */

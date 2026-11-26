@@ -18,6 +18,7 @@ import { usePartyOptional } from '../party/PartyContext';
 import { useGoBack } from '../../app/navigation';
 import { useSwipeBack } from '../../lib/gestures';
 import { askTilt, readTiltChoice, storeTiltChoice, tiltSupported } from '../bac/glass/useTilt';
+import { forgetOnlineIdentity } from '../../lib/firebase';
 
 export function ProfileScreen() {
   const nav = useNavigate();
@@ -318,6 +319,8 @@ export function ProfileScreen() {
                 // tauchten nach dem neuen Onboarding wieder in der Runde auf.
                 party?.leave();
                 party?.clearLocalPlayers();
+                // Die anonyme Online-Anmeldung gehört auch zum Profil.
+                void forgetOnlineIdentity();
                 resetAll();
                 nav('/onboarding', { replace: true });
               }
