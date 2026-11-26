@@ -69,7 +69,15 @@ function client(uid: string | null): Database {
     db,
     EMU_HOST,
     EMU_PORT,
-    uid ? { mockUserToken: { sub: uid, user_id: uid, firebase: { sign_in_provider: 'anonymous' } } as never } : undefined,
+    uid
+      ? {
+          mockUserToken: {
+            sub: uid,
+            user_id: uid,
+            firebase: { sign_in_provider: 'anonymous' },
+          } as never,
+        }
+      : undefined,
   );
   apps.push(app);
   dbs.push(db);
@@ -99,7 +107,8 @@ async function takeOver(db: Database, from: string, to: string) {
     off();
   }
 }
-const denied = (p: PromiseLike<unknown>) => expect(Promise.resolve(p)).rejects.toThrow(/permission[_ ]denied/i);
+const denied = (p: PromiseLike<unknown>) =>
+  expect(Promise.resolve(p)).rejects.toThrow(/permission[_ ]denied/i);
 const allowed = (p: PromiseLike<unknown>) => expect(Promise.resolve(p)).resolves.not.toThrow();
 
 function player(id: string, name: string, extra: Record<string, unknown> = {}) {
@@ -108,7 +117,9 @@ function player(id: string, name: string, extra: Record<string, unknown> = {}) {
 }
 
 /** Lobby wie nach createOnline + Beitritt eines Gasts. */
-function seed(over: { status?: 'lobby' | 'playing'; hostLastSeen?: number; expiresAt?: number } = {}) {
+function seed(
+  over: { status?: 'lobby' | 'playing'; hostLastSeen?: number; expiresAt?: number } = {},
+) {
   const now = Date.now();
   return admin('PUT', `lobbies/${CODE}`, {
     meta: {
@@ -118,7 +129,9 @@ function seed(over: { status?: 'lobby' | 'playing'; hostLastSeen?: number; expir
       createdAt: now,
       updatedAt: now,
       expiresAt: over.expiresAt ?? now + 8 * H,
-      ...(over.status === 'playing' ? { gameId: 'kings-cup', startedBy: HOST, startedAt: now } : {}),
+      ...(over.status === 'playing'
+        ? { gameId: 'kings-cup', startedBy: HOST, startedAt: now }
+        : {}),
     },
     players: {
       [HOST]: player(HOST, 'Host', over.hostLastSeen ? { lastSeen: over.hostLastSeen } : {}),
@@ -314,7 +327,14 @@ describe('legitime Abläufe', () => {
     const res = await runTransaction(lobby(host), (cur) =>
       cur === null
         ? {
-            meta: { code: CODE, host: HOST, status: 'lobby', createdAt: now, updatedAt: now, expiresAt: now + 8 * H },
+            meta: {
+              code: CODE,
+              host: HOST,
+              status: 'lobby',
+              createdAt: now,
+              updatedAt: now,
+              expiresAt: now + 8 * H,
+            },
             players: { [HOST]: player(HOST, 'Host') },
           }
         : undefined,
@@ -327,7 +347,12 @@ describe('legitime Abläufe', () => {
     await seed();
     const g = client('uid-neu-000000000000000000000');
     expect((await get(lobby(g, '/meta'))).exists()).toBe(true);
-    await allowed(update(lobby(g, '/players/uid-neu-000000000000000000000'), player('uid-neu-000000000000000000000', 'Neu')));
+    await allowed(
+      update(
+        lobby(g, '/players/uid-neu-000000000000000000000'),
+        player('uid-neu-000000000000000000000', 'Neu'),
+      ),
+    );
     await allowed(
       update(lobby(g, '/players/uid-neu-000000000000000000000'), {
         lastSeen: Date.now(),
@@ -338,7 +363,9 @@ describe('legitime Abläufe', () => {
         shots: 3,
       }),
     );
-    await allowed(onDisconnect(lobby(g, '/players/uid-neu-000000000000000000000')).update({ online: false }));
+    await allowed(
+      onDisconnect(lobby(g, '/players/uid-neu-000000000000000000000')).update({ online: false }),
+    );
   });
 
   it('Gast setzt und entfernt das eigene Profilbild', async () => {
@@ -370,7 +397,11 @@ describe('legitime Abläufe', () => {
     await seed({ status: 'playing' });
     const guest = client(GUEST);
     const host = client(HOST);
-    const msg = await push(lobby(guest, '/inbox'), { by: GUEST, at: Date.now(), action: '{"type":"draw"}' });
+    const msg = await push(lobby(guest, '/inbox'), {
+      by: GUEST,
+      at: Date.now(),
+      action: '{"type":"draw"}',
+    });
     await allowed(set(lobby(host, '/game/state'), '{"n":2}'));
     await allowed(remove(lobby(host, `/inbox/${msg.key}`)));
   });
@@ -380,7 +411,9 @@ describe('legitime Abläufe', () => {
     const host = client(HOST);
     const now = Date.now();
     await allowed(update(lobby(host, '/meta'), { updatedAt: now, expiresAt: now + 8 * H }));
-    await allowed(update(lobby(host), { 'meta/film': { rolls: 3, developAfterH: 12 }, 'meta/updatedAt': now }));
+    await allowed(
+      update(lobby(host), { 'meta/film': { rolls: 3, developAfterH: 12 }, 'meta/updatedAt': now }),
+    );
     await allowed(update(lobby(host), { [`players/${GUEST}`]: null, [`avatars/${GUEST}`]: null }));
     await allowed(
       update(lobby(host), {

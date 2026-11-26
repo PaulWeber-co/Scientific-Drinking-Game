@@ -76,7 +76,10 @@ describe('forgetOnlineIdentity („Alles zurücksetzen“)', () => {
   });
 
   it('meldet sich wenigstens lokal ab, wenn das Löschen scheitert', async () => {
-    auth.currentUser = { uid: 'uid-alt', delete: vi.fn(async () => Promise.reject(new Error('offline'))) };
+    auth.currentUser = {
+      uid: 'uid-alt',
+      delete: vi.fn(async () => Promise.reject(new Error('offline'))),
+    };
     const m = await modul('public-web-key');
     await m.forgetOnlineIdentity();
     expect(fb.signOut).toHaveBeenCalledTimes(1);

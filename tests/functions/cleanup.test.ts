@@ -11,9 +11,8 @@ import { describe, expect, it } from 'vitest';
  * „neu angelegte Lobby" nach.
  */
 const require = createRequire(import.meta.url);
-const { removeExpiredLobbies, removeStaleAnonymousUsers, ANON_MAX_AGE_MS } = require(
-  '../../functions/cleanup.js',
-) as typeof import('../../functions/cleanup.js');
+const { removeExpiredLobbies, removeStaleAnonymousUsers, ANON_MAX_AGE_MS } =
+  require('../../functions/cleanup.js') as typeof import('../../functions/cleanup.js');
 
 type Lobby = { meta?: { expiresAt?: number } };
 const NOW = 1_800_000_000_000;
@@ -26,8 +25,12 @@ function fakeDb(lobbies: Record<string, Lobby>, beforeDelete?: () => void) {
         orderByChild: () => ({
           endAt: (t: number) => ({
             get: async () => {
-              const hits = Object.entries(lobbies).filter(([, l]) => (l.meta?.expiresAt ?? -Infinity) <= t);
-              const snapshot = { forEach: (cb: (s: { key: string }) => void) => hits.forEach(([key]) => cb({ key })) };
+              const hits = Object.entries(lobbies).filter(
+                ([, l]) => (l.meta?.expiresAt ?? -Infinity) <= t,
+              );
+              const snapshot = {
+                forEach: (cb: (s: { key: string }) => void) => hits.forEach(([key]) => cb({ key })),
+              };
               // Zwischen Abfrage und Löschen passiert etwas (Race).
               beforeDelete?.();
               return snapshot;
@@ -74,13 +77,22 @@ describe('removeStaleAnonymousUsers', () => {
   const user = (uid: string, lastMs: number, providers = 0) => ({
     uid,
     providerData: Array.from({ length: providers }, () => ({ providerId: 'google.com' })),
-    metadata: { lastSignInTime: new Date(lastMs).toUTCString(), creationTime: new Date(lastMs).toUTCString() },
+    metadata: {
+      lastSignInTime: new Date(lastMs).toUTCString(),
+      creationTime: new Date(lastMs).toUTCString(),
+    },
   });
 
   it('löscht nur anonyme Konten, die länger als 30 Tage ungenutzt sind – über alle Seiten', async () => {
     const pages = [
-      { users: [user('alt', NOW - ANON_MAX_AGE_MS - 86_400_000), user('frisch', NOW - 1000)], pageToken: 'p2' },
-      { users: [user('alt2', NOW - ANON_MAX_AGE_MS - 1000), user('verknuepft', 0, 1)], pageToken: undefined },
+      {
+        users: [user('alt', NOW - ANON_MAX_AGE_MS - 86_400_000), user('frisch', NOW - 1000)],
+        pageToken: 'p2',
+      },
+      {
+        users: [user('alt2', NOW - ANON_MAX_AGE_MS - 1000), user('verknuepft', 0, 1)],
+        pageToken: undefined,
+      },
     ];
     const deleted: string[] = [];
     const auth = {

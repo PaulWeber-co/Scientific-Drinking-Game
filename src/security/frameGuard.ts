@@ -8,7 +8,9 @@
  * nicht – nur einen Link, der sie ohne Rahmen öffnet. Eigene Rahmen (gleiche
  * Herkunft, etwa Vorschau-Werkzeuge) bleiben erlaubt.
  */
-export function framedByOtherSite(win: Pick<Window, 'top' | 'self' | 'location'> = window): boolean {
+export function framedByOtherSite(
+  win: Pick<Window, 'top' | 'self' | 'location'> = window,
+): boolean {
   try {
     if (!win.top || win.top === win.self) return false;
     // Fremde Herkunft: der Zugriff wirft (SecurityError) – dann gilt der

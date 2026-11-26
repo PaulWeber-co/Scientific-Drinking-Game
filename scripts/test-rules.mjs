@@ -13,7 +13,14 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -22,7 +29,8 @@ import { pipeline } from 'node:stream/promises';
 const VERSION = '4.11.2';
 const SHA256 = 'b70d99344caf17c98b6f910fa8f6edf32a7c016cb1035e8915f70d38901eb97f';
 const URL_JAR = `https://storage.googleapis.com/firebase-preview-drop/emulator/firebase-database-emulator-v${VERSION}.jar`;
-const CACHE = process.env.FIREBASE_EMULATOR_CACHE ?? join(homedir(), '.cache', 'firebase', 'emulators');
+const CACHE =
+  process.env.FIREBASE_EMULATOR_CACHE ?? join(homedir(), '.cache', 'firebase', 'emulators');
 const JAR = join(CACHE, `firebase-database-emulator-v${VERSION}.jar`);
 const PORT = Number(process.env.RULES_EMULATOR_PORT ?? 9000);
 
@@ -59,9 +67,13 @@ async function waitForEmulator(timeoutMs = 30_000) {
 }
 
 await ensureJar();
-const emu = spawn('java', ['-Duser.language=en', '-jar', JAR, '--host', '127.0.0.1', '--port', String(PORT)], {
-  stdio: ['ignore', 'ignore', 'inherit'],
-});
+const emu = spawn(
+  'java',
+  ['-Duser.language=en', '-jar', JAR, '--host', '127.0.0.1', '--port', String(PORT)],
+  {
+    stdio: ['ignore', 'ignore', 'inherit'],
+  },
+);
 const stop = () => emu.kill();
 process.on('exit', stop);
 process.on('SIGINT', () => process.exit(130));

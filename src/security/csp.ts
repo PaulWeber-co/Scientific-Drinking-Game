@@ -19,7 +19,10 @@ const FIREBASE_DB = [
   'https://*.firebaseio.com',
   'wss://*.firebaseio.com',
 ];
-const FIREBASE_AUTH = ['https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com'];
+const FIREBASE_AUTH = [
+  'https://identitytoolkit.googleapis.com',
+  'https://securetoken.googleapis.com',
+];
 
 export const CSP_DIRECTIVES: Record<string, string[]> = {
   'default-src': ["'self'"],

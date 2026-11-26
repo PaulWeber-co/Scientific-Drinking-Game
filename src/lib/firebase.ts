@@ -49,16 +49,23 @@ let auth: Promise<Auth> | null = null;
  * keinen, und in der nativen Hülle (capacitor://) scheitert sein iframe.
  */
 function loadAuth(): Promise<Auth> {
-  auth ??= import('firebase/auth').then(
-    ({ initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence }) =>
-      initializeAuth(getApp(), {
-        persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
-      }),
-  ).catch((e: unknown) => {
-    // Chunk nicht geladen (offline): beim nächsten Versuch neu.
-    auth = null;
-    throw e;
-  });
+  auth ??= import('firebase/auth')
+    .then(
+      ({
+        initializeAuth,
+        indexedDBLocalPersistence,
+        browserLocalPersistence,
+        inMemoryPersistence,
+      }) =>
+        initializeAuth(getApp(), {
+          persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
+        }),
+    )
+    .catch((e: unknown) => {
+      // Chunk nicht geladen (offline): beim nächsten Versuch neu.
+      auth = null;
+      throw e;
+    });
   return auth;
 }
 
