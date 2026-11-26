@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { contentSecurityPolicy } from './src/security/csp';
 
 // GitHub Pages served the app under /<repo>/ -- override with VITE_BASE when
 // deploying somewhere else (Vercel, Cloudflare Pages, custom domain: "/").
@@ -28,11 +29,31 @@ function gameBuild(): string {
   return hash.digest('hex').slice(0, 12);
 }
 
+/**
+ * Security-Header als Meta-Tags – nur im Build. GitHub Pages setzt keine
+ * eigenen Header; der Dev-Server bräuchte für Hot Reload Inline-Skripte.
+ */
+function securityMeta(): Plugin {
+  return {
+    name: 'pegel-security-meta',
+    apply: 'build',
+    transformIndexHtml: () => [
+      {
+        tag: 'meta',
+        attrs: { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy() },
+        injectTo: 'head-prepend',
+      },
+      { tag: 'meta', attrs: { name: 'referrer', content: 'strict-origin-when-cross-origin' }, injectTo: 'head' },
+    ],
+  };
+}
+
 export default defineConfig({
   base,
   define: { __GAME_BUILD__: JSON.stringify(gameBuild()) },
   plugins: [
     react(),
+    securityMeta(),
     VitePWA({
       // 'prompt': die neue Version wartet, bis jemand „Neu laden" tippt.
       // Ein stilles Auto-Update würde laufende Runden mitten im Spiel neu
@@ -103,6 +124,9 @@ export default defineConfig({
   ],
   build: {
     target: 'es2020',
+    // Keine öffentlichen Source Maps (Security-Audit #17). Bewusst explizit,
+    // damit niemand sie versehentlich für die Auslieferung einschaltet.
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
