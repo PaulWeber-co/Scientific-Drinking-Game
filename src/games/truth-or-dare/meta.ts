@@ -19,6 +19,7 @@ export const meta: GameMeta = {
   tags: ['reden', 'handy-weg'],
   howTo: [
     'Reihum entscheidet sich eine Person für Wahrheit oder Pflicht.',
+    'Die vorherige anwesende Person fragt und kann bestätigen, ob die Karte erledigt ist.',
     'Karte lesen, machen – oder kneifen und dafür trinken.',
     'Der Härtegrad oben rechts gilt für die ganze Runde.',
   ],

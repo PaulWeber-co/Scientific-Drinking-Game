@@ -10,6 +10,8 @@ import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip, VoteGrid } from '../shared/pieces';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, nextPresentId, playerNames, presentPlayer } from '../shared/presence';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -98,6 +100,7 @@ type PyStep = 'flip' | 'claim' | 'pick' | 'doubt' | 'give' | 'gave' | 'penalty';
 
 interface State {
   order: string[];
+  names?: Record<string, string>;
   /** `done` beendet die Busfahrt, `over` die Partie. */
   phase: 'questions' | 'pyramid' | 'bus' | 'done' | 'over';
   playerIndex: number;
@@ -152,17 +155,18 @@ function claimPasst(state: State): boolean {
 
 /** Wer die meisten Karten hält, fährt. Gleichstand entscheidet die
  *  Fragerunde: mehr Fehler, mehr Pech. */
-function pickDriver(state: State): string | null {
-  const sorted = [...state.order].sort((a, b) => {
+function pickDriver(state: State, players: GamePlayer[]): string | null {
+  const ids = state.order.filter((id) => presentPlayer(players, id));
+  const sorted = ids.sort((a, b) => {
     const karten = (state.hands[b]?.length ?? 0) - (state.hands[a]?.length ?? 0);
     if (karten !== 0) return karten;
     return (state.mistakes[b] ?? 0) - (state.mistakes[a] ?? 0);
   });
-  return sorted[0] ?? null;
+  return sorted[0] ?? players.find((p) => p.online !== false)?.id ?? null;
 }
 
 /** Nach einer abgehandelten Pyramidenkarte: weiter oder ab auf den Bus. */
-function afterPyramidCard(state: State): State {
+function afterPyramidCard(state: State, players: GamePlayer[]): State {
   const basis = {
     ...state,
     pyStep: 'flip' as PyStep,
@@ -172,7 +176,7 @@ function afterPyramidCard(state: State): State {
     pyGiveTo: null,
   };
   if (state.pyUp < PYRAMID_SIZE) return basis;
-  const driverId = pickDriver(basis);
+  const driverId = pickDriver(basis, players);
   return {
     ...basis,
     phase: 'bus',
@@ -188,6 +192,32 @@ function afterPyramidCard(state: State): State {
   };
 }
 
+function absentTurn(state: State, players: GamePlayer[]) {
+  if (state.phase === 'questions' && !state.lastResult) return state.order[state.playerIndex];
+  if (state.phase === 'bus' && !state.busPenalty) return state.driverId;
+  if (state.phase !== 'pyramid') return undefined;
+  if (state.pyStep === 'pick') return state.pyClaimBy;
+  if (state.pyStep === 'give') {
+    if (!presentPlayer(players, state.pyClaimBy)) return state.pyClaimBy;
+    if (!players.some((p) => p.id !== state.pyClaimBy && p.online !== false)) {
+      return state.order.find((id) => id !== state.pyClaimBy && !presentPlayer(players, id));
+    }
+  }
+}
+
+function finishClaim(state: State, players: GamePlayer[]): State {
+  if (!state.pyClaimBy || state.pyClaimCard === null) return state;
+  if (state.pyStep === 'penalty' && !claimPasst(state)) return afterPyramidCard(state, players);
+  const hand = state.hands[state.pyClaimBy] ?? [];
+  const pickedIndex = hand.indexOf(state.pyClaimCard);
+  return afterPyramidCard({
+    ...state,
+    // Bei großen Runden kann der Stapel neu gemischt werden und dieselbe
+    // Karte mehrfach auf einer Hand landen. Gespielt wird nur ein Exemplar.
+    hands: { ...state.hands, [state.pyClaimBy]: hand.filter((_, i) => i !== pickedIndex) },
+  }, players);
+}
+
 export const busfahrer: GameDefinition<State> = {
   ...meta,
 
@@ -195,6 +225,7 @@ export const busfahrer: GameDefinition<State> = {
     const deck = shuffle(fullDeck());
     return {
       order: shuffle(players.map((p) => p.id)),
+      ...(hasOnlineGuests(players) && { names: playerNames(players) }),
       phase: 'questions',
       playerIndex: 0,
       qIndex: 0,
@@ -226,13 +257,31 @@ export const busfahrer: GameDefinition<State> = {
   },
 
   reduce: (state, action, players) => {
+    const online = Boolean(state.names) || hasOnlineGuests(players);
+    const canAct = (id: string | null) => !online || (action.by === id && Boolean(presentPlayer(players, id)));
     switch (action.type) {
+      case 'skipAbsent': {
+        const id = absentTurn(state, players);
+        if (!id || !canSkipAbsent(action, players, id)) return state;
+        if (state.phase === 'questions') {
+          const next = nextPresentId(state.order, id, players, false);
+          const reset = { ...state, hands: { ...state.hands, [id]: state.hand }, qIndex: 0, hand: [] };
+          return next ? { ...reset, playerIndex: state.order.indexOf(next) } : { ...reset, phase: 'pyramid' };
+        }
+        if (state.phase === 'bus') {
+          const order = extendOrder(state.order, players);
+          const driverId = nextPresentId(order, id, players);
+          return driverId ? { ...state, order, driverId, names: { ...state.names, ...playerNames(players) } } : state;
+        }
+        if (state.pyStep === 'pick') return { ...state, pyClaimBy: null, pyClaimCard: null, pyStep: 'claim' };
+        return finishClaim(state, players);
+      }
       case 'answer': {
         // Die Frage braucht so viele Handkarten, wie schon beantwortet wurden.
         // Eine verspaetete Antwort aus der Inbox traf sonst auf eine leere Hand
         // und riss den Host-Reducer mit einem Zugriff auf undefined ab.
         if (state.phase !== 'questions' || state.hand.length < state.qIndex) return state;
-        if (state.lastResult) return state;
+        if (state.lastResult || !canAct(state.order[state.playerIndex])) return state;
         // Nachschub OHNE die Pyramidenkarten. Ein volles Deck nachzumischen
         // legte dieselbe Karte offen in die Pyramide und verdeckt auf eine
         // Hand – ab elf Personen (4 Züge je Person, 42 Karten Vorrat) ist
@@ -282,11 +331,11 @@ export const busfahrer: GameDefinition<State> = {
         // dieselbe Person die Ablegende, egal wen die Runde antippt.
         const by = String(action.who);
         // Ohne Karten kann niemand ablegen – auch nicht bluffend.
-        if (!state.hands[by]?.length) return state;
+        if (!state.hands[by]?.length || !canAct(by)) return state;
         return { ...state, pyClaimBy: by, pyStep: 'pick' };
       }
       case 'pyPick': {
-        if (state.phase !== 'pyramid' || state.pyStep !== 'pick' || !state.pyClaimBy) return state;
+        if (state.phase !== 'pyramid' || state.pyStep !== 'pick' || !state.pyClaimBy || !canAct(state.pyClaimBy)) return state;
         const card = Number(action.card);
         const hand = state.hands[state.pyClaimBy] ?? [];
         if (!hand.includes(card)) return state;
@@ -296,13 +345,13 @@ export const busfahrer: GameDefinition<State> = {
         // Zurueck aus der Kartenwahl. Ohne diesen Weg klebt das Spiel in
         // `pick`, sobald jemand seinen Chip aus Versehen trifft oder online
         // wegbricht – eine echte Sackgasse.
-        if (state.phase !== 'pyramid' || state.pyStep !== 'pick') return state;
+        if (state.phase !== 'pyramid' || state.pyStep !== 'pick' || !canAct(state.pyClaimBy)) return state;
         return { ...state, pyClaimBy: null, pyClaimCard: null, pyStep: 'claim' };
       }
       case 'pyPass': {
         // Niemand legt ab: die Karte bleibt liegen, es geht weiter.
         if (state.phase !== 'pyramid' || state.pyStep !== 'claim') return state;
-        return afterPyramidCard(state);
+        return afterPyramidCard(state, players);
       }
       case 'pyAccept': {
         if (state.phase !== 'pyramid' || state.pyStep !== 'doubt') return state;
@@ -311,15 +360,15 @@ export const busfahrer: GameDefinition<State> = {
       case 'pyDoubt': {
         if (state.phase !== 'pyramid' || state.pyStep !== 'doubt') return state;
         const by = String(action.who);
-        if (by === state.pyClaimBy) return state;
+        if (by === state.pyClaimBy || !canAct(by)) return state;
         return { ...state, pyDoubtBy: by, pyStep: 'penalty' };
       }
       case 'pyGive': {
         // Nur merken, wer trinkt – die Ansage folgt im Schritt `gave`.
         if (state.phase !== 'pyramid' || state.pyStep !== 'give') return state;
-        if (!state.pyClaimBy || state.pyClaimCard === null) return state;
+        if (!state.pyClaimBy || state.pyClaimCard === null || !canAct(state.pyClaimBy)) return state;
         const to = String(action.to);
-        if (to === state.pyClaimBy || !state.order.includes(to)) return state;
+        if (to === state.pyClaimBy || !(online ? presentPlayer(players, to) : state.order.includes(to))) return state;
         return { ...state, pyGiveTo: to, pyStep: 'gave' };
       }
       case 'pyDone': {
@@ -329,20 +378,11 @@ export const busfahrer: GameDefinition<State> = {
         // zurück auf die Hand.
         if (state.phase !== 'pyramid') return state;
         if (state.pyStep !== 'penalty' && state.pyStep !== 'gave') return state;
-        if (!state.pyClaimBy || state.pyClaimCard === null) return state;
-        if (state.pyStep === 'penalty' && !claimPasst(state)) return afterPyramidCard(state);
-        const hand = state.hands[state.pyClaimBy] ?? [];
-        const pickedIndex = hand.indexOf(state.pyClaimCard);
-        return afterPyramidCard({
-          ...state,
-          // Large groups can exhaust the deck and receive another copy of
-          // the same card. Playing one must remove exactly one occurrence.
-          hands: { ...state.hands, [state.pyClaimBy]: hand.filter((_, i) => i !== pickedIndex) },
-        });
+        return finishClaim(state, players);
       }
 
       case 'flip': {
-        if (state.phase !== 'bus' || state.busPenalty > 0) return state;
+        if (state.phase !== 'bus' || state.busPenalty > 0 || !canAct(state.driverId)) return state;
         const deck = state.busDeck.length ? state.busDeck : shuffle(fullDeck());
         const [next, ...rest] = deck;
         const rank = cardFromIndex(next).rank;
@@ -415,7 +455,7 @@ function checkAnswer(state: State, card: ReturnType<typeof cardFromIndex>, answe
   }
 }
 
-function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+function BusfahrerGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   const send = (a: GameActionInput) => {
     haptic('select');
     dispatch(a);
@@ -426,7 +466,10 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
     sound('tick');
     dispatch(a);
   };
-  const findP = (id: string | null) => players.find((p) => p.id === id) ?? players[0];
+  const findP = (id: string | null) => players.find((p) => p.id === id) ?? (online ? undefined : players[0]);
+  const skip = online && (
+    <AbsentAction id={absentTurn(state, players)} players={players} names={state.names} isHost={isHost} dispatch={send} />
+  );
 
   if (state.phase === 'over') {
     const rows = players.map((p) => ({
@@ -466,7 +509,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
 
   if (state.phase === 'questions') {
     const actor = findP(state.order[state.playerIndex]);
-    const isMyTurn = actor?.id === me.id;
+    const isMyTurn = actor?.id === me.id && actor.online !== false;
     const canAct = !online || isMyTurn;
     const q = QUESTIONS[state.qIndex];
     return (
@@ -477,7 +520,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
         onQuit={quit}
       >
         <div className="row" style={{ justifyContent: 'center' }}>
-          <PlayerChip player={actor} note={isMyTurn ? 'du bist dran' : 'ist dran'} />
+          {actor && <PlayerChip player={actor} note={isMyTurn ? 'du bist dran' : 'ist dran'} />}
         </div>
         <div className="cardrow">
           {state.hand.map((c, i) => (
@@ -495,7 +538,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
               {SUIT_NAMES[cardFromIndex(state.lastResult.card).suit]}
               {state.lastResult.correct ? ' – sauber.' : ' – das war nichts.'}
             </BigCard>
-            {!state.lastResult.correct && (
+            {!state.lastResult.correct && actor && (
               <DrinkCall
                 player={actor}
                 baseSips={state.lastResult.sips}
@@ -522,9 +565,10 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
                 </button>
               ))}
             </div>
-            {!isMyTurn && <div className="t-center t-sub">{actor?.name} ist dran.</div>}
+            {!isMyTurn && actor && <div className="t-center t-sub">{actor.name} ist dran.</div>}
           </>
         )}
+        {skip}
       </GameFrame>
     );
   }
@@ -539,12 +583,14 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
         send={send}
         reveal={reveal}
         quit={quit}
+        skip={skip}
       />
     );
   }
 
   const driver = findP(state.driverId);
-  const isDriver = driver?.id === me.id;
+  const driverName = driver?.name ?? (state.driverId ? state.names?.[state.driverId] : undefined) ?? 'Die Person am Steuer';
+  const isDriver = driver?.id === me.id && driver.online !== false;
 
   if (state.phase === 'done') {
     return (
@@ -555,7 +601,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
         onQuit={quit}
       >
         <BigCard kicker="Endstation">
-          {driver?.name} hat es geschafft – nach {state.busAttempts}{' '}
+          {driverName} hat es geschafft – nach {state.busAttempts}{' '}
           {state.busAttempts === 1 ? 'Versuch' : 'Versuchen'}.
         </BigCard>
         <div className="cardrow">
@@ -579,7 +625,7 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
       onQuit={quit}
     >
       <div className="row" style={{ justifyContent: 'center' }}>
-        <PlayerChip player={driver} note="fährt" />
+        {driver && <PlayerChip player={driver} note="fährt" />}
       </div>
       {/* Die Strecke: fünf Plätze in EINER Reihe. Der Fortschritt ist die
           Reihe selbst, kein Zähler daneben. */}
@@ -606,12 +652,14 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
           <BigCard tone="danger" kicker="Bildkarte">
             Zurück an den Anfang. Und trinken.
           </BigCard>
-          <DrinkCall
-            player={driver}
-            baseSips={state.busPenalty}
-            source="busfahrer"
-            resetKey={`bus-${state.busAttempts}-${state.busPos}`}
-          />
+          {driver && (
+            <DrinkCall
+              player={driver}
+              baseSips={state.busPenalty}
+              source="busfahrer"
+              resetKey={`bus-${state.busAttempts}-${state.busPos}`}
+            />
+          )}
           <button
             className="btn btn--brand btn--block btn--lg"
             onClick={() => {
@@ -626,9 +674,10 @@ function BusfahrerGame({ state, players, me, dispatch, quit, online }: GameRunti
         <BigCard kicker={`Platz ${state.busPos + 1} von ${BUS_LENGTH}`}>
           {isDriver || !online
             ? 'Tipp auf die leuchtende Karte.'
-            : `${driver?.name} deckt auf.`}
+            : `${driverName} deckt auf.`}
         </BigCard>
       )}
+      {skip}
     </GameFrame>
   );
 }
@@ -649,6 +698,7 @@ function Pyramid({
   send,
   reveal,
   quit,
+  skip,
 }: {
   state: State;
   players: GamePlayer[];
@@ -657,8 +707,10 @@ function Pyramid({
   send: (a: GameActionInput) => void;
   reveal: (a: GameActionInput) => void;
   quit: () => void;
+  skip: ReactNode;
 }) {
-  const findP = (id: string | null) => players.find((p) => p.id === id) ?? players[0];
+  const findP = (id: string | null) => players.find((p) => p.id === id) ?? (online ? undefined : players[0]);
+  const nameOf = (id: string | null) => findP(id)?.name ?? (id ? state.names?.[id] : undefined) ?? 'Jemand';
   const offenIdx = state.pyUp - 1;
   const offeneKarte = offenIdx >= 0 ? state.pyramid[offenIdx] : null;
   const reihe = offenIdx >= 0 ? rowOf(offenIdx) : 0;
@@ -668,6 +720,7 @@ function Pyramid({
   const empfaenger = state.pyGiveTo ? findP(state.pyGiveTo) : null;
   // Erst hier ausgerechnet, nicht im Zustand gehalten – siehe `claimPasst`.
   const passt = claimPasst(state);
+  const penaltyPlayer = passt ? doubter : claimer;
   /** Wer noch Karten hat, kann ablegen. */
   const mitKarten = players.filter((p) => (state.hands[p.id]?.length ?? 0) > 0);
   // Online meldet und zweifelt jede Person nur für sich selbst. Der Reducer
@@ -676,7 +729,7 @@ function Pyramid({
   // Ablegenden machen – oder zum Zweifler, der dann doppelt trinkt.
   const nurIchOnline = (liste: GamePlayer[]) =>
     online ? liste.filter((p) => p.id === me.id) : liste;
-  const darfIch = !online || state.pyClaimBy === me.id;
+  const darfIch = !online || (state.pyClaimBy === me.id && Boolean(presentPlayer(players, me.id)));
 
   return (
     <GameFrame
@@ -782,21 +835,21 @@ function Pyramid({
         </div>
       )}
 
-      {state.pyStep === 'doubt' && claimer && (
+      {state.pyStep === 'doubt' && (
         <div className="stack-3">
           <BigCard kicker="Verdeckt abgelegt">
-            {claimer.name} behauptet, {RANKS[cardFromIndex(offeneKarte ?? 0).rank]} zu haben. Glaubt
+            {nameOf(state.pyClaimBy)} behauptet, {RANKS[cardFromIndex(offeneKarte ?? 0).rank]} zu haben. Glaubt
             ihr das?
           </BigCard>
           <button
             className="btn btn--brand btn--block btn--lg"
             onClick={() => send({ type: 'pyAccept' })}
           >
-            Glauben – {claimer.name} verteilt {sips}
+            Glauben – {nameOf(state.pyClaimBy)} verteilt {sips}
           </button>
           <div className="t-center t-sub">oder aufdecken lassen:</div>
           <VoteGrid
-            players={nurIchOnline(players.filter((p) => p.id !== claimer.id))}
+            players={nurIchOnline(players.filter((p) => p.id !== state.pyClaimBy))}
             onVote={(id) => reveal({ type: 'pyDoubt', who: id })}
           />
         </div>
@@ -808,50 +861,56 @@ function Pyramid({
             {claimer.name} bestimmt, wer trinkt.
           </BigCard>
           <VoteGrid
-            players={players.filter((p) => p.id !== claimer.id)}
+            players={players.filter((p) => p.id !== claimer.id && (!online || p.online !== false))}
             onVote={(id) => send({ type: 'pyGive', to: id })}
-            disabled={online && me.id !== claimer.id}
+            disabled={!darfIch}
           />
         </div>
       )}
 
-      {state.pyStep === 'gave' && claimer && empfaenger && (
+      {state.pyStep === 'gave' && (
         <div className="stack-3">
           <BigCard kicker="Geglaubt">
-            {claimer.name} legt ab. {empfaenger.name} trinkt.
+            {nameOf(state.pyClaimBy)} legt ab. {nameOf(state.pyGiveTo)} trinkt.
           </BigCard>
-          <DrinkCall
-            player={empfaenger}
-            baseSips={sips}
-            source="busfahrer"
-            resetKey={`py-gave-${state.pyUp}-${empfaenger.id}`}
-          />
+          {empfaenger && (
+            <DrinkCall
+              player={empfaenger}
+              baseSips={sips}
+              source="busfahrer"
+              resetKey={`py-gave-${state.pyUp}-${state.pyGiveTo}`}
+            />
+          )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'pyDone' })}>
             Weiter
           </button>
         </div>
       )}
 
-      {state.pyStep === 'penalty' && claimer && doubter && state.pyClaimCard !== null && (
+      {state.pyStep === 'penalty' && state.pyClaimCard !== null && (
         <div className="stack-3">
           <BigCard tone={passt ? 'default' : 'danger'} kicker="Aufgedeckt">
             {RANKS[cardFromIndex(state.pyClaimCard).rank]}{' '}
             {SUIT_NAMES[cardFromIndex(state.pyClaimCard).suit]}
             {passt
-              ? ` – gepasst. ${doubter.name} hat umsonst gezweifelt.`
-              : ` – gelogen. ${claimer.name} behält die Karte.`}
+              ? ` – gepasst. ${nameOf(state.pyDoubtBy)} hat umsonst gezweifelt.`
+              : ` – gelogen. ${nameOf(state.pyClaimBy)} behält die Karte.`}
           </BigCard>
-          <DrinkCall
-            player={passt ? doubter : claimer}
-            baseSips={sips * 2}
-            source="busfahrer"
-            resetKey={`py-${state.pyUp}-${state.pyClaimCard}`}
-          />
+
+          {penaltyPlayer && (
+            <DrinkCall
+              player={penaltyPlayer}
+              baseSips={sips * 2}
+              source="busfahrer"
+              resetKey={`py-${state.pyUp}-${state.pyClaimCard}`}
+            />
+          )}
           <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'pyDone' })}>
             Weiter
           </button>
         </div>
       )}
+      {skip}
     </GameFrame>
   );
 }

@@ -3,6 +3,7 @@ import { isSpicyOn } from '../../store/app';
 import { customCardsFor } from '../../store/cards';
 import { fitsGroup, spicyDeck } from '../shared/prompts';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
+import { canSkipAbsent, extendOrder, nextPresentId, playerNames, presentPlayer } from '../shared/presence';
 import type { GameAction, GamePlayer } from '../types';
 import { CATEGORIES } from './categories';
 
@@ -111,9 +112,9 @@ function nextChooser(chose: string[], players: GamePlayer[]): { chooser: string;
 /** Darf `by` gerade für die wählende Person würfeln? Sie selbst immer, der Host nur, wenn sie weg ist oder hängt. */
 export function mayPickRandom(state: State, players: GamePlayer[], by: string, now: number): boolean {
   if (present(players).length < 2) return false;
+  if (!presentPlayer(players, state.chooser)) return false;
   if (by === state.chooser) return true;
-  if (!mayLead(players, by) || !present(players).includes(by)) return false;
-  return !present(players).includes(state.chooser) || now >= state.pickSince + PICK_WAIT_MS;
+  return mayLead(players, by) && Boolean(presentPlayer(players, by)) && now >= state.pickSince + PICK_WAIT_MS;
 }
 
 /** Kategorien, die diese Runde zur Wahl stehen – eingebaute als Index, eigene als negative Zahl. */
@@ -201,6 +202,7 @@ function newRound(state: State, players: GamePlayer[], round: number, at: number
   return {
     ...state,
     ...nextChooser(state.chose, players),
+    names: { ...state.names, ...playerNames(players) },
     phase: 'pick',
     round,
     pickSince: at,
@@ -301,7 +303,7 @@ export function createState(players: GamePlayer[]): State {
     dealt: null,
     last: null,
     losses: {},
-    names: {},
+    names: playerNames(players),
   };
 }
 
@@ -309,6 +311,17 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
   const at = typeof action.at === 'number' ? action.at : Date.now();
   switch (action.type) {
     // ---------- Kategorie ----------
+    case 'skipAbsent': {
+      if (state.phase !== 'pick' || present(players).length < 2 || !canSkipAbsent(action, players, state.chooser)) return state;
+      const chose = [...state.chose, state.chooser];
+      const order = extendOrder(Object.keys(state.names), players)
+        .filter((id) => id === state.chooser || !chose.includes(id));
+      const next = nextPresentId(order, state.chooser, players);
+      return {
+        ...state, ...(next ? { chooser: next, chose } : nextChooser(chose, players)),
+        pickSince: at, names: { ...state.names, ...playerNames(players) },
+      };
+    }
     case 'pick': {
       // Genau eins von drei: `random`, `cat` (aus der Liste) oder `text` (frei).
       if (state.phase !== 'pick' || present(players).length < 2) return state;
@@ -317,7 +330,7 @@ export function reduce(state: State, action: GameAction, players: GamePlayer[]):
         if (!mayPickRandom(state, players, action.by, at)) return state;
         return startWrite({ ...drawCategory(state, players), level }, players);
       }
-      if (action.by !== state.chooser) return state;
+      if (action.by !== state.chooser || !presentPlayer(players, state.chooser)) return state;
       if (typeof action.cat === 'number') {
         if (!choosableCats(state, players.length).includes(action.cat)) return state;
         return startWrite({ ...state, cat: action.cat, level }, players);

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { GAMES, gamesForGroup, getGame, getLoadedGame, loadGame } from './registry';
 import { pairFor } from './duell/index';
@@ -412,9 +412,9 @@ describe('Kein Spiel laeuft in eine Sackgasse', () => {
     const g = getLoadedGame('maexchen')!;
     const roster = players(3);
     let s = g.createState(roster);
-    s = g.reduce(s, act('roll', 'p0'), roster);
-    s = g.reduce(s, act('pass', 'p0'), roster);
-    s = g.reduce(s, act('believeMaexchen', 'p1'), roster);
+    s = g.reduce(s, act('roll', s.order[0]), roster);
+    s = g.reduce(s, act('pass', s.order[0]), roster);
+    s = g.reduce(s, act('believeMaexchen', s.order[1]), roster);
     expect(s.phase).toBe('reveal');
     expect(hasEscape(g, s, roster), 'maexchen nach geglaubtem Maexchen').toBe(true);
     expect(g.reduce(s, act('nextRound', 'p0'), roster).phase).toBe('roll');
@@ -539,7 +539,7 @@ describe('Wahrheit oder Pflicht', () => {
 
   it('zieht nach der Modusauswahl eine passende Karte', () => {
     let s = game.createState(players(4)) as CardGameState;
-    s = game.reduce(s, act('pickMode', 'p0', { mode: 'pflicht' }), players(4));
+    s = game.reduce(s, act('pickMode', s.order[s.turnIndex], { mode: 'pflicht' }), players(4));
     expect(s.phase).toBe('card');
     expect(s.drawn).not.toBeNull();
   });
@@ -548,8 +548,9 @@ describe('Wahrheit oder Pflicht', () => {
     const roster = players(3);
     let s = game.createState(roster) as CardGameState;
     for (let i = 0; i < 3; i++) {
-      s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
-      s = game.reduce(s, act('resolve', 'p0', { outcome: 'done' }), roster);
+      const by = s.order[s.turnIndex];
+      s = game.reduce(s, act('pickMode', by, { mode: 'wahrheit' }), roster);
+      s = game.reduce(s, act('resolve', by, { outcome: 'done' }), roster);
       s = game.reduce(s, act('next'), roster);
     }
     expect(s.turnIndex).toBe(0);
@@ -559,8 +560,8 @@ describe('Wahrheit oder Pflicht', () => {
   it('nimmt Spieler auf, die spaeter dazukommen', () => {
     const roster = players(3);
     let s = game.createState(roster) as CardGameState;
-    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
-    s = game.reduce(s, act('resolve'), roster);
+    s = game.reduce(s, act('pickMode', s.order[s.turnIndex], { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve', s.order[s.turnIndex]), roster);
     s = game.reduce(s, act('next'), players(5));
     expect(s.order).toHaveLength(5);
   });
@@ -568,8 +569,8 @@ describe('Wahrheit oder Pflicht', () => {
   it('entfernt Spieler, die gegangen sind', () => {
     const roster = players(5);
     let s = game.createState(roster) as CardGameState;
-    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
-    s = game.reduce(s, act('resolve'), roster);
+    s = game.reduce(s, act('pickMode', s.order[s.turnIndex], { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve', s.order[s.turnIndex]), roster);
     s = game.reduce(s, act('next'), players(3));
     expect(s.order).toHaveLength(3);
   });
@@ -579,8 +580,8 @@ describe('Wahrheit oder Pflicht', () => {
     // sprang der Zaehler um zwei und eine Karte fiel still aus.
     const roster = players(4);
     let s = game.createState(roster) as CardGameState;
-    s = game.reduce(s, act('pickMode', 'p0', { mode: 'wahrheit' }), roster);
-    s = game.reduce(s, act('resolve'), roster);
+    s = game.reduce(s, act('pickMode', s.order[s.turnIndex], { mode: 'wahrheit' }), roster);
+    s = game.reduce(s, act('resolve', s.order[s.turnIndex]), roster);
     const eins = game.reduce(s, act('next', 'p0'), roster);
     const zwei = game.reduce(eins, act('next', 'p1'), roster);
     expect(zwei.turnIndex).toBe(eins.turnIndex);
@@ -593,17 +594,44 @@ describe('Wahrheit oder Pflicht', () => {
     expect(s.heat).toBe(1);
     expect(s.deck.length).toBeGreaterThan(0);
   });
+
+  it('prüft online bei jeder Kartenaktion Phase und fragenden oder eigenen Zug', () => {
+    const roster = players(4);
+    roster[3].online = false;
+    const choose: CardGameState = {
+      order: ['p0', 'p1', 'p2', 'p3'], turnIndex: 0, round: 1, heat: 2, deck: [],
+      drawn: null, mode: null, phase: 'choose', outcome: null, winner: null, goal: null,
+    };
+    const card: CardGameState = {
+      ...choose, phase: 'card', mode: 'wahrheit', drawn: { text: 'Erste Karte' }, deck: [{ text: 'Zweite Karte' }],
+    };
+    for (const action of [act('resolve'), act('resolve', 'p0', { outcome: 'refused' }), act('skip')]) {
+      expect(game.reduce(choose, action, roster)).toBe(choose);
+      expect(game.reduce(card, { ...action, by: 'p1' }, roster)).toBe(card);
+      expect(game.reduce(card, { ...action, by: 'p3' }, roster)).toBe(card);
+      for (const by of ['p0', 'p2']) {
+        const accepted = game.reduce(card, { ...action, by }, roster);
+        expect(accepted).not.toBe(card);
+        expect(accepted.phase).toBe(action.type === 'skip' ? 'card' : 'resolved');
+      }
+    }
+    expect(game.reduce(card, act('next', 'p1'), roster)).toBe(card);
+    expect(game.reduce(choose, act('pickMode', 'p1', { mode: 'pflicht' }), roster)).toBe(choose);
+    expect(game.reduce(card, act('pickMode', 'p0', { mode: 'pflicht' }), roster)).toBe(card);
+    expect(game.reduce(card, act('draw', 'p1'), roster)).toBe(card);
+  });
 });
 
 describe('Ring of Fire', () => {
   const game = getLoadedGame('kings-cup')!;
+  const deck = () => Array.from({ length: 52 }, (_, index) => index);
 
   it('zaehlt Koenige und meldet den vierten', () => {
     const roster = players(4);
-    let s = game.createState(roster);
+    let s = { ...game.createState(roster), deck: deck() };
     let kingsSeen = 0;
     for (let i = 0; i < 60 && kingsSeen < 4; i++) {
-      s = game.reduce(s, act('draw'), roster);
+      s = game.reduce(s, act('draw', s.order[s.turnIndex]), roster);
       if (s.drawn != null && cardFromIndex(s.drawn).rank === 12) kingsSeen++;
       if (kingsSeen < 4) s = game.reduce(s, act('next'), roster);
     }
@@ -620,11 +648,11 @@ describe('Ring of Fire', () => {
     const vorher = useApp.getState().gameLength;
     useApp.setState({ gameLength: 'endlos' });
     const roster = players(4);
-    let s = game.createState(roster);
+    let s = { ...game.createState(roster), deck: deck() };
     useApp.setState({ gameLength: vorher });
     expect(s.endless, 'Partie laeuft nicht ohne Ende').toBe(true);
     for (let i = 0; i < 60; i++) {
-      s = game.reduce(s, act('draw'), roster);
+      s = game.reduce(s, act('draw', s.order[s.turnIndex]), roster);
       s = game.reduce(s, act('next'), roster);
     }
     // NICHT `deck.length`: der Kranz hat fest 52 Plaetze, die
@@ -640,10 +668,10 @@ describe('Ring of Fire', () => {
     const vorher = useApp.getState().gameLength;
     useApp.setState({ gameLength: 'mittel' });
     const roster = players(4);
-    let s = game.createState(roster);
+    let s = { ...game.createState(roster), deck: deck() };
     useApp.setState({ gameLength: vorher });
     for (let i = 0; i < 60; i++) {
-      s = game.reduce(s, act('draw'), roster);
+      s = game.reduce(s, act('draw', s.order[s.turnIndex]), roster);
       s = game.reduce(s, act('next'), roster);
     }
     expect(s.over, 'Partie endete nicht am vierten Koenig').toBe(true);
@@ -659,7 +687,7 @@ describe('Busfahrer', () => {
     let s = game.createState(roster);
     for (let p = 0; p < 3; p++) {
       for (let q = 0; q < 4; q++) {
-        s = game.reduce(s, act('answer', 'p0', { answer: 'rot' }), roster);
+        s = game.reduce(s, act('answer', s.order[p], { answer: 'rot' }), roster);
         expect(s.lastResult).not.toBeNull();
         s = game.reduce(s, act('continue'), roster);
       }
@@ -703,6 +731,9 @@ describe('Busfahrer', () => {
 describe('Top Ten', () => {
   const game = getLoadedGame('top-ten')!;
 
+  beforeEach(() => vi.spyOn(Math, 'random').mockReturnValue(0.999));
+  afterEach(() => vi.restoreAllMocks());
+
   it('vergibt eindeutige Zahlen zwischen 1 und 10', () => {
     const roster = players(8);
     const s = game.createState(roster);
@@ -714,13 +745,15 @@ describe('Top Ten', () => {
     }
   });
 
-  it('geht nach allen Antworten ins Aufdecken', () => {
-    // Frueher wurde still sortiert und am Ende alles auf einmal gezeigt. Jetzt
-    // benennt der Kapitaen Person fuer Person, und ein Fehler wird in dem
-    // Moment sichtbar, in dem er passiert – wie im Vorbild.
+  it('geht nach allen Online-Antworten ins Vorlesen und erst auf Kapitänsaktion ins Aufdecken', () => {
     const roster = players(4);
     let s = game.createState(roster);
     for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: 'x' }), roster);
+    expect(s.phase).toBe('reading');
+    const captain = s.order[s.captainIndex];
+    const guest = roster.find((p) => p.id !== captain)!;
+    expect(game.reduce(s, act('startSorting', guest.id), roster)).toBe(s);
+    s = game.reduce(s, act('startSorting', captain), roster);
     expect(s.phase).toBe('revealing');
     expect(s.revealed).toEqual([]);
   });
@@ -729,9 +762,12 @@ describe('Top Ten', () => {
     const roster = players(4);
     let s = game.createState(roster);
     const first = s.captainIndex;
+    const captain = s.order[first];
     // Bis zur Auflösung spielen – vorher nimmt der Reducer kein 'next' an.
     for (const p of roster) s = game.reduce(s, act('submit', p.id, { text: 'x' }), roster);
-    for (const p of roster) s = game.reduce(s, act('reveal', roster[first].id, { id: p.id }), roster);
+    s = game.reduce(s, act('startSorting', captain), roster);
+    const sorted: string[] = [...s.order].sort((a, b) => s.numbers[a] - s.numbers[b]);
+    for (const id of sorted) s = game.reduce(s, act('reveal', captain, { id }), roster);
     expect(s.phase).toBe('results');
     s = game.reduce(s, act('next'), roster);
     expect(s.captainIndex).toBe((first + 1) % 4);
@@ -860,7 +896,8 @@ describe('Undercover', () => {
   it('gibt genau einer Person das abweichende Wort', () => {
     const roster = players(6);
     const s = game.createState(roster);
-    expect(roster.map((p) => p.id)).toContain(s.undercoverId);
+    expect(s.undercoverIds).toHaveLength(1);
+    expect(roster.map((p) => p.id)).toContain(s.undercoverIds[0]);
     expect(s.hint).not.toBe(s.word);
   });
 
@@ -878,13 +915,13 @@ describe('Undercover', () => {
     let s = game.createState(roster);
     for (const p of roster) s = game.reduce(s, act('seen', p.id, { who: p.id }), roster);
     s = { ...s, phase: 'vote' };
-    for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: s.undercoverId }), roster);
+    for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: s.undercoverIds[0] }), roster);
     expect(s.phase).toBe('guess');
-    expect(s.eliminated).toContain(s.undercoverId);
+    expect(s.eliminated).toContain(s.undercoverIds[0]);
     expect(s.guessOptions).toContain(s.word);
 
     const daneben = s.guessOptions.find((w: string) => w !== s.word)!;
-    s = game.reduce(s, act('guess', s.undercoverId, { word: daneben }), roster);
+    s = game.reduce(s, act('guess', s.undercoverIds[0], { word: daneben }), roster);
     expect(s.phase).toBe('over');
     expect(s.winner).toBe('gruppe');
   });
@@ -892,7 +929,7 @@ describe('Undercover', () => {
   it('lässt Undercover gewinnen, wenn nur noch zwei übrig sind', () => {
     const roster = players(3);
     let s = game.createState(roster);
-    const innocent = roster.find((p) => p.id !== s.undercoverId)!;
+    const innocent = roster.find((p) => p.id !== s.undercoverIds[0])!;
     for (const p of roster) s = game.reduce(s, act('seen', p.id), roster);
     s = { ...s, phase: 'vote' };
     for (const p of roster) s = game.reduce(s, act('vote', p.id, { target: innocent.id }), roster);
@@ -974,9 +1011,9 @@ describe('Mäxchen', () => {
   /** Bis zum Aufdecken: würfeln, weitergeben, aufdecken. */
   function aufgedeckt(roster: ReturnType<typeof players>) {
     let s = game.createState(roster);
-    s = game.reduce(s, act('roll'), roster);
-    s = game.reduce(s, act('pass'), roster);
-    return game.reduce(s, act('doubt'), roster);
+    s = game.reduce(s, act('roll', s.order[0]), roster);
+    s = game.reduce(s, act('pass', s.order[0]), roster);
+    return game.reduce(s, act('doubt', s.order[1]), roster);
   }
 
   it('bestraft nach „Gelogen" den Ansager', () => {

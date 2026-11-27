@@ -13,6 +13,8 @@ import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { fitsGroup } from '../shared/prompts';
 import { fromHost } from '../shared/host';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, nextPresentId, playerNames, presentPlayer } from '../shared/presence';
 import type { GameAction, GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import type { CardDef, CardGameConfig, CardGameState, Heat } from './types';
 
@@ -71,6 +73,41 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
   const startsWithChoice = Boolean(config.modes) && config.actor === 'turn';
 
+  const turnActor = (state: CardGameState, players: GamePlayer[], online: boolean) => {
+    const id = state.order[state.turnIndex % Math.max(1, state.order.length)];
+    return online ? presentPlayer(players, id) : players.find((p) => p.id === id) ?? players[0];
+  };
+
+  const previousAsker = (state: CardGameState, players: GamePlayer[], actorId?: string) => {
+    const size = state.order.length;
+    for (let offset = 1; offset < size; offset++) {
+      const id = state.order[(state.turnIndex + size - offset) % size];
+      const player = presentPlayer(players, id);
+      if (player && player.id !== actorId) return player;
+    }
+    return null;
+  };
+
+  const absentTurn = (state: CardGameState, players: GamePlayer[]) => {
+    const id = state.order[state.turnIndex];
+    if (!startsWithChoice || presentPlayer(players, id)) return undefined;
+    if (state.phase === 'choose') return id;
+    if (state.phase === 'card' && config.asker && !previousAsker(state, players, id)) return id;
+  };
+
+  const canResolve = (state: CardGameState, players: GamePlayer[], by: string) => {
+    if (!config.asker) return true;
+    if (state.phase !== 'card') return false;
+    if (!state.names && !hasOnlineGuests(players)) return true;
+    const actorId = turnActor(state, players, true)?.id;
+    return by === actorId || by === previousAsker(state, players, actorId)?.id;
+  };
+
+  const turnKey = (state: CardGameState) => {
+    const turn = `${state.round}:${state.turnIndex}`;
+    return config.asker && state.cardRevision ? `${turn}:${state.cardRevision}` : turn;
+  };
+
   /** Eine Runde ist ein voller Durchlauf durch die Gruppe. Der Wert steht in
    *  der gemeinsamen Tabelle, damit er neben den anderen Spielen sichtbar ist. */
   const ROUND_BASE = baseFor(config.id);
@@ -79,6 +116,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     const deck = freshDeck(config.intensity, null, players.length);
     return {
       order: shuffle(players.map((p) => p.id)),
+      ...(startsWithChoice && hasOnlineGuests(players) && { names: playerNames(players) }),
       turnIndex: 0,
       round: 1,
       goal: roundGoal(ROUND_BASE),
@@ -101,8 +139,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     players: GamePlayer[],
   ): CardGameState => {
     // Several phones can finish the same card before the next state arrives.
-    // Actions from that view must not advance or resolve the following turn.
-    if (action.turnKey !== undefined && action.turnKey !== `${state.round}:${state.turnIndex}`) {
+    // Actions from that view must not resolve a replacement card or a later turn.
+    if (action.turnKey !== undefined && action.turnKey !== turnKey(state)) {
       return state;
     }
     switch (action.type) {
@@ -114,9 +152,30 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         // wird. Ist die Karte schon aufgelöst, bleibt sie stehen – dort hängt
         // eine Trinkansage dran, die niemand unter den Fingern wegziehen darf.
         if (state.phase === 'resolved') return { ...state, heat, deck };
-        return { ...state, heat, deck: deck.slice(1), drawn: deck[0] ?? null, declared: {} };
+        return {
+          ...state, heat, deck: deck.slice(1), drawn: deck[0] ?? null, declared: {},
+          ...(config.asker && state.phase === 'card' && { cardRevision: (state.cardRevision ?? 0) + 1 }),
+        };
+      }
+      case 'skipAbsent': {
+        const id = absentTurn(state, players);
+        if (!id || !canSkipAbsent(action, players, id)) return state;
+        const order = extendOrder(state.order, players);
+        const next = nextPresentId(order, id, players);
+        if (!next) return state;
+        const turnIndex = order.indexOf(next);
+        const round = turnIndex <= state.turnIndex ? state.round + 1 : state.round;
+        return {
+          ...state, order, turnIndex, round, names: { ...state.names, ...playerNames(players) },
+          mode: null, drawn: null, phase: isOver(round, state.goal) ? 'over' : 'choose',
+          outcome: null, winner: null, declared: {}, cardRevision: 0,
+        };
       }
       case 'pickMode': {
+        if (config.asker && (
+          state.phase !== 'choose' ||
+          ((state.names || hasOnlineGuests(players)) && action.by !== turnActor(state, players, true)?.id)
+        )) return state;
         const mode = String(action.mode);
         const deck = freshDeck(state.heat, mode, players.length);
         return {
@@ -129,7 +188,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         };
       }
       case 'skip': {
-        if (state.phase !== 'card' || !config.skipLabel) return state;
+        if (state.phase !== 'card' || !config.skipLabel || !canResolve(state, players, action.by)) return state;
         const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
         return {
           ...state,
@@ -138,13 +197,16 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           outcome: null,
           winner: null,
           declared: {},
+          ...(config.asker && { cardRevision: (state.cardRevision ?? 0) + 1 }),
         };
       }
       case 'draw': {
+        if (config.asker) return state;
         const deck = state.deck.length ? state.deck : freshDeck(state.heat, state.mode, players.length);
         return { ...state, drawn: deck[0] ?? null, deck: deck.slice(1), phase: 'card', declared: {} };
       }
       case 'resolve':
+        if (!canResolve(state, players, action.by)) return state;
         return {
           ...state,
           phase: 'resolved',
@@ -164,13 +226,19 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         // A self-declared card advances directly; other games resolve first.
         // turnKey above also guards the direct card-to-card transition.
         if (state.phase !== 'card' && state.phase !== 'resolved') return state;
+        if (config.asker && state.phase !== 'resolved') return state;
         // Wer selbst auskunftet, schaltet nicht für alle weiter: das tut nur
         // der Host (User-Entscheid 2026-10-14). Vorher konnte, wer zuerst
         // geantwortet hatte, allen anderen die Karte wegziehen.
         if (config.drink === 'self-declare' && !fromHost(action, players)) return state;
         const order = syncOrder(state.order, players);
-        const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
-        const round = turnIndex === 0 ? state.round + 1 : state.round;
+        const onlineTurns = startsWithChoice && (state.names || hasOnlineGuests(players));
+        const current = state.order[state.turnIndex];
+        const seats = extendOrder(state.order, players);
+        const next = onlineTurns ? nextPresentId(seats, current, players) ?? presentPlayer(players, current)?.id : undefined;
+        const turnIndex = next ? order.indexOf(next) : (state.turnIndex + 1) % Math.max(1, order.length);
+        const wrapped = next ? seats.indexOf(next) <= state.turnIndex : turnIndex === 0;
+        const round = wrapped ? state.round + 1 : state.round;
         // Die Ziellinie liegt am Ende eines vollen Durchlaufs, damit niemand
         // mittendrin aussteigt, während andere schon dran waren.
         if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
@@ -187,6 +255,8 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           deck: startsWithChoice ? deck : deck.slice(1),
           phase: startsWithChoice ? 'choose' : 'card',
           declared: {},
+          ...(config.asker && { cardRevision: 0 }),
+          ...(state.names && { names: { ...state.names, ...playerNames(players) } }),
         };
       }
       case 'restart':
@@ -197,11 +267,12 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
   };
 
   function Component({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<CardGameState>) {
-    const actor = useMemo(() => {
-      if (config.actor === 'none') return null;
-      const id = state.order[state.turnIndex % Math.max(1, state.order.length)];
-      return players.find((p) => p.id === id) ?? players[0] ?? null;
-    }, [state.order, state.turnIndex, players]);
+    const actor = useMemo(
+      () => (config.actor === 'turn' ? turnActor(state, players, online && startsWithChoice) : null),
+      [state, players, online],
+    );
+    const actorName = actor?.name ?? state.names?.[state.order[state.turnIndex]] ?? 'Die Person am Zug';
+    const asker = config.asker === 'prev' ? previousAsker(state, players, actor?.id) : null;
 
     const card = state.drawn;
     const cardText = card?.text;
@@ -211,9 +282,11 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
     useEffect(() => {
       if (cardText) markTextsSeen([cardText]);
     }, [cardText]);
-    const isMyTurn = !actor || actor.id === me.id;
+    const isMyTurn = actor?.id === me.id || (!actor && !startsWithChoice);
+    const isMyQuestion = online && asker?.id === me.id;
     // Pass & Play: ein Gerät, also darf es auch für den Spieler am Zug tippen.
     const canAct = !online || isMyTurn;
+    const canFinishCard = !config.asker || !online || actor?.id === me.id || isMyQuestion;
     const target = card?.target ?? (config.drink === 'all' ? 'all' : 'actor');
     const sips = card?.sips ?? config.baseSips;
     // Eindeutig pro Karte: sonst bliebe der "Getrunken"-Button der letzten
@@ -230,7 +303,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
 
     const send = (action: GameActionInput) => {
       haptic('select');
-      dispatch({ ...action, turnKey: `${state.round}:${state.turnIndex}` });
+      dispatch({ ...action, turnKey: turnKey(state) });
     };
 
     return (
@@ -269,8 +342,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         }
       >
         {actor && state.phase !== 'over' && (
-          <div className="row" style={{ justifyContent: 'center' }}>
+          <div className={asker ? 'row wrap' : 'row'} style={{ justifyContent: 'center' }}>
             <PlayerChip player={actor} note={isMyTurn ? 'du bist dran' : 'ist dran'} />
+            {asker && <PlayerChip player={asker} note={isMyQuestion ? 'Du fragst' : 'fragt'} />}
           </div>
         )}
 
@@ -285,7 +359,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
         {state.phase === 'choose' && config.modes && (
           <>
             <BigCard kicker="Entscheide dich">
-              {isMyTurn ? 'Was wird es?' : `${actor?.name} entscheidet …`}
+              {asker
+                ? `${isMyQuestion ? 'Du fragst' : `${asker.name} fragt`}: ${config.name}?`
+                : isMyTurn ? 'Was wird es?' : `${actorName} entscheidet …`}
             </BigCard>
             <Choice
               disabled={!canAct}
@@ -355,7 +431,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
                 ]}
                 onPick={(id) => {
                   haptic(id === 'yes' ? 'warn' : 'success');
-                  dispatch({ type: 'declare', answer: id, turnKey: `${state.round}:${state.turnIndex}` });
+                  dispatch({ type: 'declare', answer: id, turnKey: turnKey(state) });
                 }}
               />
             ) : declared === 'yes' ? (
@@ -415,7 +491,7 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
           </div>
         )}
 
-        {state.phase === 'card' && !(config.drink === 'self-declare' && online) && (
+        {state.phase === 'card' && canFinishCard && !(config.drink === 'self-declare' && online) && (
           <div className="stack-3">
             {config.drink === 'self-declare' && (
               <>
@@ -547,6 +623,9 @@ export function createCardGame(config: CardGameConfig): GameDefinition<CardGameS
               {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Nächster'}
             </button>
           </div>
+        )}
+        {online && (
+          <AbsentAction id={absentTurn(state, players)} players={players} names={state.names} isHost={isHost} dispatch={send} />
         )}
       </GameFrame>
     );

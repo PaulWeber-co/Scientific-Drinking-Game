@@ -8,6 +8,7 @@ import { haptic } from '../../lib/haptics';
 import { markTextsSeen } from '../../store/seen';
 import { DrinkCall } from '../shared/DrinkCall';
 import { GameFrame } from '../shared/GameFrame';
+import { AbsentAction } from '../shared/presence';
 import { GameOver } from '../shared/GameOver';
 import { BigCard, RankTag, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
@@ -149,7 +150,7 @@ function WerBinIchGame({ state, players, me, isHost, dispatch, online, quit }: G
   return (
     <GameFrame title={meta.name} accent={meta.accent} subtitle={subtitle} onQuit={quit}>
       {state.phase === 'pick' && (
-        <PickStep state={state} players={players} me={me} roundLabel={roundLabel} nameOf={nameOf} send={send} />
+        <PickStep state={state} players={players} me={me} isHost={isHost} roundLabel={roundLabel} nameOf={nameOf} send={send} />
       )}
       {state.phase === 'write' && (
         <WriteStep state={state} players={players} me={me} category={category} nameOf={nameOf} send={send} />
@@ -188,9 +189,21 @@ function PickStep({
   roundLabel,
   nameOf,
   send,
-}: StepProps & { roundLabel: string; nameOf: (id: string) => string }) {
-  if (state.chooser === me.id) return <ChooseCategory state={state} players={players} roundLabel={roundLabel} send={send} />;
-  return <WaitForChooser state={state} players={players} me={me} roundLabel={roundLabel} nameOf={nameOf} send={send} />;
+  isHost,
+}: StepProps & { roundLabel: string; nameOf: (id: string) => string; isHost: boolean }) {
+  const active = players.filter((p) => p.online !== false);
+  if (active.length < 2) {
+    return <BigCard kicker="Kurze Pause">Warten auf eine zweite Person.</BigCard>;
+  }
+  if (state.chooser === me.id && active.some((p) => p.id === me.id)) {
+    return <ChooseCategory state={state} players={players} roundLabel={roundLabel} send={send} />;
+  }
+  return (
+    <>
+      <WaitForChooser state={state} players={players} me={me} roundLabel={roundLabel} nameOf={nameOf} send={send} />
+      <AbsentAction id={state.chooser} players={players} names={state.names} isHost={isHost} dispatch={send} />
+    </>
+  );
 }
 
 function ChooseCategory({
@@ -370,7 +383,6 @@ function WaitForChooser({
     const t = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(t);
   }, [host]);
-  const away = chooser?.online === false || !chooser;
 
   return (
     <div className="stack-3">
@@ -395,7 +407,7 @@ function WaitForChooser({
             <Icon name="shuffle" size={18} /> Für {name} würfeln
           </button>
           <div className="t-caption t-center">
-            {away ? `${name} ist gerade nicht da.` : `${name} antwortet nicht.`} Nur du als Host siehst das.
+            {name} antwortet nicht. Nur du als Host siehst das.
           </div>
         </>
       )}

@@ -7,6 +7,8 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, lastAbsentId, extendOrder, nextPresentId, playerNames, presentPlayer, waitingNames } from '../shared/presence';
 import { PassDevice } from '../shared/PassDevice';
 import { PeekCard } from '../shared/PeekCard';
 import { BigCard, Choice, PlayerChip, Ring, WaitingFor } from '../shared/pieces';
@@ -57,7 +59,7 @@ const CATEGORIES: Category[] = [
 ];
 
 interface State {
-  phase: 'writing' | 'revealing' | 'results' | 'over';
+  phase: 'writing' | 'reading' | 'revealing' | 'results' | 'over';
   category: number;
   deck: number[];
   numbers: Record<string, number>;
@@ -65,6 +67,11 @@ interface State {
    *  Antworten laut gesagt, nicht getippt. */
   answers: Record<string, string>;
   order: string[];
+  /** Bleibt gesetzt, wenn alle Online-Gäste die Lobby verlassen. */
+  online?: true;
+  /** Online bleiben Namen beim Vorlesen auch nach dem Verlassen der Lobby sichtbar. */
+  names?: Record<string, string>;
+  sortedBy?: string | null;
   captainIndex: number;
   /** Vom Kapitän aufgedeckte Spieler-IDs, in Aufdeck-Reihenfolge. Wächst
    *  einzeln – daran hängt der Fehler-Moment und die spätere Auflösung. */
@@ -104,11 +111,36 @@ function wrongPairsIn(order: string[], numbers: Record<string, number>): number 
   return wrong;
 }
 
-function scoreCaptain(state: State, players: GamePlayer[]): Record<string, number> {
-  const captain = players[state.captainIndex % Math.max(1, players.length)];
-  if (!captain) return state.perfect;
+function captainFor(state: State, players: GamePlayer[], online: boolean) {
+  if (!online) return players[state.captainIndex % Math.max(1, players.length)];
+  const id = state.order[state.captainIndex];
+  return presentPlayer(players, id);
+}
+
+function pendingSorting(state: State) {
+  return state.order.filter((id) => state.answers[id] && state.numbers[id] !== undefined && !state.revealed.includes(id));
+}
+
+function absentTurn(state: State, players: GamePlayer[]) {
+  if (state.phase === 'writing') {
+    return lastAbsentId(state.order, players, (id) => state.numbers[id] !== undefined && !state.answers[id]);
+  }
+  if (state.phase !== 'reading' && state.phase !== 'revealing') return undefined;
+  const id = state.order[state.captainIndex];
+  if (!presentPlayer(players, id)) return id;
+  if (state.phase === 'revealing') return lastAbsentId(pendingSorting(state), players, () => true);
+}
+
+function sorterFor(state: State, players: GamePlayer[], online: boolean) {
+  if (!online) return captainFor(state, players, false)?.id;
+  return state.sortedBy === undefined ? state.order[state.captainIndex] : state.sortedBy;
+}
+
+function scoreCaptain(state: State, players: GamePlayer[], online: boolean): Record<string, number> {
+  const id = sorterFor(state, players, online);
+  if (!id || (online && !state.revealed.length)) return state.perfect;
   const hit = wrongPairsIn(state.revealed, state.numbers) === 0 ? 1 : 0;
-  return { ...state.perfect, [captain.id]: (state.perfect[captain.id] ?? 0) + hit };
+  return { ...state.perfect, [id]: (state.perfect[id] ?? 0) + hit };
 }
 
 export const topTen: GameDefinition<State> = {
@@ -124,6 +156,7 @@ export const topTen: GameDefinition<State> = {
       numbers: dealNumbers(ids),
       answers: {},
       order: ids,
+      ...(hasOnlineGuests(players) && { online: true, names: playerNames(players) }),
       captainIndex: 0,
       revealed: [],
       round: 1,
@@ -135,25 +168,50 @@ export const topTen: GameDefinition<State> = {
   },
 
   reduce: (state, action, players) => {
-    const active = players.filter((p) => p.online !== false).map((p) => p.id);
+    const active = players.filter((p) => p.online !== false && state.numbers[p.id] !== undefined).map((p) => p.id);
+    const online = state.online === true || hasOnlineGuests(players);
     switch (action.type) {
+      case 'skipAbsent': {
+        const id = absentTurn(state, players);
+        if (!online || !id || !canSkipAbsent(action, players, id)) return state;
+        if (state.phase === 'writing') return { ...state, phase: 'reading' };
+        if (state.phase === 'revealing' && !pendingSorting(state).some((id) => presentPlayer(players, id))) {
+          return { ...state, phase: 'results', sortedBy: presentPlayer(players, state.sortedBy)?.id ?? null };
+        }
+        const next = nextPresentId(state.order, id, players);
+        if (!next) {
+          const host = players.find((p) => p.isHost && p.online !== false);
+          if (!host) return state;
+          const order = [...state.order, host.id];
+          return {
+            ...state, order, captainIndex: order.length - 1, sortedBy: null,
+            names: { ...state.names, ...playerNames(players) },
+          };
+        }
+        return { ...state, captainIndex: state.order.indexOf(next), sortedBy: null };
+      }
       case 'submit': {
-        if (state.phase !== 'writing') return state;
+        if (state.phase !== 'writing' || !online || !active.includes(action.by)) return state;
         const text = String(action.text ?? '').slice(0, 120).trim();
         if (!text) return state;
         const answers = { ...state.answers, [action.by]: text };
         const done = active.every((id) => answers[id]);
-        return { ...state, answers, phase: done ? 'revealing' : 'writing' };
+        return { ...state, answers, phase: done ? 'reading' : 'writing' };
       }
       case 'startReveal':
-        // Nur am geteilten Handy: alle haben ihre Zahl gesehen, der Kapitän
-        // kann anfangen aufzudecken. Online kommt der Wechsel über `submit`.
-        if (state.phase !== 'writing') return state;
+        // Am geteilten Handy geht es direkt zum Aufdecken. Online startet
+        // der Kapitän das Sortieren erst nach dem gemeinsamen Vorlesen (`reading`).
+        if (state.phase !== 'writing' || online) return state;
+        return { ...state, phase: 'revealing' };
+      case 'startSorting':
+        if (!online || state.phase !== 'reading' || action.by !== captainFor(state, players, true)?.id) return state;
         return { ...state, phase: 'revealing' };
       case 'reveal': {
         if (state.phase !== 'revealing') return state;
+        if (online && action.by !== captainFor(state, players, true)?.id) return state;
         const id = String(action.id ?? '');
-        if (!id || !state.order.includes(id) || state.revealed.includes(id)) return state;
+        const order = online ? pendingSorting(state).filter((member) => active.includes(member)) : state.order;
+        if (!id || !order.includes(id) || state.revealed.includes(id)) return state;
         const revealed = [...state.revealed, id];
         const prevId = revealed[revealed.length - 2];
         const mistake =
@@ -163,9 +221,17 @@ export const topTen: GameDefinition<State> = {
           // Sofort verloren – auch mitten in der Runde, wie im Original.
           return { ...state, revealed, tokens, phase: 'over', lostGame: true };
         }
-        const done = revealed.length >= state.order.length;
-        return { ...state, revealed, tokens, phase: done ? 'results' : 'revealing' };
+        const done = order.every((member) => revealed.includes(member));
+        return {
+          ...state, revealed, tokens, phase: done ? 'results' : 'revealing',
+          ...(online && { sortedBy: action.by }),
+        };
       }
+      case 'finishSorting':
+        if (state.phase !== 'revealing' || !online || action.by !== captainFor(state, players, true)?.id) return state;
+        // Die letzte verdeckte Person kann gehen, nachdem der Kapitän alle anderen sortiert hat.
+        if (pendingSorting(state).length > 0) return state;
+        return { ...state, phase: 'results', sortedBy: state.sortedBy ?? action.by };
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
         // „Weiter" würden sonst zwei Runden zählen, und die letzte Runde
@@ -174,7 +240,10 @@ export const topTen: GameDefinition<State> = {
         const deck = state.deck.length ? state.deck : spicyDeck(CATEGORIES, 'top-ten', (c) => c.title, players.length);
         const ids = players.map((p) => p.id);
         const round = state.round + 1;
-        const perfect = scoreCaptain(state, players);
+        const perfect = scoreCaptain(state, players, online);
+        const current = state.order[state.captainIndex];
+        const order = extendOrder(state.order, players);
+        const next = online ? nextPresentId(order, current, players) : undefined;
         if (isOver(round, state.goal)) return { ...state, round, perfect, phase: 'over' };
         return {
           ...state,
@@ -184,14 +253,19 @@ export const topTen: GameDefinition<State> = {
           numbers: dealNumbers(ids),
           answers: {},
           order: ids,
+          ...(online && { online: true, names: playerNames(players), sortedBy: null }),
           revealed: [],
-          captainIndex: (state.captainIndex + 1) % Math.max(1, ids.length),
+          captainIndex: next ? ids.indexOf(next) : (state.captainIndex + 1) % Math.max(1, ids.length),
           round,
           perfect,
         };
       }
-      case 'restart':
-        return topTen.createState(players);
+      case 'restart': {
+        const restarted = topTen.createState(players);
+        return online && !restarted.online
+          ? { ...restarted, online: true, names: playerNames(players) }
+          : restarted;
+      }
       default:
         return state;
     }
@@ -206,7 +280,7 @@ function dealNumbers(ids: string[]): Record<string, number> {
   return Object.fromEntries(ids.map((id, i) => [id, pool[i % 10]]));
 }
 
-function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+function TopTenGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   const [draft, setDraft] = useState('');
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string) => players.find((p) => p.id === id);
@@ -235,7 +309,14 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
     haptic(state.lostGame ? 'error' : 'warn');
   }, [state.revealed, state.numbers, state.lostGame]);
 
-  const captain = players[state.captainIndex % Math.max(1, players.length)];
+  const captain = captainFor(state, players, online);
+  const absent = online ? absentTurn(state, players) : undefined;
+  const skip = online && (
+    <AbsentAction
+      id={absent} players={players} names={state.names} isHost={isHost} dispatch={send}
+      continueWithout={state.phase === 'writing' || absent !== state.order[state.captainIndex]}
+    />
+  );
   const isCaptain = captain?.id === me.id;
   // Am geteilten Handy deckt auf, wer das Handy hält – auch für einen Gast
   // als Kapitän. Vorher standen dort ab Runde zwei keine Knöpfe mehr, und die
@@ -290,14 +371,25 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
     }
 
     const myNumber = state.numbers[me.id];
+    if (myNumber === undefined) {
+      return (
+        <GameFrame title={topTen.name} accent={topTen.accent} subtitle={`Runde ${progress}`} onQuit={quit}>
+          <BigCard>{cat.title}</BigCard>
+          <div className="t-caption t-center">Du schaust diese Runde zu.</div>
+          {skip}
+        </GameFrame>
+      );
+    }
     const submitted = !!state.answers[me.id];
-    const waiting = players.filter((p) => p.online !== false && !state.answers[p.id]).map((p) => p.name);
+    const waiting = waitingNames(
+      state.order.filter((id) => state.numbers[id] !== undefined && !state.answers[id]), players, state.names,
+    );
     return (
       <GameFrame title={topTen.name} accent={topTen.accent} subtitle={`Runde ${progress}`} onQuit={quit}>
         <BigCard kicker={cat.low + ' → ' + cat.high}>{cat.title}</BigCard>
         <div className="secret">
           <div className="t-upper">Deine geheime Zahl</div>
-          <div className="secret__num t-mono-num">{myNumber ?? '–'}</div>
+          <div className="secret__num t-mono-num">{myNumber}</div>
           <div className="t-caption">Zeig sie niemandem.</div>
         </div>
         {submitted ? (
@@ -324,12 +416,50 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
             </button>
           </div>
         )}
+        {skip}
+      </GameFrame>
+    );
+  }
+
+  if (state.phase === 'reading') {
+    return (
+      <GameFrame title={topTen.name} accent={topTen.accent} subtitle={`Runde ${progress} · Vorlesen`} onQuit={quit}>
+        <BigCard>{cat.title}</BigCard>
+        <div className="stack-2" role="list" aria-label="Antworten">
+          {state.order.map((id) => (
+            <div
+              key={id}
+              className="result-row"
+              role="listitem"
+              style={id === me.id ? { background: 'var(--surface-3)' } : undefined}
+            >
+              <div className="grow" style={{ overflowWrap: 'anywhere' }}>
+                <div className="t-headline">{byId(id)?.name ?? state.names?.[id] ?? 'Nicht mehr dabei'}</div>
+                <div>{state.answers[id] ?? '—'}</div>
+                {id === me.id && state.answers[id] && <div className="t-caption">Lies deine Antwort laut vor</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+        {isCaptain ? (
+          <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'startSorting' })}>
+            Alle gehört – sortieren
+          </button>
+        ) : captain && (
+          <div className="t-caption t-center">{captain.name} startet das Sortieren.</div>
+        )}
+        {skip}
+        {absent && !isHost && (
+          <p className="t-caption t-center">Danach startet die nächste anwesende Person das Sortieren.</p>
+        )}
       </GameFrame>
     );
   }
 
   if (state.phase === 'revealing') {
-    const remaining = state.order.filter((id) => !state.revealed.includes(id));
+    const remaining = online
+      ? pendingSorting(state).filter((id) => presentPlayer(players, id))
+      : state.order.filter((id) => !state.revealed.includes(id));
     const startTokens = initialTokens(players);
     return (
       <GameFrame
@@ -348,31 +478,43 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
             {state.revealed.map((id) => (
               <div key={id} className="result-row">
                 <div className="result-row__rank">{state.numbers[id]}</div>
-                <div className="grow t-headline">{byId(id)?.name}</div>
+                <div className="grow t-headline">{byId(id)?.name ?? state.names?.[id]}</div>
               </div>
             ))}
           </div>
         )}
         {canReveal ? (
-          <div className="stack-2">
-            <div className="t-caption t-center">
-              {isCaptain ? 'Wer hat die nächsthöhere Zahl?' : `${captain?.name}: Wer hat die nächsthöhere Zahl?`}
+          online && remaining.length === 0 ? (!absent && (
+            <button className="btn btn--brand btn--block" onClick={() => send({ type: 'finishSorting' })}>
+              Zur Auflösung
+            </button>
+          )) : (
+            <div className="stack-2">
+              <div className="t-caption t-center">
+                {isCaptain ? 'Wer hat die nächsthöhere Zahl?' : `${captain?.name}: Wer hat die nächsthöhere Zahl?`}
+              </div>
+              <Choice
+                options={remaining.map((id) => ({ id, label: byId(id)?.name ?? '' }))}
+                onPick={(id) => send({ type: 'reveal', id })}
+              />
             </div>
-            <Choice
-              options={remaining.map((id) => ({ id, label: byId(id)?.name ?? '' }))}
-              onPick={(id) => send({ type: 'reveal', id })}
-            />
-          </div>
+          )
         ) : (
-          <div className="t-center t-sub">Nur {captain?.name} deckt gerade auf.</div>
+          captain && <div className="t-center t-sub">Nur {captain.name} deckt gerade auf.</div>
         )}
+        {skip}
       </GameFrame>
     );
   }
 
   const wrongPairs = wrongPairsIn(state.revealed, state.numbers);
   const perfect = wrongPairs === 0;
-  const others = players.filter((p) => p.id !== captain?.id);
+  const sortedBy = sorterFor(state, players, online);
+  const sortedName = sortedBy ? byId(sortedBy)?.name ?? state.names?.[sortedBy] : undefined;
+  const neutral = online && (!sortedBy || !state.revealed.length);
+  const drinkers = neutral ? [] : players.filter((p) =>
+    (!online || (p.online !== false && state.revealed.includes(p.id))) && (!perfect || p.id !== sortedBy),
+  );
 
   return (
     <GameFrame
@@ -381,17 +523,19 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
       subtitle={`Runde ${progress} · Auflösung`}
       onQuit={quit}
     >
-      <BigCard kicker={perfect ? 'Perfekt' : `${wrongPairs} ${wrongPairs === 1 ? 'Fehler' : 'Fehler'}`}>
-        {perfect
-          ? `${captain?.name} hat alles richtig aufgedeckt. Alle anderen trinken.`
-          : 'Nicht ganz. Die Runde zahlt drauf.'}
+      <BigCard kicker={neutral ? 'Abgeschlossen' : perfect ? 'Perfekt' : `${wrongPairs} Fehler`}>
+        {neutral
+          ? 'Die Runde endet ohne Wertung.'
+          : perfect
+            ? `${sortedName ?? 'Der Kapitän'} hat alles richtig aufgedeckt. Alle anderen trinken.`
+            : 'Nicht ganz. Die Runde zahlt drauf.'}
       </BigCard>
       <div className="stack-2">
         {state.revealed.map((id) => (
           <div key={id} className="result-row">
             <div className="result-row__rank">{state.numbers[id]}</div>
             <div className="grow">
-              <div className="t-headline">{byId(id)?.name}</div>
+              <div className="t-headline">{byId(id)?.name ?? state.names?.[id]}</div>
               {state.answers[id] && <div className="t-caption">{state.answers[id]}</div>}
             </div>
           </div>
@@ -401,7 +545,7 @@ function TopTenGame({ state, players, me, dispatch, quit, online }: GameRuntime<
         {state.tokens} von {initialTokens(players)} Plättchen übrig.
       </div>
       <DrinkCallList
-        players={perfect ? others : players}
+        players={drinkers}
         baseSips={perfect ? 3 : Math.min(6, wrongPairs + 1)}
         source="top-ten"
         resetKey={state.round}

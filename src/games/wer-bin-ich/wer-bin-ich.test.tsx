@@ -143,7 +143,7 @@ describe('Wer bin ich: Kategorie', () => {
     expect(weiter.chose).toEqual([s.chooser]);
   });
 
-  it('lässt den Host erst nach der Frist oder sofort bei Abwesenheit würfeln', () => {
+  it('lässt den Host nach der Frist würfeln und bei Abwesenheit den Platz weitergeben', () => {
     const roster = players(3).map((p, i) => ({ ...p, isHost: i === 0 }));
     const s = { ...createState(roster), chooser: 'p1', pickSince: T0 };
     expect(reduce(s, act('pick', 'p0', { random: true }), roster), 'vor der Frist').toBe(s);
@@ -151,9 +151,9 @@ describe('Wer bin ich: Kategorie', () => {
     const spaet = reduce(s, { ...act('pick', 'p0', { random: true }), at: T0 + PICK_WAIT_MS }, roster);
     expect(spaet.phase).toBe('write');
     const ohneP1 = roster.map((p) => (p.id === 'p1' ? { ...p, online: false } : p));
-    const sofort = reduce(s, act('pick', 'p0', { random: true }), ohneP1);
-    expect(sofort.phase).toBe('write');
-    expect(sofort.ring).not.toContain('p1');
+    expect(reduce(s, act('pick', 'p0', { random: true }), ohneP1)).toBe(s);
+    const sofort = reduce({ ...s, chose: ['p0'] }, act('skipAbsent', 'p0', { who: 'p1' }), ohneP1);
+    expect(sofort).toMatchObject({ phase: 'pick', chooser: 'p2' });
     expect(reduce(s, act('pick', 'p0', { cat: tier }), ohneP1), 'aus der Liste wählt nur, wer dran ist').toBe(s);
     const allein = roster.map((p) => (p.id === 'p0' ? p : { ...p, online: false }));
     expect(reduce(s, act('pick', 'p0', { random: true }), allein), 'allein wird nicht gespielt').toBe(s);

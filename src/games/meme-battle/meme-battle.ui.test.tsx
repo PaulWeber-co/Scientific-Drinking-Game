@@ -1,11 +1,13 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
+import * as haptics from '../../lib/haptics';
 import type { GamePlayer } from '../types';
 import { memeBattle, type State } from './index';
 import { createState, reduce } from './game';
-import { Editor } from './Editor';
+import { draftStorageKey, Editor } from './Editor';
+import { Results } from './Results';
 import { Setup } from './Setup';
 import { SaveMeme } from './parts';
 import { VoteView } from './Vote';
@@ -19,10 +21,13 @@ const roster: GamePlayer[] = [
   { id: 'p2', name: 'Carl', color: 'green', online: true },
 ];
 
+beforeEach(() => vi.spyOn(Math, 'random').mockReturnValue(0.999));
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe('Meme-Duell: Vorlagenwechsel aus Nutzersicht', () => {
@@ -150,6 +155,143 @@ describe('Meme-Duell: Speichern', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
     await waitFor(() => expect(shareMeme).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('Meme-Duell: Entwürfe', () => {
+  const draftState = () => {
+    const state = reduce(createState(roster), { type: 'start', by: 'p0' }, roster);
+    return { ...state, drawn: { ...state.drawn, p0: 'drake' }, deadline: Date.now() + 60_000 };
+  };
+
+  it('stellt einen ungesendeten Entwurf nach Unmount und Remount wieder her', () => {
+    const props = { state: draftState(), players: roster, me: roster[0], topic: null, dispatch: vi.fn() };
+    const first = render(<Editor {...props} />);
+    fireEvent.change(screen.getByPlaceholderText('Text 2'), { target: { value: 'Meine Pointe' } });
+    first.unmount();
+
+    render(<Editor {...props} />);
+    expect(screen.getByPlaceholderText('Text 1')).toHaveValue('');
+    expect(screen.getByPlaceholderText('Text 2')).toHaveValue('Meine Pointe');
+    expect(screen.getByRole('button', { name: 'Fertig' })).toBeEnabled();
+  });
+
+  it('sichert den zurückgeholten Text nach Nochmal ändern und blendet den Abgabehinweis aus', () => {
+    const state = draftState();
+    const props = { players: roster, me: roster[0], topic: null, dispatch: vi.fn() };
+    const first = render(<Editor {...props} state={{ ...state, memes: { p0: { t: 'drake', x: ['Fertige Pointe'] } } }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Nochmal ändern' }));
+    expect(props.dispatch).toHaveBeenCalledWith({ type: 'edit', round: 1, template: 'drake' });
+    first.unmount();
+
+    render(<Editor {...props} state={state} />);
+    expect(screen.getByPlaceholderText('Text 1')).toHaveValue('Fertige Pointe');
+    expect(screen.queryByText(/Sobald alle fertig sind/)).not.toBeInTheDocument();
+  });
+
+  it('zeigt den Hinweis vor der ersten Abgabe direkt unter den Aktionen in Runde eins', () => {
+    const state = draftState();
+    const props = { players: roster, me: roster[0], topic: null, dispatch: vi.fn() };
+    const { rerender } = render(<Editor {...props} state={state} />);
+    const note = screen.getByText('Sobald alle fertig sind, beginnt die Abstimmung. Bis dahin kannst du noch ändern.');
+    expect(note).toHaveClass('t-caption');
+    expect(note.previousElementSibling).toContainElement(screen.getByRole('button', { name: 'Fertig' }));
+    rerender(<Editor {...props} state={{ ...state, round: 2 }} />);
+    expect(note).not.toBeInTheDocument();
+  });
+
+  it.each(['vote', 'create'] as const)('räumt den alten Entwurf beim Wechsel zu %s auf', (phase) => {
+    const state = draftState();
+    const me = roster[0];
+    const Game = memeBattle.Component;
+    const view = (s: State) => (
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+          <Game state={s} players={roster} me={me} isHost online dispatch={vi.fn()} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view(state));
+    fireEvent.change(screen.getByPlaceholderText('Text 1'), { target: { value: 'Alter Entwurf' } });
+    const key = draftStorageKey(me.id, state.round, state.deadline);
+    const otherKey = draftStorageKey('anderes-gerät', state.round, state.deadline);
+    localStorage.setItem(otherKey, 'anderer Entwurf');
+    expect(localStorage.getItem(key)).toContain('Alter Entwurf');
+
+    const next = phase === 'vote'
+      ? roster.reduce((s, p) => reduce(s, { type: 'submit', by: p.id, texts: ['Neue Pointe'] }, roster), state as State)
+      : { ...state, round: state.round + 1, deadline: state.deadline + 60_000 };
+    rerender(view(next));
+    expect(next.phase).toBe(phase);
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(localStorage.getItem(otherKey)).toBe('anderer Entwurf');
+    if (phase === 'create') expect(screen.getByPlaceholderText('Text 1')).toHaveValue('');
+  });
+
+  it.each([
+    { role: 'Host', close: 'Spiel beenden', confirm: 'Beenden', me: roster[0] },
+    { role: 'Gast', close: 'Spiel verlassen', confirm: 'Verlassen', me: roster[1] },
+  ])('behandelt den Entwurf beim bestätigten Verlassen als $role', ({ close, confirm, me }) => {
+    const isHost = !!me.isHost;
+    const initial = draftState();
+    const state = { ...initial, drawn: { ...initial.drawn, [me.id]: 'drake' } };
+    const Game = memeBattle.Component;
+    const quit = vi.fn();
+    const party = { me, players: roster, mode: 'online', connection: 'online', isHost } as unknown as PartyValue;
+    render(
+      <MemoryRouter>
+        <PartyCtx.Provider value={party}>
+          <Game state={state} players={roster} me={me} isHost={isHost} online dispatch={vi.fn()} quit={quit} />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Text 1'), { target: { value: 'Alter Entwurf' } });
+    const key = draftStorageKey(me.id, state.round, state.deadline);
+    fireEvent.click(screen.getByRole('button', { name: close }));
+    expect(localStorage.getItem(key)).toContain('Alter Entwurf');
+    fireEvent.click(screen.getByRole('button', { name: confirm }));
+    expect(quit).toHaveBeenCalledOnce();
+    if (isHost) expect(localStorage.getItem(key)).toBeNull();
+    else expect(localStorage.getItem(key)).toContain('Alter Entwurf');
+  });
+});
+
+describe('Meme-Duell: geteilte Rundensiege', () => {
+  it.each(['klassisch', 'entspannt'] as const)('zeigt und feiert in %s beide Sieger vor dem Rest', (mode) => {
+    const signal = vi.spyOn(haptics, 'haptic');
+    const state: State = {
+      ...createState(roster),
+      phase: 'results',
+      options: { ...createState(roster).options, mode },
+      order: ['p0', 'p2', 'p1'],
+      points: { p0: 10, p1: 10, p2: 0 },
+      memes: {
+        p0: { t: 'drake', x: ['Erster Siegertext'] },
+        p1: { t: 'drake', x: ['Zweiter Siegertext'] },
+        p2: { t: 'drake', x: ['Dritter Text'] },
+      },
+    };
+    const view = (me: GamePlayer) => (
+      <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+        <Results state={state} players={roster} me={me} topic={null} dispatch={vi.fn()} />
+      </PartyCtx.Provider>
+    );
+    const observer = render(view(roster[2]));
+    const kicker = screen.getByText('Gleichstand – 2 Memes teilen sich die Runde');
+    const hero = within(kicker.parentElement!);
+    expect(hero.getByText('Anna')).toBeInTheDocument();
+    expect(hero.getByText('Berta')).toBeInTheDocument();
+    expect(hero.queryByText('DRITTER TEXT')).not.toBeInTheDocument();
+    expect(screen.getByText('DRITTER TEXT')).toBeInTheDocument();
+    observer.unmount();
+
+    for (const winner of roster.slice(0, 2)) {
+      signal.mockClear();
+      const { unmount } = render(view(winner));
+      expect(screen.getByText('Du teilst dir den Rundensieg')).toBeInTheDocument();
+      expect(signal).toHaveBeenCalledWith('success');
+      unmount();
+    }
   });
 });
 

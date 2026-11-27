@@ -7,7 +7,10 @@ import { GameOver } from '../shared/GameOver';
 import { DrinkCall } from '../shared/DrinkCall';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
-import type { GameActionInput, GameDefinition, GameRuntime } from '../types';
+import { fromHost } from '../shared/host';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, nextPresentId, playerNames, presentPlayer } from '../shared/presence';
+import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
 /**
@@ -42,6 +45,7 @@ interface State {
    *  geglaubt – ohne `loserId` wartet die Runde noch auf das Urteil. */
   phase: 'roll' | 'look' | 'decide' | 'reveal' | 'over';
   order: string[];
+  names?: Record<string, string>;
   turnIndex: number;
   dice: [number, number] | null;
   reveal: {
@@ -67,12 +71,22 @@ function sipsFor(reveal: NonNullable<State['reveal']>): number {
   return maexchen ? 8 : 4;
 }
 
+function absentTurn(state: State, players: GamePlayer[]) {
+  const announcer = state.order[state.turnIndex];
+  const decider = state.order[(state.turnIndex + 1) % state.order.length];
+  if (state.phase === 'roll' || state.phase === 'look') return announcer;
+  if (state.phase === 'decide' || (state.phase === 'reveal' && state.reveal && !state.reveal.loserId)) {
+    return presentPlayer(players, announcer) ? decider : announcer;
+  }
+}
+
 export const maexchen: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => ({
     phase: 'roll',
     order: shuffle(players.map((p) => p.id)),
+    ...(hasOnlineGuests(players) && { names: playerNames(players) }),
     turnIndex: 0,
     dice: null,
     reveal: null,
@@ -87,23 +101,38 @@ export const maexchen: GameDefinition<State> = {
     const n = Math.max(1, state.order.length);
     const announcerId = state.order[state.turnIndex % n];
     const deciderId = state.order[(state.turnIndex + 1) % n];
+    const online = Boolean(state.names) || hasOnlineGuests(players);
+    const absent = absentTurn(state, players);
+    const blocked = online && Boolean(absent) && !presentPlayer(players, absent);
+    const canAnnounce = !online || (!blocked && action.by === announcerId);
+    const canDecide = !online || (!blocked && action.by === deciderId);
     switch (action.type) {
+      case 'skipAbsent': {
+        if (!absent || !canSkipAbsent(action, players, absent)) return state;
+        const order = extendOrder(state.order, players);
+        const next = nextPresentId(order, absent, players);
+        if (!next) return state;
+        return {
+          ...state, order, names: { ...state.names, ...playerNames(players) },
+          turnIndex: order.indexOf(next), phase: 'roll', dice: null, reveal: null,
+        };
+      }
       case 'roll': {
-        if (state.phase !== 'roll') return state;
+        if (state.phase !== 'roll' || !canAnnounce) return state;
         const dice: [number, number] = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
         return { ...state, dice, phase: 'look' };
       }
       case 'pass': {
         // Angesagt wird laut; die App merkt sich nur, dass der Becher weiter ist.
-        if (state.phase !== 'look') return state;
+        if (state.phase !== 'look' || !canAnnounce) return state;
         return { ...state, phase: 'decide' };
       }
       case 'believe': {
-        if (state.phase !== 'decide') return state;
+        if (state.phase !== 'decide' || !canDecide) return state;
         return { ...state, turnIndex: (state.turnIndex + 1) % n, dice: null, phase: 'roll' };
       }
       case 'doubt': {
-        if (state.phase !== 'decide' || !state.dice) return state;
+        if (state.phase !== 'decide' || !state.dice || !canDecide) return state;
         return {
           ...state,
           phase: 'reveal',
@@ -111,7 +140,7 @@ export const maexchen: GameDefinition<State> = {
         };
       }
       case 'believeMaexchen': {
-        if (state.phase !== 'decide') return state;
+        if (state.phase !== 'decide' || !canDecide) return state;
         return {
           ...state,
           phase: 'reveal',
@@ -122,7 +151,8 @@ export const maexchen: GameDefinition<State> = {
       case 'judge': {
         // Nur einmal je Aufdecken: ein zweiter Tap würde die Niederlage
         // doppelt zählen oder dem anderen zuschieben.
-        if (state.phase !== 'reveal' || !state.reveal || state.reveal.loserId) return state;
+        if (state.phase !== 'reveal' || !state.reveal || state.reveal.loserId || blocked) return state;
+        if (!canDecide && !fromHost(action, players)) return state;
         const loserId = action.lied ? announcerId : deciderId;
         return {
           ...state,
@@ -140,7 +170,11 @@ export const maexchen: GameDefinition<State> = {
           ...state.order.filter((id) => ids.has(id)),
           ...players.filter((p) => !state.order.includes(p.id)).map((p) => p.id),
         ];
-        const idx = Math.max(0, order.indexOf(state.reveal.loserId));
+        const loser = state.reveal.loserId;
+        const next = online && !presentPlayer(players, loser)
+          ? nextPresentId(extendOrder(state.order, players), loser, players)
+          : loser;
+        const idx = next ? Math.max(0, order.indexOf(next)) : 0;
         const round = state.round + 1;
         if (isOver(round, state.goal)) return { ...state, order, round, phase: 'over' };
         return {
@@ -151,6 +185,7 @@ export const maexchen: GameDefinition<State> = {
           dice: null,
           reveal: null,
           round,
+          ...(state.names && { names: { ...state.names, ...playerNames(players) } }),
         };
       }
       case 'restart':
@@ -196,10 +231,14 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
   const send = (a: GameActionInput) => dispatch(a);
   const n = Math.max(1, state.order.length);
   const byId = (id: string) => players.find((p) => p.id === id);
-  const announcer = byId(state.order[state.turnIndex % n]) ?? players[0];
-  const decider = byId(state.order[(state.turnIndex + 1) % n]) ?? players[0];
-  const canAnnounce = !online || announcer?.id === me.id;
-  const canDecide = !online || decider?.id === me.id;
+  const announcer = byId(state.order[state.turnIndex % n]) ?? (online ? undefined : players[0]);
+  const decider = byId(state.order[(state.turnIndex + 1) % n]) ?? (online ? undefined : players[0]);
+  const absent = absentTurn(state, players);
+  const blocked = online && Boolean(absent) && !presentPlayer(players, absent);
+  const canAnnounce = !online || (!blocked && announcer?.id === me.id);
+  const canDecide = !online || (!blocked && decider?.id === me.id);
+  const active = state.phase === 'decide' ? decider : announcer;
+  const announcerName = announcer?.name ?? state.names?.[state.order[state.turnIndex]] ?? 'Die Person am Zug';
 
   if (state.phase === 'over') {
     const ranking = players.map((p) => ({
@@ -242,7 +281,8 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
     );
   }
 
-  const judged = state.reveal?.loserId ? byId(state.reveal.loserId) : null;
+  const loserId = state.reveal?.loserId;
+  const judged = loserId ? byId(loserId) : undefined;
 
   return (
     <GameFrame
@@ -251,16 +291,16 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
       subtitle={state.goal ? `Runde ${Math.min(state.round, state.goal)}/${state.goal}` : `Runde ${state.round}`}
       onQuit={quit}
     >
-      {state.phase !== 'reveal' && announcer && (
+      {state.phase !== 'reveal' && active && (
         <div className="row" style={{ justifyContent: 'center' }}>
           <PlayerChip
-            player={state.phase === 'decide' ? decider! : announcer}
+            player={active}
             note={
               state.phase === 'decide'
                 ? decider?.id === me.id
                   ? 'du entscheidest'
                   : 'entscheidet'
-                : announcer.id === me.id
+                : active.id === me.id
                   ? 'du bist dran'
                   : 'ist dran'
             }
@@ -271,7 +311,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
       {state.phase === 'roll' && (
         <>
           <BigCard kicker="Verdeckt würfeln">
-            {canAnnounce ? 'Nimm das Handy und würfle.' : `${announcer?.name} würfelt.`}
+            {canAnnounce ? 'Nimm das Handy und würfle.' : `${announcerName} würfelt.`}
           </BigCard>
           <button
             className="btn btn--brand btn--block btn--lg"
@@ -320,7 +360,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
 
       {state.phase === 'decide' && (
         <>
-          <BigCard kicker={`${announcer?.name} hat angesagt`}>Glaubst du es?</BigCard>
+          <BigCard kicker={`${announcerName} hat angesagt`}>Glaubst du es?</BigCard>
           <div className="choice choice--2">
             <button
               className="choice__btn pressable"
@@ -366,7 +406,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
               <Dice dice={state.reveal.dice} />
               <BigCard kicker="Aufgedeckt">
                 Gewürfelt: {rankLabel(rankOf(state.reveal.dice))}.
-                {!judged && ` War die Ansage von ${announcer?.name} höher?`}
+                {!loserId && !blocked && ` War die Ansage von ${announcerName} höher?`}
               </BigCard>
             </>
           ) : (
@@ -374,7 +414,7 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
               Mäxchen lässt sich nicht überbieten. Der Becher bleibt zu.
             </BigCard>
           )}
-          {!judged ? (
+          {!loserId && !blocked && (
             <div className="choice choice--2">
               <button
                 className="choice__btn pressable"
@@ -399,27 +439,33 @@ function MaexchenGame({ state, players, me, dispatch, quit, online, isHost }: Ga
                 Stimmt – {decider?.name} trinkt
               </button>
             </div>
-          ) : (
+          )}
+          {loserId && (
             <>
-              <DrinkCall
-                player={judged}
-                baseSips={sipsFor(state.reveal)}
-                source="maexchen"
-                label={
-                  state.reveal.believedMaexchen
-                    ? 'Mäxchen geglaubt'
-                    : judged.id === announcer?.id
-                      ? 'beim Lügen erwischt'
-                      : 'zu Unrecht gezweifelt'
-                }
-                resetKey={state.round}
-              />
+              {judged && (
+                <DrinkCall
+                  player={judged}
+                  baseSips={sipsFor(state.reveal)}
+                  source="maexchen"
+                  label={
+                    state.reveal.believedMaexchen
+                      ? 'Mäxchen geglaubt'
+                      : loserId === announcer?.id
+                        ? 'beim Lügen erwischt'
+                        : 'zu Unrecht gezweifelt'
+                  }
+                  resetKey={state.round}
+                />
+              )}
               <button className="btn btn--brand btn--block btn--lg" onClick={() => send({ type: 'nextRound' })}>
                 {isOver(state.round + 1, state.goal) ? 'Endstand' : 'Neue Runde'}
               </button>
             </>
           )}
         </div>
+      )}
+      {online && (
+        <AbsentAction id={absent} players={players} names={state.names} isHost={isHost} dispatch={send} />
       )}
     </GameFrame>
   );

@@ -8,7 +8,7 @@ import { CustomCards } from './CustomCards';
 import { SpicyToggle } from './SpicyToggle';
 import { LENGTH_LABEL, baseFor, roundGoal } from '../../games/shared/rounds';
 import { haptic } from '../../lib/haptics';
-import { Segmented, Sheet } from '../../components/ui';
+import { Segmented, Sheet, Stepper } from '../../components/ui';
 import { Avatar } from '../../components/ui/Avatar';
 import { ZONE_META, bacZone } from '../../engine/bac';
 import { formatBac } from '../../lib/format';
@@ -180,8 +180,10 @@ export function GameDetail() {
   const blanksOn = useApp((s) => s.blanks[id] === true);
   const toggleBlanks = useApp((s) => s.toggleBlanks);
   const gameLength = useApp((s) => s.gameLength);
+  const undercoverCount = useApp((s) => s.undercoverCount);
+  const setUndercoverCount = useApp((s) => s.setUndercoverCount);
   const game = getGame(id);
-  const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln'>(null);
+  const [sheet, setSheet] = useState<null | 'laenge' | 'karten' | 'regeln' | 'undercover'>(null);
   const [startet, setStartet] = useState<'nein' | 'laeuft' | 'fehler'>('nein');
   const goBack = useGoBack('/');
   // Wisch nach rechts führt zurück zur Spielewand – der Knopf oben links
@@ -199,6 +201,9 @@ export function GameDetail() {
     );
   }
 
+  const isUndercover = game.id === 'undercover';
+  const undercoverGuest = isUndercover && party.mode === 'online' && !party.isHost;
+  const canJoinUndercover = undercoverGuest && party.status === 'playing' && party.gameId === game.id;
   const count = party.players.length;
   const tooFew = count < game.minPlayers;
   const tooMany = count > game.maxPlayers;
@@ -211,7 +216,7 @@ export function GameDetail() {
   const endless = gameLength === 'endlos' && !game.rounds;
 
   const start = async () => {
-    if (tooFew || tooMany || needsDevices || startet === 'laeuft') return;
+    if (undercoverGuest || tooFew || tooMany || needsDevices || startet === 'laeuft') return;
     // Online lädt erst das Spielmodul und schreibt dann die Runde: das
     // dauert spürbar. Ohne Rückmeldung tippt man nochmal.
     setStartet('laeuft');
@@ -287,6 +292,15 @@ export function GameDetail() {
           <Icon name="chevronDown" size={13} />
         </button>
         {game.allowSpicy && <SpicyToggle game={game} />}
+        {isUndercover && (undercoverGuest ? (
+          <span className="chip chip--outline">
+            <Icon name="lock" size={13} /> Host legt die Anzahl fest
+          </span>
+        ) : (
+          <button className="chip pressable" onClick={() => setSheet('undercover')}>
+            {undercoverCount} Undercover <Icon name="chevronDown" size={13} />
+          </button>
+        ))}
         {game.allowBlanks && (
           <button
             className={`chip pressable ${blanksOn ? 'chip--on' : ''}`}
@@ -325,7 +339,17 @@ export function GameDetail() {
 
       {/* Kein gesperrter Knopf: Er sagt stattdessen, was als Nächstes fehlt. */}
       <div className="detailstart">
-        {tooFew || tooMany || needsDevices ? (
+        {undercoverGuest ? (
+          <button
+            className="btn btn--brand btn--block btn--lg"
+            onClick={() => {
+              if (canJoinUndercover) markGamePlayed(game.id);
+              nav(canJoinUndercover ? '/spiel' : '/lobby');
+            }}
+          >
+            {canJoinUndercover ? 'Mitspielen' : 'Zur Lobby'}
+          </button>
+        ) : tooFew || tooMany || needsDevices ? (
           <button className="btn btn--brand btn--block btn--lg" onClick={() => nav('/lobby', { state: { from: game.id } })}>
             {tooMany ? 'Runde anpassen' : needsDevices ? 'Online-Lobby starten' : 'Leute hinzufügen'}
           </button>
@@ -378,6 +402,25 @@ export function GameDetail() {
 
       <Sheet open={sheet === 'karten'} onClose={() => setSheet(null)} title="Eigene Karten">
         <CustomCards game={game} />
+      </Sheet>
+
+      <Sheet
+        open={isUndercover && !undercoverGuest && sheet === 'undercover'}
+        onClose={() => setSheet(null)}
+        title="Anzahl Undercover"
+      >
+        <div className="stack-3">
+          <Stepper
+            label="Anzahl Undercover"
+            min={1}
+            max={3}
+            value={undercoverCount}
+            onChange={setUndercoverCount}
+          />
+          <p className="t-caption">
+            Ab 6 Leuten 2, ab 9 Leuten 3 – bei weniger zählt automatisch weniger.
+          </p>
+        </div>
       </Sheet>
     </div>
   );

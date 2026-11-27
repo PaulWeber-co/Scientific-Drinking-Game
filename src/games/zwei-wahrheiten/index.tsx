@@ -8,6 +8,8 @@ import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, Choice, PlayerChip, WaitingFor } from '../shared/pieces';
 import { PassDevice } from '../shared/PassDevice';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, lastAbsentId, nextPresentId, playerNames, presentPlayer, waitingNames } from '../shared/presence';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -15,6 +17,8 @@ interface State {
   phase: 'write' | 'commit' | 'interrogate' | 'guess' | 'result' | 'over';
   authorIndex: number;
   order: string[];
+  names?: Record<string, string>;
+  authorSkipped?: boolean;
   statements: string[];
   /** Wer als Nächstes eine Rückfrage stellt – Index in `order` ohne den Autor. */
   askIndex: number;
@@ -40,6 +44,33 @@ interface State {
 /** Eine Runde ist eine Person mit ihren drei Aussagen. Fünf sind „mittel". */
 const ROUND_BASE = baseFor('zwei-wahrheiten');
 
+function authorFor(state: State) {
+  return state.order[state.authorIndex % Math.max(1, state.order.length)];
+}
+
+function raters(state: State, players: GamePlayer[]) {
+  const author = authorFor(state);
+  return players.filter((p) => p.id !== author && p.online !== false);
+}
+
+function absentTurn(state: State, players: GamePlayer[]) {
+  const author = authorFor(state);
+  if (state.phase === 'write' || state.phase === 'commit') return author;
+  if (state.phase !== 'guess' || state.lie === null || raters(state, players).some((p) => state.guesses[p.id] === undefined)) {
+    return undefined;
+  }
+  if (!presentPlayer(players, author)) return author;
+  return lastAbsentId(state.order, players, (id) => id !== author && state.guesses[id] === undefined);
+}
+
+function revealLie(state: State, players: GamePlayer[]): State {
+  const hits = { ...state.hits };
+  for (const p of raters(state, players)) {
+    if (state.guesses[p.id] === state.lie) hits[p.id] = (hits[p.id] ?? 0) + 1;
+  }
+  return { ...state, hits, phase: 'result' };
+}
+
 export const zweiWahrheiten: GameDefinition<State> = {
   ...meta,
 
@@ -47,6 +78,7 @@ export const zweiWahrheiten: GameDefinition<State> = {
     phase: 'write',
     authorIndex: 0,
     order: shuffle(players.map((p) => p.id)),
+    ...(hasOnlineGuests(players) && { names: playerNames(players) }),
     statements: [],
     askIndex: 0,
     guesses: {},
@@ -57,10 +89,24 @@ export const zweiWahrheiten: GameDefinition<State> = {
   }),
 
   reduce: (state, action, players) => {
-    const authorId = state.order[state.authorIndex % Math.max(1, state.order.length)];
+    const authorId = authorFor(state);
+    const online = Boolean(state.names) || hasOnlineGuests(players);
+    const canWrite = !online || (action.by === authorId && Boolean(presentPlayer(players, authorId)));
     switch (action.type) {
+      case 'skipAbsent': {
+        const id = absentTurn(state, players);
+        if (!id || !canSkipAbsent(action, players, id)) return state;
+        if (state.phase === 'guess') return revealLie({ ...state, authorSkipped: id === authorId }, players);
+        const order = extendOrder(state.order, players);
+        const next = nextPresentId(order, id, players);
+        if (!next) return state;
+        return {
+          ...state, order, authorIndex: order.indexOf(next), names: { ...state.names, ...playerNames(players) },
+          phase: 'write', statements: [], askIndex: 0, guesses: {}, lie: null,
+        };
+      }
       case 'submit': {
-        if (state.phase !== 'write') return state;
+        if (state.phase !== 'write' || !canWrite) return state;
         const raw = (action.statements as string[]) ?? [];
         if (raw.length !== 3 || raw.some((t) => !t.trim())) return state;
         // Blind mischen, dann legt der Autor auf dem gemischten Stand fest,
@@ -75,7 +121,7 @@ export const zweiWahrheiten: GameDefinition<State> = {
         };
       }
       case 'markLie': {
-        if (state.phase !== 'commit') return state;
+        if (state.phase !== 'commit' || !canWrite) return state;
         const lie = Number(action.index);
         if (!(lie >= 0 && lie <= 2)) return state;
         return { ...state, lie, phase: 'interrogate', askIndex: 0 };
@@ -89,14 +135,14 @@ export const zweiWahrheiten: GameDefinition<State> = {
       }
       case 'guess': {
         // Eigenes Gerät je Person: eine Stimme pro Handy.
-        if (state.phase !== 'guess' || action.by === authorId) return state;
+        if (state.phase !== 'guess' || action.by === authorId || (online && !presentPlayer(players, action.by))) return state;
         const guesses = { ...state.guesses, [action.by]: Number(action.index) };
         return { ...state, guesses };
       }
       case 'guessAll': {
         // Ein geteiltes Handy: die Runde zeigt gleichzeitig Finger, die
         // Person mit dem Handy trägt danach alle Tipps auf einmal ein.
-        if (state.phase !== 'guess') return state;
+        if (state.phase !== 'guess' || online) return state;
         const raw = (action.guesses as Record<string, number>) ?? {};
         const others = players.filter((p) => p.id !== authorId && p.online !== false);
         const guesses = { ...state.guesses };
@@ -109,17 +155,11 @@ export const zweiWahrheiten: GameDefinition<State> = {
       case 'revealLie': {
         // Auflösen heißt nur noch anzeigen: die Lüge steht seit `commit` fest
         // und kann nicht mehr an die Tipps angepasst werden.
-        if (state.phase !== 'guess') return state;
-        const lie = state.lie;
-        if (lie === null) return state;
-        const others = players.filter((p) => p.id !== authorId && p.online !== false);
-        const done = others.length > 0 && others.every((p) => state.guesses[p.id] !== undefined);
-        if (!done) return state;
-        const hits = { ...state.hits };
-        for (const p of others) {
-          if (state.guesses[p.id] === lie) hits[p.id] = (hits[p.id] ?? 0) + 1;
-        }
-        return { ...state, hits, phase: 'result' };
+        if (state.phase !== 'guess' || state.lie === null || !canWrite) return state;
+        const others = raters(state, players);
+        if (!others.length || others.some((p) => state.guesses[p.id] === undefined)) return state;
+        if (online && absentTurn(state, players)) return state;
+        return revealLie(state, players);
       }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
@@ -129,6 +169,7 @@ export const zweiWahrheiten: GameDefinition<State> = {
         const order = state.order.filter((id) => players.some((p) => p.id === id));
         const added = players.filter((p) => !order.includes(p.id)).map((p) => p.id);
         const full = [...order, ...added];
+        const next = online ? nextPresentId([...state.order, ...added], authorId, players) : undefined;
         const round = state.round + 1;
         if (isOver(round, state.goal)) {
           return { ...state, order: full, round, phase: 'over' };
@@ -136,9 +177,11 @@ export const zweiWahrheiten: GameDefinition<State> = {
         return {
           ...state,
           order: full,
-          authorIndex: (state.authorIndex + 1) % Math.max(1, full.length),
+          authorIndex: next ? full.indexOf(next) : (state.authorIndex + 1) % Math.max(1, full.length),
+          ...(state.names && { names: { ...state.names, ...playerNames(players) } }),
           phase: 'write',
           statements: [],
+          authorSkipped: false,
           askIndex: 0,
           guesses: {},
           lie: null,
@@ -155,17 +198,22 @@ export const zweiWahrheiten: GameDefinition<State> = {
   Component: ZweiWahrheitenGame,
 };
 
-function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   const [texts, setTexts] = useState(['', '', '']);
   // Uebergabe vor der privaten Festlegung. Bewusst lokal: geht niemanden sonst an.
   const [handedOver, setHandedOver] = useState(false);
   const send = (a: GameActionInput) => dispatch(a);
   const byId = (id: string | null) => players.find((p) => p.id === id) ?? null;
-  const author =
-    players.find((p) => p.id === state.order[state.authorIndex % Math.max(1, state.order.length)]) ??
-    players[0];
+  const authorId = authorFor(state);
+  const author = online ? presentPlayer(players, authorId) : byId(authorId) ?? players[0];
+  const authorName = byId(authorId)?.name ?? state.names?.[authorId] ?? 'Die erzählende Person';
   const isAuthor = author?.id === me.id;
-  const others = players.filter((p) => p.id !== author?.id && p.online !== false);
+  const others = raters(state, players);
+  const absent = online ? absentTurn(state, players) : undefined;
+  const skip = online && (
+    <AbsentAction id={absent} players={players} names={state.names} isHost={isHost} dispatch={send}
+      continueWithout={state.phase === 'guess' && absent !== authorId} />
+  );
   const progress = state.goal ? `${Math.min(state.round, state.goal)}/${state.goal}` : `${state.round}`;
 
   if (state.phase === 'over') {
@@ -248,10 +296,11 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
           </div>
         ) : (
           <>
-            <BigCard kicker="Gleich geht's los">{author?.name} denkt sich gerade etwas aus.</BigCard>
-            <WaitingFor names={[author?.name ?? '']} what="Warten auf" />
+            <BigCard kicker="Gleich geht's los">{authorName} denkt sich gerade etwas aus.</BigCard>
+            <WaitingFor names={waitingNames([authorId], players, state.names)} what="Warten auf" />
           </>
         )}
+        {skip}
       </GameFrame>
     );
   }
@@ -273,13 +322,14 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         onQuit={quit}
       >
         {inner}
+        {skip}
       </GameFrame>
     );
     if (online && !isAuthor) {
       return rahmen(
         <>
-          <BigCard kicker="Gleich geht's los">{author?.name} legt sich gerade fest.</BigCard>
-          <WaitingFor names={[author?.name ?? '']} what="Warten auf" />
+          <BigCard kicker="Gleich geht's los">{authorName} legt sich gerade fest.</BigCard>
+          <WaitingFor names={waitingNames([authorId], players, state.names)} what="Warten auf" />
         </>,
       );
     }
@@ -304,7 +354,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
   }
 
   if (state.phase === 'interrogate') {
-    const askers = state.order.filter((id) => id !== author?.id);
+    const askers = state.order.filter((id) => id !== authorId);
     const asker = byId(askers[state.askIndex % Math.max(1, askers.length)]);
     return (
       <GameFrame
@@ -321,7 +371,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         <BigCard kicker="Eine Rückfrage">
           {asker?.id === me.id
             ? `Stell ${author?.name} eine Frage zu den drei Aussagen.`
-            : `${asker?.name} befragt ${author?.name}.`}
+            : `${asker?.name ?? 'Die nächste Person'} befragt ${authorName}.`}
         </BigCard>
         <p className="t-sub t-center t-balance">
           Eine offene Frage, keine Ja/Nein-Frage – {author?.name} antwortet, ohne sich zu
@@ -340,7 +390,9 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
   if (state.phase === 'guess') {
     const myGuess = state.guesses[me.id];
     const complete = others.length > 0 && others.every((p) => state.guesses[p.id] !== undefined);
-    const canReveal = !online || isAuthor;
+    const canReveal = (!online || isAuthor) && !absent;
+    const pending = extendOrder(state.order, players).filter((id) => id !== authorId && state.guesses[id] === undefined);
+    const waiting = waitingNames(pending, players, state.names);
 
     if (complete) {
       return (
@@ -367,14 +419,17 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
                 Lüge aufdecken
               </button>
             </>
+          ) : absent && absent !== authorId ? (
+            <WaitingFor names={waiting} what="Warten auf" />
           ) : (
             <>
               <BigCard kicker="Alle haben getippt">
-                {author?.name} verrät gleich, welche Aussage gelogen war.
+                {authorName} verrät gleich, welche Aussage gelogen war.
               </BigCard>
-              <WaitingFor names={[author?.name ?? '']} what="Warten auf" />
+              <WaitingFor names={waitingNames([authorId], players, state.names)} what="Warten auf" />
             </>
           )}
+          {skip}
         </GameFrame>
       );
     }
@@ -416,7 +471,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
         {online ? (
           (isAuthor || myGuess !== undefined) && (
             <WaitingFor
-              names={others.filter((p) => state.guesses[p.id] === undefined).map((p) => p.name)}
+              names={absent && absent === authorId ? waitingNames([authorId], players, state.names) : waiting}
               what="Warten auf"
             />
           )
@@ -435,13 +490,15 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
             />
           </>
         )}
+        {skip}
       </GameFrame>
     );
   }
 
   // phase === 'result' – wer offline gegangen ist, hat nicht danebengetippt: er war gar nicht da.
-  const wrong = others.filter((p) => state.guesses[p.id] !== state.lie);
-  const allRight = wrong.length === 0 && others.length > 0;
+  const voted = online ? others.filter((p) => state.guesses[p.id] !== undefined) : others;
+  const wrong = voted.filter((p) => state.guesses[p.id] !== state.lie);
+  const allRight = wrong.length === 0 && voted.length > 0;
 
   return (
     <GameFrame
@@ -467,7 +524,7 @@ function ZweiWahrheitenGame({ state, players, me, dispatch, quit, online }: Game
           </div>
         ))}
       </div>
-      {allRight && author ? (
+      {allRight && author && !state.authorSkipped ? (
         <DrinkCall
           player={author}
           baseSips={4}

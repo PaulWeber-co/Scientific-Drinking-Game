@@ -11,11 +11,16 @@ import { GameDetail, GamesScreen } from './GamesScreen';
 
 vi.mock('../../lib/haptics', () => ({ haptic: vi.fn(), setHapticsEnabled: vi.fn() }));
 
-function mount(count: number, path = '/spiele/top-ten', startGame = vi.fn().mockResolvedValue(true)) {
+function mount(
+  count: number,
+  path = '/spiele/top-ten',
+  startGame = vi.fn().mockResolvedValue(true),
+  options: Partial<PartyValue> = {},
+) {
   const players: GamePlayer[] = Array.from({ length: count }, (_, i) => ({
     id: `p${i}`, name: `Person ${i}`, color: 'blue', online: true,
   }));
-  const party = { mode: 'local', players, me: players[0], startGame } as unknown as PartyValue;
+  const party = { mode: 'local', players, me: players[0], startGame, ...options } as unknown as PartyValue;
   render(
     <MemoryRouter initialEntries={[path]}>
       <PartyCtx.Provider value={party}>
@@ -33,7 +38,7 @@ function mount(count: number, path = '/spiele/top-ten', startGame = vi.fn().mock
 
 beforeEach(() => {
   usePlayer.setState({ profile: { ...defaultProfile(), name: 'Paul' }, log: [] });
-  useApp.setState({ recentGames: [], gameLength: 'mittel' });
+  useApp.setState({ recentGames: [], gameLength: 'mittel', undercoverCount: 1 });
 });
 
 describe('Spielergrenzen in der Spieleauswahl', () => {
@@ -125,6 +130,49 @@ describe('Suche auf der Wand', () => {
 });
 
 describe('Spielseite', () => {
+  it('stellt Undercover im Sheet auf eins bis drei und zeigt die Wahl im Chip', () => {
+    mount(4, '/spiele/undercover');
+    fireEvent.click(screen.getByRole('button', { name: '1 Undercover' }));
+    expect(screen.getByRole('dialog', { name: 'Anzahl Undercover' })).toBeInTheDocument();
+    const stepper = screen.getByRole('spinbutton', { name: 'Anzahl Undercover' });
+    expect(stepper).toHaveAttribute('aria-valuemin', '1');
+    expect(stepper).toHaveAttribute('aria-valuemax', '3');
+    expect(screen.getByText('Ab 6 Leuten 2, ab 9 Leuten 3 – bei weniger zählt automatisch weniger.')).toBeVisible();
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByRole('button', { name: /Anzahl Undercover erhöhen/ }));
+    }
+    expect(stepper).toHaveAttribute('aria-valuenow', '3');
+    fireEvent.click(screen.getByRole('button', { name: 'Fertig' }));
+    expect(screen.getByRole('button', { name: '3 Undercover' })).toBeInTheDocument();
+    expect(useApp.getState().undercoverCount).toBe(3);
+  });
+
+  it('zeigt den Undercover-Chip nur auf der Undercover-Spielseite', () => {
+    mount(4, '/spiele/kings-cup');
+    expect(screen.queryByRole('button', { name: '1 Undercover' })).toBeNull();
+  });
+
+  it('zeigt Online-Gästen den Host-Hinweis und lässt sie nur mitspielen', () => {
+    const startGame = vi.fn().mockResolvedValue(true);
+    mount(6, '/spiele/undercover', startGame, {
+      mode: 'online', isHost: false, status: 'playing', gameId: 'undercover',
+    });
+    expect(screen.getByText('Host legt die Anzahl fest')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '1 Undercover' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mitspielen' }));
+    expect(screen.getByText('Spiel gestartet')).toBeVisible();
+    expect(useApp.getState().recentGames).toContain('undercover');
+    expect(startGame).not.toHaveBeenCalled();
+  });
+
+  it('lässt Online-Gäste keine Undercover-Partie starten', () => {
+    const startGame = vi.fn().mockResolvedValue(true);
+    mount(6, '/spiele/undercover', startGame, { mode: 'online', isHost: false, status: 'lobby' });
+    expect(screen.queryByRole('button', { name: "Los geht's" })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Zur Lobby' })).toBeVisible();
+    expect(startGame).not.toHaveBeenCalled();
+  });
+
   it('nennt Dauer und Personen vor dem Start', () => {
     mount(2, '/spiele/kings-cup');
     const g = GAMES.find((game) => game.id === 'kings-cup')!;

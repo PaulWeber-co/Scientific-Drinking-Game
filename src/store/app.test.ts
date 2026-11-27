@@ -38,6 +38,23 @@ describe('Migration der App-Einstellungen', () => {
     expect(migrateApp(alt, 5).calmMotion).toBe(false);
   });
 
+  it('migriert gespeicherte Einstellungen auf einen Undercover', async () => {
+    const previous = useApp.getState();
+    const stored = localStorage.getItem('sdg.app');
+    try {
+      useApp.setState({ undercoverCount: 3 });
+      localStorage.setItem('sdg.app', JSON.stringify({ state: { gameLength: 'lang' }, version: 6 }));
+      await useApp.persist.rehydrate();
+      expect(useApp.getState().undercoverCount).toBe(1);
+      expect(useApp.getState().gameLength).toBe('lang');
+      expect(JSON.parse(localStorage.getItem('sdg.app')!).version).toBe(7);
+    } finally {
+      useApp.setState(previous, true);
+      if (stored === null) localStorage.removeItem('sdg.app');
+      else localStorage.setItem('sdg.app', stored);
+    }
+  });
+
   it('lässt einen aktuellen Stand unangetastet', () => {
     // Gegenprobe: eine Migration, die immer schreibt, wuerde die Wahl des
     // Nutzers bei jedem Start ueberbuegeln.
@@ -47,12 +64,14 @@ describe('Migration der App-Einstellungen', () => {
       taskOnSkip: 'aus',
       sound: false,
       calmMotion: true,
+      undercoverCount: 2,
     } as unknown;
-    const neu = migrateApp(aktuell, 6);
+    const neu = migrateApp(aktuell, 7);
     expect(neu.taskOnSkip).toBe('aus');
     expect(neu.gameLength).toBe('kurz');
     expect(neu.sound).toBe(false);
     expect(neu.calmMotion).toBe(true);
+    expect(neu.undercoverCount).toBe(2);
   });
 });
 

@@ -9,6 +9,47 @@ import { Label, MemeImage, MemePrint } from './Meme';
 import { TopicNote } from './parts';
 import { maxCharsFor, templateOf } from './templates';
 
+interface Drafts {
+  textsByTemplate: Record<string, string[]>;
+  editedAfterSubmit: boolean;
+}
+
+const draftStoragePrefix = (id: string) => `pegel.meme-draft:${id}:`;
+
+export function draftStorageKey(id: string, round: number, deadline: number | null) {
+  return `${draftStoragePrefix(id)}${round}:${deadline}`;
+}
+
+export function clearOldDrafts(id: string, keepKey: string | null) {
+  const prefix = draftStoragePrefix(id);
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix) && key !== keepKey) localStorage.removeItem(key);
+    }
+  } catch {
+    // Der Editor funktioniert auch ohne lokalen Speicher.
+  }
+}
+
+function readDrafts(key: string): Drafts {
+  try {
+    const drafts = JSON.parse(localStorage.getItem(key) ?? 'null');
+    if (drafts?.textsByTemplate && typeof drafts.textsByTemplate === 'object') {
+      const textsByTemplate: Record<string, string[]> = Object.fromEntries(
+        Object.entries(drafts.textsByTemplate).filter(
+          (entry): entry is [string, string[]] =>
+            Array.isArray(entry[1]) && entry[1].every((text) => typeof text === 'string'),
+        ),
+      );
+      return { textsByTemplate, editedAfterSubmit: drafts.editedAfterSubmit === true };
+    }
+  } catch {
+    // Fehlende Speicherrechte oder kaputte Daten blockieren das Basteln nicht.
+  }
+  return { textsByTemplate: {}, editedAfterSubmit: false };
+}
+
 /**
  * Basteln: die eigene Vorlage im Abzug, darunter ein Feld je Textstelle.
  *
@@ -35,7 +76,8 @@ export function Editor({
   const submitted = !!mine;
   // Entwürfe je Vorlage: wer würfelt und mit „Zurück" wiederkommt, findet
   // seinen Text noch vor.
-  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
+  const storageKey = draftStorageKey(me.id, state.round, state.deadline);
+  const [drafts, setDrafts] = useState(() => readDrafts(storageKey));
   const [active, setActive] = useState(0);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const autoSent = useRef<string>('');
@@ -52,19 +94,27 @@ export function Editor({
   // Neue Vorlage (Würfeln, neue Runde) = leerer Entwurf. Beim „Nochmal
   // ändern" kommt der abgeschickte Text zurück in die Felder.
   const texts = useMemo(
-    () => drafts[templateId] ?? (mine && mine.t === templateId ? mine.x : []),
+    () => (mine && mine.t === templateId ? mine.x : (drafts.textsByTemplate[templateId] ?? [])),
     [drafts, templateId, mine],
   );
+  const saveDraft = (texts: string[], editedAfterSubmit = drafts.editedAfterSubmit) => {
+    const next = { textsByTemplate: { ...drafts.textsByTemplate, [templateId]: texts }, editedAfterSubmit };
+    setDrafts(next);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      // Der Entwurf bleibt im Editor, falls der Speicher nicht verfügbar ist.
+    }
+  };
   const setText = (i: number, value: string) => {
     const limit = template ? maxCharsFor(template, i) : value.length;
-    const next = [...texts];
+    const next = Array.from({ length: Math.max(texts.length, i + 1) }, (_, j) => texts[j] ?? '');
     next[i] = value.slice(0, limit);
     // Am Anschlag einmal spürbar rasten – sonst tippt man ins Leere und
     // wundert sich, warum nichts mehr kommt.
     if (value.length >= limit && (texts[i]?.length ?? 0) < limit) haptic('press');
-    setDrafts((d) => ({ ...d, [templateId]: next }));
+    saveDraft(next);
   };
-  useEffect(() => setDrafts({}), [state.round]);
   const hasText = texts.some((t) => t?.trim());
 
   // Wer mitten in der Runde dazukommt, holt sich seine Vorlage selbst.
@@ -236,6 +286,11 @@ export function Editor({
               Fertig
             </button>
           </div>
+          {state.round === 1 && !drafts.editedAfterSubmit && (
+            <p className="t-caption t-center">
+              Sobald alle fertig sind, beginnt die Abstimmung. Bis dahin kannst du noch ändern.
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -244,7 +299,7 @@ export function Editor({
             disabled={timeUp}
             onClick={() => {
               haptic('tap');
-              setDrafts((d) => ({ ...d, [templateId]: mine.x }));
+              saveDraft(mine.x, true);
               dispatch({ type: 'edit', round: state.round, template: templateId });
             }}
           >

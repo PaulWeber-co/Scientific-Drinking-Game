@@ -46,6 +46,7 @@ export interface CardGameConfig {
   howTo: string[];
   /** 'turn' = es gibt einen Spieler am Zug, 'none' = die Karte gilt für die Runde. */
   actor: 'turn' | 'none';
+  asker?: 'prev';
   /** Auswahl vor dem Ziehen, z. B. Wahrheit oder Pflicht. */
   modes?: { id: string; label: string; icon?: IconName; tone?: string }[];
   /** Standard-Härte der Trinkansage. */
@@ -83,7 +84,10 @@ export interface CardGameConfig {
 }
 
 export interface CardGameState {
+  /** Unterscheidet Ersatzkarten innerhalb desselben Zugs. */
+  cardRevision?: number;
   order: string[];
+  names?: Record<string, string>;
   turnIndex: number;
   round: number;
   heat: Heat;
