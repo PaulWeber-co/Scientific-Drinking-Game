@@ -1,21 +1,55 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ersteZeile } from '../erste-zeile';
 import { neverHaveIEver } from '../never-have-i-ever';
 import { truthOrDare } from '../truth-or-dare';
+import { meta as truthOrDareMeta } from '../truth-or-dare/meta';
+import { createCardGame } from './createCardGame';
 import { PartyCtx, type PartyValue } from '../../features/party/PartyContext';
 import { useApp } from '../../store/app';
-import type { GameAction, GamePlayer } from '../types';
+import type { GameAction, GameActionInput, GamePlayer } from '../types';
 
 const players: GamePlayer[] = [
   { id: 'p0', name: 'Paul', color: 'blue', online: true, isHost: true },
-  { id: 'p1', name: 'Lena', color: 'pink', online: true },
-  { id: 'p2', name: 'Toni', color: 'green', online: true },
+  { id: 'p1', name: 'Lena', color: 'pink', online: true, isHost: false },
+  { id: 'p2', name: 'Toni', color: 'green', online: true, isHost: false },
 ];
 
-beforeEach(() => useApp.setState({ gameLength: 'mittel', spicy: {} }));
+beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.999);
+  useApp.setState({ gameLength: 'mittel', spicy: {} });
+});
+afterEach(() => vi.restoreAllMocks());
 
 describe('Karten-Spiele: verspätete Aktionen', () => {
+  it('sendet eine Selbstauskunft mit der Revision der sichtbaren Karte', () => {
+    const game = createCardGame({
+      ...truthOrDareMeta,
+      actor: 'turn',
+      asker: 'prev',
+      drink: 'self-declare',
+      baseSips: 3,
+      cards: [{ text: 'Erste Karte' }],
+    });
+    const first = game.reduce(game.createState(players), { type: 'pickMode', mode: 'wahrheit', by: players[0].id }, players);
+    const replacement = game.reduce(first, { type: 'setHeat', heat: 1, by: players[0].id }, players);
+    const me = players[1];
+    const dispatch = vi.fn<(action: GameActionInput) => void>();
+    const Game = game.Component;
+    render(
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players } as unknown as PartyValue}>
+          <Game state={replacement} players={players} me={me} isHost={false} online dispatch={dispatch} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Nie gemacht/ }));
+    const action = { ...dispatch.mock.calls[0][0], by: me.id };
+    expect(game.reduce(replacement, action, players).declared).toEqual({ p1: 'no' });
+    expect(game.reduce(first, action, players)).toBe(first);
+  });
+
   it('lässt nur den Host weiterblättern und überspringt bei doppeltem Tippen keine Karte', () => {
     const state = {
       ...neverHaveIEver.createState(players),
@@ -155,8 +189,10 @@ describe('Andere Karte', () => {
   it('wechselt die sichtbare Karte ohne Getränkebuchung', () => {
     const logSipsFor = vi.fn();
     const me = players[0];
+    const localPlayers = [me, ...players.slice(1).map((p) => ({ ...p, isHost: undefined }))];
     let state: ReturnType<typeof truthOrDare.createState> = {
-      ...truthOrDare.createState(players),
+      ...truthOrDare.createState(localPlayers),
+      order: ['p1', 'p0', 'p2'],
       phase: 'card' as const,
       mode: 'wahrheit',
       drawn: { text: 'Erste Karte', mode: 'wahrheit' },
@@ -165,15 +201,15 @@ describe('Andere Karte', () => {
     const Game = truthOrDare.Component;
     const view = () => (
       <MemoryRouter>
-        <PartyCtx.Provider value={{ me, players, logSipsFor } as unknown as PartyValue}>
+        <PartyCtx.Provider value={{ me, players: localPlayers, logSipsFor } as unknown as PartyValue}>
           <Game
             state={state}
-            players={players}
+            players={localPlayers}
             me={me}
             isHost
             online={false}
             dispatch={(action) => {
-              state = truthOrDare.reduce(state, { ...action, by: me.id }, players);
+              state = truthOrDare.reduce(state, { ...action, by: me.id }, localPlayers);
             }}
             quit={() => {}}
           />
@@ -186,5 +222,133 @@ describe('Andere Karte', () => {
     expect(screen.getByText('Zweite Karte')).toBeInTheDocument();
     expect(screen.queryByText('Erste Karte')).toBeNull();
     expect(logSipsFor).not.toHaveBeenCalled();
+  });
+});
+
+describe('Wahrheit oder Pflicht: fragende Person', () => {
+  it('zeigt den vorigen Platz im Chip und überspringt fehlende und offline Plätze', () => {
+    const state = { ...truthOrDare.createState(players), order: ['p0', 'p1', 'missing', 'p2'] };
+    const Game = truthOrDare.Component;
+    const view = (roster: GamePlayer[], me: GamePlayer) => (
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players: roster } as unknown as PartyValue}>
+          <Game state={state} players={roster} me={me} isHost={!!me.isHost} online dispatch={vi.fn()} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view(players, players[1]));
+    expect(screen.getByText('Toni fragt: Wahrheit oder Pflicht?')).toBeInTheDocument();
+    expect(within(screen.getByText('fragt').closest('.pchip')!).getByText('Toni')).toBeInTheDocument();
+
+    const roster = players.map((p) => p.id === 'p2' ? { ...p, online: false } : p);
+    rerender(view(roster, players[0]));
+    expect(screen.getByText('Lena fragt: Wahrheit oder Pflicht?')).toBeInTheDocument();
+    rerender(view(roster, players[1]));
+    expect(screen.getByText('Du fragst: Wahrheit oder Pflicht?')).toBeInTheDocument();
+    expect(within(screen.getByText('Du fragst').closest('.pchip')!).getByText('Lena')).toBeInTheDocument();
+  });
+
+  it('zeigt zu zweit die andere Person als fragende Person', () => {
+    const pair = players.slice(0, 2);
+    const Game = truthOrDare.Component;
+    const state = truthOrDare.createState(pair);
+    render(
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me: pair[0], players: pair } as unknown as PartyValue}>
+          <Game state={state} players={pair} me={pair[0]} isHost online dispatch={vi.fn()} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Lena fragt: Wahrheit oder Pflicht?')).toBeInTheDocument();
+  });
+
+  it('gibt die Kartenknöpfe online nur für Zug und Frage frei', () => {
+    const Game = truthOrDare.Component;
+    const initial = truthOrDare.createState(players);
+    const state = truthOrDare.reduce(initial, { type: 'pickMode', mode: 'wahrheit', by: 'p0' }, players);
+    const dispatch = vi.fn();
+    const view = (me: GamePlayer) => (
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players } as unknown as PartyValue}>
+          <Game state={state} players={players} me={me} isHost={!!me.isHost} online dispatch={dispatch} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view(players[1]));
+    const buttons = [/^Gemacht$/, /Andere Karte/, /Kneifen und trinken/];
+    for (const name of buttons) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    for (const me of [players[0], players[2]]) {
+      rerender(view(me));
+      for (const name of buttons) expect(screen.getByRole('button', { name })).toBeEnabled();
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Gemacht' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'resolve', outcome: 'done', turnKey: '1:0' });
+  });
+
+  it('wendet verspätete Kartenaktionen der beiden Geräte nicht auf die Ersatzkarte an', () => {
+    const initial = truthOrDare.createState(players);
+    const state = {
+      ...truthOrDare.reduce(initial, { type: 'pickMode', mode: 'wahrheit', by: 'p0' }, players),
+      drawn: { text: 'Erste Karte' },
+      deck: [{ text: 'Zweite Karte' }, { text: 'Dritte Karte' }],
+    };
+    const dispatch = vi.fn();
+    const Game = truthOrDare.Component;
+    const view = (current: typeof initial, me: GamePlayer) => (
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me, players } as unknown as PartyValue}>
+          <Game state={current} players={players} me={me} isHost={!!me.isHost} online dispatch={dispatch} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view(state, players[2]));
+    fireEvent.click(screen.getByRole('button', { name: /Andere Karte/ }));
+    const skip = { ...dispatch.mock.lastCall![0], by: 'p2' };
+    const replacement = truthOrDare.reduce(state, skip, players);
+    expect(replacement.drawn?.text).toBe('Zweite Karte');
+
+    rerender(view(state, players[0]));
+    fireEvent.click(screen.getByRole('button', { name: 'Gemacht' }));
+    expect(truthOrDare.reduce(replacement, { ...dispatch.mock.lastCall![0], by: 'p0' }, players)).toBe(replacement);
+    expect(truthOrDare.reduce(replacement, skip, players)).toBe(replacement);
+
+    rerender(view(replacement, players[0]));
+    fireEvent.click(screen.getByRole('button', { name: 'Gemacht' }));
+    const done = { ...dispatch.mock.lastCall![0], by: 'p0' };
+    const resolved = truthOrDare.reduce(replacement, done, players);
+    expect(resolved.phase).toBe('resolved');
+    const next = truthOrDare.reduce(resolved, { ...done, type: 'next' }, players);
+    expect(truthOrDare.reduce(next, {
+      type: 'pickMode', mode: 'wahrheit', by: 'p1', turnKey: '1:1',
+    }, players).phase).toBe('card');
+  });
+
+  it('verwirft alte Kartenaktionen auch nach einem Härtewechsel', () => {
+    const initial = truthOrDare.createState(players);
+    const card = truthOrDare.reduce(initial, { type: 'pickMode', mode: 'pflicht', by: 'p0' }, players);
+    const replacement = truthOrDare.reduce(card, { type: 'setHeat', heat: 1, by: 'p0' }, players);
+    const done: GameAction = { type: 'resolve', outcome: 'done', by: 'p2', turnKey: '1:0' };
+    expect(truthOrDare.reduce(replacement, done, players)).toBe(replacement);
+    expect(truthOrDare.reduce(replacement, { ...done, turnKey: '1:0:1' }, players).phase).toBe('resolved');
+  });
+
+  it('lässt im geteilten Spiel das Gerät für andere Sitzplätze bestätigen', () => {
+    const localPlayers = [players[0], ...players.slice(1).map((p) => ({ ...p, isHost: undefined }))];
+    const state = { ...truthOrDare.createState(localPlayers), phase: 'card' as const, order: ['p1', 'p0', 'p2'] };
+    expect(truthOrDare.reduce(state, { type: 'resolve', by: 'p0' }, localPlayers).phase).toBe('resolved');
+  });
+
+  it('belässt bei Erste Zeile den Zugchip und die Bedienung ohne Fragechip', () => {
+    const Game = ersteZeile.Component;
+    render(
+      <MemoryRouter>
+        <PartyCtx.Provider value={{ me: players[1], players } as unknown as PartyValue}>
+          <Game state={ersteZeile.createState(players)} players={players} me={players[1]} isHost={false} online dispatch={vi.fn()} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('ist dran')).toBeInTheDocument();
+    expect(screen.queryByText(/fragt/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Erraten/ })).toBeEnabled();
   });
 });

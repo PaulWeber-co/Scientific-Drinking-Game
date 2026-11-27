@@ -6,7 +6,7 @@ import image from '../../assets/games/undercover.webp';
 export const meta: GameMeta = {
   id: 'undercover',
   name: 'Undercover',
-  tagline: 'Alle kennen das Wort. Eine Person nur einen Hinweis.',
+  tagline: 'Eine oder mehrere Personen kennen nur einen Hinweis. Der Rest kennt das Wort.',
   icon: 'eyeOff',
   accent: 'var(--indigo)',
   image,
@@ -19,8 +19,9 @@ export const meta: GameMeta = {
   tags: ['geheim', 'reden', 'handy-weg'],
   requiresOwnDevice: false,
   howTo: [
-    'Jede Person schiebt ihre Karte hoch – online auf dem eigenen Handy, sonst reihum auf dem geteilten. Alle sehen das Wort, nur Undercover sieht stattdessen einen Hinweis und weiß, dass sie es ist.',
-    'Reihum sagt jede Person einen Satz zum Wort, ohne es zu nennen. Undercover muss mitreden, als kenne sie es.',
-    'Danach wird abgestimmt. Wer rausfliegt, trinkt. Fliegt Undercover auf, darf sie noch das Wort raten. Bleibt Undercover übrig, trinkt die ganze Runde.',
+    'Schiebt eure Karte hoch. Online schaut ihr auf dem eigenen Handy, am Tisch reihum. Eine oder mehrere Personen sind Undercover und sehen denselben Hinweis. Sie erfahren die Anzahl und halten ihre Rollen geheim. Alle anderen sehen das Wort.',
+    'Reihum sagt jede Person einen Satz zum Wort, ohne es zu nennen. Wer Undercover ist, redet mit und blufft.',
+    'Stimmt ab, wer rausfliegt. Wer dabei als Undercover auffliegt, darf das Wort raten. Bei einem Treffer gewinnt das Undercover-Team.',
+    'Sobald mindestens so viele Undercover wie Gruppenmitglieder übrig sind, gewinnt das Undercover-Team und die Gruppe trinkt. Sind alle Undercover raus und hat niemand das Wort erraten, gewinnt die Gruppe.',
   ],
 };

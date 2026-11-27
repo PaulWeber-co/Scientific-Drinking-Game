@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { haptic } from '../../lib/haptics';
 import { pick, shuffle } from '../../lib/format';
+import { getUndercoverCount } from '../../store/app';
+import { hasOnlineGuests } from '../shared/partyMode';
 import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
@@ -16,6 +18,7 @@ import {
 } from '../shared/pieces';
 import { PeekCard } from '../shared/PeekCard';
 import { fromHost } from '../shared/host';
+import { AbsentAction, canSkipAbsent, lastAbsentId, playerNames, presentPlayer, waitingNames } from '../shared/presence';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { WORDS } from './words';
 import { meta } from './meta';
@@ -31,10 +34,12 @@ interface State {
   word: string;
   /** Was Undercover statt des Worts sieht. */
   hint: string;
-  undercoverId: string;
+  undercoverIds: string[];
+  undercoverCount: number;
   seen: string[];
   /** Sitzreihenfolge; `order[0]` fängt an, dann reihum. */
   order: string[];
+  names?: Record<string, string>;
   votes: Record<string, string>;
   eliminated: string[];
   lastOut: string | null;
@@ -54,6 +59,7 @@ interface State {
   guessOptions: string[];
   /** Was er geraten hat. */
   guessed: string | null;
+  guessSkipped?: boolean;
 }
 
 /**
@@ -68,34 +74,86 @@ function guessChoices(civilian: string): string[] {
   return shuffle([civilian, ...shuffle(andere).slice(0, 2).map((w) => w.word)]);
 }
 
-/** Was eine neue Runde aus der alten mitnimmt: Ziellinie und Punktestand. */
-type Carry = Pick<State, 'goal' | 'groupWins' | 'agentWins'>;
+type Carry = Pick<State, 'goal' | 'groupWins' | 'agentWins' | 'undercoverCount'>;
+
+function startParty(players: GamePlayer[], undercoverCount: number): State {
+  return newRound(players, 1, {
+    goal: roundGoal(ROUND_BASE),
+    groupWins: 0,
+    agentWins: 0,
+    undercoverCount,
+  });
+}
 
 function newRound(players: GamePlayer[], round: number, carry: Carry): State {
-  const alive = players.map((p) => p.id);
+  const alive = players.filter((p) => p.online !== false).map((p) => p.id);
+  const maxUndercover = alive.length < 6 ? 1 : alive.length < 9 ? 2 : 3;
   const { word, hints } = pick(WORDS);
   // Reines Los (User-Entscheid 2026-09-16): Undercover darf mehrmals
   // hintereinander dran sein und auch als Erstes reden. Jede Sperre verrät
   // etwas – wer letzte Runde dran war oder anfängt, wäre sonst entlastet.
-  const undercoverId = pick(alive);
+  const count = Math.max(1, Math.min(Math.trunc(carry.undercoverCount) || 1, maxUndercover));
+  const undercoverIds = shuffle(alive).slice(0, count);
   const order = shuffle(alive);
   return {
     ...carry,
     phase: 'reveal',
     word,
     hint: pick(hints),
-    undercoverId,
+    undercoverIds,
     tie: false,
     guessOptions: [],
     guessed: null,
     seen: [],
     order,
+    ...(hasOnlineGuests(players) && { names: playerNames(players) }),
     votes: {},
     eliminated: [],
     lastOut: null,
     round,
     winner: null,
   };
+}
+
+// Eine laufende Online-Partie kann aus einer älteren App-Version stammen.
+function roundUndercoverIds(state: State): string[] {
+  const legacyId = (state as State & { undercoverId?: string }).undercoverId;
+  return state.undercoverIds ?? (legacyId ? [legacyId] : []);
+}
+
+function roundPlayers(state: State, players: GamePlayer[]): GamePlayer[] {
+  return players.filter((p) => state.order.includes(p.id) && !state.eliminated.includes(p.id));
+}
+
+function winnerFor(state: State, remaining: GamePlayer[]): State['winner'] {
+  const undercoverIds = roundUndercoverIds(state);
+  const undercoverCount = remaining.filter((p) => undercoverIds.includes(p.id)).length;
+  if (!undercoverCount) return 'gruppe';
+  return undercoverCount >= remaining.length - undercoverCount ? 'undercover' : null;
+}
+
+function describeOrder(order: string[], remaining: GamePlayer[], from: number): string[] {
+  const first = order.findIndex((id, i) => i >= from && remaining.some((p) => p.id === id));
+  const start = first === -1 ? order.findIndex((id) => remaining.some((p) => p.id === id)) : first;
+  return start > 0 ? [...order.slice(start), ...order.slice(0, start)] : order;
+}
+
+function resumeDescribing(state: State, remaining: GamePlayer[]): State {
+  // Die Sitzfolge bleibt erhalten, damit die Runde auch über leere Plätze reihum geht.
+  const order = describeOrder(state.order, remaining, 1);
+  return { ...state, phase: 'describe', votes: {}, order };
+}
+
+function resolveGuess(state: State, remaining: GamePlayer[], word: string | null): State {
+  const winner = word === state.word ? 'undercover' : winnerFor(state, remaining);
+  const next = { ...state, guessed: word, guessOptions: [], guessSkipped: word === null };
+  return winner ? {
+    ...next,
+    phase: 'over',
+    winner,
+    groupWins: state.groupWins + (winner === 'gruppe' ? 1 : 0),
+    agentWins: state.agentWins + (winner === 'undercover' ? 1 : 0),
+  } : resumeDescribing(next, remaining);
 }
 
 /**
@@ -115,12 +173,12 @@ function resolveVotes(state: State, votes: Record<string, string>, players: Game
   const tie = tied.length > 1;
   const out = tied.length ? pick(tied) : null;
   const eliminated = out ? [...state.eliminated, out] : state.eliminated;
-  const remaining = players.filter((p) => !eliminated.includes(p.id));
-  const undercoverOut = out === state.undercoverId;
+  const remaining = players.filter((p) => p.id !== out);
+  const undercoverIds = roundUndercoverIds(state);
   // Der Enttarnte bekommt einen letzten Rateversuch auf das Wort der
   // Gruppe. Trifft er, dreht die Runde noch. Das ist der dramatischste
   // Moment des Vorbilds und fehlte hier ganz.
-  if (undercoverOut) {
+  if (out && undercoverIds.includes(out)) {
     return {
       ...state,
       votes,
@@ -129,44 +187,78 @@ function resolveVotes(state: State, votes: Record<string, string>, players: Game
       tie,
       phase: 'guess',
       guessOptions: guessChoices(state.word),
+      guessed: null,
+      guessSkipped: false,
     };
   }
-  const undercoverWins = remaining.length <= 2;
+  const winner = winnerFor(state, remaining);
   return {
     ...state,
     votes,
     eliminated,
     lastOut: out,
     tie,
-    phase: undercoverWins ? 'over' : 'result',
-    winner: undercoverWins ? 'undercover' : null,
-    agentWins: state.agentWins + (undercoverWins ? 1 : 0),
+    phase: winner ? 'over' : 'result',
+    winner,
+    guessed: null,
+    agentWins: state.agentWins + (winner === 'undercover' ? 1 : 0),
+    groupWins: state.groupWins + (winner === 'gruppe' ? 1 : 0),
   };
+}
+
+function validVotes(state: State, players: GamePlayer[]) {
+  const ids = new Set(players.map((p) => p.id));
+  return Object.fromEntries(Object.entries(state.votes).filter(([by, id]) => ids.has(by) && ids.has(id)));
+}
+
+function lastVoter(state: State, players: GamePlayer[], alive: GamePlayer[]) {
+  const voters = state.order.filter((id) => !state.eliminated.includes(id));
+  const votes = validVotes(state, alive);
+  return lastAbsentId(voters, players, (id) => !votes[id]);
+}
+
+function lastUnseen(state: State, players: GamePlayer[]) {
+  return lastAbsentId(state.order, players, (id) => !state.seen.includes(id));
 }
 
 export const undercover: GameDefinition<State> = {
   ...meta,
 
-  createState: (players) =>
-    newRound(players, 1, {
-      goal: roundGoal(ROUND_BASE),
-      groupWins: 0,
-      agentWins: 0,
-    }),
+  createState: (players) => startParty(players, getUndercoverCount()),
 
   reduce: (state, action, players) => {
-    const alive = players.filter((p) => !state.eliminated.includes(p.id));
+    const alive = roundPlayers(state, players);
+    const present = alive.filter((p) => p.online !== false);
+    const online = Boolean(state.names) || hasOnlineGuests(players);
     switch (action.type) {
+      case 'skipAbsent': {
+        if (state.phase === 'reveal' && canSkipAbsent(action, players, lastUnseen(state, players))) {
+          return { ...state, phase: 'describe' };
+        }
+        if (state.phase === 'vote' && canSkipAbsent(action, players, lastVoter(state, players, present))) {
+          const votes = validVotes(state, present);
+          return Object.keys(votes).length ? resolveVotes(state, votes, alive) : {
+            ...state, phase: 'over', winner: null, lastOut: null, votes, tie: false,
+          };
+        }
+        if (state.phase !== 'guess' || !canSkipAbsent(action, players, state.lastOut)) return state;
+        return resolveGuess(state, alive, null);
+      }
       case 'seen': {
-        if (state.phase !== 'reveal') return state;
+        if (action.round !== undefined && action.round !== state.round) return state;
+        if (state.phase !== 'reveal' && (!online || state.phase === 'final' || action.round === undefined)) {
+          return state;
+        }
         // Wer geschaut hat, steht in der Aktion und nicht in `by`. Auf einem
         // geteilten Handy traegt JEDE Aktion die ID des Geraetebesitzers – ueber
         // `by` haette `seen` nie mehr als einen Eintrag bekommen und das Spiel
         // haenge fuer immer in dieser Phase.
         const who = String(action.who ?? action.by);
-        if (!alive.some((p) => p.id === who)) return state;
-        const seen = state.seen.includes(who) ? state.seen : [...state.seen, who];
-        const done = alive.every((p) => seen.includes(p.id));
+        if (online ? who !== action.by : !fromHost(action, players)) return state;
+        if (!presentPlayer(players, who) || !state.order.includes(who) || state.seen.includes(who)) return state;
+        const seen = [...state.seen, who];
+        if (state.phase !== 'reveal') return { ...state, seen };
+        const done = state.order.every((id) => seen.includes(id));
         return { ...state, seen, phase: done ? 'describe' : 'reveal' };
       }
       case 'startVote': {
@@ -174,16 +266,20 @@ export const undercover: GameDefinition<State> = {
         // 2026-10-14): sonst drückt einer, und alle anderen verpassen den
         // Moment – „es geht so schnell weiter".
         if (state.phase !== 'describe' || !fromHost(action, players)) return state;
-        return { ...state, phase: 'vote' };
+        return { ...state, phase: 'vote', order: describeOrder(state.order, alive, 0) };
       }
       case 'vote': {
         if (state.phase !== 'vote') return state;
-        const votes = { ...state.votes, [action.by]: String(action.target) };
+        const target = String(action.target);
+        const ids = new Set(present.map((p) => p.id));
+        if (!ids.has(action.by) || !ids.has(target)) return state;
+        const votes = validVotes(state, present);
+        votes[action.by] = target;
         // Wer gerade offline ist, hält die Abstimmung nicht auf – wie in den
         // anderen Abstimmungsspielen.
-        const done = alive.filter((p) => p.online !== false).every((p) => votes[p.id]);
+        const done = present.every((p) => votes[p.id]);
         if (!done) return { ...state, votes };
-        return resolveVotes(state, votes, players);
+        return resolveVotes(state, votes, alive);
       }
       case 'countVotes': {
         // Ein geteiltes Handy. Über `vote` kam dort nie mehr als EINE Stimme
@@ -197,33 +293,21 @@ export const undercover: GameDefinition<State> = {
         const raw = (action.counts as Record<string, number>) ?? {};
         const votes: Record<string, string> = {};
         let n = 0;
-        for (const p of alive) {
-          const count = Math.min(alive.length, Math.max(0, Math.floor(Number(raw[p.id]) || 0)));
+        for (const p of present) {
+          const count = Math.min(present.length, Math.max(0, Math.floor(Number(raw[p.id]) || 0)));
           for (let i = 0; i < count; i++) votes[`@${n++}`] = p.id;
         }
         if (!n) return state;
-        return resolveVotes(state, votes, players);
+        return resolveVotes(state, votes, alive);
       }
       case 'guess': {
-        if (state.phase !== 'guess') return state;
-        const word = String(action.word);
-        const richtig = word === state.word;
-        return {
-          ...state,
-          guessed: word,
-          phase: 'over',
-          winner: richtig ? 'undercover' : 'gruppe',
-          groupWins: state.groupWins + (richtig ? 0 : 1),
-          agentWins: state.agentWins + (richtig ? 1 : 0),
-        };
+        if (state.phase !== 'guess' || !state.lastOut) return state;
+        if (online ? action.by !== state.lastOut || !presentPlayer(players, state.lastOut) : !fromHost(action, players)) return state;
+        return resolveGuess(state, alive, String(action.word));
       }
       case 'continue': {
         if (state.phase !== 'result' || !fromHost(action, players)) return state;
-        // Die Reihenfolge wandert um eine Person weiter, damit nicht immer
-        // dieselbe anfaengt – auch das eine belegte Beschwerde bei
-        // vergleichbaren Apps.
-        const order = state.order.length ? [...state.order.slice(1), state.order[0]] : state.order;
-        return { ...state, phase: 'describe', votes: {}, order };
+        return resumeDescribing(state, alive);
       }
       case 'newRound': {
         // Nur aus einer entschiedenen Runde heraus. Zwei fast gleichzeitige
@@ -237,10 +321,11 @@ export const undercover: GameDefinition<State> = {
           goal: state.goal,
           groupWins: state.groupWins,
           agentWins: state.agentWins,
+          undercoverCount: state.undercoverCount ?? 1,
         });
       }
       case 'restart':
-        return undercover.createState(players);
+        return state.phase === 'final' ? startParty(players, state.undercoverCount ?? 1) : state;
       default:
         return state;
     }
@@ -250,9 +335,6 @@ export const undercover: GameDefinition<State> = {
 };
 
 function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
-  // Erst wer die Karte einmal offen hatte, kann weitergeben. Bewusst lokal:
-  // es geht niemanden sonst an.
-  const [revealed, setRevealed] = useState(false);
   const send = (a: GameActionInput) => dispatch(a);
   // Online kann der Host die Abstimmung mit Fingern auszählen, wenn Handys
   // weggelegt sind und die Runde sonst auf sie wartet.
@@ -271,7 +353,13 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
       <div className="t-caption t-center">{hostName} schaltet weiter.</div>
     );
   const byId = (id: string | null) => players.find((p) => p.id === id) ?? null;
-  const alive = players.filter((p) => !state.eliminated.includes(p.id));
+  const alive = roundPlayers(state, players);
+  const present = alive.filter((p) => p.online !== false);
+  const undercoverIds = roundUndercoverIds(state);
+  const undercoverLeft = alive.filter((p) => undercoverIds.includes(p.id)).length;
+  const remainingText = undercoverLeft === 1
+    ? '1 Undercover ist noch im Spiel.'
+    : `${undercoverLeft} Undercover sind noch im Spiel.`;
 
   if (state.phase === 'final') {
     return (
@@ -282,7 +370,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         onQuit={quit}
       >
         <GameOver
-          headline={`${state.round - 1} Runden. Die Gruppe hat ${state.groupWins} mal enttarnt, Undercover ist ${state.agentWins} mal durchgekommen.`}
+          headline={`${state.round - 1} ${state.round === 2 ? 'Runde' : 'Runden'}. Die Gruppe gewinnt ${state.groupWins}, das Undercover-Team ${state.agentWins}.`}
           onAgain={() => send({ type: 'restart' })}
           onQuit={quit}
         />
@@ -291,12 +379,13 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
   }
 
   if (state.phase === 'reveal') {
-    const waiting = alive.filter((p) => !state.seen.includes(p.id)).map((p) => p.name);
+    const waiting = waitingNames(state.order.filter((id) => !state.seen.includes(id)), players, state.names);
     // Online schaut jeder auf seinem eigenen Geraet. Auf einem geteilten Handy
     // ist immer der Naechste dran, der noch nicht geschaut hat – in der
     // gemischten Reihenfolge, damit die Sitzordnung nichts verraet.
-    const next = byId(state.order.find((id) => !state.seen.includes(id)) ?? null);
-    const current = online ? me : next;
+    const next = byId(state.order.find((id) =>
+      !state.seen.includes(id) && present.some((p) => p.id === id)) ?? null);
+    const current = online ? present.find((p) => p.id === me.id) : next;
     const meDone = online && state.seen.includes(me.id);
     const frame = (inner: ReactNode) => (
       <GameFrame
@@ -306,6 +395,9 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         onQuit={quit}
       >
         {inner}
+        {online && (
+          <AbsentAction id={lastUnseen(state, players)} players={players} names={state.names} isHost={isHost} dispatch={send} continueWithout />
+        )}
       </GameFrame>
     );
 
@@ -317,60 +409,36 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         </>,
       );
     }
-    if (!current) return frame(<BigCard kicker="Moment">Runde wird vorbereitet.</BigCard>);
-    // Wie beim Vorbild: Der Name steht AUF der Karte, keine eigene
-    // Übergabe-Seite davor. Wer nicht gemeint ist, schiebt sie nicht hoch.
-    const istUndercover = current.id === state.undercoverId;
+    if (!current) return frame(<BigCard kicker="Moment">Du bist ab der nächsten Runde dabei.</BigCard>);
     return frame(
       <>
         {!online && (
           <div className="t-caption t-center">
-            {state.seen.length + 1} von {alive.length}
+            {state.seen.length + 1} von {present.length}
           </div>
         )}
-        <PeekCard
-          key={current.id}
-          label={online ? 'Karte hochschieben' : `${current.name} · hochschieben`}
-          onRevealed={() => setRevealed(true)}
-        >
-          {/* Die Rolle steht UNTER dem Wort: der Deckel gibt nur den unteren
-              Teil der Karte frei, eine Zeile darüber blieb verdeckt. */}
-          {istUndercover ? (
-            <span className="stack-2 t-center peekcard__low">
-              <span className="peekcard__word">{state.hint}</span>
-              <span className="t-upper">Du bist Undercover</span>
-              <span className="t-caption">Das ist nur dein Hinweis. Das Wort kennen die anderen.</span>
-            </span>
-          ) : (
-            <span className="stack-2 t-center peekcard__low">
-              <span className="peekcard__word">{state.word}</span>
-              <span className="t-upper">Dein Wort</span>
-            </span>
-          )}
-        </PeekCard>
-        <p className="t-sub t-center t-balance">
-          {online
-            ? 'Schieb die Karte hoch und halt sie fest, damit niemand mitliest.'
-            : `Handy an ${current.name}. Karte hochschieben, merken, loslassen.`}
-        </p>
-        <button
-          className="btn btn--brand btn--block btn--lg"
-          disabled={!revealed}
-          onClick={() => {
-            haptic('success');
-            setRevealed(false);
-            send({ type: 'seen', who: current.id });
-          }}
-        >
-          {online ? 'Gemerkt' : 'Gemerkt – weitergeben'}
-        </button>
+        <UndercoverPeek
+          key={`${state.round}-${current.id}`} state={state} player={current}
+          undercoverIds={undercoverIds} online={online} dispatch={send}
+        />
       </>,
     );
   }
 
+  const lateViewer = online && state.order.includes(me.id) && !state.seen.includes(me.id)
+    ? presentPlayer(players, me.id)
+    : undefined;
+  const lateCard = lateViewer && (
+    <UndercoverPeek
+      key={`${state.round}-${lateViewer.id}`} state={state} player={lateViewer}
+      undercoverIds={undercoverIds} online dispatch={send}
+    />
+  );
+
   if (state.phase === 'guess') {
     const out = byId(state.lastOut);
-    const canGuess = !online || me.id === state.undercoverId;
+    const name = out?.name ?? (state.lastOut ? state.names?.[state.lastOut] : undefined) ?? 'Die enttarnte Person';
+    const canGuess = !online || (me.id === state.lastOut && Boolean(presentPlayer(players, state.lastOut)));
     return (
       <GameFrame
         title={undercover.name}
@@ -378,8 +446,9 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         subtitle="Letzter Versuch"
         onQuit={quit}
       >
+        {lateCard}
         <BigCard kicker="Erwischt">
-          {out?.name} war Undercover. Ein Rateversuch bleibt: Welches Wort hatte die Gruppe?
+          {name} war Undercover. Ein Rateversuch bleibt: Welches Wort hatte die Gruppe?
         </BigCard>
         {canGuess ? (
           <Choice
@@ -390,11 +459,17 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
             }}
           />
         ) : (
-          <WaitingFor names={out ? [out.name] : []} what="Warten auf" />
+          <WaitingFor
+            names={state.lastOut ? waitingNames([state.lastOut], players, state.names) : []}
+            what="Warten auf"
+          />
         )}
         <p className="t-sub t-center t-balance">
-          Trifft {out?.name} das Wort, dreht die Runde noch.
+          Trifft {name} das Wort, dreht die Runde noch.
         </p>
+        {online && (
+          <AbsentAction id={state.lastOut} players={players} names={state.names} isHost={isHost} dispatch={send} />
+        )}
       </GameFrame>
     );
   }
@@ -403,7 +478,8 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
     // Ein Bildschirm statt „Gesagt – weiter" je Person (User-Entscheid
     // 2026-09-16): am Tisch klickt beim Reden niemand weiter. Die App sagt nur,
     // wer anfängt; danach geht es reihum, bis jemand zur Abstimmung ruft.
-    const erster = byId(state.order.find((id) => !state.eliminated.includes(id)) ?? null);
+    const speakers = present.length > 0 ? present : alive;
+    const erster = byId(state.order.find((id) => speakers.some((p) => p.id === id)) ?? null);
     return (
       <GameFrame
         title={undercover.name}
@@ -411,14 +487,21 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         subtitle={`Runde ${state.round} · Beschreiben`}
         onQuit={quit}
       >
+        {lateCard}
+        {state.guessed && (
+          <div className="notice notice--neutral">
+            Geraten wurde „{state.guessed}“ – daneben. {remainingText}
+          </div>
+        )}
         {erster && (
           <div className="row" style={{ justifyContent: 'center' }}>
             <PlayerChip player={erster} note={erster.id === me.id ? 'du fängst an' : 'fängt an'} />
           </div>
         )}
         <BigCard kicker="Reihum ein Satz">
-          {erster?.id === me.id ? 'Du fängst' : `${erster?.name} fängt`} an, dann reihum im
-          Kreis. Jeder sagt einen Satz zu seinem Wort – ohne es zu nennen.
+          {erster
+            ? `${erster.id === me.id ? 'Du fängst' : `${erster.name} fängt`} an, dann reihum. Jede Person sagt einen Satz zu ihrem Wort – ohne es zu nennen.`
+            : 'Gerade ist niemand aus dieser Runde da.'}
         </BigCard>
         {weiter('Alle dran gewesen – abstimmen', { type: 'startVote' })}
       </GameFrame>
@@ -426,24 +509,26 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
   }
 
   if (state.phase === 'vote') {
-    const waiting = alive
-      .filter((p) => p.online !== false && !state.votes[p.id])
-      .map((p) => p.name);
+    const votes = online ? validVotes(state, present) : state.votes;
+    const waiting = waitingNames(
+      state.order.filter((id) => !state.eliminated.includes(id) && !votes[id]), players, state.names,
+    );
     return (
       <GameFrame title={undercover.name} accent={undercover.accent} subtitle="Abstimmen" onQuit={quit}>
+        {lateCard}
         <BigCard kicker="Wer ist Undercover?">Alle stimmen gleichzeitig ab.</BigCard>
         {online && !finger ? (
           <>
             <VoteGrid
-              players={alive}
-              myVote={state.votes[me.id]}
+              players={present}
+              myVote={votes[me.id]}
               onVote={(id) => {
                 haptic('select');
                 send({ type: 'vote', target: id });
               }}
-              disabled={state.eliminated.includes(me.id)}
+              disabled={!present.some((p) => p.id === me.id)}
             />
-            {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+            {votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
             {isHost && (
               <button className="btn btn--glass btn--block" onClick={() => setFingerAt(voteKey)}>
                 Mit Fingern auszählen
@@ -457,8 +542,8 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
               ein, wie viele Finger jede Person abbekommen hat.
             </p>
             <FingerTally
-              players={alive}
-              voters={alive.length}
+              players={present}
+              voters={present.length}
               requireVote
               onSubmit={(counts) => {
                 haptic('success');
@@ -467,6 +552,9 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
             />
           </>
         )}
+        {online && (
+          <AbsentAction id={lastVoter(state, players, present)} players={players} names={state.names} isHost={isHost} dispatch={send} continueWithout />
+        )}
       </GameFrame>
     );
   }
@@ -474,7 +562,8 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
   const counts: Record<string, number> = {};
   for (const t of Object.values(state.votes)) counts[t] = (counts[t] ?? 0) + 1;
   const out = byId(state.lastOut);
-  const wasUndercover = state.lastOut === state.undercoverId;
+  const outName = out?.name ?? (state.lastOut ? state.names?.[state.lastOut] : undefined) ?? 'Die rausgewählte Person';
+  const wasUndercover = state.lastOut !== null && undercoverIds.includes(state.lastOut);
 
   return (
     <GameFrame
@@ -483,22 +572,28 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
       subtitle={state.phase === 'over' ? 'Entschieden' : 'Aufgedeckt'}
       onQuit={quit}
     >
+      {lateCard}
       <BigCard
         tone={wasUndercover ? 'default' : 'danger'}
         kicker={wasUndercover ? 'Erwischt' : 'Daneben'}
       >
-        {out?.name} war {wasUndercover ? 'Undercover' : 'unschuldig'}.
+        {state.lastOut
+          ? `${outName} war ${wasUndercover ? 'Undercover' : 'unschuldig'}.`
+          : 'Die Abstimmung endet ohne Wertung.'}
+        {state.guessSkipped && ' Der letzte Rateversuch entfällt.'}
         {state.guessed && (
           <>
             {' '}
-            {state.winner === 'undercover'
+            {state.guessed === state.word
               ? `Und hat das Wort erraten: „${state.guessed}". Runde gedreht.`
               : `Geraten wurde „${state.guessed}" – daneben.`}
           </>
         )}
-        {state.phase === 'over' && (
+        {state.phase === 'result' && <> {remainingText}</>}
+        {state.phase === 'over' && state.winner && (
           <>
             {' '}
+            {state.winner === 'undercover' ? 'Das Undercover-Team gewinnt.' : 'Die Gruppe gewinnt.'}{' '}
             Das Wort war „{state.word}", der Hinweis „{state.hint}".
           </>
         )}
@@ -510,7 +605,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
       )}
       <VoteResult players={players} counts={counts} highlight={state.lastOut} />
 
-      {state.winner === 'gruppe' && out && (
+      {state.winner === 'gruppe' && out && !state.guessSkipped && (
         <DrinkCall
           player={out}
           baseSips={5}
@@ -521,7 +616,7 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
       )}
       {state.winner === 'undercover' && (
         <DrinkCallList
-          players={players.filter((p) => p.id !== state.undercoverId)}
+          players={players.filter((p) => state.order.includes(p.id) && !undercoverIds.includes(p.id))}
           baseSips={4}
           source="undercover"
           label="durchgerutscht"
@@ -547,5 +642,58 @@ function UndercoverGame({ state, players, me, dispatch, quit, online, isHost }: 
         { type: state.phase === 'over' ? 'newRound' : 'continue' },
       )}
     </GameFrame>
+  );
+}
+
+function UndercoverPeek({ state, player, undercoverIds, online, dispatch }: {
+  state: State;
+  player: GamePlayer;
+  undercoverIds: string[];
+  online: boolean;
+  dispatch: (action: GameActionInput) => void;
+}) {
+  // Weitergeben geht erst, nachdem diese Person die Karte einmal offen hatte.
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <>
+      <PeekCard
+        label={online ? 'Karte hochschieben' : `${player.name} · hochschieben`}
+        onRevealed={() => setRevealed(true)}
+      >
+        {/* Die Rolle steht unter dem Wort, weil der Deckel nur unten Platz freigibt. */}
+        {undercoverIds.includes(player.id) ? (
+          <span className="stack-2 t-center peekcard__low">
+            <span className="peekcard__word">{state.hint}</span>
+            <span className="t-upper">
+              Du bist Undercover
+              {undercoverIds.length === 2 && ' – ihr seid zu zweit'}
+              {undercoverIds.length === 3 && ' – ihr seid zu dritt'}
+            </span>
+            <span className="t-caption">Das ist nur dein Hinweis. Das Wort kennen die anderen.</span>
+          </span>
+        ) : (
+          <span className="stack-2 t-center peekcard__low">
+            <span className="peekcard__word">{state.word}</span>
+            <span className="t-upper">Dein Wort</span>
+          </span>
+        )}
+      </PeekCard>
+      <p className="t-sub t-center t-balance">
+        {online
+          ? 'Schieb die Karte hoch und halt sie fest, damit niemand mitliest.'
+          : `Handy an ${player.name}. Karte hochschieben, merken, loslassen.`}
+      </p>
+      <button
+        className="btn btn--brand btn--block btn--lg"
+        disabled={!revealed}
+        onClick={() => {
+          haptic('success');
+          setRevealed(false);
+          dispatch({ type: 'seen', who: player.id, ...(online && { round: state.round }) });
+        }}
+      >
+        {online ? 'Gemerkt' : 'Gemerkt – weitergeben'}
+      </button>
+    </>
   );
 }

@@ -9,6 +9,9 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { useApp } from '../../store/app';
 import { DrinkCall, DrinkCallList } from '../shared/DrinkCall';
+import { fromHost } from '../shared/host';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, nextPresentId, playerNames, presentPlayer } from '../shared/presence';
 import { BigCard, PlayerChip } from '../shared/pieces';
 import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/icons';
@@ -64,6 +67,7 @@ export const RULES: Rule[] = [
  */
 const RULE_RANK = RULES.findIndex((r) => r.title === 'Regel');
 const MASTER_RANK = RULES.findIndex((r) => r.title === 'Fragemeister');
+const PARTNER_RANK = RULES.findIndex((r) => r.title === 'Partner');
 /** Mehr passt nicht auf den Schirm, ohne die Karte zu verdraengen. */
 const MAX_RULES = 4;
 const MAX_RULE_CHARS = 60;
@@ -98,6 +102,7 @@ export function seatSplit(order: string[], actorId: string): { left: string[]; r
 
 interface State {
   order: string[];
+  names?: Record<string, string>;
   turnIndex: number;
   /**
    * Der Kranz, nicht ein Stapel: 52 FESTE Plätze, `null` heißt „hier wurde
@@ -142,6 +147,7 @@ interface State {
   ruleOpen: boolean;
   /** Wer Fragemeister ist. Löst sich mit der nächsten Dame ab. */
   questionMaster: string | null;
+  partners: Record<string, string>;
   /**
    * Wer in den Becher gegossen hat, älteste zuerst, höchstens drei. König
    * 1–3 gießen, der vierte trinkt — deshalb drei und nicht vier.
@@ -152,11 +158,35 @@ interface State {
   pours: string[];
 }
 
+function actorFor(state: State, players: GamePlayer[], online: boolean) {
+  const id = state.order[state.turnIndex];
+  const actor = players.find((player) => player.id === id);
+  return actor ?? (online ? undefined : players[0]);
+}
+
+function absentTurn(state: State, players: GamePlayer[]) {
+  const actorId = state.order[state.turnIndex];
+  if (state.drawn == null) return actorId;
+  if (RULES[cardFromIndex(state.drawn).rank].drink !== 'pick' || state.target) return undefined;
+  if (!presentPlayer(players, actorId)) return actorId;
+  if (!players.some((p) => p.id !== actorId && p.online !== false)) {
+    return state.order.find((id) => id !== actorId && !presentPlayer(players, id));
+  }
+}
+
+function syncSeats(order: string[], players: GamePlayer[]) {
+  const ids = new Set(players.map((p) => p.id));
+  // Keep the old seats for finding the next turn even if the current player left.
+  const seats = extendOrder(order, players);
+  return { seats, order: seats.filter((id) => ids.has(id)), ids };
+}
+
 export const kingsCup: GameDefinition<State> = {
   ...meta,
 
   createState: (players) => ({
     order: shuffle(players.map((p) => p.id)),
+    ...(hasOnlineGuests(players) && { names: playerNames(players) }),
     turnIndex: 0,
     deck: shuffle(fullDeck()),
     drawn: null,
@@ -169,17 +199,39 @@ export const kingsCup: GameDefinition<State> = {
     rules: [],
     ruleOpen: false,
     questionMaster: null,
+    partners: {},
     pours: [],
   }),
 
   reduce: (state, action, players) => {
+    if (action.type === 'restart') return state.over ? kingsCup.createState(players) : state;
+    if (state.over) return state;
+    const online = Boolean(state.names) || hasOnlineGuests(players);
+    const actorId = actorFor(state, players, online)?.id;
+    const canAct = online
+      ? action.by === actorId && Boolean(presentPlayer(players, actorId))
+      : fromHost(action, players);
     switch (action.type) {
+      case 'skipAbsent': {
+        const id = absentTurn(state, players);
+        if (!canSkipAbsent(action, players, id)) return state;
+        const { seats, order } = syncSeats(state.order, players);
+        const current = state.order[state.turnIndex];
+        const next = nextPresentId(seats, current, players) ?? presentPlayer(players, current)?.id;
+        if (!next) return state;
+        const wrapped = seats.indexOf(next) <= state.turnIndex;
+        return {
+          ...state, order, turnIndex: order.indexOf(next), names: { ...state.names, ...playerNames(players) },
+          round: wrapped ? state.round + 1 : state.round,
+          drawn: null, target: null, ruleOpen: false,
+        };
+      }
       case 'draw': {
         // Zwei fast gleichzeitige Taps, bevor der Re-Render den Knopf entfernt:
         // die zweite Karte ueberschriebe die erste UND berechnete `finalKing`
         // neu aus sich selbst - war die erste der vierte Koenig, waere der
         // Becher-Moment lautlos weg.
-        if (state.drawn != null) return state;
+        if (state.drawn != null || !canAct) return state;
         // Leerer Kranz: neu mischen UND sofort ziehen – sonst bleibt
         // `drawn` null und der Tap wirkt folgenlos. Ein frischer Kranz ist
         // auch ein frischer Becher: der alte Königsstand darf nicht mit
@@ -214,12 +266,12 @@ export const kingsCup: GameDefinition<State> = {
           // stand es in beiden Zweigen, traf eine Aenderung nur den Koenigs-
           // Zweig, und der kommt in 4 von 52 Zuegen - eine Pruefung darauf
           // haenge am Mischglueck statt am Verhalten.
-          pours: isKing && !finalKing ? [...basisPours, state.order[state.turnIndex]] : basisPours,
+          pours: isKing && !finalKing && actorId ? [...basisPours, actorId] : basisPours,
           // Die Dame loest den Fragemeister ab. Regeln ueberleben ein neues
           // Blatt: sie sind eine Abmachung am Tisch, kein Stapelzustand.
           questionMaster:
             gezogen.rank === MASTER_RANK
-              ? state.order[state.turnIndex]
+              ? (actorId ?? null)
               : state.questionMaster,
         };
       }
@@ -227,12 +279,25 @@ export const kingsCup: GameDefinition<State> = {
         // Nur gueltig, solange die Karte noch liegt – sonst haengt eine
         // verspaetete Auswahl an der naechsten Karte.
         if (state.drawn == null) return state;
-        return { ...state, target: String(action.target) };
+        if (action.card !== undefined && action.card !== state.drawn) return state;
+        const { rank } = cardFromIndex(state.drawn);
+        const { drink } = RULES[rank];
+        if (drink !== 'pick' && drink !== 'loser') return state;
+        if (state.target && (online || players.some((p) => p.id === state.target))) return state;
+        const target = String(action.target);
+        if (!players.some((p) => p.id === target && p.online !== false)) return state;
+        if (drink === 'pick') {
+          if (!actorId || !canAct || target === actorId) return state;
+          if (rank === PARTNER_RANK) {
+            return { ...state, target, partners: { ...state.partners, [actorId]: target } };
+          }
+        }
+        return { ...state, target };
       }
       case 'setRule': {
         // Nur solange die Regel-Karte liegt. Ohne diese Pruefung haengt eine
         // verspaetete Eingabe an der naechsten Karte.
-        if (state.drawn == null) return state;
+        if (state.drawn == null || !canAct || !actorId) return state;
         if (cardFromIndex(state.drawn).rank !== RULE_RANK) return state;
         // Nach ZEICHEN kuerzen, nicht nach Code-Einheiten: `slice` zerlegt
         // ein Emoji an der Grenze in ein halbes Zeichen. Und Umbrueche raus -
@@ -241,22 +306,40 @@ export const kingsCup: GameDefinition<State> = {
         const roh = String(action.text ?? '').replace(/\s+/g, ' ').trim();
         const text = Array.from(roh).slice(0, MAX_RULE_CHARS).join('');
         if (!text) return state;
-        const eintrag = { by: state.order[state.turnIndex], text };
+        const eintrag = { by: actorId, text };
         const rules = state.ruleOpen
           ? [...state.rules.slice(0, -1), eintrag]
           : [...state.rules, eintrag];
         return { ...state, rules: rules.slice(-MAX_RULES), ruleOpen: true };
       }
+      case 'removeRule': {
+        const { index } = action;
+        if (typeof index !== 'number' || !Number.isInteger(index)) return state;
+        if (!players.some((p) => p.id === action.by)) return state;
+        const rule = state.rules[index];
+        if (!rule) return state;
+        // Eine zeitgleich gestrichene Regel kann die Indizes verschieben.
+        if (action.count !== undefined && action.count !== state.rules.length) return state;
+        if (action.text !== undefined && (rule.text !== action.text || rule.by !== action.who)) {
+          return state;
+        }
+        return {
+          ...state,
+          rules: state.rules.filter((_, i) => i !== index),
+          ruleOpen: state.ruleOpen && index !== state.rules.length - 1,
+        };
+      }
       case 'next': {
         // Ebenso: zwei Taps wuerden `turnIndex` zweimal erhoehen und eine
         // Person still ueberspringen. Die Inbox wendet Aktionen nacheinander an.
         if (state.drawn == null) return state;
-        const ids = new Set(players.map((p) => p.id));
-        const order = [
-          ...state.order.filter((id) => ids.has(id)),
-          ...players.filter((p) => !state.order.includes(p.id)).map((p) => p.id),
-        ];
-        const turnIndex = (state.turnIndex + 1) % Math.max(1, order.length);
+        const absent = absentTurn(state, players);
+        if (online && absent && !presentPlayer(players, absent)) return state;
+        const { seats, order, ids } = syncSeats(state.order, players);
+        const current = state.order[state.turnIndex];
+        const next = online ? nextPresentId(seats, current, players) ?? presentPlayer(players, current)?.id : undefined;
+        const turnIndex = next ? order.indexOf(next) : (state.turnIndex + 1) % Math.max(1, order.length);
+        const wrapped = next ? seats.indexOf(next) <= state.turnIndex : turnIndex === 0;
         // Der vierte König ist das Ende des Spiels, nicht bloß eine harte
         // Karte. Nur „ohne Ende" mischt danach weiter.
         // `ruleOpen` auch hier: es ist der einzige Ausgang, der die
@@ -264,8 +347,11 @@ export const kingsCup: GameDefinition<State> = {
         const master = state.questionMaster && ids.has(state.questionMaster)
           ? state.questionMaster
           : null;
+        const partners = Object.fromEntries(
+          Object.entries(state.partners ?? {}).filter(([by, partner]) => ids.has(by) && ids.has(partner)),
+        );
         if (state.finalKing && !state.endless) {
-          return { ...state, order, over: true, ruleOpen: false, questionMaster: master };
+          return { ...state, order, over: true, ruleOpen: false, questionMaster: master, partners };
         }
         return {
           ...state,
@@ -273,7 +359,7 @@ export const kingsCup: GameDefinition<State> = {
           turnIndex,
           drawn: null,
           target: null,
-          round: turnIndex === 0 ? state.round + 1 : state.round,
+          round: wrapped ? state.round + 1 : state.round,
           kings: state.finalKing ? 0 : state.kings,
           // Der Becher ist ausgetrunken – die Schichten gehen mit.
           pours: state.finalKing ? [] : state.pours,
@@ -282,10 +368,10 @@ export const kingsCup: GameDefinition<State> = {
           // Wer die Runde verlaesst, bleibt sonst als tote Kennung stehen:
           // die Oberflaeche blendet den Streifen still aus, der Zustand luegt.
           questionMaster: master,
+          partners,
+          ...(state.names && { names: { ...state.names, ...playerNames(players) } }),
         };
       }
-      case 'restart':
-        return kingsCup.createState(players);
       default:
         return state;
     }
@@ -294,14 +380,14 @@ export const kingsCup: GameDefinition<State> = {
   Component: KingsCupGame,
 };
 
-function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntime<State>) {
+function KingsCupGame({ state, players, me, online, isHost, dispatch, quit }: GameRuntime<State>) {
   const [entwurf, setEntwurf] = useState('');
   // Der Entwurf gehoert zur liegenden Karte. Ohne das hier findet die naechste
   // Person den halben Satz ihres Vorgaengers im Feld, mit aktivem Knopf.
   useEffect(() => setEntwurf(''), [state.drawn]);
-  const actorId = state.order[state.turnIndex % Math.max(1, state.order.length)];
-  const actor = players.find((p) => p.id === actorId) ?? players[0];
-  const isMyTurn = actor?.id === me.id;
+  const actor = actorFor(state, players, online);
+  const actorId = actor?.id;
+  const isMyTurn = actor?.id === me.id && (!online || actor.online !== false);
   const card = state.drawn != null ? cardFromIndex(state.drawn) : null;
   const rule = card ? RULES[card.rank] : null;
   // `deck` ist jetzt der Kranz und immer 52 Plaetze lang – gezaehlt wird, was
@@ -321,11 +407,25 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
   const canPick = !online || isMyTurn;
   const target = state.target ? (players.find((p) => p.id === state.target) ?? null) : null;
 
-  const seat = rule?.drink === 'left' || rule?.drink === 'right' ? seatSplit(state.order, actorId) : null;
+  const seat = actorId && (rule?.drink === 'left' || rule?.drink === 'right')
+    ? seatSplit(state.order, actorId)
+    : null;
   const sideIds = rule?.drink === 'left' ? seat?.left : rule?.drink === 'right' ? seat?.right : undefined;
   const sideTargets = (sideIds ?? [])
     .map((id) => players.find((p) => p.id === id))
     .filter((p): p is GamePlayer => Boolean(p));
+
+  const partners = state.partners ?? {};
+  const partnerPairs = Object.entries(partners).filter(([by, partner]) =>
+    players.some((p) => p.id === by) && players.some((p) => p.id === partner),
+  );
+  const drinkers = state.finalKing || rule?.drink === 'actor'
+    ? (actorId ? [actorId] : [])
+    : rule?.drink === 'pick' || rule?.drink === 'loser'
+      ? (target ? [target.id] : [])
+      : sideTargets.map((p) => p.id);
+  const partnerIds = new Set(drinkers.map((id) => partners[id]));
+  const partnerTargets = players.filter((p) => p.online !== false && partnerIds.has(p.id) && !drinkers.includes(p.id));
 
   // Ohne benannte Zielperson gibt es niemanden, dem die Ansage gehört –
   // "Nächster" bleibt dann gesperrt, bis wer getippt hat (wie pickWinner).
@@ -401,7 +501,7 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
       {/* Was ein Kartenstapel vergisst, sobald die Karte weiterwandert. Steht
           deshalb ueber der Karte und bleibt stehen, nicht als Ansage, die
           nach einem Zug verschwindet. */}
-      {(state.rules.length > 0 || fragemeister) && (
+      {(state.rules.length > 0 || fragemeister || partnerPairs.length > 0) && (
         <div className="merkzettel" role="list" aria-label="Merkzettel" aria-live="polite">
           {fragemeister && (
             <span className="merkzettel__item merkzettel__item--rolle" role="listitem">
@@ -409,17 +509,32 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
               {fragemeister.name} fragt – wer antwortet, trinkt
             </span>
           )}
+          {partnerPairs.map(([by, partner]) => (
+            <span key={by} className="merkzettel__item merkzettel__item--rolle" role="listitem">
+              <Icon name="people" size={13} />
+              {nameVon(partner)} trinkt mit {nameVon(by)} mit
+            </span>
+          ))}
           {state.rules.map((r, i) => (
             <span key={`${i}-${r.text}`} className="merkzettel__item" role="listitem">
-              {r.text}
-              {nameVon(r.by) && <span className="merkzettel__von">· {nameVon(r.by)}</span>}
+              <span style={{ flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}>{r.text}</span>
+              {nameVon(r.by) && <span className="merkzettel__von" style={{ whiteSpace: 'nowrap' }}>· {nameVon(r.by)}</span>}
+              <button
+                className="btn btn--plain btn--sm"
+                aria-label={`Regel entfernen: ${r.text}`}
+                onClick={() => send({
+                  type: 'removeRule', index: i, text: r.text, who: r.by, count: state.rules.length,
+                })}
+              >
+                <Icon name="close" size={14} />
+              </button>
             </span>
           ))}
         </div>
       )}
 
       <div className="row" style={{ justifyContent: 'center' }}>
-        <PlayerChip player={actor} note={isMyTurn ? 'du ziehst' : 'zieht'} />
+        {actor && <PlayerChip player={actor} note={isMyTurn ? 'du ziehst' : 'zieht'} />}
       </div>
 
       {/* Zwei Zustaende, ein Bildschirm (User-Entscheid 2026-09-10): ohne
@@ -444,7 +559,7 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
               ? 'Zieh dir eine Karte aus dem Kranz.'
               : !online
                 ? `${actor?.name}, zieh dir eine Karte aus dem Kranz.`
-                : `${actor?.name} zieht gleich.`}
+                : `${actor?.name ?? state.names?.[state.order[state.turnIndex]] ?? 'Jemand'} zieht gleich.`}
           </div>
         </>
       ) : (
@@ -493,17 +608,17 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
       {state.drawn == null ? null : (
         <div className="stack-3">
           {state.finalKing ? (
-            <DrinkCall player={actor} baseSips={8} source="kings-cup" label="der Becher" resetKey={key} />
+            actor && <DrinkCall player={actor} baseSips={8} source="kings-cup" label="der Becher" resetKey={key} />
           ) : rule?.drink === 'all' ? (
             <DrinkCallList players={players} baseSips={rule.sips} source="kings-cup" resetKey={key} />
           ) : rule?.drink === 'actor' ? (
-            <DrinkCall player={actor} baseSips={rule.sips} source="kings-cup" resetKey={key} />
+            actor && <DrinkCall player={actor} baseSips={rule.sips} source="kings-cup" resetKey={key} />
           ) : rule?.drink === 'left' || rule?.drink === 'right' ? (
             <DrinkCallList players={sideTargets} baseSips={rule.sips} source="kings-cup" resetKey={key} />
           ) : rule?.drink === 'pick' || rule?.drink === 'loser' ? (
             target ? (
               <DrinkCall player={target} baseSips={rule.sips} source="kings-cup" resetKey={key} />
-            ) : (
+            ) : online && state.target ? null : (
               <div className="stack-3">
                 <div className="t-upper t-center">
                   {rule.drink === 'pick' ? 'Wer ist gemeint?' : 'Wer hat verloren?'}
@@ -514,7 +629,7 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
                       key={p.id}
                       className="pchip pchip--pick pressable"
                       disabled={rule.drink === 'pick' && !canPick}
-                      onClick={() => send({ type: 'pickTarget', target: p.id })}
+                      onClick={() => send({ type: 'pickTarget', target: p.id, card: state.drawn })}
                     >
                       <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
                       <span className="pchip__name">{p.name}</span>
@@ -564,14 +679,26 @@ function KingsCupGame({ state, players, me, online, dispatch, quit }: GameRuntim
               Diese Karte kostet gerade niemanden einen Schluck.
             </div>
           )}
+          {partnerTargets.length > 0 && (
+            <DrinkCallList
+              players={partnerTargets}
+              baseSips={state.finalKing ? 8 : (rule?.sips ?? 0)}
+              source="kings-cup"
+              label="trinkt mit"
+              resetKey={`${key}-partner-${drinkers.join(',')}`}
+            />
+          )}
           <button
             className="btn btn--brand btn--block btn--lg"
-            disabled={needsTarget && !target}
+            disabled={needsTarget && !(online ? state.target : target)}
             onClick={() => send({ type: 'next' })}
           >
             {state.finalKing && !state.endless ? 'Becher leeren und Schluss' : 'Nächster'}
           </button>
         </div>
+      )}
+      {online && (
+        <AbsentAction id={absentTurn(state, players)} players={players} names={state.names} isHost={isHost} dispatch={send} />
       )}
     </GameFrame>
   );

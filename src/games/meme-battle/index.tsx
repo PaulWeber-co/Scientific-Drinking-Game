@@ -4,7 +4,7 @@ import { markTextsSeen } from '../../store/seen';
 import { GameFrame } from '../shared/GameFrame';
 import { BigCard } from '../shared/pieces';
 import type { GameDefinition, GameRuntime } from '../types';
-import { Editor } from './Editor';
+import { clearOldDrafts, draftStorageKey, Editor } from './Editor';
 import { Finale } from './Finale';
 import {
   allVoted,
@@ -49,6 +49,13 @@ function MemeBattleGame(props: GameRuntime<State>) {
   const { state, players, me, isHost, dispatch, online, quit } = props;
   const topic = state ? topicText(state) : null;
   const author = state ? currentAuthor(state) : null;
+  const phase = state?.phase;
+  const draftKey = phase === 'create' ? draftStorageKey(me.id, state.round, state.deadline) : null;
+
+  // Beim Neuladen wird die Komponente ebenfalls abgebaut. Aufräumen erst beim Phasenwechsel.
+  useEffect(() => {
+    if (online && phase) clearOldDrafts(me.id, draftKey);
+  }, [online, phase, me.id, draftKey]);
 
   useEffect(() => {
     if (topic) markTextsSeen([topic]);
@@ -158,7 +165,10 @@ function MemeBattleGame(props: GameRuntime<State>) {
         title={meta.name}
         accent={meta.accent}
         subtitle={`${roundLabel} · Basteln`}
-        onQuit={quit}
+        onQuit={() => {
+          if (isHost) clearOldDrafts(me.id, null);
+          quit();
+        }}
       >
         {state.deadline !== null && (
           <TimerBar
@@ -169,7 +179,7 @@ function MemeBattleGame(props: GameRuntime<State>) {
             feel={!state.memes[me.id]}
           />
         )}
-        <Editor state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
+        <Editor key={draftKey} state={state} players={players} me={me} topic={topic} dispatch={dispatch} />
       </GameFrame>
     );
   }

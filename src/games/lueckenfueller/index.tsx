@@ -10,6 +10,8 @@ import { GameFrame } from '../shared/GameFrame';
 import { GameOver } from '../shared/GameOver';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
 import { DrinkCallList } from '../shared/DrinkCall';
+import { fromHost } from '../shared/host';
+import { AbsentAction, canSkipAbsent, extendOrder, lastAbsentId, nextPresentId, playerNames, presentPlayer, waitingNames } from '../shared/presence';
 import { BigCard, WaitingFor } from '../shared/pieces';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { BLACK, WHITE } from './cards';
@@ -62,6 +64,7 @@ export interface State {
   /** Jede Hand hält `BLANKS` Blankokarten. */
   blanks: boolean;
   hands: Record<string, Ref[]>;
+  names?: Record<string, string>;
   played: Record<string, Ref[]>;
   order: string[];
   revealed: number;
@@ -97,11 +100,9 @@ function participants(state: State, players: GamePlayer[]): string[] {
 }
 
 /** Der nächste Richter überspringt, wer gerade weg ist. */
-function nextJudge(players: GamePlayer[], currentId: string): string {
-  const da = players.filter((p) => p.online !== false);
-  if (!da.length) return currentId;
-  const i = da.findIndex((p) => p.id === currentId);
-  return da[(i + 1) % da.length].id;
+function nextJudge(state: State, players: GamePlayer[]): string {
+  const order = extendOrder(Object.keys(state.names ?? {}), players);
+  return nextPresentId(order, state.judgeId, players) ?? state.judgeId;
 }
 
 /**
@@ -111,10 +112,31 @@ function nextJudge(players: GamePlayer[], currentId: string): string {
  * ist aber in der nächsten dran. Ohne das stünde er dann ohne Karten da.
  */
 function startRound(state: State, players: GamePlayer[], round: number): State {
-  const judgeId = nextJudge(players, state.judgeId);
+  const judgeId = nextJudge(state, players);
   const blackDeck = state.blackDeck.length ? state.blackDeck : blackDeckOf(players.length);
   const black = blackDeck[0];
 
+  const { hands, whiteDeck } = dealHands(state, players);
+  return {
+    ...state,
+    phase: 'submit',
+    round,
+    judgeId,
+    black,
+    pick: BLACK[black]?.pick === 2 ? 2 : 1,
+    blackDeck: blackDeck.slice(1),
+    whiteDeck,
+    hands,
+    names: { ...state.names, ...playerNames(players) },
+    played: {},
+    order: [],
+    revealed: 0,
+    deadline: null,
+    winnerId: null,
+  };
+}
+
+function dealHands(state: State, players: GamePlayer[]) {
   let whiteDeck = state.whiteDeck;
   const hands: Record<string, Ref[]> = { ...state.hands };
   for (const p of players) {
@@ -138,22 +160,43 @@ function startRound(state: State, players: GamePlayer[], round: number): State {
     whiteDeck = whiteDeck.slice(fehlt);
   }
 
+  return { hands, whiteDeck };
+}
+
+function waitingForAbsent(state: State, players: GamePlayer[]) {
+  if (state.phase !== 'submit' && state.phase !== 'reveal') return undefined;
+  if (!presentPlayer(players, state.judgeId)) return state.judgeId;
+  if (state.phase !== 'submit') return undefined;
+  if (!Object.keys(state.played).length && !players.some((p) => p.id !== state.judgeId && p.online !== false)) {
+    return undefined;
+  }
+  return lastAbsentId(Object.keys(state.hands), players, (id) => id !== state.judgeId && !state.played[id]);
+}
+
+function revealSubmissions(state: State): State {
   return {
     ...state,
-    phase: 'submit',
-    round,
-    judgeId,
-    black,
-    pick: BLACK[black]?.pick === 2 ? 2 : 1,
-    blackDeck: blackDeck.slice(1),
-    whiteDeck,
-    hands,
-    played: {},
-    order: [],
+    phase: 'reveal',
+    order: shuffle(Object.keys(state.played)),
     revealed: 0,
     deadline: null,
-    winnerId: null,
   };
+}
+
+function replaceJudge(state: State, players: GamePlayer[]): State {
+  const judgeId = nextJudge(state, players);
+  if (judgeId === state.judgeId) return state;
+  // Gelegte Karten bleiben liegen. Nur die Karte des neuen Richters fällt aus der Wertung.
+  const played = Object.fromEntries(Object.entries(state.played).filter(([id]) => id !== judgeId));
+  if (state.phase === 'reveal') {
+    const order = state.order.filter((id) => id !== judgeId);
+    if (!order.length) return startRound({ ...state, played: {} }, players, state.round);
+    const revealed = state.order.slice(0, state.revealed).filter((id) => id !== judgeId).length;
+    return { ...state, judgeId, played, order, revealed };
+  }
+  const next = { ...state, judgeId, played };
+  const pending = participants(next, players);
+  return pending.length && pending.every((id) => played[id]) ? revealSubmissions(next) : next;
 }
 
 export const lueckenfueller: GameDefinition<State> = {
@@ -187,11 +230,21 @@ export const lueckenfueller: GameDefinition<State> = {
 
   reduce: (state, action, players) => {
     switch (action.type) {
+      case 'skipAbsent': {
+        const id = waitingForAbsent(state, players);
+        if (!canSkipAbsent(action, players, id)) return state;
+        if (id === state.judgeId) return replaceJudge(state, players);
+        if (Object.keys(state.played).length) return revealSubmissions(state);
+        return {
+          ...state, ...dealHands(state, players), deadline: null,
+          names: { ...state.names, ...playerNames(players) },
+        };
+      }
       case 'submit': {
         // Jeder Zweig prüft die Phase selbst: online wendet die Inbox
         // nacheinander an, zwei fast gleichzeitige Taps sind normal.
         if (state.phase !== 'submit') return state;
-        if (action.by === state.judgeId) return state;
+        if (action.by === state.judgeId || !presentPlayer(players, action.by)) return state;
         if (state.played[action.by]) return state;
         const hand = state.hands[action.by];
         if (!hand) return state;
@@ -222,16 +275,7 @@ export const lueckenfueller: GameDefinition<State> = {
         const fertig = dabei.filter((id) => played[id]).length;
 
         if (fertig >= dabei.length) {
-          return {
-            ...state,
-            custom,
-            played,
-            hands,
-            phase: 'reveal',
-            order: shuffle(Object.keys(played)),
-            revealed: 0,
-            deadline: null,
-          };
+          return revealSubmissions({ ...state, custom, played, hands });
         }
         // Solange geredet wird, läuft nichts. Erst ab der HÄLFTE tickt es.
         //
@@ -253,13 +297,7 @@ export const lueckenfueller: GameDefinition<State> = {
         // Ohne eine einzige Karte gibt es nichts zu richten – dann wird
         // weiter gewartet statt eine leere Runde aufzudecken.
         if (!abgegeben.length) return { ...state, deadline: null };
-        return {
-          ...state,
-          phase: 'reveal',
-          order: shuffle(abgegeben),
-          revealed: 0,
-          deadline: null,
-        };
+        return revealSubmissions(state);
       }
 
       case 'flip': {
@@ -292,38 +330,10 @@ export const lueckenfueller: GameDefinition<State> = {
         return startRound(state, players, round);
       }
 
-      case 'judge-left': {
-        // Nach dem Küren braucht niemand mehr den Richter: weiter darf jeder.
-        if (state.phase === 'over' || state.phase === 'score') return state;
-        const richter = players.find((p) => p.id === state.judgeId);
-        if (richter && richter.online !== false) return state;
-        const judgeId = nextJudge(players, state.judgeId);
-        if (judgeId === state.judgeId) return state;
-        // Die Rolle wandert, die Runde bleibt. Vorher wurde sie verworfen und
-        // alles Gelegte ging zurück auf die Hände – gelegte Karten tauchten in
-        // der nächsten Runde wieder auf. Gelegt ist gelegt; nur die Karte des
-        // neuen Richters fällt aus der Wertung.
-        const played = Object.fromEntries(
-          Object.entries(state.played).filter(([id]) => id !== judgeId),
-        );
-        if (state.phase === 'reveal') {
-          const order = state.order.filter((id) => id !== judgeId);
-          if (!order.length) return startRound({ ...state, played: {} }, players, state.round);
-          const revealed = state.order.slice(0, state.revealed).filter((id) => id !== judgeId).length;
-          return { ...state, judgeId, played, order, revealed };
-        }
-        const weiter = { ...state, judgeId, played };
-        const dabei = participants(weiter, players);
-        const alleDa = dabei.length > 0 && dabei.every((id) => played[id]);
-        if (!alleDa) return weiter;
-        return {
-          ...weiter,
-          phase: 'reveal',
-          order: shuffle(Object.keys(played)),
-          revealed: 0,
-          deadline: null,
-        };
-      }
+      case 'judge-left':
+        if ((state.phase !== 'submit' && state.phase !== 'reveal') || !fromHost(action, players)) return state;
+        if (presentPlayer(players, state.judgeId)) return state;
+        return replaceJudge(state, players);
 
       case 'restart':
         return lueckenfueller.createState(players);
@@ -414,10 +424,9 @@ function LueckenfuellerGame({
   // jedem Heartbeat, ein Neustart des Effekts darf die Karenz nicht nullen.
   const richterWeg = useRef<{ id: string; seit: number } | null>(null);
   useEffect(() => {
-    if (!isHost || state.phase === 'over') return;
+    if (!isHost || (state.phase !== 'submit' && state.phase !== 'reveal')) return;
     const t = setInterval(() => {
-      const r = players.find((p) => p.id === state.judgeId);
-      if (r && r.online !== false) {
+      if (presentPlayer(players, state.judgeId)) {
         richterWeg.current = null;
         return;
       }
@@ -487,7 +496,12 @@ function LueckenfuellerGame({
     );
   }
 
-  const richterName = byId(state.judgeId)?.name ?? 'Der Richter';
+  const richterName = byId(state.judgeId)?.name ?? state.names?.[state.judgeId] ?? 'Der Richter';
+  const absent = waitingForAbsent(state, players);
+  const skip = (
+    <AbsentAction id={absent} players={players} names={state.names} isHost={isHost} dispatch={send}
+      continueWithout={absent !== state.judgeId} />
+  );
   const kopf = (
     <BigCard kicker={`Runde ${state.round}${state.goal ? ` von ${state.goal}` : ''}`}>
       {schwarz?.text ?? ''}
@@ -496,7 +510,8 @@ function LueckenfuellerGame({
 
   if (state.phase === 'submit') {
     const abgegeben = !!state.played[me.id];
-    const fehlen = dabei.filter((id) => !state.played[id]).map((id) => byId(id)?.name ?? '');
+    const pending = Object.keys(state.hands).filter((id) => id !== state.judgeId && !state.played[id]);
+    const fehlen = waitingNames(pending, players, state.names);
 
     return (
       <GameFrame
@@ -515,12 +530,18 @@ function LueckenfuellerGame({
               Du bist der Richter. Lies die Lücke laut vor – du entscheidest gleich.
             </div>
             <div className="t-headline t-center">
-              {dabei.length - fehlen.length} von {dabei.length} haben gelegt
+              {dabei.filter((id) => state.played[id]).length} von {dabei.length} haben gelegt
             </div>
-            <WaitingFor names={fehlen} what="Legen gerade" />
+            {!dabei.length && !Object.keys(state.played).length && !absent
+              ? <p className="t-caption t-center">Warten auf Mitspieler.</p>
+              : <WaitingFor names={fehlen} what="Legen gerade" />}
           </>
         ) : abgegeben ? (
-          <WaitingFor names={fehlen} what="Fehlen noch" />
+          absent === state.judgeId
+            ? <WaitingFor names={waitingNames([absent], players, state.names)} what="Warten auf" />
+            : <WaitingFor names={fehlen} what="Fehlen noch" />
+        ) : !hand.length ? (
+          <p className="t-caption t-center">Warten aufs Austeilen.</p>
         ) : (
           <>
             <div className="t-caption t-center">
@@ -593,6 +614,7 @@ function LueckenfuellerGame({
             </Sheet>
           </>
         )}
+        {skip}
       </GameFrame>
     );
   }
@@ -642,6 +664,7 @@ function LueckenfuellerGame({
             {alleOffen ? `${richterName} entscheidet` : `${richterName} liest vor`}
           </div>
         )}
+        {skip}
       </GameFrame>
     );
   }

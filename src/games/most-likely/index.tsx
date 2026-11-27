@@ -7,6 +7,8 @@ import { GameOver } from '../shared/GameOver';
 import { DrinkCallList } from '../shared/DrinkCall';
 import { BigCard, FingerTally, VoteGrid, VoteResult, WaitingFor } from '../shared/pieces';
 import { baseFor, isOver, roundGoal } from '../shared/rounds';
+import { hasOnlineGuests } from '../shared/partyMode';
+import { AbsentAction, canSkipAbsent, extendOrder, lastAbsentId, playerNames, presentPlayer, waitingNames } from '../shared/presence';
 import type { GameActionInput, GameDefinition, GamePlayer, GameRuntime } from '../types';
 import { meta } from './meta';
 
@@ -73,11 +75,31 @@ interface State {
    * darunter bleiben dieselbe Funktion wie im Online-Modus.
    */
   votes: Record<string, string>;
+  names?: Record<string, string>;
   round: number;
   /** Ziellinie in Fragen. `null` heißt: ohne Ende. */
   goal: number | null;
   /** Stimmen über die ganze Partie, aus allen ausgezählten Runden. */
   tally: Record<string, number>;
+}
+
+function pendingVoters(state: State, players: GamePlayer[]) {
+  return extendOrder(Object.keys(state.names ?? {}), players).filter((id) => !state.votes[id]);
+}
+
+function lastVoter(state: State, players: GamePlayer[]) {
+  const absent = lastAbsentId(pendingVoters(state, players), players, () => true);
+  if (absent || state.names) return absent;
+  // Ältere Spielstände kennen nur die IDs der bereits abgegebenen Stimmen.
+  if (players.length && players.every((p) => p.online === false || state.votes[p.id])) return '@absent';
+  return undefined;
+}
+
+function resolveVotes(state: State, votes: State['votes']): State {
+  // Die Runde ist ausgezählt – erst jetzt zählen ihre Stimmen für die Wertung.
+  const tally = { ...state.tally };
+  for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
+  return { ...state, votes, phase: 'result', tally };
 }
 
 export const mostLikely: GameDefinition<State> = {
@@ -90,6 +112,7 @@ export const mostLikely: GameDefinition<State> = {
       prompt: deck[0],
       deck: deck.slice(1),
       votes: {},
+      ...(hasOnlineGuests(players) && { names: playerNames(players) }),
       round: 1,
       // Eine Runde ist eine Frage. Sechs davon reichen, damit jeder ein paar
       // Mal gemeint war, bevor sich die Fragen abnutzen.
@@ -100,16 +123,22 @@ export const mostLikely: GameDefinition<State> = {
 
   reduce: (state, action, players) => {
     const active = players.filter((p) => p.online !== false).map((p) => p.id);
+    const online = Boolean(state.names) || hasOnlineGuests(players);
     switch (action.type) {
+      case 'skipAbsent':
+        if (state.phase !== 'vote' || !canSkipAbsent(action, players, lastVoter(state, players))) return state;
+        return resolveVotes(state, Object.fromEntries(
+          Object.entries(state.votes).filter(([, id]) => presentPlayer(players, id)),
+        ));
       case 'vote': {
         if (state.phase !== 'vote') return state;
+        if (online && (!active.includes(action.by) || !presentPlayer(players, String(action.target)))) return state;
         const votes = { ...state.votes, [action.by]: String(action.target) };
         const done = active.every((id) => votes[id]);
-        if (!done) return { ...state, votes };
-        // Die Runde ist ausgezählt – erst jetzt zählen ihre Stimmen für die Wertung.
-        const tally = { ...state.tally };
-        for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
-        return { ...state, votes, phase: 'result', tally };
+        if (!done) {
+          return { ...state, votes, ...(state.names && { names: { ...state.names, ...playerNames(players) } }) };
+        }
+        return resolveVotes(state, votes);
       }
       case 'countVotes': {
         // Ein geteiltes Handy: alle zeigen auf drei gleichzeitig, danach
@@ -117,7 +146,7 @@ export const mostLikely: GameDefinition<State> = {
         // Jeder Finger wird als eigene Stimme unter einem erfundenen
         // Schlüssel verbucht, damit diese Runde exakt so ausgezählt wird
         // wie eine Online-Runde mit echten Stimmen je Gerät.
-        if (state.phase !== 'vote') return state;
+        if (state.phase !== 'vote' || online) return state;
         const raw = (action.counts as Record<string, number>) ?? {};
         const votes: Record<string, string> = {};
         let n = 0;
@@ -125,9 +154,7 @@ export const mostLikely: GameDefinition<State> = {
           const count = Math.min(active.length, Math.max(0, Math.floor(Number(raw[id]) || 0)));
           for (let i = 0; i < count; i++) votes[`@${n++}`] = id;
         }
-        const tally = { ...state.tally };
-        for (const id of Object.values(votes)) tally[id] = (tally[id] ?? 0) + 1;
-        return { ...state, votes, phase: 'result', tally };
+        return resolveVotes(state, votes);
       }
       case 'next': {
         // Nur aus der Auflösung heraus: zwei fast gleichzeitige Taps auf
@@ -143,6 +170,7 @@ export const mostLikely: GameDefinition<State> = {
           prompt: deck[0],
           deck: deck.slice(1),
           votes: {},
+          ...(online && { names: playerNames(players) }),
           round,
         };
       }
@@ -156,7 +184,7 @@ export const mostLikely: GameDefinition<State> = {
   Component: MostLikelyGame,
 };
 
-function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRuntime<State>) {
+function MostLikelyGame({ state, players, me, dispatch, quit, online, isHost }: GameRuntime<State>) {
   const send = (a: GameActionInput) => dispatch(a);
   const prompt = PROMPTS[state.prompt]?.text ?? '';
   // Gemerkt, damit die naechste Partie am selben Abend andere Fragen zieht.
@@ -206,7 +234,8 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
   }
 
   if (state.phase === 'vote') {
-    const waiting = players.filter((p) => p.online !== false && !state.votes[p.id]).map((p) => p.name);
+    const absent = lastVoter(state, players);
+    const waiting = waitingNames(absent === '@absent' ? [absent] : pendingVoters(state, players), players, state.names);
     return (
       <GameFrame
         title={mostLikely.name}
@@ -222,7 +251,7 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
         {online ? (
           <>
             <VoteGrid
-              players={players}
+              players={players.filter((p) => p.online !== false)}
               myVote={state.votes[me.id]}
               onVote={(id) => {
                 haptic('select');
@@ -230,6 +259,7 @@ function MostLikelyGame({ state, players, me, dispatch, quit, online }: GameRunt
               }}
             />
             {state.votes[me.id] && <WaitingFor names={waiting} what="Warten auf" />}
+            <AbsentAction id={absent} players={players} names={state.names} isHost={isHost} dispatch={send} continueWithout />
           </>
         ) : (
           <>

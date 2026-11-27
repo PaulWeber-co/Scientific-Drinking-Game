@@ -100,6 +100,7 @@ const PFLICHT_SPICY: CardDef[] = [
 export const truthOrDare = createCardGame({
   ...meta,
   actor: 'turn',
+  asker: 'prev',
   baseSips: 2,
   drink: 'none',
   resolveLabel: 'Gemacht',

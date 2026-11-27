@@ -813,6 +813,24 @@
 .md-hero .md-print {
   --maxh: 46dvh;
 }
+.md-hero__winners {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 12px;
+}
+.md-hero__winner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.md-hero__winners .md-print {
+  --paper-pad: 5px;
+  --maxh: 28dvh;
+}
+.md-hero__winners .md-label {
+  font-size: 12px;
+  padding: 4px 6px 3px;
+}
 /* Gold, das einmal aufglänzt – statt flachem Gelb. */
 .md-hero__kicker,
 .md-gallery__title {

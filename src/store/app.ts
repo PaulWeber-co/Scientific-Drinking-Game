@@ -27,6 +27,7 @@ export interface AppState {
   spicy: Record<string, boolean>;
   /** Blankokarten je Spiel: leere Karten, die man beim Legen selbst beschreibt. */
   blanks: Record<string, boolean>;
+  undercoverCount: number;
   /** Wie lang eine Partie laufen soll. Gilt für alle Spiele. */
   gameLength: GameLength;
   /** Wie oft es beim Aussetzen eine Aufgabe gibt. */
@@ -42,6 +43,7 @@ export interface AppState {
   markGamePlayed: (id: string) => void;
   toggleSpicy: (id: string) => void;
   toggleBlanks: (id: string) => void;
+  setUndercoverCount: (count: number) => void;
   clearSpicy: () => void;
   setGameLength: (l: GameLength) => void;
   setTaskOnSkip: (f: TaskFrequency) => void;
@@ -60,6 +62,7 @@ export const useApp = create<AppState>()(
       recentGames: [],
       spicy: {},
       blanks: {},
+      undercoverCount: 1,
       gameLength: 'mittel',
       taskOnSkip: 'manchmal',
 
@@ -82,6 +85,7 @@ export const useApp = create<AppState>()(
         set((s) => ({ recentGames: [id, ...s.recentGames.filter((g) => g !== id)].slice(0, 8) })),
       toggleSpicy: (id) => set((s) => ({ spicy: { ...s.spicy, [id]: !s.spicy[id] } })),
       toggleBlanks: (id) => set((s) => ({ blanks: { ...s.blanks, [id]: !s.blanks[id] } })),
+      setUndercoverCount: (undercoverCount) => set({ undercoverCount }),
       // Spicy ist eine Einwilligung der Runde, keine Vorliebe: Am nächsten
       // Abend sitzen andere Leute am Tisch. Wird von `endNight` gerufen.
       clearSpicy: () => set({ spicy: {} }),
@@ -90,7 +94,7 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'sdg.app',
-      version: 6,
+      version: 7,
       migrate: migrateApp,
       onRehydrateStorage: () => rehydrateApp,
     },
@@ -137,6 +141,7 @@ export function migrateApp(persisted: unknown, version: number): AppState {
   // ausgeschaltet hat.
   if (version < 5) state.sound = true;
   if (version < 6) state.calmMotion = false;
+  if (version < 7) state.undercoverCount = 1;
   return state as AppState;
 }
 
@@ -151,4 +156,8 @@ export function isSpicyOn(gameId: string): boolean {
 /** Ob ein Spiel mit Blankokarten startet. Wie `isSpicyOn` auch für den Reducer. */
 export function isBlanksOn(gameId: string): boolean {
   return useApp.getState().blanks[gameId] === true;
+}
+
+export function getUndercoverCount(): number {
+  return useApp.getState().undercoverCount;
 }

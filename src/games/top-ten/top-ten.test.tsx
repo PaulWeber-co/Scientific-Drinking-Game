@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { render } from '../../test/render';
 import { useState } from 'react';
 import { topTen } from './index';
@@ -29,6 +29,7 @@ const tun = (s: State, a: GameActionInput, players: GamePlayer[]) =>
   topTen.reduce(s, { ...a, by: a.by ?? me.id, at: Date.now() } as GameAction, players);
 
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.999);
   useApp.setState({ gameLength: 'endlos', spicy: {}, taskOnSkip: 'aus' });
   useSeen.setState({ seen: {}, cursor: 0 });
   usePlayer.setState({
@@ -47,6 +48,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   Reflect.deleteProperty(HTMLElement.prototype, 'offsetHeight');
 });
 
@@ -153,18 +155,6 @@ describe('Top Ten auf einem geteilten Handy', () => {
     expect(spiel.phase).toBe('results');
   });
 
-  it('online: sammelt getippte Antworten, bevor das Aufdecken beginnt', () => {
-    // Die Online-Fassung tippt weiter, statt laut zu sagen – das darf der
-    // Umbau auf das geteilte Handy nicht anfassen.
-    const players = runde(4);
-    let s = topTen.createState(players);
-    for (const p of players) {
-      s = tun(s, { type: 'submit', text: `Antwort von ${p.name}`, by: p.id }, players);
-    }
-    expect(s.phase).toBe('revealing');
-    expect(Object.keys(s.answers)).toHaveLength(4);
-  });
-
   it('kostet beim Aufdecken ein Plättchen, wenn eine Zahl kleiner ist als die vorherige', () => {
     const players = runde(4);
     let s = topTen.createState(players);
@@ -198,5 +188,201 @@ describe('Top Ten auf einem geteilten Handy', () => {
     expect(s.phase).toBe('over');
     expect(s.tokens).toBe(0);
     expect(s.lostGame).toBe(true);
+  });
+});
+
+describe('Top Ten online', () => {
+  const roster = runde(4).map((p) => ({ ...p, isHost: p.id === me.id }));
+
+  it('online: sammelt getippte Antworten und wechselt nach der letzten zum Vorlesen', () => {
+    let state = topTen.createState(roster);
+    expect(tun(state, { type: 'startReveal' }, roster)).toBe(state);
+    expect(tun(state, { type: 'startSorting' }, roster)).toBe(state);
+    for (const p of roster.slice(0, -1)) {
+      state = tun(state, { type: 'submit', text: `Antwort von ${p.name}`, by: p.id }, roster);
+      expect(state.phase).toBe('writing');
+    }
+    state = tun(state, { type: 'submit', text: 'Die letzte Antwort', by: roster[3].id }, roster);
+    expect(state.phase).toBe('reading');
+    expect(Object.keys(state.answers)).toHaveLength(4);
+  });
+
+  it('wartet beim Vorlesen nicht auf später beigetretene Gäste ohne Geheimzahl', () => {
+    const start = topTen.createState(roster);
+    const guest: GamePlayer = { id: 'p4', name: 'Später Gast', color: 'pink', online: true, isHost: false };
+    const players = [...roster, guest];
+    const Game = topTen.Component;
+    const view = (state: State, me: GamePlayer) => (
+      <PartyCtx.Provider value={{ me, players } as unknown as PartyValue}>
+        <Game state={state} players={players} me={me} isHost={!!me.isHost} online dispatch={vi.fn()} quit={vi.fn()} />
+      </PartyCtx.Provider>
+    );
+    const { rerender } = render(view(start, guest));
+    expect(screen.getByText('Du schaust diese Runde zu.')).toBeVisible();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(tun(start, { type: 'submit', text: 'Nicht Teil der Runde', by: guest.id }, players)).toBe(start);
+
+    let state = tun(start, { type: 'submit', text: 'Antwort', by: roster[0].id }, players);
+    rerender(view(state, roster[0]));
+    expect(screen.queryByText(/Später Gast/)).not.toBeInTheDocument();
+    for (const p of roster.slice(1)) {
+      state = tun(state, { type: 'submit', text: 'Antwort', by: p.id }, players);
+    }
+    expect(state.phase).toBe('reading');
+    rerender(view(state, roster[0]));
+    const rows = within(screen.getByRole('list', { name: 'Antworten' })).getAllByRole('listitem');
+    expect(rows).toHaveLength(roster.length);
+    state = tun(state, { type: 'startSorting' }, players);
+    for (const id of [...state.order].sort((a, b) => state.numbers[a] - state.numbers[b])) {
+      state = tun(state, { type: 'reveal', id }, players);
+    }
+    expect(state.phase).toBe('results');
+    rerender(view(state, roster[0]));
+    expect(screen.getByText(/Gast 1, Gast 2, Gast 3 sehen die eigene Menge/)).toBeVisible();
+    expect(screen.queryByText(/Später Gast/)).not.toBeInTheDocument();
+    expect(tun(state, { type: 'next' }, players).numbers[guest.id]).toBeGreaterThan(0);
+  });
+
+  it('zeigt beim Vorlesen Kategorie und Antworten ohne Geheimzahlen und markiert die eigene Zeile', () => {
+    const players = roster.map((p) => p.id === 'p3' ? { ...p, online: false } : p);
+    let state = topTen.createState(players);
+    for (const p of players.slice(0, -1)) {
+      state = tun(state, { type: 'submit', text: `Antwort von ${p.name}`, by: p.id }, players);
+    }
+    const Game = topTen.Component;
+    const dispatch = vi.fn();
+    const view = (viewer: GamePlayer) => (
+      <PartyCtx.Provider value={{ me: viewer, players } as unknown as PartyValue}>
+        <Game state={state} players={players} me={viewer} isHost={!!viewer.isHost} online dispatch={dispatch} quit={vi.fn()} />
+      </PartyCtx.Provider>
+    );
+    const { rerender } = render(view(players[1]));
+    expect(screen.getByText('Ein Ort zum Uebernachten')).toBeInTheDocument();
+    const rows = within(screen.getByRole('list', { name: 'Antworten' })).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'PaulAntwort von Paul',
+      'Gast 1Antwort von Gast 1Lies deine Antwort laut vor',
+      'Gast 2Antwort von Gast 2',
+      'Gast 3—',
+    ]);
+    expect(rows[1]).toHaveAttribute('style', expect.stringContaining('var(--surface-3)'));
+    expect(screen.getByText('Paul startet das Sortieren.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Alle gehört – sortieren' })).not.toBeInTheDocument();
+    rerender(view(players[0]));
+    fireEvent.click(screen.getByRole('button', { name: 'Alle gehört – sortieren' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'startSorting' });
+  });
+
+  it('lässt nur den anwesenden Kapitän sortieren und wechselt nach dem Überspringen zum nächsten Sitz', () => {
+    let state = { ...topTen.createState(roster), captainIndex: 1 };
+    for (const p of roster) {
+      state = tun(state, { type: 'submit', text: `Antwort von ${p.name}`, by: p.id }, roster);
+    }
+    expect(state.phase).toBe('reading');
+    expect(tun(state, { type: 'startSorting', by: 'p2' }, roster)).toBe(state);
+    expect(tun(state, { type: 'startSorting', by: 'p0' }, roster)).toBe(state);
+    const sorting = tun(state, { type: 'startSorting', by: 'p1' }, roster);
+    expect(sorting.phase).toBe('revealing');
+    expect(tun(sorting, { type: 'reveal', by: 'p2', id: 'p0' }, roster)).toBe(sorting);
+    expect(tun(sorting, { type: 'startSorting', by: 'p1' }, roster)).toBe(sorting);
+
+    const offline = roster.map((p) => p.id === 'p1' ? { ...p, online: false } : p);
+    expect(tun(state, { type: 'startSorting', by: 'p0' }, offline)).toBe(state);
+    expect(tun(state, { type: 'startSorting', by: 'p1' }, offline)).toBe(state);
+    expect(tun(state, { type: 'skipAbsent', by: 'p0', who: 'p1' }, offline).captainIndex).toBe(2);
+
+    const present = roster.filter((p) => p.id !== 'p1');
+    const Game = topTen.Component;
+    const dispatch = vi.fn();
+    const view = (s: State, viewer = present[0]) => (
+      <PartyCtx.Provider value={{ me: viewer, players: present } as unknown as PartyValue}>
+        <Game state={s} players={present} me={viewer} isHost={Boolean(viewer.isHost)} online dispatch={dispatch} quit={vi.fn()} />
+      </PartyCtx.Provider>
+    );
+    const { rerender } = render(view(state));
+    expect(screen.getByText('Gast 1')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Alle gehört – sortieren' })).not.toBeInTheDocument();
+    expect(tun(state, { type: 'startSorting', by: 'p2' }, present)).toBe(state);
+    fireEvent.click(screen.getByRole('button', { name: 'Gast 1 überspringen' }));
+    const transferred = tun(state, dispatch.mock.calls[0][0], present);
+    let rescued = tun(transferred, { type: 'startSorting', by: 'p2' }, present);
+    expect(rescued.phase).toBe('revealing');
+    rerender(view(rescued, present[1]));
+    expect(screen.queryByRole('button', { name: 'Gast 1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Paul' })).toBeEnabled();
+    for (const id of [...present.map((p) => p.id)].sort((a, b) => rescued.numbers[a] - rescued.numbers[b])) {
+      rescued = tun(rescued, { type: 'reveal', by: 'p2', id }, present);
+    }
+    expect(rescued.phase).toBe('results');
+    expect(tun(rescued, { type: 'next' }, roster).perfect).toEqual({ p2: 1 });
+  });
+
+  it.each([
+    { reason: 'entfernt', players: roster.filter((p) => p.id !== 'p1') },
+    { reason: 'offline', players: roster.map((p) => p.id === 'p1' ? { ...p, online: false } : p) },
+  ])('erklärt Gästen die Übergabe beim Vorlesen, wenn der Kapitän $reason ist', ({ players }) => {
+    const state: State = { ...topTen.createState(roster), phase: 'reading', captainIndex: 1 };
+    const viewer = roster[3];
+    const view = (s: State) => (
+      <PartyCtx.Provider value={{ me: viewer, players } as unknown as PartyValue}>
+        <topTen.Component state={s} players={players} me={viewer} isHost={false} online dispatch={vi.fn()} quit={vi.fn()} />
+      </PartyCtx.Provider>
+    );
+    const { rerender } = render(view(state));
+    expect(screen.getByText('Gast 1 ist nicht da – Paul kann überspringen.')).toBeVisible();
+    expect(screen.getByText('Danach startet die nächste anwesende Person das Sortieren.')).toBeVisible();
+    expect(screen.queryByText('Der Host startet das Sortieren.')).not.toBeInTheDocument();
+    const transferred = tun(state, { type: 'skipAbsent', by: 'p0', who: 'p1' }, players);
+    rerender(view(transferred));
+    expect(screen.getByText('Gast 2 startet das Sortieren.')).toBeVisible();
+    expect(screen.queryByText(/Danach startet/)).not.toBeInTheDocument();
+  });
+
+  it('bietet den Abschluss an, wenn die letzte verdeckte Person geht', () => {
+    const answers = Object.fromEntries(roster.map((p) => [p.id, p.name]));
+    let state: State = { ...topTen.createState(roster), phase: 'revealing', captainIndex: 3, answers };
+    const remaining = roster.slice(0, -1);
+    for (const p of remaining) state = tun(state, { type: 'reveal', by: 'p3', id: p.id }, roster);
+    expect(tun(state, { type: 'finishSorting', by: 'p3' }, roster)).toBe(state);
+    expect(tun(state, { type: 'finishSorting', by: 'p1' }, remaining)).toBe(state);
+    const Game = topTen.Component;
+    const dispatch = vi.fn();
+    render(
+      <PartyCtx.Provider value={{ me: remaining[0], players: remaining } as unknown as PartyValue}>
+        <Game state={state} players={remaining} me={remaining[0]} isHost online dispatch={dispatch} quit={vi.fn()} />
+      </PartyCtx.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Gast 3 überspringen' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'skipAbsent', who: 'p3' });
+    const results = tun(state, dispatch.mock.calls[0][0], remaining);
+    expect(results.phase).toBe('results');
+    expect(tun(results, { type: 'next' }, remaining).perfect).toEqual({});
+  });
+
+  it('rechnet eine fertige Sortierung auch nach Ausfall der richtigen Person zu', () => {
+    const answers = Object.fromEntries(roster.map((p) => [p.id, p.name]));
+    let state: State = { ...topTen.createState(roster), captainIndex: 1, phase: 'revealing', answers };
+    for (const id of [...state.order].sort((a, b) => state.numbers[a] - state.numbers[b])) {
+      state = tun(state, { type: 'reveal', by: 'p1', id }, roster);
+    }
+    expect(state.phase).toBe('results');
+    const remaining = roster.filter((p) => p.id !== 'p1');
+    const Game = topTen.Component;
+    render(
+      <PartyCtx.Provider value={{ me: remaining[0], players: remaining } as unknown as PartyValue}>
+        <Game state={state} players={remaining} me={remaining[0]} isHost online dispatch={vi.fn()} quit={vi.fn()} />
+      </PartyCtx.Provider>,
+    );
+    expect(screen.getByText('Gast 1 hat alles richtig aufgedeckt. Alle anderen trinken.')).toBeInTheDocument();
+    expect(tun(state, { type: 'next' }, remaining).perfect).toEqual({ p1: 1 });
+  });
+
+  it('behält beim Neustart mit nur dem Host den Online-Ablauf', () => {
+    const initial = topTen.createState(roster);
+    const alone = roster.slice(0, 1);
+    const restarted = tun(initial, { type: 'restart' }, alone);
+    expect(tun(restarted, { type: 'startReveal' }, alone)).toBe(restarted);
+    expect(tun(restarted, { type: 'submit', text: 'Meine Antwort' }, alone).phase).toBe('reading');
   });
 });

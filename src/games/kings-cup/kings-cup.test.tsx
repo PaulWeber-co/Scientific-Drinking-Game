@@ -75,10 +75,12 @@ function Harness({
   rank,
   logSipsFor,
   online = false,
+  initial,
 }: {
   rank: number;
   logSipsFor: PartyValue['logSipsFor'];
   online?: boolean;
+  initial?: Partial<State>;
 }) {
   const [state, setState] = useState<State>(() => ({
     ...kingsCup.createState(roster),
@@ -86,6 +88,7 @@ function Harness({
     turnIndex: 0,
     drawn: rank,
     target: null,
+    ...initial,
   }));
   const dispatch = (a: GameActionInput) =>
     setState((s) => kingsCup.reduce(s, { ...a, by: me.id, at: Date.now() } as GameAction, roster));
@@ -98,6 +101,7 @@ function Harness({
 }
 
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.42);
   // Alle geteilten Stores zuruecksetzen, nicht nur eine Teilmenge: sonst
   // haengt das Ergebnis an der Reihenfolge der Tests.
   useSeen.setState({ seen: {}, cursor: 0 });
@@ -109,6 +113,8 @@ beforeEach(() => {
     log: [],
   });
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 /** Alle sichtbaren, aktiven Trinken-bestätigen-Knöpfe antippen (volle und kompakte Form). */
 function drinkAllVisible() {
@@ -215,6 +221,222 @@ describe('Zielauswahl (Du, Partner, Boden, Himmel)', () => {
     s = kingsCup.reduce(s, act('next'), roster); // Karte weitergelegt, drawn/target zurückgesetzt
     const nachher = kingsCup.reduce(s, act('pickTarget', { target: 'p2' }), roster);
     expect(nachher.target).toBeNull();
+  });
+});
+
+describe('Gezogene Karte nach Entfernen der ziehenden Person', () => {
+  it.each([
+    ...RULES.map(({ title, drink }, rank) => ({ title, drink, rank, finalKing: false, picked: false })),
+    { title: 'Vierter König', drink: 'none', rank: 12, finalKing: true, picked: false },
+    ...RULES.flatMap(({ title, drink }, rank) => drink === 'pick'
+      ? [{ title: `${title} mit gewähltem Ziel`, drink, rank, finalKing: false, picked: true }]
+      : []),
+  ])('$title lässt die Runde fortfahren', ({ drink, rank, finalKing, picked }) => {
+    const members = roster.map(({ local: _local, ...p }) => ({ ...p, isHost: p.id === me.id }));
+    const remaining = members.filter((p) => p.id !== ben.id);
+    const viewer = drink === 'loser' ? members[2] : members[0];
+    const initial = {
+      ...kingsCup.createState(members), order: ORDER, deck: [rank, rank + 13], kings: finalKing ? 3 : 0,
+    };
+    const drawn = kingsCup.reduce(initial, { type: 'draw', slot: 0, by: ben.id }, members);
+    expect(drawn.drawn).toBe(rank);
+    const start = picked
+      ? kingsCup.reduce(drawn, { type: 'pickTarget', by: ben.id, target: cem.id, card: rank }, members)
+      : drawn;
+
+    function Round({ players, device }: { players: GamePlayer[]; device: GamePlayer }) {
+      const [state, setState] = useState(start);
+      return (
+        <PartyCtx.Provider value={{ ...party(vi.fn()), mode: 'online', me: device, players, isHost: Boolean(device.isHost) }}>
+          <kingsCup.Component
+            state={state} players={players} me={device} isHost={Boolean(device.isHost)} online quit={vi.fn()}
+            dispatch={(action) => setState((s) => kingsCup.reduce(s, { ...action, by: device.id }, players))}
+          />
+        </PartyCtx.Provider>
+      );
+    }
+
+    const { rerender } = render(<Round players={members} device={viewer} />);
+    rerender(<Round players={remaining} device={viewer} />);
+    const next = () => screen.getByRole('button', { name: 'Nächster' });
+    if (drink === 'pick' && !picked) {
+      expect(next()).toBeDisabled();
+      expect(screen.getByRole('button', { name: cem.name })).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Ben überspringen' }));
+    } else if (finalKing) {
+      fireEvent.click(screen.getByRole('button', { name: 'Becher leeren und Schluss' }));
+      expect(screen.getByText(/Vier Könige, 1 Runden/)).toBeVisible();
+      return;
+    } else {
+      expect(screen.queryByRole('button', { name: 'Ben überspringen' })).not.toBeInTheDocument();
+      if (drink === 'loser') {
+        expect(next()).toBeDisabled();
+        expect(screen.queryByRole('button', { name: ben.name })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: cem.name }));
+        expect(screen.getByRole('button', { name: 'Getrunken' })).toBeVisible();
+      }
+      if (RULES[rank].title === 'Regel') {
+        expect(screen.queryByRole('textbox', { name: 'Eigene Regel' })).not.toBeInTheDocument();
+      }
+      if (RULES[rank].title === 'Fragemeister') {
+        expect(screen.queryByRole('list', { name: 'Merkzettel' })).not.toBeInTheDocument();
+      }
+      expect(next()).toBeEnabled();
+      fireEvent.click(next());
+    }
+    rerender(<Round players={remaining} device={members[0]} />);
+    expect(screen.getByRole('button', { name: /Karte aus dem Kranz ziehen/ })).toBeEnabled();
+    expect(screen.getByText('Zieh dir eine Karte aus dem Kranz.')).toBeVisible();
+  });
+});
+
+describe('Sitznachbarn nach dem Überspringen', () => {
+  it.each([
+    { title: 'Links', order: ORDER, turnIndex: 0, removed: [ben.id] },
+    { title: 'Rechts', order: [me.id, cem.id, dana.id, ben.id], turnIndex: 3, removed: [ben.id, cem.id] },
+  ])('zeigt bei $title direkt die Trinkansage für den verbliebenen Nachbarn', ({ title, order, turnIndex, removed }) => {
+    const members = roster.map(({ local: _local, ...p }) => ({ ...p, isHost: p.id === me.id }));
+    const players = members.filter((p) => !removed.includes(p.id));
+    const rank = RULES.findIndex((rule) => rule.title === title);
+    const initial = { ...kingsCup.createState(members), order, turnIndex, deck: [rank] };
+    const skipped = kingsCup.reduce(initial, { type: 'skipAbsent', by: me.id, who: ben.id }, players);
+    const drawn = kingsCup.reduce(skipped, { type: 'draw', by: me.id, slot: 0 }, players);
+    const viewer = members[3];
+    const logSipsFor = vi.fn();
+
+    render(
+      <PartyCtx.Provider value={{ ...party(logSipsFor), mode: 'online', players, me: viewer, isHost: false }}>
+        <kingsCup.Component
+          state={drawn} players={players} me={viewer} isHost={false} online dispatch={vi.fn()} quit={vi.fn()}
+        />
+      </PartyCtx.Provider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dana hat getrunken' }));
+    expect(logSipsFor.mock.calls.map(([id]) => id)).toEqual([dana.id]);
+  });
+});
+
+describe('Partner', () => {
+  const partnerRank = RULES.findIndex((r) => r.title === 'Partner');
+  const start = (): State => ({
+    ...kingsCup.createState(roster), drawn: partnerRank, order: ORDER, turnIndex: 0,
+  });
+  const pick = (state: State, partner: GamePlayer, by = me.id, players = roster) =>
+    kingsCup.reduce(state, { type: 'pickTarget', by, target: partner.id }, players);
+
+  it('merkt Partner pro ziehender Person und ersetzt nur ihre bisherige Wahl', () => {
+    let state = pick(start(), cem);
+    expect(state.partners).toEqual({ p1: cem.id });
+    state = kingsCup.reduce(state, { type: 'next', by: me.id }, roster);
+    state = pick({ ...state, drawn: partnerRank }, ben);
+    expect(state.partners).toEqual({ p0: ben.id, p1: cem.id });
+    state = pick({ ...start(), partners: state.partners }, dana);
+    expect(state.partners).toEqual({ p0: ben.id, p1: dana.id });
+  });
+
+  it('ignoriert Partnerwahlen vom falschen Gerät, für sich selbst und für gegangene Personen', () => {
+    const online = roster.map(({ local: _local, ...p }) => ({ ...p, isHost: p.id === me.id }));
+    const state = start();
+    expect(pick(state, cem, me.id, online)).toBe(state);
+    expect(pick(state, ben, ben.id, online)).toBe(state);
+    expect(pick(state, cem, ben.id, online.filter((p) => p.id !== cem.id))).toBe(state);
+    expect(pick(state, cem, ben.id, online).partners).toEqual({ p1: cem.id });
+  });
+
+  it('lässt nach dem Überspringen den nächsten Sitz ziehen und den Partner wählen', () => {
+    const members = roster.map(({ local: _local, ...p }) => ({ ...p, isHost: p.id === me.id }));
+    const players = members.filter((p) => p.id !== ben.id);
+    const initial = { ...kingsCup.createState(members), order: ORDER, drawn: null, deck: [partnerRank] };
+    expect(kingsCup.reduce(initial, { type: 'draw', by: cem.id }, players)).toBe(initial);
+
+    function Round() {
+      const [state, setState] = useState(initial as State);
+      const Game = kingsCup.Component;
+      return (
+        <PartyCtx.Provider value={{ ...party(vi.fn()), mode: 'online', players }}>
+          <Game
+            state={state} players={players} me={players[0]} isHost online quit={vi.fn()}
+            dispatch={(action) => setState((s) => kingsCup.reduce(s, { ...action, by: players[0].id }, players))}
+          />
+        </PartyCtx.Provider>
+      );
+    }
+
+    render(<Round />);
+    const draw = screen.getByRole('button', { name: /Karte aus dem Kranz ziehen/ });
+    expect(draw).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Ben überspringen' }));
+    fireEvent.click(screen.getByRole('button', { name: /Karte aus dem Kranz ziehen/ }));
+    fireEvent.click(screen.getByRole('button', { name: cem.name }));
+    expect(screen.getByText(`${cem.name} trinkt mit ${me.name} mit`)).toBeVisible();
+  });
+
+  it('entfernt beim Weiterschalten Partnerbeziehungen zu gegangenen Personen in beiden Richtungen', () => {
+    const state = { ...start(), partners: { p0: 'p1', p1: 'p2', p2: 'p3', p3: 'p0' } };
+    const next = kingsCup.reduce(state, { type: 'next', by: me.id }, roster.filter((p) => p.id !== 'p1'));
+    expect(next.partners).toEqual({ p2: 'p3', p3: 'p0' });
+  });
+
+  it('startet Ring of Fire ohne Partnerbeziehungen neu', () => {
+    const state = { ...pick(start(), cem), over: true };
+    expect(kingsCup.reduce(state, { type: 'restart', by: me.id }, roster).partners).toEqual({});
+  });
+
+  it.each([
+    { title: 'Ich', drinker: ben, partner: cem, finalKing: false, select: false },
+    { title: 'Links', drinker: dana, partner: cem, finalKing: false, select: false },
+    { title: 'Rechts', drinker: me, partner: cem, finalKing: false, select: false },
+    { title: 'Du', drinker: dana, partner: cem, finalKing: false, select: true },
+    { title: 'Boden', drinker: dana, partner: cem, finalKing: false, select: true },
+    { title: 'König', drinker: ben, partner: cem, finalKing: true, select: false },
+  ])('lässt bei $title den Partner mit derselben Härte und ohne Kette mittrinken', ({
+    title, drinker, partner, finalKing, select,
+  }) => {
+    const logSipsFor = vi.fn();
+    const rank = RULES.findIndex((rule) => rule.title === title);
+    const third = roster.find((p) => p.id !== drinker.id && p.id !== partner.id)!;
+    render(<Harness rank={rank} logSipsFor={logSipsFor} initial={{
+      finalKing,
+      partners: { [drinker.id]: partner.id, [partner.id]: third.id },
+    }} />);
+    if (select) fireEvent.click(screen.getByRole('button', { name: drinker.name }));
+    expect(screen.getByText('· trinkt mit')).toBeVisible();
+    expect(screen.getByText(`${partner.name} trinkt mit ${drinker.name} mit`)).toBeVisible();
+    drinkAllVisible();
+    const calls = logSipsFor.mock.calls;
+    expect(calls.map(([id]) => id)).toEqual([drinker.id, partner.id]);
+    expect(calls[1][1]).toBe(calls[0][1]);
+  });
+
+  it('zeigt beim Wasserfall jede Person einmal ohne zusätzliche Partneransage', () => {
+    const logSipsFor = vi.fn();
+    const rank = RULES.findIndex((rule) => rule.title === 'Wasserfall');
+    render(<Harness rank={rank} logSipsFor={logSipsFor} initial={{ partners: { p1: 'p2', p0: 'p2' } }} />);
+    expect(screen.queryByText('· trinkt mit')).toBeNull();
+    drinkAllVisible();
+    expect(logSipsFor.mock.calls.map(([id]) => id)).toEqual(roster.map((p) => p.id));
+  });
+
+  it('zeigt die Mittrink-Ansage nur für einen anwesenden Partner', () => {
+    const state = {
+      ...kingsCup.createState(roster), order: ORDER, drawn: RULES.findIndex((rule) => rule.title === 'Ich'),
+      partners: { [ben.id]: cem.id },
+    };
+    const Game = kingsCup.Component;
+    const view = (online: boolean | undefined) => {
+      const players = roster.map((p) => p.id === cem.id ? { ...p, online } : p);
+      return (
+        <PartyCtx.Provider value={{ ...party(vi.fn()), players, mode: 'online' }}>
+          <Game state={state} players={players} me={me} isHost online dispatch={vi.fn()} quit={vi.fn()} />
+        </PartyCtx.Provider>
+      );
+    };
+    const { rerender } = render(view(false));
+    expect(screen.getByText(`${cem.name} trinkt mit ${ben.name} mit`)).toBeVisible();
+    expect(screen.queryByText('· trinkt mit')).not.toBeInTheDocument();
+    rerender(view(undefined));
+    expect(screen.getByText('· trinkt mit')).toBeVisible();
   });
 });
 
@@ -645,7 +867,7 @@ describe('Becher: die Schichten', () => {
   });
 
   it('vergisst die Schichten beim Neustart', () => {
-    const s: State = { ...kingsCup.createState(roster), pours: ['p1', 'p0'] };
+    const s: State = { ...kingsCup.createState(roster), over: true, pours: ['p1', 'p0'] };
     expect(tun(s, 'restart').pours).toEqual([]);
   });
 });
@@ -689,6 +911,56 @@ describe('Merkzettel: Regel und Fragemeister', () => {
     let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Erst so' });
     s = tun(s, 'setRule', { text: 'Doch anders' });
     expect(s.rules).toEqual([{ by: 'p1', text: 'Doch anders' }]);
+  });
+
+  it('streicht offene Regeln und legt beim nächsten Eintrag eine neue an', () => {
+    let state = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Bleibt' });
+    state = tun(state, 'next');
+    state = tun({ ...state, drawn: karte(RULE_RANK) }, 'setRule', { text: 'Geht' });
+    state = tun(state, 'removeRule', { index: 1, by: cem.id });
+    expect(state.rules.map((rule) => rule.text)).toEqual(['Bleibt']);
+    expect(state.ruleOpen).toBe(false);
+    state = tun(state, 'setRule', { text: 'Neu' });
+    expect(state.rules.map((rule) => rule.text)).toEqual(['Bleibt', 'Neu']);
+  });
+
+  it('behält die offene Regel beim Streichen einer älteren geöffnet', () => {
+    const state = tun({
+      ...basis(), drawn: karte(RULE_RANK), rules: [{ by: 'p0', text: 'Alt' }],
+    }, 'setRule', { text: 'Offen' });
+    const next = tun(state, 'removeRule', { index: 0 });
+    expect(next.ruleOpen).toBe(true);
+    expect(tun(next, 'setRule', { text: 'Ersatz' }).rules.map((r) => r.text)).toEqual(['Ersatz']);
+  });
+
+  it('ignoriert ungültige Regelindizes und veraltete Löschaktionen', () => {
+    const state = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Bleibt' });
+    for (const index of [-1, 0.5, 2, '0', undefined]) {
+      expect(tun(state, 'removeRule', { index })).toBe(state);
+    }
+    expect(tun(state, 'removeRule', { index: 0, text: 'Vorherige Regel', who: 'p1' })).toBe(state);
+    expect(tun(state, 'removeRule', { index: 0, text: 'Bleibt', who: 'p2' })).toBe(state);
+    expect(tun(state, 'removeRule', { index: 0, text: 'Bleibt', who: 'p1', count: 2 })).toBe(state);
+  });
+
+  it('streicht per Schließen-Knopf auch die Regel eines anderen Spielers', () => {
+    render(<Harness rank={2} logSipsFor={vi.fn()} online initial={{
+      rules: [{ by: 'p1', text: 'Keine Vornamen' }],
+    }} />);
+    const remove = screen.getByRole('button', { name: 'Regel entfernen: Keine Vornamen' });
+    expect(remove).toHaveClass('btn--sm');
+    fireEvent.click(remove);
+    expect(screen.queryByRole('list', { name: 'Merkzettel' })).toBeNull();
+  });
+
+  it('lässt lange Regeln umbrechen und hält den Namen im Merkzettel zusammen', () => {
+    const text = 'Wer die Karte berührt, nennt vor dem nächsten Zug drei Dinge.';
+    render(<Harness rank={2} logSipsFor={vi.fn()} initial={{ rules: [{ by: ben.id, text }] }} />);
+    const rule = screen.getByText(text, { exact: true });
+    const name = screen.getByText(`· ${ben.name}`);
+    expect(rule).toHaveStyle({ flex: '1 1 auto', minWidth: '0', overflowWrap: 'anywhere' });
+    expect(name).toHaveStyle({ whiteSpace: 'nowrap' });
+    expect(rule.parentElement).toBe(name.parentElement);
   });
 
   it('legt zur nächsten Regel-Karte eine zweite an', () => {
@@ -755,7 +1027,7 @@ describe('Merkzettel: Regel und Fragemeister', () => {
 
   it('vergisst Merkzettel und Fragemeister beim Neustart', () => {
     let s = tun({ ...basis(), drawn: karte(RULE_RANK) }, 'setRule', { text: 'Keine Namen' });
-    s = { ...s, questionMaster: 'p1' };
+    s = { ...s, questionMaster: 'p1', over: true };
     s = tun(s, 'restart');
     expect(s.rules).toEqual([]);
     expect(s.questionMaster).toBeNull();

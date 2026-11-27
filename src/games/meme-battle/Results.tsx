@@ -12,10 +12,10 @@ import { CountTo, SaveMeme, Tally, TopicNote, tallyOf, tiltFor } from './parts';
 import { templateOf } from './templates';
 
 /**
- * Auflösung einer Runde: das Meme der Runde groß, darunter der Rest des
+ * Auflösung einer Runde: die besten Memes zuerst, darunter der Rest des
  * Stapels mit Namen, dann Punktestand und wer trinkt.
  *
- * Alles kommt gestaffelt herein – erst der Gewinner, dann wird das Etikett
+ * Alles kommt gestaffelt herein – erst die Gewinner, dann wird das Etikett
  * aufgeklebt, dann fallen die übrigen Abzüge auf den Tisch.
  */
 export function Results({
@@ -37,13 +37,18 @@ export function Results({
   const nameOf = (id: string) =>
     id === me.id ? 'Du' : (byId(id)?.name ?? state.names[id] ?? 'Weg');
   const ranked = [...state.order].sort((a, b) => (state.points[b] ?? 0) - (state.points[a] ?? 0));
-  const best = ranked[0];
-  const rest = ranked.slice(1);
   const last = isOver(state.round + 1, state.goal);
 
   // --- Wer trinkt ---
   const values = ranked.map((id) => state.points[id] ?? 0);
-  const top = values.length ? Math.max(...values) : 0;
+  const top = values[0] ?? 0;
+  const winners = ranked.filter((id) => (state.points[id] ?? 0) === top);
+  const rest = ranked.slice(winners.length);
+  const tied = winners.length > 1;
+  const iWon = winners.includes(me.id);
+  const kicker = tied
+    ? (iWon ? 'Du teilst dir den Rundensieg' : `Gleichstand – ${winners.length} Memes teilen sich die Runde`)
+    : (iWon ? 'Dein Meme gewinnt die Runde' : 'Meme der Runde');
   const low = values.length ? Math.min(...values) : 0;
   const losers = top > low ? ranked.filter((id) => (state.points[id] ?? 0) === low) : [];
   const noShows = creators(state, players).filter((id) => !state.memes[id]);
@@ -55,7 +60,7 @@ export function Results({
   // Gewonnen fühlt sich anders an als erwischt – und beides anders als zuschauen.
   const iLost = losers.includes(me.id) || noShows.includes(me.id);
   useEffect(() => {
-    haptic(relaxed ? 'press' : best === me.id ? 'success' : iLost ? 'warn' : 'press');
+    haptic(iWon ? 'success' : !relaxed && iLost ? 'warn' : 'press');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- einmal je Auflösung
   }, [state.round]);
 
@@ -72,7 +77,7 @@ export function Results({
     </button>
   );
 
-  if (!best) {
+  if (winners.length === 0) {
     return (
       <div className="stack-3">
         <BigCard kicker={`Runde ${state.round}`}>
@@ -92,9 +97,6 @@ export function Results({
     );
   }
 
-  const bestMeme = state.memes[best];
-  const bestTemplate = templateOf(bestMeme?.t);
-  const bestCaption = `${byId(best)?.name ?? state.names[best] ?? ''} · Runde ${state.round}`;
   const rows = players
     .filter((p) => state.scores[p.id] !== undefined || state.points[p.id] !== undefined)
     .map((p) => {
@@ -118,23 +120,33 @@ export function Results({
       {topic && <TopicNote text={topic} />}
 
       <div className="md-hero">
-        <div className="md-hero__kicker">
-          {best === me.id ? 'Dein Meme gewinnt die Runde' : 'Meme der Runde'}
-        </div>
-        <MemePrint
-          className="md-print--winner"
-          tilt={-2}
-          ar={bestTemplate ? bestTemplate.w / bestTemplate.h : undefined}
-          caption={nameOf(best)}
-          badge={
-            !relaxed ? <PointsBadge points={state.points[best] ?? 0} tone="gold" slap /> : undefined
-          }
-        >
-          {bestTemplate && <MemeImage template={bestTemplate} texts={bestMeme.x} />}
-        </MemePrint>
-        <div className="row-between md-hero__meta md-rise" style={{ ['--i' as string]: 1 }}>
-          <Tally {...tallyOf(state.votes[best])} />
-          <SaveMeme meme={bestMeme} caption={bestCaption} />
+        <div className={tied ? 'md-hero__kicker t-center' : 'md-hero__kicker'}>{kicker}</div>
+        <div className={tied ? 'md-hero__winners' : undefined}>
+          {winners.map((id, i) => {
+            const meme = state.memes[id];
+            const template = templateOf(meme?.t);
+            const caption = `${byId(id)?.name ?? state.names[id] ?? ''} · Runde ${state.round}`;
+            return (
+              <div key={id} className="md-hero__winner">
+                <MemePrint
+                  className="md-print--winner"
+                  tilt={i % 2 === 0 ? -2 : 2}
+                  ar={template ? template.w / template.h : undefined}
+                  caption={nameOf(id)}
+                  badge={!relaxed ? <PointsBadge points={top} tone="gold" slap /> : undefined}
+                >
+                  {template && <MemeImage template={template} texts={meme.x} />}
+                </MemePrint>
+                <div
+                  className={`row-between md-hero__meta md-rise${tied ? ' wrap' : ''}`}
+                  style={{ ['--i' as string]: 1 }}
+                >
+                  <Tally {...tallyOf(state.votes[id])} />
+                  <SaveMeme meme={meme} caption={caption} compact={tied} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
