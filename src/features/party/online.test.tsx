@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { LobbyScreen } from '../lobby/LobbyScreen';
 import { PartyProvider, useParty, type PartyValue } from './PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import { findDrink } from '../../engine/drinks';
 import { makeDrinkEvent } from '../../engine/sips';
+import { useApp } from '../../store/app';
+import { loadGame } from '../../games/registry';
 
 /**
  * Die Online-Lobby gegen eine Datenbank im Arbeitsspeicher.
@@ -21,7 +26,11 @@ const listeners = new Set<Listener>();
 const cancelDisconnect = vi.fn(() => Promise.resolve());
 /** onDisconnect-Anweisungen und `set`-Aufrufe in Reihenfolge: „remove <pfad>", „set <pfad>". */
 const disconnectOps: string[] = [];
+const writes: string[] = [];
 let connected = true;
+let rejectHeartbeat = false;
+let rejectRemoval = false;
+let beforeSubscribe: ((path: string) => void) | undefined;
 
 interface FakeSnap {
   exists: () => boolean;
@@ -72,28 +81,38 @@ vi.mock('firebase/database', () => ({
   },
   get: async (r: { path: string }) => snap(r.path),
   set: async (r: { path: string }, value: unknown) => {
+    writes.push(r.path);
     disconnectOps.push(`set ${r.path}`);
     setAt(r.path, value);
     notify();
   },
   update: async (r: { path: string }, patch: Record<string, unknown>) => {
+    writes.push(r.path);
+    if (rejectHeartbeat && 'zone' in patch) throw new Error('Verbindung unterbrochen');
+    if (rejectRemoval && Object.keys(patch).some((key) => key.startsWith('players/'))) {
+      throw new Error('network unavailable');
+    }
     for (const [k, v] of Object.entries(patch)) setAt(`${r.path}/${k}`, v);
     notify();
   },
   remove: async (r: { path: string }) => {
+    writes.push(r.path);
     setAt(r.path, null);
     notify();
   },
   push: async (r: { path: string }, value: unknown) => {
+    writes.push(r.path);
     setAt(`${r.path}/k${Math.random().toString(36).slice(2)}`, value);
     notify();
   },
   runTransaction: async (r: { path: string }, fn: (cur: unknown) => unknown) => {
+    writes.push(r.path);
     setAt(r.path, fn(getAt(r.path)));
     notify();
     return { committed: true };
   },
   onValue: (r: { path: string }, cb: (s: FakeSnap) => void) => {
+    beforeSubscribe?.(r.path);
     const l = { path: r.path, cb };
     listeners.add(l);
     cb(snap(r.path));
@@ -143,14 +162,24 @@ function lobby(players: Record<string, unknown>, host: string, code = 'ABCDEF') 
   });
 }
 
-async function beitreten(code = 'ABCDEF') {
+const lobbyScreen = <MemoryRouter initialEntries={['/lobby']}><LobbyScreen /></MemoryRouter>;
+
+async function beitreten(code = 'ABCDEF', children?: ReactNode) {
   render(
     <PartyProvider>
       <Probe />
+      {children}
     </PartyProvider>,
   );
   await act(async () => {
     await api.joinOnline(code);
+  });
+}
+
+function fixRandomBytes() {
+  vi.spyOn(crypto, 'getRandomValues').mockImplementation((bytes) => {
+    if (bytes instanceof Uint8Array) bytes.fill(0);
+    return bytes;
   });
 }
 
@@ -163,12 +192,18 @@ beforeEach(() => {
   listeners.clear();
   cancelDisconnect.mockClear();
   disconnectOps.length = 0;
+  writes.length = 0;
   connected = true;
+  rejectHeartbeat = false;
+  rejectRemoval = false;
+  beforeSubscribe = undefined;
+  useApp.getState().setLastLobbyCode(null);
   localStorage.setItem('sdg.device-id', ICH);
   sessionStorage.clear();
   usePlayer.setState({
     profile: { ...defaultProfile(), name: 'Ich' },
     onboarded: true,
+    preloadAskedAt: START,
     currentDrinkId: 'beer-pils',
     customDrinks: [],
     log: [],
@@ -177,6 +212,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -240,30 +276,480 @@ describe('Online-Lobby: Host-Übernahme', () => {
     expect(getAt('lobbies/ABCDEF/meta/host')).toBe(ICH);
     expect(api.isHost).toBe(true);
   });
+
+  it('überspringt unvollständige Einträge bei der Host-Übernahme', async () => {
+    lobby({
+      h1: { id: 'h1', lastSeen: START, joinedAt: START - 120_000 },
+      p2: { id: 'p2', lastSeen: START, joinedAt: START - 60_000 },
+    }, 'h1');
+    await beitreten();
+    expect(api.isHost).toBe(false);
+
+    await act(async () => vi.advanceTimersByTime(20_000));
+    expect(getAt('lobbies/ABCDEF/meta/host')).toBe(ICH);
+    expect(api.isHost).toBe(true);
+  });
 });
 
-describe('Online-Lobby: nach dem Rauswurf wegen Inaktivität', () => {
-  it('trägt sich mit dem nächsten Herzschlag vollständig wieder ein', async () => {
+describe('Online-Lobby: unvollständige Spielereinträge', () => {
+  const path = 'lobbies/ABCDEF';
+  const playerPath = `${path}/players/${ICH}`;
+
+  it('zeigt fremde Teil-Einträge weder in der Lobby noch in der Runde', async () => {
+    lobby({
+      p2: { name: 'Ohne ID', lastSeen: START, online: true, zone: 'sober' },
+      p3: { ...spieler('p3', 'Anna', START, START - 300_000), name: 3 },
+      p4: spieler('p4', 'Kim', START + 1, START),
+    }, ICH);
+    await beitreten();
+    expect(api.mode).toBe('online');
+    expect(api.players.map((p) => p.id)).toEqual([ICH, 'p4']);
+    expect(api.gamePlayers.map((p) => p.id)).toEqual([ICH, 'p4']);
+    expect(getAt(`${path}/players/p3/name`)).toBe(3);
+  });
+
+  it('zeigt beim eigenen Teil-Eintrag nach längerer Stille den Weg-Hinweis', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    await beitreten('ABCDEF', lobbyScreen);
+    vi.setSystemTime(START + 121_000);
+    writes.length = 0;
+
+    await act(async () => {
+      setAt(playerPath, { lastSeen: Date.now(), online: true, zone: 'sober' });
+      notify();
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Du warst eine Weile weg und bist nicht mehr in der Runde.');
+    expect(api.mode).toBe('local');
+    expect(useApp.getState().lastLobbyCode).toBe('ABCDEF');
+
+    await act(async () => vi.advanceTimersByTime(60_000));
+    expect(writes).toEqual([]);
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Zurück in Lobby ABCDEF' })));
+    expect(api.mode).toBe('online');
+    expect(getAt(playerPath)).toMatchObject({ id: ICH, name: 'Ich', joinedAt: Date.now() });
+  });
+
+  it('zeigt beim eigenen Teil-Eintrag mit frischem Herzschlag den Rauswurf-Hinweis', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    await beitreten('ABCDEF', lobbyScreen);
+    vi.setSystemTime(START + 130_000);
+    await act(async () => vi.advanceTimersByTime(20_000));
+    expect(getAt(`${playerPath}/lastSeen`)).toBe(Date.now());
+
+    await act(async () => {
+      setAt(playerPath, { lastSeen: Date.now(), online: true, zone: 'sober' });
+      notify();
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Der Host hat dich aus der Runde genommen.');
+    expect(api.mode).toBe('local');
+    expect(useApp.getState().lastLobbyCode).toBeNull();
+  });
+});
+
+describe('Online-Lobby: nach längerer Funkstille', () => {
+  it('zeigt den Hinweis nach längerer Abwesenheit und tritt erst nach einem Tipp auf den gemerkten Code wieder bei', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    usePlayer.setState({ profile: { ...defaultProfile(), name: 'Ich', sharePhoto: true, photo: 'FOTO' } });
+    const player = `lobbies/ABCDEF/players/${ICH}`;
+    const avatar = `lobbies/ABCDEF/avatars/${ICH}`;
+    await beitreten('ABCDEF', lobbyScreen);
+    expect(disconnectOps).toContain(`update ${player}`);
+    expect(disconnectOps).toContain(`remove ${avatar}`);
+    writes.length = 0;
+    disconnectOps.length = 0;
+
+    vi.setSystemTime(START + 271_000);
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    await act(async () => {
+      setAt('lobbies/ABCDEF/players/h1/lastSeen', Date.now());
+      setAt(player, null);
+      setAt(avatar, null);
+      notify();
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(api.mode).toBe('local');
+    expect(api.code).toBeNull();
+    expect(useApp.getState().lastLobbyCode).toBe('ABCDEF');
+    const notice = screen.getByRole('status');
+    expect(notice).toHaveTextContent('Du warst eine Weile weg und bist nicht mehr in der Runde.');
+    expect(notice).toHaveClass('notice', 'notice--neutral');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(disconnectOps).toEqual([`cancel ${player}`, `cancel ${avatar}`]);
+
+    await act(async () => vi.advanceTimersByTime(60_000));
+    expect(writes).toEqual([]);
+    expect(getAt(player)).toBeNull();
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Zurück in Lobby ABCDEF' })));
+    expect(api.mode).toBe('online');
+    expect(getAt(player)).toMatchObject({ id: ICH, name: 'Ich', joinedAt: Date.now() });
+    expect(notice).not.toBeInTheDocument();
+  });
+
+  it('wertet einen fehlgeschlagenen Herzschlag an der 120-Sekunden-Grenze nicht als Lebenszeichen', async () => {
     lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
     await beitreten();
-    expect(getAt(`lobbies/ABCDEF/players/${ICH}/name`)).toBe('Ich');
 
-    // Das Handy lag gesperrt, der Host hat den Eintrag entfernt.
+    vi.setSystemTime(START + 100_000);
+    rejectHeartbeat = true;
+    await act(async () => {
+      setAt('lobbies/ABCDEF/players/h1/lastSeen', Date.now());
+      notify();
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(getAt(`lobbies/ABCDEF/players/${ICH}/lastSeen`)).toBe(START);
     await act(async () => {
       setAt(`lobbies/ABCDEF/players/${ICH}`, null);
       notify();
     });
+    expect(api.notice).toBe('Du warst eine Weile weg und bist nicht mehr in der Runde.');
+  });
+});
+
+describe('Online-Lobby: Spieler entfernen', () => {
+  const playerPath = (id: string) => `lobbies/ABCDEF/players/${id}`;
+  const avatarPath = (id: string) => `lobbies/ABCDEF/avatars/${id}`;
+
+  it('löscht als Host Spieler und Avatar in demselben Update', async () => {
+    lobby({ p2: spieler('p2', 'Anna', START, START) }, ICH);
+    setAt(avatarPath('p2'), 'data:image/jpeg;base64,ANNA');
+    await beitreten();
+    writes.length = 0;
+    await act(async () => api.removePlayer('p2'));
+    expect(writes).toEqual(['lobbies/ABCDEF']);
+    expect(getAt(playerPath('p2'))).toBeNull();
+    expect(getAt(avatarPath('p2'))).toBeNull();
+    expect(api.players.map((p) => p.id)).toEqual([ICH]);
+  });
+
+  it('zeigt einen Netzfehler beim Entfernen als rote Fehlermeldung', async () => {
+    lobby({ p2: spieler('p2', 'Anna', START, START) }, ICH);
+    rejectRemoval = true;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await beitreten('ABCDEF', lobbyScreen);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Anna' }));
+    const sheet = screen.getByRole('dialog', { name: 'Anna' });
+    await act(async () => fireEvent.click(within(sheet).getByRole('button', { name: 'Aus der Runde nehmen' })));
+
+    const error = screen.getByRole('alert');
+    expect(error).toHaveTextContent('Keine Verbindung. Auf einer Party ist das Netz oft schlecht – kurz warten.');
+    expect(error).toHaveClass('notice', 'notice--red');
+    expect(screen.getByRole('button', { name: 'Anna' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['Mitspieler können den Host nicht entfernen', 'h1', 'h1'],
+    ['Der Host kann sich nicht selbst entfernen', ICH, ICH],
+  ])('%s', async (_fall, host, target) => {
+    lobby({ h1: spieler('h1', 'Andere Person', START, START) }, host);
+    await beitreten();
+    setAt(avatarPath(target), 'data:image/jpeg;base64,FOTO');
+    writes.length = 0;
+    await act(async () => api.removePlayer(target));
+    expect(writes).toEqual([]);
+    expect(getAt(playerPath(target))).not.toBeNull();
+    expect(getAt(avatarPath(target))).not.toBeNull();
+  });
+
+  it('zeigt den Rauswurf-Hinweis auch bei offenem Trink-Sheet und bleibt ohne Lobby-Code draußen', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    usePlayer.setState({
+      profile: { ...defaultProfile(), name: 'Ich', sharePhoto: true, photo: 'FOTO' },
+      preloadAskedAt: null,
+    });
+    await beitreten('ABCDEF', lobbyScreen);
+    expect(screen.getByRole('dialog', { name: 'Schon was getrunken?' })).toBeInTheDocument();
+    expect(disconnectOps).toContain(`update ${playerPath(ICH)}`);
+    expect(disconnectOps).toContain(`remove ${avatarPath(ICH)}`);
+    vi.setSystemTime(START + 130_000);
     await act(async () => {
+      setAt('lobbies/ABCDEF/players/h1/lastSeen', Date.now());
+      notify();
       vi.advanceTimersByTime(20_000);
     });
+    expect(getAt(`${playerPath(ICH)}/lastSeen`)).toBe(Date.now());
+    expect(useApp.getState().lastLobbyCode).toBe('ABCDEF');
 
-    // Ein reines Teil-Update (nur lastSeen, zone, …) lehnen die Security
-    // Rules ab, weil id und name fehlen – man wäre still verschwunden.
-    const eintrag = getAt(`lobbies/ABCDEF/players/${ICH}`) as Record<string, unknown>;
-    expect(eintrag.id).toBe(ICH);
-    expect(eintrag.name).toBe('Ich');
-    expect(typeof eintrag.joinedAt).toBe('number');
-    expect(api.players.some((p) => p.id === ICH)).toBe(true);
+    writes.length = 0;
+    disconnectOps.length = 0;
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    await act(async () => {
+      setAt(playerPath(ICH), null);
+      setAt(avatarPath(ICH), null);
+      notify();
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(api.mode).toBe('local');
+    expect(api.code).toBeNull();
+    const notice = screen.getByRole('status');
+    expect(notice).toHaveTextContent('Der Host hat dich aus der Runde genommen. Mit dem Code kannst du wieder beitreten.');
+    expect(notice).toHaveClass('notice', 'notice--neutral');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Schon was getrunken?' })).toBeNull();
+    expect(useApp.getState().lastLobbyCode).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zurück in Lobby ABCDEF' })).toBeNull();
+    expect(disconnectOps).toEqual([`cancel ${playerPath(ICH)}`, `cancel ${avatarPath(ICH)}`]);
+    for (let i = 0; i < 3; i++) {
+      await act(async () => vi.advanceTimersByTime(20_000));
+      expect(getAt(playerPath(ICH))).toBeNull();
+    }
+    expect(writes).toEqual([]);
+
+    fixRandomBytes();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /Eigene Handys/ })));
+    expect(api.mode).toBe('online');
+    expect(api.code).toBe('AAAAAA');
+    expect(notice).not.toBeInTheDocument();
+  });
+
+  it('entfernt den Rauswurf-Hinweis beim Hinzufügen eines lokalen Gasts', async () => {
+    fixRandomBytes();
+    lobby({ h1: spieler('h1', 'Host', START, START) }, 'h1');
+    await beitreten('ABCDEF', lobbyScreen);
+    await act(async () => {
+      setAt(playerPath(ICH), null);
+      notify();
+    });
+    const notice = screen.getByRole('status');
+    expect(notice).toHaveTextContent('Der Host hat dich aus der Runde genommen.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mitspieler hinzufügen' }));
+    const sheet = screen.getByRole('dialog', { name: 'Mitspieler auf diesem Handy' });
+    fireEvent.change(within(sheet).getByPlaceholderText('Name'), { target: { value: 'Anna' } });
+    expect(notice).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Fertig' }));
+
+    expect(screen.getByRole('button', { name: 'Anna' })).toBeInTheDocument();
+    expect(notice).not.toBeInTheDocument();
+  });
+
+  it('entfernt den Weg-Hinweis beim Start eines lokalen Spiels', async () => {
+    fixRandomBytes();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    lobby({ h1: spieler('h1', 'Host', START, START) }, 'h1');
+    render(<PartyProvider><Probe />{lobbyScreen}</PartyProvider>);
+    act(() => api.addLocalPlayer({
+      name: 'Anna',
+      color: 'blue',
+      profile: { ...defaultProfile(), name: 'Anna', color: 'blue' },
+      drinkId: 'beer-pils',
+    }));
+    await act(async () => {
+      await api.joinOnline('ABCDEF');
+    });
+
+    vi.setSystemTime(START + 271_000);
+    await act(async () => {
+      setAt(playerPath(ICH), null);
+      notify();
+    });
+    const notice = screen.getByRole('status');
+    expect(notice).toHaveTextContent('Du warst eine Weile weg und bist nicht mehr in der Runde.');
+    expect(api.mode).toBe('local');
+
+    await act(async () => {
+      expect(await api.startGame('most-likely')).toBe(true);
+    });
+
+    expect(api.status).toBe('playing');
+    expect(api.gameId).toBe('most-likely');
+    expect(notice).not.toBeInTheDocument();
+  });
+
+  it('lässt die Lobby bestehen, auch wenn das entfernte Gerät zuletzt aktiv war', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 900_000, START - 600_000) }, 'h1');
+    await beitreten();
+    writes.length = 0;
+    await act(async () => {
+      setAt(playerPath(ICH), null);
+      notify();
+    });
+    expect(api.mode).toBe('local');
+    expect(writes).toEqual([]);
+    expect(getAt('lobbies/ABCDEF/meta/host')).toBe('h1');
+  });
+
+  it('verwirft einen noch ladenden Spielstart nach Verlust des eigenen Eintrags', async () => {
+    await loadGame('most-likely');
+    lobby({ p2: spieler('p2', 'Anna', START, START) }, ICH);
+    await beitreten();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    writes.length = 0;
+
+    await act(async () => {
+      const starting = api.startGame('most-likely');
+      setAt(playerPath(ICH), null);
+      notify();
+      expect(await starting).toBe(false);
+    });
+    expect(writes).toEqual([]);
+  });
+
+  it('wartet ohne Herzschlag, solange der eigene Eintrag noch nie im Lobby-Abbild stand', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    beforeSubscribe = (path) => {
+      if (path === 'lobbies/ABCDEF') setAt(playerPath(ICH), null);
+    };
+    await beitreten();
+    expect(writes).toEqual([playerPath(ICH)]);
+    expect(api.mode).toBe('online');
+    expect(api.error).toBeNull();
+    expect(api.notice).toBeNull();
+
+    await act(async () => {
+      setAt(playerPath(ICH), spieler(ICH, 'Ich', START, START));
+      notify();
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(getAt(`${playerPath(ICH)}/lastSeen`)).toBe(START + 20_000);
+  });
+
+  it('lässt ein bewusst wieder beigetretenes Gerät erneut Herzschläge senden', async () => {
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    await beitreten();
+    await act(async () => {
+      setAt(playerPath(ICH), null);
+      notify();
+    });
+    expect(api.mode).toBe('local');
+    await act(async () => { await api.joinOnline('ABCDEF'); });
+    await act(async () => vi.advanceTimersByTime(20_000));
+    expect(api.mode).toBe('online');
+    expect(api.error).toBeNull();
+    expect(getAt(`${playerPath(ICH)}/lastSeen`)).toBe(START + 20_000);
+  });
+
+  it('entfernt das zweite Gerät und lässt das laufende Spiel beim Host weiterlaufen', async () => {
+    await loadGame('most-likely');
+    lobby({ h1: spieler('h1', 'Host', START - 120_000, START) }, 'h1');
+    setAt('lobbies/ABCDEF/meta/status', 'playing');
+    setAt('lobbies/ABCDEF/meta/gameId', 'most-likely');
+    setAt('lobbies/ABCDEF/game', {
+      id: 'most-likely', startedAt: START, state: '{"phase":"vote","votes":{},"tally":{}}',
+    });
+    let host!: PartyValue;
+    function Host() {
+      host = useParty();
+      return null;
+    }
+    localStorage.setItem('sdg.device-id', 'h1');
+    render(<PartyProvider><Host /></PartyProvider>);
+    await act(async () => { await host.joinOnline('ABCDEF'); });
+    localStorage.setItem('sdg.device-id', ICH);
+    await beitreten();
+    expect(api.status).toBe('playing');
+    expect(host.players.map((p) => p.id)).toContain(ICH);
+
+    await act(async () => host.removePlayer(ICH));
+    await act(async () => vi.advanceTimersByTime(60_000));
+    expect(api.mode).toBe('local');
+    expect(getAt(playerPath(ICH))).toBeNull();
+    expect(host.players.map((p) => p.id)).toEqual(['h1']);
+    expect(host.status).toBe('playing');
+    await act(async () => host.dispatch({ type: 'vote', target: 'h1' }));
+    expect(host.gameState).toMatchObject({ votes: { h1: 'h1' } });
+  });
+});
+
+describe('Online-Lobby: Inbox-Absender', () => {
+  const path = 'lobbies/ABCDEF';
+  const state = () => JSON.parse(getAt(`${path}/game/state`) as string);
+  const vote = (id: string, by: string, target: string) => setAt(`${path}/inbox/${id}`, {
+    by,
+    at: Date.now(),
+    action: JSON.stringify({ type: 'vote', by: 'ignorieren', target }),
+  });
+
+  beforeEach(async () => {
+    await loadGame('most-likely');
+    lobby({ p2: spieler('p2', 'Anna', START, START) }, ICH);
+    setAt(`${path}/meta/status`, 'playing');
+    setAt(`${path}/meta/gameId`, 'most-likely');
+    setAt(`${path}/game`, {
+      id: 'most-likely',
+      startedAt: START,
+      state: JSON.stringify({ phase: 'vote', votes: {}, tally: {} }),
+    });
+    await beitreten();
+  });
+
+  it('verwirft die Stimme einer entfernten Person und räumt ihren Inbox-Eintrag ab', async () => {
+    writes.length = 0;
+    await act(async () => {
+      vote('a', 'p2', ICH);
+      notify();
+      api.removePlayer('p2');
+    });
+    expect(getAt(`${path}/inbox/a`)).toBeNull();
+    expect(state().votes).toEqual({});
+    expect(writes).not.toContain(`${path}/game/state`);
+
+    await act(async () => api.dispatch({ type: 'vote', target: ICH }));
+    expect(state().votes).toEqual({ [ICH]: ICH });
+  });
+
+  it('verwirft eine Stimme auch bei einer Entfernung während der Inbox-Verarbeitung', async () => {
+    await act(async () => {
+      vote('a', 'schon-weg', ICH);
+      vote('b', 'p2', ICH);
+      notify();
+      await Promise.resolve();
+      api.removePlayer('p2');
+    });
+    expect(getAt(`${path}/inbox/a`)).toBeNull();
+    expect(getAt(`${path}/inbox/b`)).toBeNull();
+    expect(state().votes).toEqual({});
+  });
+
+  it('beendet nach Verlust des eigenen Eintrags auch die Schreibzugriffe des Hosts', async () => {
+    vi.setSystemTime(START + 121_000);
+    writes.length = 0;
+    await act(async () => {
+      vote('a', ICH, 'p2');
+      notify();
+      setAt(`${path}/players/${ICH}`, null);
+      notify();
+      vi.advanceTimersByTime(40_000);
+    });
+    expect(api.mode).toBe('local');
+    expect(writes).toEqual([]);
+  });
+
+  it('verwirft Züge aus Teil-Einträgen und akzeptiert sie nach vollständigem Beitritt', async () => {
+    await act(async () => {
+      setAt(`${path}/players/p3`, { id: 'p3', lastSeen: START, online: true });
+      notify();
+      vote('a', 'p3', 'p2');
+      notify();
+    });
+    expect(getAt(`${path}/inbox/a`)).toBeNull();
+    expect(state().votes).toEqual({});
+
+    await act(async () => {
+      setAt(`${path}/players/p3`, spieler('p3', 'Kim', START + 1, START));
+      notify();
+      vote('b', 'p3', 'p2');
+      notify();
+    });
+    expect(getAt(`${path}/inbox/b`)).toBeNull();
+    expect(state().votes).toEqual({ p3: 'p2' });
+  });
+
+  it('berücksichtigt Beitritte bei der Auszählung schon vor dem nächsten Rendern', async () => {
+    await act(async () => api.dispatch({ type: 'vote', target: 'p2' }));
+    await act(async () => {
+      setAt(`${path}/players/p3`, spieler('p3', 'Kim', START + 1, START));
+      notify();
+      vote('a', 'p2', ICH);
+      notify();
+    });
+    expect(state()).toMatchObject({ phase: 'vote', votes: { [ICH]: 'p2', p2: ICH } });
+    await act(async () => {
+      vote('b', 'p3', 'p2');
+      notify();
+    });
+    expect(state()).toMatchObject({ phase: 'result', votes: { [ICH]: 'p2', p2: ICH, p3: 'p2' } });
   });
 });
 

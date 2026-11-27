@@ -16,7 +16,7 @@ import { useModalDialog } from '../../lib/modal';
 export function GameInvite() {
   const party = useParty();
   const nav = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, state: locationState } = useLocation();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const buzzed = useRef<string | null>(null);
 
@@ -34,7 +34,10 @@ export function GameInvite() {
   // Eine Einladung pro Runde: der Zeitstempel macht sie eindeutig.
   const key = running ? `${party.gameId}-${party.startedAt}` : null;
   const dialog = useRef<HTMLDivElement>(null);
-  const inviteOpen = !!game && !!key && !(startedByMe && !party.leftRound) && pathname !== '/spiel' && dismissed !== key && !party.leftRound;
+  // Hat jemand anderes das Spiel gestartet, würde die Einladung beim Wechsel
+  // aus dem Spiel die Spielerliste überdecken, etwa nach einer Host-Übernahme.
+  const managing = pathname === '/lobby' && party.isHost && locationState?.manageRound === true;
+  const inviteOpen = !!game && !!key && !(startedByMe && !party.leftRound) && pathname !== '/spiel' && !managing && dismissed !== key && !party.leftRound;
   const dismiss = () => {
     setDismissed(key);
     party.leaveRound();
@@ -49,7 +52,7 @@ export function GameInvite() {
   }, [key, startedByMe]);
 
   // Wer selbst gestartet und dann verlassen hat, braucht den Weg zurück auch.
-  if (!game || !key || (startedByMe && !party.leftRound) || pathname === '/spiel') return null;
+  if (!game || !key || (startedByMe && !party.leftRound) || pathname === '/spiel' || managing) return null;
 
   const join = () => {
     haptic('select');

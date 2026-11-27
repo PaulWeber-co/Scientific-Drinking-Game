@@ -27,7 +27,7 @@ export function GameMenu({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const nav = useNavigate();
-  const { gameId } = useParty();
+  const { gameId, mode, isHost } = useParty();
   const game = GAMES.find((entry) => entry.id === gameId);
   const drink = useCurrentDrink();
 
@@ -100,6 +100,9 @@ export function GameMenu({
           <div className="game-menu__items" role="menu" aria-label="Mehr">
             {item('Anderes Getränk eintragen', drink.icon, onLogDrink)}
             {item('Einwegkamera', 'camera', () => nav('/kamera'))}
+            {mode === 'online' && isHost && game && item('Spieler verwalten', 'people', () =>
+              nav('/lobby', { state: { from: game.id, manageRound: true } }),
+            )}
             {game && item('Regeln', 'info', () => setSheet('rules'))}
             {item(
               'Einstellungen',
