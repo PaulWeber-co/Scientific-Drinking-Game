@@ -2858,6 +2858,15 @@ body:has(.native-tabbar-anchor) .updatebar {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-3);
 }
+.lobby-player-row--guest {
+  gap: 0;
+  padding: 0 var(--s-4) 0 0;
+}
+.lobby-player-row__guest {
+  align-self: stretch;
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+}
 .lobbychoice {
   display: flex;
   flex-direction: column;

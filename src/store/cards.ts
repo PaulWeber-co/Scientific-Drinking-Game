@@ -15,23 +15,33 @@ interface CardsState {
   clear: (gameId: string) => void;
 }
 
+export function normalizeCardText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 export const useCustomCards = create<CardsState>()(
   persist(
     (set) => ({
       byGame: {},
       add: (gameId, card) =>
-        set((s) => ({
-          byGame: {
-            ...s.byGame,
-            [gameId]: [
-              ...(s.byGame[gameId] ?? []),
-              // Zufällig statt Zeitstempel: zwei Karten in derselben
-              // Millisekunde bekamen sonst dieselbe Kennung, und „Löschen"
-              // nahm beide mit.
-              { ...card, id: uid('c_') },
-            ],
-          },
-        })),
+        set((s) =>
+          s.byGame[gameId]?.some(
+            (existing) => normalizeCardText(existing.text) === normalizeCardText(card.text),
+          )
+            ? s
+            : {
+                byGame: {
+                  ...s.byGame,
+                  [gameId]: [
+                    ...(s.byGame[gameId] ?? []),
+                    // Zufällig statt Zeitstempel: zwei Karten in derselben
+                    // Millisekunde bekamen sonst dieselbe Kennung, und „Löschen"
+                    // nahm beide mit.
+                    { ...card, id: uid('c_') },
+                  ],
+                },
+              },
+        ),
       remove: (gameId, id) =>
         set((s) => ({
           byGame: { ...s.byGame, [gameId]: (s.byGame[gameId] ?? []).filter((c) => c.id !== id) },

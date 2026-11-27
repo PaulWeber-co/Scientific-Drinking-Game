@@ -39,11 +39,12 @@ export function LobbyScreen() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<GamePlayer | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [joining, setJoining] = useState(false);
   const [copied, setCopied] = useState<'ok' | 'fehler' | null>(null);
-  const [preloadOpen, setPreloadOpen] = useState(false);
+  const [preloadMode, setPreloadMode] = useState<'local' | 'online' | null>(null);
   const [logFor, setLogFor] = useState<string | null>(null);
   const preloadAskedAt = usePlayer((s) => s.preloadAskedAt);
   const alcoholFree = usePlayer((s) => s.profile?.alcoholFree ?? false);
@@ -57,6 +58,13 @@ export function LobbyScreen() {
 
   const online = party.mode === 'online' && !!party.code;
   const players = party.players;
+  const removing = online && party.isHost && removingId !== party.me.id
+    ? players.find((p) => p.id === removingId)
+    : undefined;
+  // Beim Wiederbeitritt soll sich das Sheet erst nach einem neuen Tipp öffnen.
+  useEffect(() => {
+    if (removingId !== null && !removing) setRemovingId(null);
+  }, [removingId, removing]);
 
   // Von selbst fragt die App nur beim Beitreten einer ONLINE-Lobby – das ist
   // der eine klare Moment, an dem der Abend für diese Person beginnt.
@@ -65,9 +73,11 @@ export function LobbyScreen() {
   // Gäste der Einstieg, und ein Sheet, das nach dem ersten Gast aufspringt,
   // unterbricht genau dabei. Deshalb steht die Frage dort als Zeile in der
   // Lobby statt als Fenster davor.
+  // Ist das Online-Sheet beim Entfernen offen, gibt es beim Wechsel in den
+  // lokalen Modus den Hinweis frei.
   const fragenOffen = preloadAskedAt === null && !alcoholFree;
   useEffect(() => {
-    if (online && fragenOffen) setPreloadOpen(true);
+    if (online && fragenOffen) setPreloadMode('online');
   }, [online, fragenOffen]);
   const suitable = gamesForGroup(players.length, online);
 
@@ -218,7 +228,8 @@ export function LobbyScreen() {
           </section>
         )}
 
-        {party.error && !joinOpen && <div className="notice notice--red">{party.error}</div>}
+        {party.notice && <div className="notice notice--neutral" role="status">{party.notice}</div>}
+        {party.error && !joinOpen && <div className="notice notice--red" role="alert">{party.error}</div>}
 
         <GroupLevel players={players} />
 
@@ -226,7 +237,7 @@ export function LobbyScreen() {
           <button
             className="notice notice--mint row"
             style={{ textAlign: 'left', width: '100%' }}
-            onClick={() => setPreloadOpen(true)}
+            onClick={() => setPreloadMode('local')}
           >
             <span className="grow">Schon was getrunken, bevor es losging?</span>
             <Icon name="chevronRight" size={17} />
@@ -236,76 +247,86 @@ export function LobbyScreen() {
         <section className="stack-3">
           <h2 className="t-title2">{players.length} Spieler</h2>
           <div className="list">
-            {players.map((p) => (
-              <div key={p.id} className="list__item">
-                {(() => {
-                  // Gläser stehen hier statt in einer zweiten Liste darunter:
-                  // „wer mitspielt" soll nur einmal auf der Seite stehen.
-                  const log = p.id === party.me.id ? myLog : p.local?.log;
-                  const t = log?.length ? tally(log, customDrinks) : null;
-                  const inhalt = (
-                    <>
-                      <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
-                      <span className="grow">
-                        <span className="t-headline" style={{ display: 'block' }}>
-                          {p.name} {p.id === party.me.id && <span className="t-caption">(du)</span>}
+            {players.map((p) => {
+              const own = p.id === party.me.id;
+              // Gläser stehen in der Spielerliste, damit „wer mitspielt“ nur
+              // einmal auf der Seite steht. Online gehört jedes Handy einer
+              // Person: Eintragen geht dort nur für sich selbst.
+              const log = own ? myLog : p.local?.log;
+              const t = log?.length ? tally(log, customDrinks) : null;
+              const content = (
+                <>
+                  <Avatar name={p.name} color={p.color} photo={p.photo} size="sm" />
+                  <span className="grow">
+                    <span className="t-headline" style={{ display: 'block' }}>
+                      {p.name} {own && <span className="t-caption">(du)</span>}
+                    </span>
+                    <span className="t-caption row wrap" style={{ gap: 5 }}>
+                      {p.isHost && <>Host ·</>}
+                      <Icon name={p.driver ? 'car' : (p.drinkIcon ?? 'water')} size={13} />
+                      {p.driver && <span className="drivertag">fährt</span>}
+                      {t && (
+                        <span style={{ whiteSpace: 'nowrap' }}>
+                          {formatGlassCount(t.glasses)}
+                          {t.rows.length === 1 && ` · ${t.rows[0].name}`}
                         </span>
-                        <span className="t-caption row wrap" style={{ gap: 5 }}>
-                          {p.isHost && <>Host ·</>}
-                          <Icon name={p.driver ? 'car' : (p.drinkIcon ?? 'water')} size={13} />
-                          {p.driver && <span className="drivertag">fährt</span>}
-                          {t && (
-                            <span style={{ whiteSpace: 'nowrap' }}>
-                              {formatGlassCount(t.glasses)}
-                              {t.rows.length === 1 && ` · ${t.rows[0].name}`}
-                            </span>
-                          )}
-                          {p.online === false && <>· offline</>}
-                        </span>
-                      </span>
-                    </>
-                  );
-                  // Online gehört jedes Handy einer Person: Eintragen geht nur für sich.
-                  // Der Tipp auf den Namen trägt ein (so suchten es Tester),
-                  // der Glas-Knopf daneben zeigt, dass es geht.
-                  return log ? (
-                    <>
-                      <button
-                        className="row grow pressable"
-                        style={{ textAlign: 'left' }}
-                        onClick={() => {
-                          haptic('tap');
-                          setLogFor(p.id);
-                        }}
-                      >
-                        {inhalt}
-                      </button>
-                      <button
-                        className="btn btn--tinted btn--sm"
-                        // Immer am rechten Rand, auch hinter „Ändern": so
-                        // stehen die Glas-Knöpfe untereinander.
-                        style={{ order: 1 }}
-                        aria-label={`Getränk für ${p.name} eintragen`}
-                        onClick={() => {
-                          haptic('tap');
-                          setLogFor(p.id);
-                        }}
-                      >
-                        <Icon name="plus" size={14} />
-                        <Icon name={p.drinkIcon ?? 'tallGlass'} size={17} />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="row grow">{inhalt}</span>
-                  );
-                })()}
-                {p.local && (
-                  <button className="btn btn--plain" onClick={() => setEditing(p)}>
-                    Ändern
+                      )}
+                      {p.online === false && <>· offline</>}
+                    </span>
+                  </span>
+                </>
+              );
+              if (online && party.isHost && !own) {
+                return (
+                  <button
+                    key={p.id}
+                    className="list__item pressable"
+                    aria-haspopup="dialog"
+                    onClick={() => setRemovingId(p.id)}
+                  >
+                    {content}
+                    <Icon name="chevronRight" className="list__chevron" size={17} />
                   </button>
-                )}
-              </div>
-            ))}
+                );
+              }
+              // Tester suchten das Eintragen beim Tipp auf den eigenen Namen.
+              const openLog = () => {
+                haptic('tap');
+                setLogFor(p.id);
+              };
+              return (
+                <div key={p.id} className={`list__item${p.local ? ' lobby-player-row--guest' : ''}`}>
+                  {p.local ? (
+                    <button
+                      className="row grow pressable lobby-player-row__guest"
+                      aria-haspopup="dialog"
+                      onClick={() => setEditing(p)}
+                    >
+                      {content}
+                      <Icon name="chevronRight" className="list__chevron" size={17} />
+                    </button>
+                  ) : own ? (
+                    <button className="row grow pressable" style={{ textAlign: 'left' }} onClick={openLog}>
+                      {content}
+                    </button>
+                  ) : (
+                    <span className="row grow">{content}</span>
+                  )}
+                  {/* Als letztes Element steht der Glas-Knopf in allen Zeilen
+                      am rechten Rand, auch neben dem Bearbeiten für Gäste. */}
+                  {log && (
+                    <button
+                      className="btn btn--tinted btn--sm"
+                      aria-label={`Getränk für ${p.name} eintragen`}
+                      onClick={openLog}
+                    >
+                      <Icon name="plus" size={14} />
+                      <Icon name={p.drinkIcon ?? 'tallGlass'} size={17} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             {/* Wie „Telefon hinzufügen" in iOS-Kontakte: das Anlegen ist die
                 letzte Zeile der Liste, nicht ein Knopf darunter, der wie
                 „Getränk eintragen" aussah (und umgekehrt). */}
@@ -378,7 +399,31 @@ export function LobbyScreen() {
       />
       <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} />
       <AddPlayerSheet open={editing !== null} onClose={() => setEditing(null)} edit={editing} />
-      <PreloadSheet open={preloadOpen} onClose={() => setPreloadOpen(false)} />
+      <Sheet
+        open={!!removing}
+        onClose={() => setRemovingId(null)}
+        title={removing && (
+          <span className="row">
+            <Avatar name={removing.name} color={removing.color} photo={removing.photo} />
+            {removing.name}
+          </span>
+        )}
+      >
+        {removing && (
+          <button
+            className="btn btn--danger btn--block"
+            onClick={() => {
+              haptic('warn');
+              if (!confirm(`${removing.name} aus der Runde nehmen? Mit dem Code kann ${removing.name} wieder beitreten.`)) return;
+              party.removePlayer(removing.id);
+              setRemovingId(null);
+            }}
+          >
+            Aus der Runde nehmen
+          </button>
+        )}
+      </Sheet>
+      <PreloadSheet open={preloadMode === party.mode} onClose={() => setPreloadMode(null)} />
       <LogDrinkSheet
         open={logFor !== null}
         onClose={() => setLogFor(null)}
@@ -623,9 +668,10 @@ function GuestForm({
       )}
       {edit && (
         <button
-          className="btn btn--glass btn--block"
-          style={{ color: 'var(--red)' }}
+          className="btn btn--danger btn--block"
           onClick={() => {
+            haptic('warn');
+            if (!confirm(`${edit.name} entfernen? Dabei gehen alle für ${edit.name} eingetragenen Getränke verloren.`)) return;
             party.removeLocalPlayer(edit.id);
             onDone();
           }}

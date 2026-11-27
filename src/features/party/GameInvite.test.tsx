@@ -30,6 +30,8 @@ function party(patch: Partial<PartyValue> = {}): PartyValue {
     updateLocalPlayer: vi.fn(),
     removeLocalPlayer: vi.fn(),
     startGame: vi.fn(),
+    leaveRound: vi.fn(),
+    joinRound: vi.fn(),
     endGame: vi.fn(),
     dispatch: vi.fn(),
     logSipsFor: vi.fn(),
@@ -87,10 +89,32 @@ describe('Spieleinladung', () => {
   });
 
   it('macht aus "Später" eine Leiste zum Nachrücken', () => {
-    renderInvite(party());
+    const value = party();
+    renderInvite(value);
     fireEvent.click(screen.getByRole('button', { name: 'Später' }));
+    expect(value.leaveRound).toHaveBeenCalledOnce();
     expect(screen.queryByText('Lisa hat gestartet')).not.toBeInTheDocument();
     expect(screen.getByText('Ring of Fire läuft')).toBeInTheDocument();
+  });
+
+  it('blendet Einladung und Leiste im Endstand aus', () => {
+    const { container, rerender } = renderInvite(
+      party({ gameState: { phase: 'over' }, leftRound: true }),
+    );
+    expect(container).toBeEmptyDOMElement();
+    rerender(
+      <MemoryRouter>
+        <PartyCtx.Provider value={party({ gameState: { phase: 'playing' }, leftRound: true })}>
+          <GameInvite />
+        </PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Ring of Fire läuft')).toBeInTheDocument();
+  });
+
+  it('hält bei Undercover das Ende einer Runde nicht für den Endstand', () => {
+    renderInvite(party({ gameId: 'undercover', gameState: { phase: 'over' }, leftRound: true }));
+    expect(screen.getByText('Undercover läuft')).toBeInTheDocument();
   });
 
   it('kommt bei einem unbekannten Spiel nicht ins Straucheln', () => {

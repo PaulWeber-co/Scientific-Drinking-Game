@@ -38,6 +38,7 @@ import type { BacZone, DrinkEvent, Profile } from '../../engine/types';
 import type { GameAction, GameActionInput, GamePlayer } from '../../games/types';
 import { getLoadedGame, loadGame } from '../../games/registry';
 import { createQueue } from './hostQueue';
+import { gamePlayersForRound } from './roundPlayers';
 import { remainingHistory, useBacEvents, usePlayer } from '../../store/player';
 import { useFilm } from '../../store/film';
 import { useApp } from '../../store/app';
@@ -78,7 +79,7 @@ interface LobbySnapshot {
     updatedAt?: number;
     expiresAt: number;
   };
-  players?: Record<string, RemotePlayer>;
+  players: Record<string, RemotePlayer>;
   /**
    * Profilbilder als kleine JPEG-Data-URL, nur von Geräten mit „Für
    * Mitspieler sichtbar". Firebase löscht jedes per onDisconnect, sobald
@@ -89,6 +90,8 @@ interface LobbySnapshot {
   /** `build`: Fingerabdruck der Spiellogik des Hosts. Fehlt bei älteren Ständen. */
   game?: { id: string; startedAt: number; state: string; build?: string };
 }
+
+type IncomingLobbySnapshot = Omit<LobbySnapshot, 'players'> & { players?: Record<string, unknown> };
 
 /** Kennung einer laufenden Runde – Spiel plus Startzeit. */
 type RoundKey = { id: string; startedAt: number } | null;
@@ -101,13 +104,17 @@ interface InboxMsg {
   action: string;
 }
 
+const KICK_WINDOW_MS = 120_000;
+
 export interface PartyValue {
   mode: PartyMode;
   code: string | null;
   status: PartyStatus;
   connection: Connection;
   error: string | null;
+  notice: string | null;
   players: GamePlayer[];
+  gamePlayers: GamePlayer[];
   me: GamePlayer;
   isHost: boolean;
   gameId: string | null;
@@ -128,6 +135,7 @@ export interface PartyValue {
   joinOnline: (code: string) => Promise<void>;
   startLocal: () => void;
   leave: () => void;
+  removePlayer: (id: string) => void;
   addLocalPlayer: (input: { name: string; color: AvatarColor; profile: Profile; drinkId: string }) => void;
   updateLocalPlayer: (id: string, patch: Partial<GamePlayer['local']> & { name?: string; color?: AvatarColor }) => void;
   removeLocalPlayer: (id: string) => void;
@@ -144,6 +152,7 @@ export interface PartyValue {
   endGame: () => void;
   /** Aus der laufenden Runde in die Lobby; die anderen spielen weiter. */
   leaveRound: () => void;
+  joinRound: () => void;
   /** Dieses Gerät hat die laufende Runde verlassen – Einladung nur als Leiste. */
   leftRound: boolean;
   /** Setzt Filmlänge und Entwicklungszeit für die ganze Runde (nur der Host). */
@@ -197,6 +206,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [code, setCode] = useState<string | null>(null);
   const [connection, setConnection] = useState<Connection>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<LobbySnapshot | null>(null);
 
   // --- Lokaler Modus (Pass & Play auf einem Gerät) ---
@@ -262,27 +272,15 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   const isHost = mode === 'local' ? true : snapshot?.meta?.host === myId;
 
-  const players: GamePlayer[] = useMemo(() => {
-    if (mode === 'local') return [me, ...localPlayers];
-    const map = snapshot?.players ?? {};
-    return Object.values(map)
-      .sort((a, b) => a.joinedAt - b.joinedAt)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
-        // Bilder der anderen nur, wenn sie es freigegeben haben. Die EIGENE
-        // Zeile zeigt immer das lokale Original – auch ohne Freigabe wäre
-        // man sonst auf dem eigenen Gerät der Einzige ohne Gesicht.
-        photo: p.id === myId ? profile?.photo : snapshot?.avatars?.[p.id],
-        drinkIcon: p.drinkIcon,
-        driver: p.driver === true,
-        zone: p.zone,
-        shots: p.shots ?? 0,
-        online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
-        isHost: snapshot?.meta?.host === p.id,
-      }));
-  }, [mode, me, localPlayers, snapshot, myId, profile?.photo]);
+  const players = useMemo(
+    () => mode === 'local' ? [me, ...localPlayers] : onlinePlayers(snapshot, myId, profile?.photo),
+    [mode, me, localPlayers, snapshot, myId, profile?.photo],
+  );
+
+  const gamePlayers = useMemo(
+    () => (mode === 'local' ? players : gamePlayersForRound(players, snapshot?.players ?? {})),
+    [mode, players, snapshot],
+  );
 
   const status: PartyStatus =
     mode === 'local' ? localStatus : (snapshot?.meta?.status ?? 'lobby');
@@ -301,18 +299,70 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   // ---------- Online: Verbindung ----------
   const lobbyRef = useCallback((c: string, path = '') => ref(getDb(), `lobbies/${c}${path}`), []);
+  const snapshotRef = useRef<LobbySnapshot | null>(null);
+  const presenceRef = useRef<{
+    code: string;
+    lastSeen: number;
+    listed: boolean;
+  } | null>(null);
+
+  const deletePlayer = useCallback(
+    (c: string, id: string) =>
+      update(lobbyRef(c), { [`players/${id}`]: null, [`avatars/${id}`]: null }),
+    [lobbyRef],
+  );
+
+  const cancelPresenceDisconnect = useCallback((c: string) => {
+    // Sonst meldet der Server beim nächsten Verbindungsabbruch noch
+    // die alte Anwesenheit ab, obwohl das Gerät die Lobby verlassen hat.
+    onDisconnect(lobbyRef(c, `/players/${myId}`)).cancel().catch(() => {});
+    onDisconnect(lobbyRef(c, `/avatars/${myId}`)).cancel().catch(() => {});
+  }, [lobbyRef, myId]);
+
+  const startLocal = useCallback(() => {
+    presenceRef.current = null;
+    snapshotRef.current = null;
+    setMode('local');
+    setCode(null);
+    setSnapshot(null);
+    setConnection('idle');
+    setError(null);
+  }, []);
+
+  const resetLobby = useCallback((lastCode: string | null) => {
+    startLocal();
+    setLocalStatus('lobby');
+    setLocalGameId(null);
+    setLocalGameState(null);
+    setLastLobbyCode(lastCode);
+  }, [startLocal, setLastLobbyCode]);
+
+  const enterOnline = useCallback((c: string, lastSeen: number) => {
+    const presence = presenceRef.current;
+    if (presence?.code === c && snapshotRef.current) {
+      presence.lastSeen = Math.max(presence.lastSeen, lastSeen);
+    } else {
+      presenceRef.current = { code: c, lastSeen, listed: false };
+      snapshotRef.current = null;
+      setSnapshot(null);
+    }
+    setMode('online');
+    setCode(c);
+    setLastLobbyCode(c);
+    setNotice(null);
+  }, [setLastLobbyCode]);
 
   const writeMe = useCallback(
-    async (c: string, extra: Partial<RemotePlayer> = {}) => {
+    async (c: string, lastSeen: number, joinedAt?: number) => {
       await update(lobbyRef(c, `/players/${myId}`), {
         id: myId,
         name: (profile?.name || 'Spieler').slice(0, 24),
         color: profile?.color ?? 'indigo',
         drinkIcon: myDrink.icon,
         driver: profile?.designatedDriver ?? false,
-        lastSeen: Date.now(),
+        lastSeen,
         online: true,
-        ...extra,
+        ...(joinedAt === undefined ? {} : { joinedAt }),
       });
     },
     [lobbyRef, myId, profile?.name, profile?.color, profile?.designatedDriver, myDrink.icon],
@@ -357,9 +407,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           },
         },
       }), OFFLINE_MSG);
-      setMode('online');
-      setCode(c);
-      setLastLobbyCode(c);
+      enterOnline(c, now);
       return c;
     } catch (e) {
       setConnection('error');
@@ -373,7 +421,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     profile?.color,
     profile?.designatedDriver,
     myDrink.icon,
-    setLastLobbyCode,
+    enterOnline,
   ]);
 
   const joinOnline = useCallback(
@@ -391,17 +439,16 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if ((metaSnap.val()?.expiresAt ?? 0) < Date.now())
           throw new Error('Diese Lobby ist abgelaufen.');
         const existing = await withTimeout(get(lobbyRef(c, `/players/${myId}`)), OFFLINE_MSG);
-        await withTimeout(writeMe(c, existing.exists() ? {} : { joinedAt: Date.now() }), OFFLINE_MSG);
-        setMode('online');
-        setCode(c);
-        setLastLobbyCode(c);
+        const now = Date.now();
+        await withTimeout(writeMe(c, now, isCompleteRemotePlayer(existing.val()) ? undefined : now), OFFLINE_MSG);
+        enterOnline(c, now);
       } catch (e) {
         setConnection('error');
         setError(describe(e));
         throw e;
       }
     },
-    [lobbyRef, myId, writeMe, setLastLobbyCode],
+    [lobbyRef, myId, writeMe, enterOnline],
   );
 
   // Verbindungsstatus der Datenbank beobachten – auf Partys bricht WLAN staendig weg.
@@ -419,14 +466,37 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     const unsub = onValue(
       lobbyRef(code),
       (snap) => {
-        const val = snap.val() as LobbySnapshot | null;
+        const presence = presenceRef.current;
+        if (presence?.code !== code) return;
+        const val = snap.val() as IncomingLobbySnapshot | null;
         if (!val || !val.meta) {
+          snapshotRef.current = null;
           setSnapshot(null);
           setError('Die Lobby wurde geschlossen.');
           setConnection('error');
           return;
         }
-        setSnapshot(val);
+        // Ein lokales Teil-Update kann nach dem Löschen kurz ohne Identität auftauchen.
+        const players = Object.fromEntries(Object.entries(val.players ?? {}).filter(
+          (entry): entry is [string, RemotePlayer] => isCompleteRemotePlayer(entry[1]),
+        ));
+        if (players[myId]) {
+          presence.listed = true;
+        } else if (presence.listed) {
+          // Das Aufräumen greift erst nach 270 Sekunden. Nach längerer Stille
+          // kann das Gerät den Grund für den fehlenden Eintrag nicht erkennen.
+          const kicked = Date.now() - presence.lastSeen < KICK_WINDOW_MS;
+          resetLobby(kicked ? null : code);
+          cancelPresenceDisconnect(code);
+          setNotice(kicked
+            ? 'Der Host hat dich aus der Runde genommen. Mit dem Code kannst du wieder beitreten.'
+            : 'Du warst eine Weile weg und bist nicht mehr in der Runde.');
+          return;
+        }
+        // Die Inbox kann ankommen, bevor React die neue Spielerliste rendert.
+        const next = { ...val, players };
+        snapshotRef.current = next;
+        setSnapshot(next);
         setError(null);
       },
       (err) => {
@@ -435,7 +505,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       },
     );
     return () => unsub();
-  }, [mode, code, lobbyRef]);
+  }, [mode, code, lobbyRef, myId, resetLobby, cancelPresenceDisconnect]);
 
   // Firebase vergisst eine onDisconnect-Anweisung, sobald sie einmal
   // gefeuert hat. Deshalb nach JEDEM Wiederverbinden neu anmelden.
@@ -460,7 +530,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }, [sharePhoto]);
 
   const sharedAvatar = snapshot?.avatars?.[myId] ?? null;
-  const listed = !!snapshot?.players?.[myId];
+  const listed = !!snapshot?.players[myId];
   useEffect(() => {
     if (mode !== 'online' || !code || connection !== 'online') return;
     const avatarRef = lobbyRef(code, `/avatars/${myId}`);
@@ -478,7 +548,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   // Wer die Runde verlässt, bekommt die Einladung dazu nur noch als Leiste.
   const roundTag = gameId ? `${gameId}-${startedAt}` : null;
   const [leftTag, setLeftTag] = useState<string | null>(null);
-  const leaveRound = useCallback(() => setLeftTag(roundTag), [roundTag]);
+  const leaveRound = useCallback(() => {
+    setLeftTag(roundTag);
+    if (mode === 'online' && code) {
+      update(lobbyRef(code, `/players/${myId}`), { ready: false }).catch(() => {});
+    }
+  }, [roundTag, mode, code, lobbyRef, myId]);
+  const joinRound = useCallback(() => {
+    setLeftTag(null);
+    if (mode === 'online' && code) {
+      update(lobbyRef(code, `/players/${myId}`), { ready: null }).catch(() => {});
+    }
+  }, [mode, code, lobbyRef, myId]);
   const leftRound = roundTag !== null && leftTag === roundTag;
 
   // Heartbeat
@@ -486,31 +567,25 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (mode !== 'online' || !code) return;
     const meRef = lobbyRef(code, `/players/${myId}`);
     const beat = () => {
+      const presence = presenceRef.current;
+      // Beitreten und Eröffnen legen den Eintrag an. Fehlt er im aktuellen
+      // Abbild, schreibt der Herzschlag nichts. Nach längerer Abwesenheit
+      // kann man über den gemerkten Code bewusst wieder beitreten.
+      if (presence?.code !== code || !snapshotRef.current?.players[myId]) return;
+      const now = Date.now();
       const { profile: p, log: l, drink, shots } = liveRef.current;
       // Es geht nur die grobe Zone raus – kein Promillewert, kein Gewicht.
       const zone = p ? bacZone(estimateBac(l, p).bac) : 'sober';
-      // Lag das Handy länger gesperrt, hat der Host den Eintrag als inaktiv
-      // entfernt. Ein reines Teil-Update scheitert dann an den Security Rules
-      // (id und name fehlen) – man wäre still aus der Runde verschwunden,
-      // obwohl die App weiterläuft. Deshalb kommt der Eintrag vollständig zurück.
-      const snap = snapshotRef.current;
-      const identity =
-        snap && !snap.players?.[myId]
-          ? {
-              id: myId,
-              name: (p?.name || 'Spieler').slice(0, 24),
-              color: p?.color ?? 'indigo',
-              joinedAt: Date.now(),
-            }
-          : {};
       update(meRef, {
-        ...identity,
-        lastSeen: Date.now(),
+        lastSeen: now,
         online: true,
         zone,
         driver: p?.designatedDriver ?? false,
         drinkIcon: drink.icon,
         shots,
+      }).then(() => {
+        // Lokale Firebase-Ereignisse kommen schon beim Senden, vor der Bestätigung.
+        presence.lastSeen = Math.max(presence.lastSeen, now);
       }).catch(() => {});
     };
     beat();
@@ -527,6 +602,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (mode !== 'online' || !code || !isHost) return;
     const tick = () => {
+      if (presenceRef.current?.code !== code) return;
       const now = Date.now();
       update(lobbyRef(code, '/meta'), { updatedAt: now, expiresAt: now + LOBBY_TTL_MS }).catch(
         () => {},
@@ -534,16 +610,14 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       const ps = snapshotRef.current?.players ?? {};
       for (const p of Object.values(ps)) {
         if (p.id !== myId && now - p.lastSeen > PLAYER_STALE_MS * 3) {
-          update(lobbyRef(code), { [`players/${p.id}`]: null, [`avatars/${p.id}`]: null }).catch(
-            () => {},
-          );
+          deletePlayer(code, p.id).catch(() => {});
         }
       }
     };
     tick();
     const t = setInterval(tick, HEARTBEAT_MS * 2);
     return () => clearInterval(t);
-  }, [mode, code, isHost, myId, lobbyRef]);
+  }, [mode, code, isHost, myId, lobbyRef, deletePlayer]);
 
   // Host-Uebernahme, wenn der Host verschwunden ist.
   //
@@ -558,10 +632,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     const t = setInterval(() => {
       const snap = snapshotRef.current;
       if (!snap?.meta) return;
-      const host = snap.players?.[snap.meta.host];
+      const host = snap.players[snap.meta.host];
       const hostGone = !host || Date.now() - host.lastSeen > HOST_TAKEOVER_MS;
       if (!hostGone) return;
-      const alive = Object.values(snap.players ?? {})
+      const alive = Object.values(snap.players)
         .filter((p) => Date.now() - p.lastSeen < HOST_TAKEOVER_MS)
         .sort((a, b) => a.joinedAt - b.joinedAt);
       if (alive[0]?.id !== myId) return;
@@ -572,8 +646,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [mode, code, isHost, myId, lobbyRef, hasMeta]);
 
-  const snapshotRef = useRef<LobbySnapshot | null>(null);
-  snapshotRef.current = snapshot;
   const playersRef = useRef<GamePlayer[]>(players);
   playersRef.current = players;
 
@@ -603,14 +675,19 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       // in der neuen Runde.
       const cur = snapshotRef.current;
       if (!cur?.game || !sameRound(round, roundKey())) return false;
+      const allowed = actions.filter((action) => isLobbySender(action.by, cur));
+      if (!allowed.length) return true;
+      const roster = gamePlayersForRound(
+        onlinePlayers(cur, myId, liveRef.current.profile?.photo), cur.players,
+      );
       // Immer frisch aus dem Snapshot: die Queue garantiert, dass der vorige
       // Lauf fertig geschrieben hat, und Firebase meldet eigene Schreibungen
       // sofort lokal – so überschreibt ein zurückgekehrter Host nie, was ein
       // anderer inzwischen geschrieben hat.
       let next = decodeState(cur.game.state);
-      for (const action of actions) {
+      for (const action of allowed) {
         try {
-          next = def.reduce(next, action, playersRef.current);
+          next = def.reduce(next, action, roster);
         } catch (e) {
           console.error('Spielaktion fehlgeschlagen', e);
         }
@@ -618,7 +695,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       await set(lobbyRef(code, '/game/state'), encodeState(next));
       return true;
     },
-    [code, lobbyRef],
+    [code, lobbyRef, myId],
   );
 
   // Host verarbeitet die Aktionen aller Spieler (autoritativer Reducer)
@@ -628,6 +705,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     // Was schon angewendet ist, kommt in einem späteren Snapshot noch einmal
     // vorbei, bis das remove() durch ist – nicht doppelt anwenden.
     const seen = new Set<string>();
+    const clearEntries = async (keys: string[]) => {
+      if (presenceRef.current?.code !== code) return;
+      keys.forEach((key) => seen.add(key));
+      await Promise.all(keys.map((key) => remove(lobbyRef(code, `/inbox/${key}`))));
+    };
     const unsub = onValue(inbox, (snap) => {
       const val = snap.val() as Record<string, InboxMsg> | null;
       if (!val) return;
@@ -639,12 +721,19 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (!entries.length) return;
         if (!round || !sameRound(round, roundKey())) {
           // Keine Runde, oder inzwischen eine andere: die Aktionen verfallen.
-          entries.forEach(([k]) => seen.add(k));
-          await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
+          await clearEntries(entries.map(([k]) => k));
           return;
         }
         const actions: GameAction[] = [];
-        for (const [, msg] of entries) {
+        const rejected: string[] = [];
+        const accepted: string[] = [];
+        const current = snapshotRef.current;
+        for (const [key, msg] of entries) {
+          if (!isLobbySender(msg.by, current)) {
+            rejected.push(key);
+            continue;
+          }
+          accepted.push(key);
           try {
             const action = decodeState(msg.action) as GameAction | null;
             if (action) actions.push({ ...action, by: msg.by });
@@ -652,32 +741,26 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             console.error('Spielaktion unlesbar', e);
           }
         }
+        if (rejected.length) await clearEntries(rejected);
         // Klappt das Nachladen nicht, bleiben die Einträge liegen und kommen
         // beim nächsten Snapshot erneut dran.
-        if (!(await applyOnHost(actions, round))) return;
-        entries.forEach(([k]) => seen.add(k));
-        await Promise.all(entries.map(([k]) => remove(lobbyRef(code, `/inbox/${k}`))));
+        if (actions.length && !(await applyOnHost(actions, round))) return;
+        await clearEntries(accepted);
       });
     });
     return () => unsub();
   }, [mode, code, isHost, lobbyRef, applyOnHost]);
 
   // ---------- Aktionen ----------
-  const startLocal = useCallback(() => {
-    setMode('local');
-    setCode(null);
-    setSnapshot(null);
-    setConnection('idle');
-    setError(null);
-  }, []);
+  const removePlayer = useCallback((id: string) => {
+    if (mode !== 'online' || !code || id === myId || snapshotRef.current?.meta?.host !== myId) return;
+    deletePlayer(code, id).catch((e) => setError(describe(e)));
+  }, [mode, code, myId, deletePlayer]);
 
   const leave = useCallback(() => {
+    presenceRef.current = null;
     if (mode === 'online' && code) {
-      const meRef = lobbyRef(code, `/players/${myId}`);
-      // Sonst meldet der Server beim nächsten Verbindungsabbruch noch
-      // `online: false` für einen Eintrag, den es nicht mehr gibt.
-      onDisconnect(meRef).cancel().catch(() => {});
-      onDisconnect(lobbyRef(code, `/avatars/${myId}`)).cancel().catch(() => {});
+      cancelPresenceDisconnect(code);
       // Wer als Letzter geht, nimmt die Lobby mit: sonst bliebe sie samt
       // Namen und Spielstand in der Datenbank liegen. Als „noch da" zählt,
       // wen auch der Host noch nicht als inaktiv entfernen würde.
@@ -686,22 +769,15 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         (p) => p.id !== myId && now - p.lastSeen <= PLAYER_STALE_MS * 3,
       );
       const gone = othersLeft
-        ? update(lobbyRef(code), { [`players/${myId}`]: null, [`avatars/${myId}`]: null })
+        ? deletePlayer(code, myId)
         : remove(lobbyRef(code));
       gone.catch(() => {});
     }
-    setMode('local');
-    setCode(null);
-    setSnapshot(null);
-    setConnection('idle');
-    setError(null);
-    setLocalStatus('lobby');
-    setLocalGameId(null);
-    setLocalGameState(null);
-    setLastLobbyCode(null);
-  }, [mode, code, lobbyRef, myId, setLastLobbyCode]);
+    resetLobby(null);
+  }, [mode, code, lobbyRef, myId, deletePlayer, resetLobby, cancelPresenceDisconnect]);
 
   const addLocalPlayer: PartyValue['addLocalPlayer'] = useCallback((input) => {
+    setNotice(null);
     setLocalPlayers((prev) => [
       ...prev,
       {
@@ -753,7 +829,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setError(describe(e));
         return null;
       });
-      if (!def) return false;
+      if (!def || (mode === 'online' && presenceRef.current?.code !== code)) return false;
       const roster = playersRef.current;
       if (roster.length < def.minPlayers || roster.length > def.maxPlayers) {
         setError(`${def.name} ist für ${def.minPlayers} bis ${def.maxPlayers} Spieler ausgelegt.`);
@@ -766,6 +842,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setError(null);
       const state = def.createState(roster);
       if (mode === 'local') {
+        setNotice(null);
         setLocalGameId(id);
         setLocalGameState(state);
         setLocalStatus('playing');
@@ -781,6 +858,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         'meta/updatedAt': now,
         game: { id, startedAt: now, state: encodeState(state), build: __GAME_BUILD__ },
         inbox: null,
+        ...Object.fromEntries(roster.map((p) => [`players/${p.id}/ready`, null])),
       }).catch((e) => setError(describe(e)));
       return true;
     },
@@ -956,7 +1034,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     status,
     connection,
     error,
+    notice,
     players,
+    gamePlayers,
     me,
     isHost,
     gameId,
@@ -969,6 +1049,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     joinOnline,
     startLocal,
     leave,
+    removePlayer,
     addLocalPlayer,
     updateLocalPlayer,
     removeLocalPlayer,
@@ -976,6 +1057,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     startGame,
     endGame,
     leaveRound,
+    joinRound,
     leftRound,
     setFilm,
     dispatch,
@@ -985,6 +1067,36 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   };
 
   return <PartyCtx.Provider value={value}>{children}</PartyCtx.Provider>;
+}
+
+function isCompleteRemotePlayer(player: unknown): player is RemotePlayer {
+  return typeof player === 'object' && player !== null
+    && 'id' in player && typeof player.id === 'string'
+    && 'name' in player && typeof player.name === 'string';
+}
+
+function onlinePlayers(snapshot: LobbySnapshot | null, myId: string, myPhoto?: string): GamePlayer[] {
+  return Object.values(snapshot?.players ?? {})
+    .sort((a, b) => a.joinedAt - b.joinedAt)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: isAvatarColor(p.color) ? p.color : colorFor(p.id),
+      // Bilder der anderen nur, wenn sie es freigegeben haben. Die EIGENE
+      // Zeile zeigt immer das lokale Original – auch ohne Freigabe wäre
+      // man sonst auf dem eigenen Gerät der Einzige ohne Gesicht.
+      photo: p.id === myId ? myPhoto : snapshot?.avatars?.[p.id],
+      drinkIcon: p.drinkIcon,
+      driver: p.driver === true,
+      zone: p.zone,
+      shots: p.shots ?? 0,
+      online: p.online !== false && Date.now() - p.lastSeen < PLAYER_STALE_MS,
+      isHost: snapshot?.meta?.host === p.id,
+    }));
+}
+
+function isLobbySender(by: string, snapshot: LobbySnapshot | null) {
+  return snapshot !== null && Object.hasOwn(snapshot.players, by);
 }
 
 const LOCAL_PLAYERS_KEY = 'sdg.local-players';

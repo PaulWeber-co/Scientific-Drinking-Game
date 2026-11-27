@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { LobbyScreen } from './LobbyScreen';
@@ -6,10 +6,13 @@ import { PartyCtx, type PartyValue } from '../party/PartyContext';
 import { defaultProfile, usePlayer } from '../../store/player';
 import type { GamePlayer } from '../../games/types';
 import { findDrink, sipsPerServing } from '../../engine/drinks';
-import { gamesForGroup } from '../../games/registry';
+import { gamesForGroup, loadGame } from '../../games/registry';
 import { makeDrinkEvent } from '../../engine/sips';
+import { Router } from '../../app/Router';
 
 const me: GamePlayer = { id: 'me', name: 'Paul', color: 'blue', online: true, isHost: true };
+
+afterEach(() => vi.restoreAllMocks());
 
 function party(patch: Partial<PartyValue> = {}): PartyValue {
   return {
@@ -18,6 +21,7 @@ function party(patch: Partial<PartyValue> = {}): PartyValue {
     status: 'lobby',
     connection: 'offline',
     error: null,
+    notice: null,
     players: [me],
     me,
     isHost: true,
@@ -29,6 +33,7 @@ function party(patch: Partial<PartyValue> = {}): PartyValue {
     joinOnline: vi.fn(),
     startLocal: vi.fn(),
     leave: vi.fn(),
+    removePlayer: vi.fn(),
     addLocalPlayer: vi.fn(),
     updateLocalPlayer: vi.fn(),
     removeLocalPlayer: vi.fn(),
@@ -232,7 +237,7 @@ describe('Wer mitspielt, steht einmal', () => {
     expect(screen.getByText(/1 Glas · Rotwein/)).toBeTruthy();
   });
 
-  it('öffnet beim Tipp auf den Namen das Eintragen für diese Person', () => {
+  it('öffnet über den Glas-Knopf das Eintragen für diese Person', () => {
     render(
       <MemoryRouter initialEntries={['/lobby']}>
         <PartyCtx.Provider value={party({ players: [me, mia] })}>
@@ -258,7 +263,8 @@ describe('Wer mitspielt, steht einmal', () => {
     expect(screen.getByRole('button', { name: 'Mitspieler hinzufügen' })).toBeTruthy();
   });
 
-  it('entfernt einen Gast aus dem Bearbeiten heraus', () => {
+  it('öffnet das Bearbeiten antippbar über die Gastzeile und fragt vor dem Entfernen nach', () => {
+    const ask = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
     const removeLocalPlayer = vi.fn();
     render(
       <MemoryRouter initialEntries={['/lobby']}>
@@ -268,9 +274,111 @@ describe('Wer mitspielt, steht einmal', () => {
       </MemoryRouter>,
     );
     expect(screen.queryByRole('button', { name: 'Entfernen' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Ändern' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Entfernen' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Mia/ }));
+    const edit = screen.getByRole('dialog', { name: 'Mia ändern' });
+    const remove = within(edit).getByRole('button', { name: 'Entfernen' });
+    fireEvent.click(remove);
+    expect(ask).toHaveBeenCalledExactlyOnceWith('Mia entfernen? Dabei gehen alle für Mia eingetragenen Getränke verloren.');
+    expect(removeLocalPlayer).not.toHaveBeenCalled();
+    expect(edit).toBeInTheDocument();
+    fireEvent.click(remove);
     expect(removeLocalPlayer).toHaveBeenCalledWith('p1');
+    expect(edit).not.toBeInTheDocument();
+    ask.mockRestore();
+  });
+});
+
+describe('Spieler in einer Online-Lobby entfernen', () => {
+  const anna: GamePlayer = { id: 'p1', name: 'Anna', color: 'pink', online: true };
+
+  beforeEach(() => {
+    usePlayer.setState({ profile: { ...defaultProfile(), alcoholFree: true }, log: [] });
+  });
+
+  function lobby(value: PartyValue) {
+    return (
+      <MemoryRouter initialEntries={['/lobby']}>
+        <PartyCtx.Provider value={value}>
+          <LobbyScreen />
+        </PartyCtx.Provider>
+      </MemoryRouter>
+    );
+  }
+
+  it('öffnet das Entfernen nur über eine fremde Zeile und wartet auf Bestätigung', () => {
+    const ask = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const value = party({ mode: 'online', code: 'ABC123', players: [me, anna] });
+    render(lobby(value));
+    fireEvent.click(screen.getByRole('button', { name: /^Paul \(du\)/ }));
+    const log = screen.getByRole('dialog', { name: 'Getränk eintragen' });
+    fireEvent.click(within(log).getByRole('button', { name: 'Abbrechen' }));
+
+    const annaRow = screen.getByRole('button', { name: 'Anna' });
+    annaRow.focus();
+    fireEvent.click(annaRow);
+    const removalDialog = () => screen.getByRole('dialog', { name: 'Anna' });
+    const remove = () => within(removalDialog()).getByRole('button', { name: 'Aus der Runde nehmen' });
+    fireEvent.click(remove());
+    expect(ask).toHaveBeenCalledExactlyOnceWith('Anna aus der Runde nehmen? Mit dem Code kann Anna wieder beitreten.');
+    expect(value.removePlayer).not.toHaveBeenCalled();
+    fireEvent.click(within(removalDialog()).getByRole('button', { name: 'Fertig' }));
+    expect(screen.queryByRole('dialog', { name: 'Anna' })).toBeNull();
+    expect(annaRow).toHaveFocus();
+    fireEvent.click(annaRow);
+    fireEvent.click(remove());
+    expect(value.removePlayer).toHaveBeenCalledExactlyOnceWith(anna.id);
+    expect(screen.queryByRole('dialog', { name: 'Anna' })).toBeNull();
+    ask.mockRestore();
+  });
+
+  it('zeigt Mitspielern keine antippbare fremde Spielerzeile', () => {
+    render(lobby(party({ mode: 'online', code: 'ABC123', isHost: false, players: [me, anna] })));
+    expect(screen.getByText('Anna')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anna' })).toBeNull();
+  });
+
+  it('öffnet das Entfernen beim Wiederbeitritt erst nach einem neuen Tipp', () => {
+    const value = party({ mode: 'online', code: 'ABC123', players: [me, anna] });
+    const view = render(lobby(value));
+    fireEvent.click(screen.getByRole('button', { name: 'Anna' }));
+    expect(screen.getByRole('dialog', { name: 'Anna' })).toBeInTheDocument();
+    view.rerender(lobby({ ...value, players: [me] }));
+    expect(screen.queryByRole('dialog', { name: 'Anna' })).toBeNull();
+    view.rerender(lobby(value));
+    expect(screen.queryByRole('dialog', { name: 'Anna' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Anna' }));
+    expect(screen.getByRole('dialog', { name: 'Anna' })).toBeInTheDocument();
+  });
+
+  it('zeigt die Spieleinladung beim normalen Lobby-Aufruf und gibt die Spielerliste beim Verwalten frei', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    usePlayer.setState({ onboarded: true });
+    await loadGame('most-likely');
+    const value = party({
+      mode: 'online', code: 'ABC123', players: [me, anna], gamePlayers: [me, anna],
+      status: 'playing', gameId: 'most-likely', startedBy: anna.id, joinRound: vi.fn(),
+      gameState: { phase: 'vote', prompt: 0, deck: [1], votes: {}, round: 1, goal: 6, tally: {} },
+    });
+    render(
+      <MemoryRouter initialEntries={['/lobby']}>
+        <PartyCtx.Provider value={value}><Router /></PartyCtx.Provider>
+      </MemoryRouter>,
+    );
+    const invite = screen.getByRole('dialog', { name: 'Spieleinladung' });
+    fireEvent.click(within(invite).getByRole('button', { name: 'Mitspielen' }));
+    const prompt = 'Wer aus der Runde verpasst am ehesten den Flug?';
+    expect(screen.getByText(prompt)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Spieler verwalten' }));
+    expect(screen.queryByRole('dialog', { name: 'Spieleinladung' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Anna' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aus der Runde nehmen' }));
+    expect(value.removePlayer).toHaveBeenCalledExactlyOnceWith(anna.id);
+    fireEvent.click(screen.getByRole('button', { name: /Zurück zu/ }));
+    expect(screen.getByRole('button', { name: 'Mehr' })).toBeInTheDocument();
+    expect(screen.getByText(prompt)).toBeInTheDocument();
+    expect(value.endGame).not.toHaveBeenCalled();
   });
 });
 

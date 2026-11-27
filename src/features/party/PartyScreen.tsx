@@ -8,11 +8,16 @@ import { useParty } from './PartyContext';
 export function PartyScreen() {
   const nav = useNavigate();
   const party = useParty();
+  const { joinRound } = party;
   const known = party.gameId ? getGame(party.gameId) : null;
   // Das Modul kommt als eigener Chunk – bis dahin dreht der Spinner.
   const { def, error } = useLoadedGame(known ? known.id : null);
   // Dreht er zu lange (kein Netz, Chunk fehlt), gibt es einen Ausweg.
   const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (known && party.status === 'playing') joinRound();
+  }, [known, party.status, joinRound]);
 
   useEffect(() => {
     if (!known || party.status !== 'playing') nav('/lobby', { replace: true });
@@ -55,7 +60,7 @@ export function PartyScreen() {
   return (
     <Game
       state={party.gameState}
-      players={party.players}
+      players={party.gamePlayers}
       me={party.me}
       isHost={party.isHost}
       online={party.mode === 'online'}
